@@ -1,5 +1,5 @@
 <h1 align="center">
-<img src="./docs/source/_static/bulkdgd_logo.png" width="300">
+<img src="./branding/bulkdgd_logo.png" width="300">
 </h1><br>
 
 `bulkDGD` is a Python package providing an interface to use the Deep Generative Decoder (DGD) developed by Schuster and Krogh (Schuster and Krogh, arXiv) to model the gene expression of healthy human tissues from bulk RNA-Seq data.
