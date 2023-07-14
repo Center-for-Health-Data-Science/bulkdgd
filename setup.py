@@ -63,7 +63,9 @@ package_data = \
 # Command-line executables
 entry_points = \
     {"console_scripts" : \
-        [f"dgd_preprocess_samples = " \
+        [f"dgd_get_recount3_data = " \
+         f"{name}.execs.dgd_get_recount3_data:main",
+         f"dgd_preprocess_samples = " \
          f"{name}.execs.dgd_preprocess_samples:main",
          f"dgd_get_representations = " \
          f"{name}.execs.dgd_get_representations:main",

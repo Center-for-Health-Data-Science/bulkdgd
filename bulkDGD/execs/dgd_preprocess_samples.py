@@ -74,11 +74,11 @@ def main():
         f"The name of the output plain text file containing the " \
         f"list of genes whose expression data are excluded from the " \
         f"data frame with the preprocessed samples. This is done " \
-        f"because the preprocessed samples must only contain data " \
+        f"because the preprocessed samples must contain only data " \
         f"for the genes on which the DGD model was trained. The " \
         f"file will be written in the working directory. " \
         f"The default file name is '{oge_default}'."
-    parser.add_argument("-oge", "--output-txt-genes-excluded",
+    parser.add_argument("-oe", "--output-txt-genes-excluded",
                         type = str,
                         default = oge_default,
                         help = oge_help)
@@ -92,24 +92,24 @@ def main():
         f"containing the preprocessed samples. The file will " \
         f"be written in the working directory. The " \
         f"default file name is '{ogm_default}'."
-    parser.add_argument("-ogm", "--output-txt-genes-missing",
+    parser.add_argument("-om", "--output-txt-genes-missing",
                         type = str,
                         default = ogm_default,
                         help = ogm_help)
 
     sc_help = \
         "The name/index of the column containing the IDs/names " \
-        "of the samples, if any. By default, the program will " \
-        "assume that no such column is present."
+        "of the samples, if any. By default, the program assumes " \
+        "that no such column is present."
     parser.add_argument("-sc", "--samples-names-column",
                         type = str,
                         default = None,
                         help = sc_help)
 
     tc_help = \
-        "The name of the column containing the names of the " \
+        "The name/index of the column containing the names of the " \
         "tissues the samples belong to, if any. By default, " \
-        "the program will assume that no such column is present. "
+        "the program assumes that no such column is present. "
     parser.add_argument("-tc", "--tissues-column",
                         type = str,
                         default = None,
@@ -145,7 +145,10 @@ def main():
         int(args.samples_names_column) \
         if args.samples_names_column.isdigit() \
         else args.samples_names_column
-    tissues_column = args.tissues_column
+    tissues_column = \
+        int(args.tissues_column) \
+        if args.tissues_column.isdigit() \
+        else args.tissues_column
     wd = args.work_dir
     v = args.logging_verbose
     vv = args.logging_debug
@@ -224,12 +227,29 @@ def main():
     # If the user specified a column containing the tissues' labels
     if tissues_column is not None:
 
-        # Take the column values
-        tissues_column_values = samples_df[tissues_column].tolist()
+        # If the column index was passed
+        if isinstance(tissues_column, int):
 
-        # Drop the column before preprocessing
-        samples_df = samples_df.drop(tissues_column,
-                                     axis = 1)
+            # Take the column values
+            tissues_column_values = \
+                samples_df[samples_df.columns[tissues_column]].tolist()
+
+            # Drop the column before preprocessing
+            samples_df = \
+                samples_df.drop(samples_df.columns[tissues_column],
+                                axis = 1)
+
+        # If the column name was passed
+        else:
+
+            # Take the column values
+            tissues_column_values = \
+                samples_df[tissues_column].tolist()
+
+            # Drop the column before preprocessing
+            samples_df = \
+                samples_df.drop(tissues_column,
+                                axis = 1)
 
 
     #-------------------- Samples' preprocessing ---------------------#

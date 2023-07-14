@@ -1,0 +1,100 @@
+# TCGA cancer types (from https://gdc.cancer.gov/resources-tcga-users/tcga-code-tables/tcga-study-abbreviations, CNTL, FPPP, and MISC excluded)
+
+# Adrenocortical carcinoma
+ACC
+
+# Bladder Urothelial Carcinoma
+BLCA
+
+# Breast Invasive Carcinoma
+BRCA
+
+# Cervical squamous cell carcinoma and endocervical carcinoma
+CESC
+
+# Cholangiocarcinoma
+CHOL
+
+# Colon adenocarcinoma
+COAD
+
+# Lymphoid Neoplasm Diffuse Large B-cell Lymphoma
+DLBC
+
+# Esophageal carcinoma
+ESCA
+
+# Glioblastoma multiforme
+GBM
+
+# Head and Neck squamous cell carcinoma
+HNSC
+
+# Kidney Chromophobe
+KICH
+
+# Kidney renal clear cell carcinoma
+KIRC
+
+# Kidney renal papillary cell carcinoma
+KIRP
+
+# Acute Myeloid Leukemia
+LAML
+
+# Brain Lower Grade Glioma
+LGG
+
+# Liver hepatocellular carcinoma
+LIHC
+
+# Lung adenocarcinoma
+LUAD
+
+# Lung squamous cell carcinoma
+LUSC
+
+# Mesothelioma
+MESO
+
+# Ovarian serous cystadenocarcinoma
+OV
+
+# Pancreatic adenocarcinoma
+PAAD
+
+# Pheochromocytoma and Paraganglioma
+PCPG
+
+# Prostate adenocarcinoma
+PRAD
+
+# Rectum adenocarcinoma
+READ
+
+# Sarcoma
+SARC
+
+# Skin Cutaneous Melanoma
+SKCM
+
+# Stomach adenocarcinoma
+STAD
+
+# Testicular Germ Cell Tumors
+TGCT
+
+# Tyroid carcinoma
+THCA
+
+# Thymoma
+THYM
+
+# Uterine Corpus Endometrial Carcinoma
+UCEC
+
+# Uterine Carcinosarcoma
+UCS
+
+# Uveal Melanoma
+UVM
