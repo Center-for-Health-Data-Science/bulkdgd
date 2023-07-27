@@ -219,7 +219,7 @@ class softball():
 
         # Compute the norm
         norm = \
-            math.lgamma(1 + self.dim*0.5) - \
+            math.lgamma(1 + self.dim * 0.5) - \
             self.dim * (math.log(self.radius) + \
             0.5 * math.log(math.pi))
         

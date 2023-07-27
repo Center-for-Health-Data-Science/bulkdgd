@@ -35,13 +35,14 @@ from pkg_resources import resource_filename, Requirement
 # Third-party packages
 import numpy as np
 import pandas as pd
+from scipy.stats import nbinom
+from statsmodels.stats.multitest import multipletests
 import torch
-from torch.utils.data import DataLoader
 # bulkDGD
 from bulkDGD.core import (
     dataclasses,
     decoder,
-    GMM,
+    latent,
     priors,
     )
 from . import misc
@@ -74,10 +75,19 @@ _SAMPLE_IDX_COL = "sample_idx"
 #------------------------- Public constants --------------------------#
 
 
-# Default directory containing the configuration files
+# The directory containing the configuration files specifying the
+# DGD model's parameters and the files containing the trained
+# model
+CONFIG_MODEL_DIR = \
+    resource_filename(Requirement(pkg_name),
+                      f"{pkg_name}/configs/model")
+
+# The directory containing the configuration files specifying the
+# options for data loading and optimization when finding the
+# best representations
 CONFIG_REP_DIR = \
     resource_filename(Requirement(pkg_name),
-                      f"configs/representations")
+                      f"{pkg_name}/configs/representations")
 
 # Default PyTorch file containing the trained decoder
 try:
@@ -182,20 +192,18 @@ def preprocess_samples(samples_df):
 
 
 def load_samples_data(csv_file,
-                      config,
                       keep_samples_names = True):
     """Load the data frame containing the gene expression data for
     the samples, and return data in a PyTorch-compatible format.
 
     Parameters
     ----------
-    csv_file : ``str``
-        A CSV file containing the samples' data. Rows must represent
-        the different samples, and columns must represent the
-        expression of each gene.
+    csv_file : `str``
+        A CSV file containing the samples' data.
 
-    config : ``dict``
-        A dictionary containing the options for loading the data.
+        Rows must represent the samples, while columns must
+        represent genes. Therefore, each cell must hold the
+        expression of a gene in a specific sample.
 
     keep_samples_names : ``bool``, default: ``True``
         Whether to keep the name assigned to the samples in
@@ -206,14 +214,18 @@ def load_samples_data(csv_file,
     ``tuple``
         A ``tuple`` containing:
 
-        * A ``torch.utils.data.DataLoader`` object with the dataset.
+        * A ``bulkDGD.core.dataclasses.GeneExpressionDataset``
+          object with the dataset.
         * A ``list`` representing the unique indexes of the samples.
-        * An ``int`` representing the number of samples in the
-          dataset.
-        * An ``int`` representing the number of genes in the dataset.
+        * A ``list`` representing the genes in the dataset.
         * A ``pandas.DataFrame`` with the labels of the tissues the
-          samples belong to.
+          samples belong to. It will be empty if no column containing
+          tissue information is found in the input data frame.
     """
+
+
+    #-------------------- Samples' names/indexes ---------------------#
+
 
     # If we need to keep the samples' names
     if keep_samples_names:
@@ -238,6 +250,10 @@ def load_samples_data(csv_file,
         # Create the unique samples' indexes
         indexes = list(range(len(df)))
 
+
+    #---------------------- Tissue information -----------------------#
+
+
     # Initialize the data frame containing the tissue labels
     # for the samples to an empty data frame
     tissues = pd.DataFrame() 
@@ -258,42 +274,55 @@ def load_samples_data(csv_file,
 
         # Inform the user that you found tissue information
         infostr = \
-            f"'{_TISSUE_COL}' column found in the input " \
-            f"CSV file '{csv_file}'. The column is assumed to " \
+            f"'{_TISSUE_COL}' column found in the data frame in " \
+            f"'{csv_file}'. The column is assumed to " \
             f"contain the labels of the tissues the samples " \
             f"belong to."
         logger.info(infostr)
 
-    # Get the number of samples and the number of genes
-    # in the dataset
-    n_samples, n_genes = df.shape
+
+    #------------------------ Check the genes ------------------------#
+
+
+    # Load the list of genes used to train the DGD model
+    genes = misc.get_list(list_file = DGD_GENES_FILE)
+
+    # CIf the genes in the samples are not the same as those
+    # used to train the DGD model
+    if genes != df.columns.tolist():
+
+        # Raise an error
+        errstr = \
+            f"The genes whose counts are reported in '{csv_file}' " \
+            f"do not correspond to those used to train the DGD " \
+            f"model. You can find the the genes (in the order in " \
+            f"which they should appear in the data frame) in " \
+            f"'{DGD_GENES_FILE}'."
+        raise ValueError(errstr)
+
+
+    #---------------------- Create the dataset -----------------------#
+
 
     # Create the dataset
     dataset = dataclasses.GeneExpressionDataset(df = df)
 
     # Load the dataset and the data dimensionality and
     # return the data of interest
-    data = \
-        (DataLoader(dataset, **config),
-         indexes,
-         n_samples,
-         n_genes,
-         tissues)
+    data = (dataset, indexes, genes, tissues)
 
-    # Inform the user about the number of samples and number of
-    # genes found in the dataset
-    logger.info(f"{n_samples} samples were found in the dataset.")
-    logger.info(f"{n_genes} genes were found in the dataset.")
+    # Inform the user about the number of samples found in the dataset
+    logger.info(f"{len(indexes)} samples were found in the dataset.")
 
     # If tissue information was found
     if not tissues.empty:
 
-        # Inform the user about the number of unique tissues
-        # found
+        # Inform the user about the number of unique tissues found
+        # in the dataset
         unique_tissues = tissues.unique().tolist()
         logger.info(\
-            f"{len(unique_tissues)} tissues were found in the " \
-            f"dataset ({', '.join(unique_tissues)}).")
+            f"{len(unique_tissues)} tissue(s) was (were) found " \
+            f"in the dataset ({', '.join(unique_tissues)}).")
 
     # Return the data
     return data
@@ -379,7 +408,7 @@ def get_gmm(dim,
 
     Returns
     -------
-    ``DDGPerturbations.core.GMM.GaussianMixtureModel``
+    ``DDGPerturbations.core.latent.GaussianMixtureModel``
         The Gaussian mixture model.
     """
 
@@ -405,9 +434,9 @@ def get_gmm(dim,
     # Try to initialize the GMM
     try:
 
-        gmm = GMM.GaussianMixtureModel(dim = dim,
-                                       mean_prior = mean_prior,
-                                       **config["options"])
+        gmm = latent.GaussianMixtureModel(dim = dim,
+                                          mean_prior = mean_prior,
+                                          **config["options"])
 
     # If something went wrong
     except Exception as e:
@@ -537,7 +566,7 @@ def get_rep_layer(dim,
 
     Returns
     -------
-    ``DDGPerturbations.core.decoder.RepresentationLayer``
+    ``DDGPerturbations.core.latent.RepresentationLayer``
         The representation layer.
     """
 
@@ -553,7 +582,7 @@ def get_rep_layer(dim,
     # Try to initialize the representation layer
     try:
 
-        rep_layer = decoder.RepresentationLayer(values = values)
+        rep_layer = latent.RepresentationLayer(values = values)
     
     # If something went wront
     except Exception as e:
@@ -601,13 +630,13 @@ def get_rep_layer(dim,
 #-------------------------- Representations --------------------------#
 
 
-def get_representations(dataset,
+def get_representations(dataloader,
                         indexes,
                         gmm,
                         dec,
                         n_samples,
                         n_genes,
-                        n_reps_per_mix_comp,
+                        n_samples_per_comp,
                         dim,
                         config_opt1,
                         config_opt2):
@@ -615,14 +644,14 @@ def get_representations(dataset,
 
     Parameters
     ----------
-    dataset : ``torch.utils.data.DataLoader``
-        The dataset containing the gene expression data for the
-        samples.
+    dataloader : ``torch.utils.data.DataLoader``
+        The ``DataLoader`` object containing the gene expression
+        data for the samples.
 
     indexes : ``list``
         A list of unique indexes representing the samples.
 
-    gmm : ``DGDPerturbations.core.GMM.GaussianMixtureModel``
+    gmm : ``DGDPerturbations.core.latent.GaussianMixtureModel``
         The trained Gaussian mixture model.
 
     dec : ``DGDPerturbations.core.decoder.Decoder``
@@ -634,7 +663,7 @@ def get_representations(dataset,
     n_genes : ``int``
         The number of genes in the dataset.
 
-    n_reps_per_mix_comp : ``int``
+    n_samples_per_comp : ``int``
         The number of new representations to be taken
         per component per sample.
 
@@ -670,8 +699,8 @@ def get_representations(dataset,
     #                  the number of representations taken per
     #                  component per sample ->
     #                  'n_samples' *
-    #                  'n_mix_comp' * 
-    #                  'n_reps_per_mix_comp'
+    #                  'n_comp' * 
+    #                  'n_samples_per_comp'
     #
     # - 2nd dimension: the dimensionality of the Gaussian mixture
     #                  model ->
@@ -679,13 +708,13 @@ def get_representations(dataset,
     rep_init_values = \
         gmm.sample_new_points(n_points = n_samples, 
                               sampling_method = "mean",
-                              n_reps_per_mix_comp = 2)
+                              n_samples_per_comp = n_samples_per_comp)
 
     # Initialize the representation layer with 'dim'
     # dimensions and 'n_samples' samples that have values
     # 'rep_init_values'
     rep_samples_layer = \
-        decoder.RepresentationLayer(values = rep_init_values)
+        latent.RepresentationLayer(values = rep_init_values)
 
 
     #---------------------- Check the optimizer ----------------------#
@@ -714,7 +743,7 @@ def get_representations(dataset,
         raise ValueError(errstr)
 
     # Get the number of components in the Gaussian mixture
-    n_mix_comp = gmm.n_mix_comp
+    n_comp = gmm.n_comp
 
     # Initialize an empty list to store the average loss for each
     # epoch.
@@ -740,7 +769,10 @@ def get_representations(dataset,
         # 'mean_expr' : mean gene expression for all samples
         #               in the batch
         # 'sample_ixs' : the indexes of the samples in the batch
-        for expr, mean_expr, sample_ixs in dataset:
+        for expr, mean_expr, sample_ixs in dataloader:
+
+            # Get the number of samples in the batch
+            n_samples_in_batch = len(sample_ixs)
 
 
             #------------ Initialize the representations -------------#
@@ -755,8 +787,8 @@ def get_representations(dataset,
             #                  number of representations taken per
             #                  component per sample ->
             #                  'n_samples_in_batch' * 
-            #                  'n_mix_comp' *
-            #                  'n_reps_per_mix_comp'
+            #                  'n_comp' *
+            #                  'n_samples_per_comp'
             #
             # - 2nd dimension: the dimensionality of the Gaussian
             #                  mixture model ->
@@ -772,18 +804,19 @@ def get_representations(dataset,
             # 
             # - 2nd dimension: the number of representations taken
             #                  per component per sample ->
-            #                  'n_reps_per_mix_comp'
+            #                  'n_samples_per_comp'
             #
             # - 3rd dimension: the number of components in the
             #                  Gaussian mixture model ->
-            #                  'n_mix_comp'
+            #                  'n_comp'
             #
             # - 4th dimension: the dimensionality of the Gaussian
             #                  mixture model ->
             #                  'dim'
-            z_reshaped = gmm.reshape_targets(\
-                            z_raw,
-                            y_type = "predicted")[sample_ixs]
+            z_reshaped = z_raw.view(n_samples,
+                                    n_samples_per_comp,
+                                    n_comp,
+                                    dim)[sample_ixs]
 
             # Reshape it again. The output is a 2D tensor with:
             #
@@ -793,15 +826,16 @@ def get_representations(dataset,
             #                  number of representations taken per
             #                  component per sample ->
             #                  'n_samples_in_batch' * 
-            #                  'n_mix_comp' *
-            #                  'n_reps_per_mix_comp'
+            #                  'n_samples_per_comp' *
+            #                  'n_comp'
             #
             # - 2nd dimension: the dimensionality of the Gaussian
             #                  mixture model ->
             #                  'dim'
-            z = gmm.reshape_targets(z_reshaped,
-                                    y_type = "reverse")
-
+            z = z_reshaped.view(n_samples_in_batch * \
+                                    n_samples_per_comp * \
+                                    n_comp,
+                                dim)
 
             #-------------- Decode the representations ---------------#
 
@@ -816,8 +850,8 @@ def get_representations(dataset,
             #                  number of representations taken per
             #                  component per sample ->
             #                  'n_samples_in_batch' * 
-            #                  'n_mix_comp' *
-            #                  'n_reps_per_mix_comp'
+            #                  'n_comp' *
+            #                  'n_samples_per_comp'
             #
             # - 2nd dimension: the dimensionality of the output
             #                  (= gene) space ->
@@ -828,9 +862,68 @@ def get_representations(dataset,
             #------------ Compute the reconstruction loss ------------#
 
 
-            # Get the reconstruction  loss (rescale based on the mean
-            # expression of the genes in the samples in the batch).
-            # The output is a 4D tensor with:
+            # Get the observed gene counts and "expand" it to match
+            # the shape required to compute the loss. The output is
+            # a 4D tensor with:
+            #
+            # - 1st dimension: the number of samples in the current
+            #                  batch -> 'n_samples_in_batch'
+            #
+            # - 2nd dimension: the number of representations taken
+            #                  per component per sample ->
+            #                  'n_samples_per_comp'
+            #
+            # -3rd dimension: the number of components in the Gaussian
+            #                 mixture model -> 'n_comp'
+            #
+            # - 4th dimension: the dimensionality of the output
+            #                  (= gene) space -> 'n_genes'
+            obs_count = \
+                expr.unsqueeze(1).unsqueeze(1).expand(\
+                    -1,
+                    n_samples_per_comp,
+                    n_comp,
+                    -1)
+
+            # Get the scaling factors for the mean of each negative
+            # binomial and reshape it so that it matches the shape
+            # required to compute the loss. The output is a 4D
+            # tensor with:
+            #
+            # - 1st dimension: the number of samples in the current
+            #                  batch -> 'n_samples_in_batch'
+            #
+            # - 2nd dimension: 1
+            #
+            # - 3rd dimension: 1
+            #
+            # - 4th dimension: 1
+            mean_scaling_factor = \
+                decoder.reshape_scaling_factor(mean_expr,
+                                               4)
+
+            # Reshape the decoded output to match the shape required
+            # to compute the loss. The output is a 4D tensor with:   
+            #
+            # - 1st dimension: the number of samples in the current
+            #                  batch -> 'n_samples_in_batch'
+            #
+            # - 2nd dimension: the number of representations taken
+            #                  per component per sample ->
+            #                  'n_samples_per_comp'
+            #
+            # -3rd dimension: the number of components in the Gaussian
+            #                 mixture model -> 'n_comp'
+            #
+            # - 4th dimension: the dimensionality of the output
+            #                  (= gene) space -> 'n_genes'      
+            pred_mean = dec_out.view(n_samples_in_batch,
+                                     n_samples_per_comp,
+                                     n_comp,
+                                     n_genes)
+
+            # Get the reconstruction loss. The output is a 4D tensor
+            # with:
             #
             # - 1st dimension: the number of samples in the current
             #                  batch ->
@@ -838,23 +931,19 @@ def get_representations(dataset,
             # 
             # - 2nd dimension: the number of representations taken
             #                  per component per sample ->
-            #                  'n_reps_per_mix_comp'
+            #                  'n_samples_per_comp'
             #
             # - 3rd dimension: the number of components in the
             #                  Gaussian mixture model ->
-            #                  'n_mix_comp'
+            #                  'n_comp'
             #
             # - 4th dimension: the dimensionality of the output
             #                  (= gene) space ->
             #                  'n_genes'
             recon_loss = \
-                dec.nb.loss(\
-                    gmm.reshape_targets(expr,
-                                        y_type = "true"),
-                    decoder.reshape_scaling_factor(mean_expr, 
-                                                   4),
-                    gmm.reshape_targets(dec_out,
-                                        y_type = "predicted"))
+                dec.nb.loss(obs_count = obs_count,
+                            scaling_factor = mean_scaling_factor,
+                            pred_mean = pred_mean)
 
             # Get the total reconstruction loss by summing all
             # values in the 'recon_loss' tensor. The output is
@@ -876,8 +965,8 @@ def get_representations(dataset,
             #                  number of representations taken per
             #                  component per sample ->
             #                  'n_samples_in_batch' * 
-            #                  'n_mix_comp' *
-            #                  'n_reps_per_mix_comp'
+            #                  'n_comp' *
+            #                  'n_samples_per_comp'
             gmm_loss = gmm(z)
 
             # Get the total GMM loss by summing over all values in
@@ -907,7 +996,7 @@ def get_representations(dataset,
             # Update the average loss for the current epoch
             rep_avg_loss[epoch] += \
                 total_loss.item() / (n_samples * n_genes * \
-                                     n_mix_comp * n_reps_per_mix_comp)
+                                     n_comp * n_samples_per_comp)
 
 
         #------------------------ Take a step ------------------------#
@@ -943,7 +1032,11 @@ def get_representations(dataset,
     # 'mean_expr' : mean gene expression for all samples
     #               in the batch
     # 'sample_ixs' : the indexes of the samples in the batch
-    for expr, mean_expr, sample_ixs in dataset:
+    for expr, mean_expr, sample_ixs in dataloader:
+
+        # Re-initialize the number of samples in the current batch
+        # since we are looping again over the dataset
+        n_samples_in_batch = len(sample_ixs)
 
         # 'z_raw' is a 2D tensor with:
         #
@@ -953,8 +1046,8 @@ def get_representations(dataset,
         #                  number of representations taken per
         #                  component per sample ->
         #                  'n_samples_in_batch' * 
-        #                  'n_mix_comp' *
-        #                  'n_reps_per_mix_comp'
+        #                  'n_comp' *
+        #                  'n_samples_per_comp'
         #
         # - 2nd dimension: the dimensionality of the Gaussian
         #                  mixture model ->
@@ -969,19 +1062,19 @@ def get_representations(dataset,
         # 
         # - 2nd dimension: the number of representations taken per
         #                  component per sample ->
-        #                  'n_reps_per_mix_comp'
+        #                  'n_samples_per_comp'
         #
         # - 3rd dimension: the number of components in the Gaussian
         #                  mixture model ->
-        #                  'n_mix_comp'
+        #                  'n_comp'
         #
         # - 4th dimension: the dimensionality of the Gaussian
         #                  mixture model ->
         #                  'dim'
-        z_reshaped = gmm.reshape_targets(\
-                        z_raw,
-                        y_type = "predicted")[sample_ixs]
-
+        z_reshaped = z_raw.view(n_samples,
+                                n_samples_per_comp,
+                                n_comp,
+                                dim)[sample_ixs]
 
         # Reshape it again. The output is a 2D tensor with:
         #
@@ -991,15 +1084,16 @@ def get_representations(dataset,
         #                  number of representations taken per
         #                  component per sample ->
         #                  'n_samples_in_batch' * 
-        #                  'n_mix_comp' *
-        #                  'n_reps_per_mix_comp'
+        #                  'n_samples_per_comp' *
+        #                  'n_comp'
         #
         # - 2nd dimension: the dimensionality of the Gaussian mixture
         #                  model ->
         #                  'dim'
-        z = gmm.reshape_targets(z_reshaped,
-                                y_type = "reverse")
-
+        z = z_reshaped.view(n_samples_in_batch * \
+                                n_samples_per_comp * \
+                                n_comp,
+                            dim)
 
         #---------------- Decode the representations -----------------#
 
@@ -1014,8 +1108,8 @@ def get_representations(dataset,
         #                  number of representations taken per
         #                  component per sample ->
         #                  'n_samples_in_batch' * 
-        #                  'n_mix_comp' *
-        #                  'n_reps_per_mix_comp'
+        #                  'n_comp' *
+        #                  'n_samples_per_comp'
         #
         # - 2nd dimension: the dimensionality of the output
         #                  (= gene) space ->
@@ -1026,7 +1120,67 @@ def get_representations(dataset,
         #---------- Compute the overall reconstruction loss ----------#
 
 
-        # Get the reconstruction  loss (rescale based on the mean
+        # Get the observed counts for the expression of each gene in
+        # each sample, and "expand" it to match the shape required
+        # to compute the loss. The output is a 4D tensor with:
+        #
+        # - 1st dimension: the number of samples in the current
+        #                  batch -> 'n_samples_in_batch'
+        #
+        # - 2nd dimension: the number of representations taken
+        #                  per component per sample ->
+        #                  'n_samples_per_comp'
+        #
+        # - 3rd dimension: the number of components in the Gaussian
+        #                 mixture model -> 'n_comp'
+        #
+        # - 4th dimension: the dimensionality of the output
+        #                  (= gene) space -> 'n_genes'
+        obs_count = \
+            expr.unsqueeze(1).unsqueeze(1).expand(\
+                -1,
+                n_samples_per_comp,
+                n_comp,
+                -1)
+
+        # Get the scaling factors for the mean of each negative
+        # binomial and reshape it so that it matches the shape
+        # required to compute the loss. The output is a 4D
+        # tensor with:
+        #
+        # - 1st dimension: the number of samples in the current
+        #                  batch -> 'n_samples_in_batch'
+        #
+        # - 2nd dimension: 1
+        #
+        # - 3rd dimension: 1
+        #
+        # - 4th dimension: 1
+        mean_scaling_factor = \
+            decoder.reshape_scaling_factor(mean_expr,
+                                           4)
+
+        # Reshape the decoded output to match the shape required
+        # to compute the loss. The output is a 4D tensor with:   
+        #
+        # - 1st dimension: the number of samples in the current
+        #                  batch -> 'n_samples_in_batch'
+        #
+        # - 2nd dimension: the number of representations taken
+        #                  per component per sample ->
+        #                  'n_samples_per_comp'
+        #
+        # - 3rd dimension: the number of components in the Gaussian
+        #                  mixture model -> 'n_comp'
+        #
+        # - 4th dimension: the dimensionality of the output
+        #                  (= gene) space -> 'n_genes'      
+        pred_mean = dec_out.view(n_samples_in_batch,
+                                 n_samples_per_comp,
+                                 n_comp,
+                                 n_genes)
+ 
+        # Get the reconstruction loss (rescale based on the mean
         # expression of the genes in the samples in the batch).
         # The output is a 4D tensor with:
         #
@@ -1036,23 +1190,18 @@ def get_representations(dataset,
         # 
         # - 2nd dimension: the number of representations taken per
         #                  component per sample ->
-        #                  'n_reps_per_mix_comp'
+        #                  'n_samples_per_comp'
         #
         # - 3rd dimension: the number of components in the Gaussian
         #                  mixture model ->
-        #                  'n_mix_comp'
+        #                  'n_comp'
         #
         # - 4th dimension: the dimensionality of the output
         #                  (= gene) space ->
         #                  'n_genes'
-        recon_loss = \
-            dec.nb.loss(\
-                gmm.reshape_targets(expr,
-                                    y_type = "true"),
-                decoder.reshape_scaling_factor(mean_expr, 
-                                               4),
-                gmm.reshape_targets(dec_out,
-                                    y_type = "predicted"))
+        recon_loss = dec.nb.loss(obs_count = obs_count,
+                                 scaling_factor = mean_scaling_factor,
+                                 pred_mean = pred_mean)
 
         # Get the total reconstruction loss by summing over the
         # last dimension of the 'recon_loss' tensor. This means
@@ -1065,11 +1214,11 @@ def get_representations(dataset,
         #
         # - 2nd dimension: the number of representations taken per
         #                  component per sample ->
-        #                  'n_reps_per_mix_comp'
+        #                  'n_samples_per_comp'
         #
         # - 3rd dimension: the number of components in the Gaussian
         #                  mixture model ->
-        #                  'n_mix_comp'
+        #                  'n_comp'
         recon_loss_sum = recon_loss.sum(-1).clone()
 
         # Reshape the reconstruction loss so that it can be
@@ -1083,12 +1232,12 @@ def get_representations(dataset,
         #                  number of representations taken per
         #                  component per sample ->
         #                  'n_samples_in_batch' * 
-        #                  'n_mix_comp' *
-        #                  'n_reps_per_mix_comp'
+        #                  'n_comp' *
+        #                  'n_samples_per_comp'
         recon_loss_sum_reshaped = \
-            gmm.reshape_targets(recon_loss_sum,
-                                y_type = "reverse")
-
+            recon_loss_sum.view(n_samples_in_batch * \
+                                n_samples_per_comp * \
+                                n_comp)
 
         #--------------- Compute the overall GMM loss ----------------#
 
@@ -1106,8 +1255,8 @@ def get_representations(dataset,
         #                  number of representations taken per
         #                  component per sample ->
         #                  'n_samples_in_batch' * 
-        #                  'n_mix_comp' *
-        #                  'n_reps_per_mix_comp'
+        #                  'n_comp' *
+        #                  'n_samples_per_comp'
         gmm_loss = gmm(z).clone()
 
 
@@ -1116,9 +1265,9 @@ def get_representations(dataset,
 
         # Get the total loss. The loss has has many components as the
         # total number of representations computed for the current
-        # batch ('n_reps_per_mix_comp' * 'n_mix_comp' representations
-        # for each sample in the batch). The output is a 1D tensor
-        # with:
+        # batch ('n_samples_per_comp' * 'n_comp'
+        # representations for each sample in the batch).
+        # The output is a 1D tensor with:
         #
         # - 1st dimension: the number of samples in the current
         #                  batch times the number of components
@@ -1126,13 +1275,37 @@ def get_representations(dataset,
         #                  number of representations taken per
         #                  component per sample ->
         #                  'n_samples_in_batch' * 
-        #                  'n_mix_comp' *
-        #                  'n_reps_per_mix_comp'
+        #                  'n_comp' *
+        #                  'n_samples_per_comp'
         total_loss = recon_loss_sum_reshaped + gmm_loss
 
+
+        # Reshape the tensor containing the total loss. The output
+        # is a 2D tensor with.
+        #
+        # - 1st dimension: the number of samples in the current
+        #                  batch -> 'n_samples_in_batch'
+        #
+        # - 2nd dimension: the number of representations taken
+        #                  per component of the Gaussian mixture
+        #                  model per sample times the number of
+        #                  components -> 
+        #                  'n_samples_per_comp' * 'n_comp'
+        total_loss_reshaped = \
+            total_loss.view(n_samples_in_batch,
+                            n_samples_per_comp * n_comp)
+
+        # Get the best representation for each sample in the
+        # current batch. The output is a 1D tensor with:
+        #
+        # - 1st dimension: the number of samples in the current
+        #                  batch -> 'n_samples_in_batch'
+        best_rep_per_sample = torch.argmin(total_loss_reshaped,
+                                           dim = 1).squeeze(-1)
+
         # Get the best representations for the samples in the batch
-        # from the 'n_reps_per_mix_comp' * 'n_mix_comp' representations
-        # taken for each sample.
+        # from the 'n_samples_per_comp' * 'n_comp'
+        # representations taken for each sample.
         # The output is a 2D tensor with:
         #
         # - 1st dimension: the number of samples in the current
@@ -1143,7 +1316,9 @@ def get_representations(dataset,
         #                  model ->
         #                  'dim'
         rep_new_values[sample_ixs] = \
-            gmm.choose_best_representations(z, total_loss)
+            z.view(n_samples_in_batch,
+                   n_samples_per_comp * n_comp,
+                   dim)[range(n_samples_in_batch), best_rep_per_sample]
 
 
     #---------------------- Second optimization ----------------------#
@@ -1152,7 +1327,7 @@ def get_representations(dataset,
     # Set a representation layer for the best representations found
     # for all samples
     best_rep_layer = \
-        decoder.RepresentationLayer(values = rep_new_values)
+        latent.RepresentationLayer(values = rep_new_values)
 
 
     #---------------------- Check the optimizer ----------------------#
@@ -1208,8 +1383,8 @@ def get_representations(dataset,
         # 'mean_expr' : mean gene expression for all samples
         #               in the batch
         # 'sample_ixs' : the indexes of the samples in the batch
-        for expr, mean_expr, sample_ixs in dataset:
-            
+        for expr, mean_expr, sample_ixs in dataloader:
+
             # Find the best representations corresponding to the
             # samples in the batch. The output is a D tensor with:
             #
@@ -1249,7 +1424,9 @@ def get_representations(dataset,
             #                  batch ->
             #                  'n_samples_in_batch'
             recon_loss_sample = \
-                dec.nb.loss(expr, mean_expr, dec_out).sum(-1).clone()
+                dec.nb.loss(obs_count = expr,
+                            scaling_factor = mean_expr,
+                            pred_mean = dec_out).sum(-1).clone()
 
 
             #------------ Compute the per-sample GMM loss ------------#
@@ -1291,7 +1468,9 @@ def get_representations(dataset,
             # Get the overall recon loss. The output is a tensor
             # containing a single value
             recon_loss = \
-                dec.nb.loss(expr, mean_expr, dec_out).sum().clone()
+                dec.nb.loss(obs_count = expr,
+                            scaling_factor = mean_expr,
+                            pred_mean = dec_out).sum().clone()
 
             #------------- Compute the overall GMM loss --------------#
 
@@ -1324,7 +1503,7 @@ def get_representations(dataset,
             # Update the best average for the current epoch
             rep_avg_loss[epoch] += \
                 total_loss.item() / \
-                (n_samples * n_genes * n_reps_per_mix_comp)
+                (n_samples * n_genes * n_samples_per_comp)
         
         # Take an optimization step
         best_rep_optimizer.step()
@@ -1349,7 +1528,7 @@ def get_representations(dataset,
 
             # Representation layer for the best representations
             best_rep_final = \
-                decoder.RepresentationLayer(values = best_rep_layer.z)
+                latent.RepresentationLayer(values = best_rep_layer.z)
 
             # Create a list to store all samples' indexes
             all_sample_ixs = []
@@ -1363,7 +1542,7 @@ def get_representations(dataset,
             # 'mean_expr' : mean gene expression for all samples
             #               in the batch
             # 'sample_ixs' : the indexes of the samples in the batch
-            for expr, mean_expr, sample_ixs in dataset:
+            for expr, mean_expr, sample_ixs in dataloader:
                 
                 # Add the indexes of the samples in the batch
                 # to the list                
@@ -1399,6 +1578,423 @@ def get_representations(dataset,
             return (df_loss, df_rep, df_dec_out)
 
 
+#---------------------------- Statistics -----------------------------#
+
+
+def get_p_values(obs_counts_sample,
+                 pred_means_sample,
+                 r_values,
+                 resolution = 1):
+    """Calculate the p-value associated to the predicted mean
+    of each negative binomial.
+
+    Parameters
+    ----------
+    obs_counts_sample : ``torch.Tensor``
+        The observed gene counts in a single sample.
+
+        This is a 1D tensor whose length is equal to the
+        dimensionality of the gene space.
+
+    pred_mean_sample : ``torch.Tensor``
+        The (rescaled) predicted mean of the negative binomial
+        modeling the gene counts for a single sample.
+
+        This is a 1D tensor whose length is equal to the
+        dimensionality of the gene space.
+
+    r_values : ``torch.Tensor``
+        A tensor containing one r-value for each negative binomial
+        (= one r-value for each gene).
+
+        This is a 1D tensor whose length is equal to the
+        dimensionality of the gene space.
+
+    resolution : ``int``, ``1``
+        How accurate the calculation of the p-values should be.
+
+        The ``resolution`` corresponds to the coarseness of the sum
+        over the probability mass function of each negative binomial
+        to compute the corresponding p-value.
+
+        The lower the ``resolution``, the more accurate the
+        calculation of the p-values.
+
+        If ``1`` (the default), the calculation will be exact
+        (but it will be more computationally expensive).
+
+    Returns
+    -------
+    ``tuple``
+        A tuple containing:
+
+        * A ``list`` of all p-values (one per gene).
+        * A 2D ``numpy.ndarray`` containing the count values at 
+          which the probability mass function was evaluated
+          to compute the p-values. The array has as many
+          rows as the number of genes and as many columns as
+          the number of count values.
+        * A 2D ``numpy.ndarray`` containing the value of the
+          probability mass function for each count value
+          at which it was evaluated. The array has as many
+          rows as the number of genes and as many columns as
+          the number of count values.
+    """
+
+    # Get the mean gene counts for the sample. The output is
+    # a single value
+    obs_counts_mean_sum = \
+        torch.mean(obs_counts_sample).unsqueeze(-1)
+
+    # Get the rescaled predicted means of the negative binomials
+    # (one for each gene). This is a 1D tensor with:
+    #
+    # - 1st dimension: the dimensionality of the output (= gene)
+    #                  space
+    pred_means_sample = \
+        decoder.NBLayer.rescale(pred_means_sample,
+                                obs_counts_mean_sum)
+
+    # Create an empty list to store the p-valued computed per gene
+    # in the current sample, the value of the probability mass
+    # function, and the 'k'
+    results_sample = []
+
+    # For each gene's (rescaled) predicted mean counts, observed
+    # counts, and r-value
+    for pred_mean_gene_i, obs_count_gene_i, r_value_i \
+        in zip(pred_means_sample, obs_counts_sample, r_values):
+
+
+        #----------------------- Calculate 'p' -----------------------#
+
+
+        # Calculate the probability of "success" from the r-value
+        # (number of successes till the experiment is stopped) and
+        # the mean of the negative binomial. This is a single value,
+        # and is calculated from the mean 'm' as:
+        #
+        # m = r(1-p) / p
+        # mp = r - rp
+        # mp + rp = r
+        # p(m+r) = r
+        # p = r / (m + r)
+        p_i = pred_mean_gene_i.item() / \
+              (pred_mean_gene_i.item() + r_value_i.item())
+
+
+        #-------------- Get the tail value for the sum ---------------#
+
+        
+        # Get the count value at which the value of the percent
+        # point function (the inverse of the cumulative mass
+        # function) is 0.99999. This corresponds to the value in
+        # the probability mass function beyond which lies
+        # 0.00001 of the mass. This is a single value.
+        #
+        # Since SciPy's negative binomial function is implemented
+        # as function of the number of failures, their 'p' is
+        # equivalent to our '1-p' and their 'n' is our 'r'
+        tail = nbinom.ppf(q = 0.99999,
+                          n = r_value_i.item(),
+                          p = 1 - p_i)
+
+
+        #---------------- Get the probability masses -----------------#
+
+
+        # If no resolution was passed
+        if resolution is None:
+            
+            # We are going to sum with steps of lenght 1.
+            # This is a 1D tensor with length is equal to 'tail',
+            # since we are taking steps of size 1 starting
+            # from 0 and ending in 'tail'
+            k = torch.arange(\
+                    start = 0,
+                    end = tail,
+                    step = 1)
+        
+        # Otherwise
+        else:
+            
+            # We are going to integrate with steps of length
+            # 'resolution'. This is a 1D tensor whose length
+            # is euqal to the number of 'resolution'-sized
+            # steps between 0 and 'tail'
+            k = torch.linspace(\
+                    start = 0,
+                    end = int(tail),
+                    steps = int(resolution)).round().double()
+
+        # Integrate to find the value of the probability mass
+        # function for each count value in the 'k' tensor.
+        # The output is a 1D tensor whose length is equal to
+        # the length of 'k'
+        pmf = \
+            decoder.NBLayer.log_prob_mass(\
+                k = k,
+                m = pred_mean_gene_i,
+                r = r_value_i).to(torch.float64)
+
+
+        #---------------------- Get the p-value ----------------------#
+
+
+        # Find the value of the probability mass function for the
+        # actual value of the count for gene 'i', 'obs_count_gene_i'.
+        # This is a single value
+        prob_obs_count_gene_i = \
+            decoder.NBLayer.log_prob_mass(\
+                k = obs_count_gene_i,
+                m = pred_mean_gene_i,
+                r = r_value_i).to(torch.float64)
+
+        # Find the probability that a point falls lower than the
+        # observed count (= sum over all values of 'k' lower than
+        # the value of the probability mass function at the actual
+        # count value. Exponentiate it since for now we dealt with
+        # log-probability masses, and we want the actual probability.
+        # The output is a single value
+        lower_probs = \
+            pmf[pmf <= prob_obs_count_gene_i].exp().sum()
+
+        # Get the total mass of the "discretized" probability mass
+        # function we computed above
+        norm_const = pmf.exp().sum()
+        
+        # Calculate the p-value as the ratio between the probability
+        # mass associated to the event where a point falls lower
+        # than the observed count and the total probability mass
+        p_val = lower_probs / norm_const
+
+        # Save the p-value found for the current gene, the value of
+        # the probability mass function, and the k
+        results_sample.append((p_val.item(),
+                               k.detach().numpy(),
+                               pmf.detach().numpy()))
+
+    # Create three lists containing all p-values, all PMFs, and
+    # all 'k' values
+    p_values, ks, pmfs = list(zip(*results_sample))
+    
+    # Return a list of p-values and two arrays containing the PMFs
+    # and the 'k' values
+    return p_values, np.stack(ks), np.stack(pmfs)
+
+
+def get_q_values(p_values,
+                 alpha = 0.05,
+                 method = "fdr_bh"):
+    """Get the q-values associated to a set of p-values. The q-values
+    are the p-values adjusted for the false discovery rate.
+
+    Parameters
+    ----------
+    p_values : ``list`` or ``tuple``
+        The p-values.
+
+    alpha : ``float``, ``0.05``
+        The family-wise error rate for the calculation of the
+        q-values.
+
+    method : ``str``, ``fdr_bh``
+        The method used to adjust the p-values. The available
+        methods are listed in the documentation for
+        ``statsmodels.stats.multitest.multipletests``.
+    """
+
+    # Adjust the p-values
+    rejected, q_values, _, _ = multipletests(pvals = p_values,
+                                             alpha = alpha,
+                                             method = method)
+
+    # Return the q-values and the rejected p-values
+    return q_values, rejected
+
+
+def get_log2_fold_changes(obs_counts_sample,
+                          pred_means_sample):
+    """Get the log-fold change of the gene expression.
+    """
+    
+    # Return the log-fold change for each gene by dividing the
+    # predicted mean count by the observed count. A small value
+    # (1e-6) is added to ensure we do not divide by zero.
+    return torch.log2(\
+            (pred_means_sample + 1e-6) / (obs_counts_sample + 1e-6))
+
+
+def perform_dea(obs_counts_sample,
+                pred_means_sample,
+                sample_name = None,
+                statistics = \
+                    ["p_values", "q_values", "log2_fold_changes"],
+                genes_names = None,
+                r_values = None,
+                resolution = 1,
+                alpha = 0.05,
+                method = "fdr_bh"):
+    """Perform differential expression analysis (DEA).
+
+    Parameters
+    ----------
+    obs_counts_sample : ``torch.Tensor``
+        The observed gene counts in a single sample.
+
+        This is a 1D tensor whose length is equal to the
+        dimensionality of the gene space.
+
+    pred_mean_sample : ``torch.Tensor``
+        The (rescaled) predicted mean of the negative binomial
+        modeling the gene counts for a single sample.
+
+        This is a 1D tensor whose length is equal to the
+        dimensionality of the gene space.
+
+    statistics : ``list``,
+                 {``["p_values", "q_values", "log2_fold_changes"]``}
+        The statistics to be computed. By default, all of them
+        will be computed (``"p_values"``, ``"q_values"``,
+        ``"log2_fold_changes"``).
+
+    genes_names : ``list``, optional
+        The names of the genes on which DEA is performed. If provided,
+        the genes will be the names of the rows of the output data
+        frame. If not, the rows will be indexed starting from 0.
+
+    r_values : ``torch.Tensor``
+        A tensor containing one r-value for each negative binomial
+        (= one r-value for each gene).
+
+        This is a 1D tensor whose length is equal to the
+        dimensionality of the gene space.
+
+    resolution : ``int``, ``1``
+        How accurate the calculation of the p-values should be.
+
+        The ``resolution`` corresponds to the coarseness of the sum
+        over the probability mass function of each negative binomial
+        to compute the corresponding p-value.
+
+        The lower the ``resolution``, the more accurate the
+        calculation of the p-values.
+
+        If ``1`` (the default), the calculation will be exact
+        (but it will be more computationally expensive).
+
+    alpha : ``float``, ``0.05``
+        The family-wise error rate for the calculation of the
+        q-values.
+
+    method : ``str``, ``fdr_bh``
+        The method used to adjust the p-values. The available
+        methods are listed in the documentation for
+        ``statsmodels.stats.multitest.multipletests``.
+
+    Returns
+    -------
+    ``pandas.DataFrame``
+        A data frame whose rows represent the genes on which
+        DEA was performed, and whose columns contain the statistics
+        computed (p-values, q_values, log2-fold changes). If not
+        all statistics were computed, the columns corresponding
+        to the missing ones will be empty.
+    """
+    
+    # Initialize all the statistics to None
+    p_values = None
+    q_values = None
+    log2_fold_changes = None
+
+    # Set the column names that will be used in the final data frame
+    columns_names = ["p_value", "q_value", "log2_fold_change"]
+
+
+    #--------------------------- p-values ----------------------------#
+
+
+    # If the user requested the calculation of p-values
+    if "p_values" in statistics:
+
+        # If no r-values were passed
+        if r_values is None:
+
+            # Raise an error
+            errstr = \
+                f"'r-values' are needed to compute the " \
+                f"p-values."
+            raise RuntimeError(errstr)
+
+        # Calculate the p-values
+        p_values, ks, pmfs = \
+            get_p_values(obs_counts_sample = obs_counts_sample,
+                         pred_means_sample = pred_means_sample,
+                         r_values = r_values,
+                         resolution = resolution)
+
+
+    #--------------------------- q-values ----------------------------#
+
+
+    # If the user requested the calculation of q-values
+    if "q_values" in statistics:
+
+        # If no p-values were calculated
+        if p_values is None:
+
+            # Raise an error
+            errstr = \
+                f"The calculation of p-values is needed to " \
+                f"compute the q-values. This can be done " \
+                f"by adding 'p_values' to 'stats'."
+            raise RuntimeError(errstr)
+
+        # Calculate the q-values
+        q_values, rejected = \
+            get_q_values(p_values = p_values)
+
+
+    #----------------------- log2-fold changes -----------------------#
+
+
+    # If the user requested the calculation of fold changes
+    if "log2_fold_changes" in statistics:
+
+        # Calculate the fold changes
+        log2_fold_changes = \
+            get_log2_fold_changes(\
+                obs_counts_sample = obs_counts_sample,
+                pred_means_sample = pred_means_sample)
+
+    # Get the results for the statistics that were computed
+    stats_results = \
+        [pd.Series(stat) if stat is not None
+         else pd.Series()
+         for stat in (p_values, q_values, log2_fold_changes)]
+
+
+    #----------------------- Output data frame -----------------------#
+
+
+    # Create a data frame from the statistics computed
+    df_stats = pd.concat(stats_results,
+                         axis = 1)
+
+    # Set the columns' names to the ones defined above
+    df_stats.columns = columns_names
+
+    # If the genes' names were passed
+    if genes_names is not None:
+        
+        # The names of the rows of the data frame will be the gene
+        # names
+        df_stats.index = genes_names
+
+    # Return the data frame
+    return df_stats, sample_name
+
+
 #----------------------- Probability densities -----------------------#
 
 
@@ -1412,7 +2008,7 @@ def get_probability_density(gmm,
 
     Parameters
     ----------
-    gmm : ``DGDPerturbations.src.GMM.GaussianMixtureModel``
+    gmm : ``DGDPerturbations.src.latent.GaussianMixtureModel``
         The trained Gaussian mixture model.
 
     df_rep : ``pandas.DataFrame``

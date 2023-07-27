@@ -58,7 +58,6 @@ import torch.distributions as dist
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 # Get the module's logger
 logger = log.getLogger(__name__)
 
@@ -68,7 +67,7 @@ logger = log.getLogger(__name__)
 
 def reshape_scaling_factor(x,
                            out_dim):
-    """Reshape the scaling factor.
+    """Reshape the scaling factor (a tensor).
 
     Parameters
     ----------
@@ -86,7 +85,7 @@ def reshape_scaling_factor(x,
     
     # Get the dimensionality of the input tensor
     start_dim = len(x.shape)
-    
+
     # For each extra dimension that the output tensor needs to
     # have with respect to the input tensor
     for i in range(out_dim - start_dim):
@@ -96,459 +95,6 @@ def reshape_scaling_factor(x,
     
     # Return the reshaped tensor
     return x
-
-
-#------------------------ Representation layer -----------------------#
-
-
-class RepresentationLayer(nn.Module):
-    
-    """
-    Class implementing a representation layer accumulating
-    ``PyTorch`` gradients.
-    """
-    
-    def __init__(self,
-                 values = None,
-                 dist = "normal",
-                 dist_params = None):
-        """The representations are vectors in an N-dimensional real
-        space.
-
-
-        If no ``values`` for the representations are passed, the
-        representations will be initialized as a two-dimensional
-        tensor of shape (``dist_params["n_samples"]``,
-        ``dist_params["dim"]``) from ``dist``.
-
-        Parameters
-        ----------
-        values : ``torch.Tensor``, optional
-            The tensor used to initialize the representations.
-
-            If it is not passed, the representations will be
-            initialized by sampling the distribution specified
-            with `dist`.
-
-        dist : ``str``, {``"normal"``}, default: ``"normal"``
-            The name of the distribution used to sample the
-            representations, if no ``values`` are passed.
-
-            By default, the distribution is a ``"normal"``
-            distribution.
-
-        dist_params : ``dict``, optional
-            A dictionary containing the parameters to sample the
-            representations from the distribution, if
-            ``values`` is not passed.
-
-            For any distribution the following keys and associated
-            parameters must be provided:
-
-            * ``"dim"`` : the dimensionality of the representations
-              to sample from the distribution.
-            * ``"n_samples"`` : the number of samples to draw from
-              the distribution.
-
-
-            If ``dist`` is ``"normal"``, the dictionary must contain
-            these additional key/value pairs:
-
-            * ``"mean"`` : the mean of the normal distribution used
-              to generate the representations.
-            * ``"stddev"`` : the standard deviation of the normal
-              distribution used to generate the representations.
-        """
-
-        # Available distributions to sample the representations
-        # from
-        AVAILABLE_DISTS = {"normal"}
-        
-        # Initialize the class
-        super().__init__()
-        
-        # Initialize the gradients with respect to the
-        # representations to None
-        self.dz = None
-
-        # If a tensor of values was passed
-        if values is not None:
-
-            # Get the representations from the tensor
-            self._n_samples, self._dim, self._mean, \
-                self._stddev, self._z = \
-                    self._get_rep_from_values(\
-                        values = values)      
-        
-        # Otherwise
-        else:
-
-            # If the representations are to be sampled from a
-            # normal distribution
-            if dist == "normal":
-
-                # Sample the representations from a normal
-                # distribution
-                self._n_samples, self._dim, self._mean, \
-                    self._stddev, self._z = \
-                        self._get_rep_from_normal(\
-                            params = dist_params)
-
-            # Otherwise
-            else:
-
-                # Raise an error since only the normal distribution
-                # is implemented so far
-                available_dists_str = \
-                    ", ".join(f'{d}' for d in AVAILABLE_DISTS)
-                errstr = \
-                    f"An invalid distribution '{dist}' was passed. " \
-                    f"So far, the only distributions for which " \
-                    f"the sampling of the representations has been " \
-                    f"implemented are: {available_dists_str}."
-                raise ValueError(errstr)
-
-    
-    #-------------------- Initialization methods ---------------------#
-
-
-    def _get_rep_from_values(self,
-                             values):
-        """Get the representations from a given tensor of values.
-
-        Parameters
-        ----------
-        values : ``torch.Tensor``
-            The tensor used to initialize the representations.
-
-        Returns
-        -------
-        ``tuple``
-            A tuple containing:
-
-            * An ``int`` representing the number of samples
-              found in the input tensor (and, therefore,
-              the number of representations).
-            * An ``int`` representing the dimensionality of
-              the representations.
-            * A `None` representing the mean of the distribution
-              from which the representations were sampled (this
-              is populated by something other than ``None`` only
-              when the representations are generated from a
-              distribution, and not when ``values`` is passed).
-            * A `None` representing the standard deviation of the
-              distribution from which the representations were
-              sampled (this is populated by something other than
-              ``None`` only when the representations are generated
-              from a distribution, and not when ``values`` is passed).
-            * A ``torch.Tensor`` containing the representations.
-        """
-
-        # Inform the user that the representations will be
-        # initialized from the values passed
-        infostr = \
-            f"The representations will be initialized from " \
-            f"'values'."
-        logger.info(infostr)
-
-        # Get the number of samples from the first
-        # dimension of the tensor
-        n_samples = values.shape[0]
-        
-        # Get the dimensionality of the representations
-        # from the last dimension of the tensor
-        dim = values.shape[-1]
-
-        # Initialize the mean and the standard
-        # deviation to None, since no normal
-        # distribution is needed to initialize
-        # the representations
-        mean, stddev = None, None
-
-        # Initialize a tensor with the representations
-        z = nn.Parameter(torch.zeros_like(values), 
-                         requires_grad = True)
-
-        # Fill the tensor with the given values
-        with torch.no_grad():
-            z.copy_(values)
-
-        # Return the representations and the parameters used
-        # to generate them
-        return n_samples, dim, mean, stddev, z
-
-
-    def _get_rep_from_normal(self,
-                             params):
-        """Get representations by sampling from a normal
-        distribution.
-
-        Parameters
-        ----------
-        params : ``dict``
-            A dictionary containing the parameters to sample the
-            representations from a normal distribution.
-
-            The dictionary must contains the following keys,
-            associated to the corresponding parameters:
-
-            * ``"dim"`` : the dimensionality of the representations
-              to sample from the normal distribution.
-            * ``"n_samples"`` : the number of samples to draw from
-              the normal distribution.
-            * ``"mean"`` : the mean of the normal distribution used
-              to generate the representations.
-            * ``"stddev"`` : the standard deviation of the normal
-              distribution used to generate the representations.
-
-        Returns
-        -------
-        ``tuple``
-            A tuple containing:
-
-            * An ``int`` representing the number of samples
-              found in the input tensor (and, therefore,
-              the number of representations).
-            * An ``int`` representing the dimensionality of
-              the representations.
-            * A number representing the mean of the normal
-              distribution from which the representations were
-              sampled.
-            * A number representing the standard deviation of the
-              normal distribution from which the representations
-              were sampled.
-            * A ``torch.Tensor`` containing the representations.
-        """
-
-        # Get the desired number of samples
-        n_samples = params["n_samples"]
-
-        # Get the dimensionality of the desired representations
-        dim = params["dim"]
-
-        # Get the mean of the normal distribution from which
-        # the representations should be sampled from
-        mean = params["mean"]
-
-        # Get the standard deviation of the normal distribution
-        # from which the representations should be sampled from
-        stddev = params["stddev"]
-
-        # Get the representations
-        z = \
-            nn.Parameter(\
-                torch.normal(mean,
-                             stddev,
-                             size = (n_samples, dim),
-                             requires_grad = True))
-        
-        # Return the representations and the parameters used
-        # to generate them
-        return n_samples, dim, mean, stddev, z
-
-
-    #--------------------------- Properties --------------------------#
-
-
-    @property
-    def n_samples(self):
-        """The number of samples for which a representation must
-        be found.
-        """
-
-        return self._n_samples
-
-
-    @n_samples.setter
-    def n_samples(self,
-                  value):
-        """Raise an exception if the user tries to modify
-        the value of ``n_samples`` after initialization.
-        """
-        
-        errstr = \
-            "The value of 'n_samples' cannot be changed " \
-            "after initialization."
-        raise ValueError(errstr)
-
-
-    @property
-    def dim(self):
-        """The dimensionality of the representations.
-        """
-
-        return self._dim
-
-
-    @dim.setter
-    def dim(self,
-            value):
-        """Raise an exception if the user tries to modify
-        the value of ``dim`` after initialization.
-        """
-        
-        errstr = \
-            "The value of 'dim' cannot be changed " \
-            "after initialization."
-        raise ValueError(errstr)
-
-
-    @property
-    def mean(self):
-        """The mean of the distribution the representations
-        were sampled from, if the user passed no ``values``
-        for the representations when initializing the
-        ``RepresentationLayer``.
-        """
-
-        return self._mean
-
-
-    @mean.setter
-    def mean(self,
-             value):
-        """Raise an exception if the user tries to modify
-        the value of ``mean`` after initialization.
-        """
-        
-        errstr = \
-            "The value of 'mean' cannot be changed " \
-            "after initialization."
-        raise ValueError(errstr)
-
-
-    @property
-    def stddev(self):
-        """The standard deviation of the distribution the
-        representations were sampled from, if the user
-        passed no ``values`` for the representations
-        when initializing the ``RepresentationLayer``.
-        """
-
-        return self._stddev
-
-
-    @stddev.setter
-    def stddev(self,
-               value):
-        """Raise an exception if the user tries to modify
-        the value of ``stddev`` after initialization.
-        """
-        
-        errstr = \
-            "The value of 'stddev' cannot be changed " \
-            "after initialization."
-        raise ValueError(errstr)
-
-
-    @property
-    def z(self):
-        """The representations.
-        """
-
-        return self._z
-
-
-    @z.setter
-    def z(self,
-          value):
-        """Raise an exception if the user tries to modify
-        the value of ``z`` after initialization.
-        """
-        
-        errstr = \
-            "The value of 'z' cannot be changed " \
-            "after initialization."
-        raise ValueError(errstr)
-
-
-    #------------------------ Public methods -------------------------#
-
-
-    def forward(self,
-                ixs = None):
-        """Forward pass. It returns the representations. You can
-        select a subset of representations to be returned using
-        their numerical indexes (``ixs``).
-
-        Parameters
-        ----------
-        ixs : ``list``, optional
-            The indexes of the samples whose representations should
-            be returned. If not passed, all representations
-            will be returned.
-
-        Returns
-        -------
-        ``torch.Tensor``
-            A tensor containing the representations for the samples
-            of interest.
-        """
-
-        # If no indexes were provided
-        if ixs is None:
-            
-            # Return all representations
-            return self.z
-        
-        # Otherwise
-        else:
-
-            # Return the representations of the
-            # samples corresponding to the
-            # given indexes
-            return self.z[ixs]
-
-
-    def zero_grad(self):
-        """Set the gradients associated with the representations
-        to zero.
-        """
-
-        # If the gradients are not None
-        if self.z.grad is not None:
-
-            # Create a tensor which detaches the output
-            # from the computational graph (no gradients
-            # will be backpropagated along this variable)
-            self.z.grad.detach_()
-
-            # Set the gradients to zero
-            self.z.grad.zero_()
-
-
-    def rescale(self):
-        """Rescale the representations by subtracting the mean
-        of all representations from each of them and dividing
-        them by the standard deviation of all representations.
-
-        Given :math:`N` samples, we can indicate with :math:`z^{n}`
-        the representation of sample :math:`x^{n}`. The rescaled
-        representation :math:`z^{n}_{rescaled}` will be, therefore:
-        
-        .. math::
-
-           z^{n}_{rescaled} = \\frac{z^{n} - \\bar{z}}{s}
-
-        Where :math:`\\bar{z}` is the mean of the representations
-        and :math:`s` is the standard deviation.
-        """
-        
-        # Flatten the tensor with the representations
-        z_flat = torch.flatten(self.z.cpu().detach())
-        
-        # Get the mean and the standard deviation
-        sd, m = torch.std_mean(z_flat)
-        
-        # Disable the gradient calculation
-        with torch.no_grad():
-
-            # Subtract the mean from the representations
-            self.z -= m
-
-            # Divide the representations by the standard
-            # deviation
-            self.z /= sd
 
 
 #---------------------- Negative binomial layer ----------------------#
@@ -708,13 +254,13 @@ class NBLayer(nn.Module):
 
         Parameters
         ----------
-        dim : ``int``
-            The dimensionality of the negative binomial
-            distributions.
-
         r_init : ``int``
             The initial value for ``r``, representing the "number
             of failures" after which the "trials" stop.
+
+        dim : ``int``
+            The dimensionality of the negative binomial
+            distributions.
 
         Returns
         -------
@@ -906,45 +452,47 @@ class NBLayer(nn.Module):
     #------------------------ Public methods -------------------------#
 
 
-    def forward(self,
-                x):
-        """Forward pass. Pass the input tensor through the
-        activation function and return the result.
+    @staticmethod
+    def rescale(scaling_factor,
+                mean):
+        """Rescale the mean of the means of the negative binomial
+        distributions by a per-batch scaling factor.
 
         Parameters
         ----------
-        x : ``torch.Tensor``
-            The input tensor (containing the mean gene
-            expression counts).
+        scaling_factor : ``torch.Tensor``
+            The scaling factor.
+
+            This is a 1D tensor whose length is equal to the
+            number of scaling factors to be used to rescale
+            the means.
+
+        mean : ``torch.Tensor``
+            A 1D tensor containing the  means of the negative
+            binomials o be rescaled.
+
+            In the tensor, each value represents the 
+            mean of a different negative binomial.
 
         Returns
         -------
         ``torch.Tensor``
-            A tensor containing the result of passing the input
-            tensor through the activation function.
+            The rescaled means. This is a 1D tensor whose length
+            is equal to the number of negative binomials whose
+            means were rescaled.
         """
         
-        # If the activation function is a sigmoid
-        if self.activation == "sigmoid":
-            
-            # Pass the input through the sigmoid
-            # function
-            return torch.sigmoid(x)
-        
-        # If the activation function is a softplus
-        elif self.activation == "softplus":
-
-            # Pass the input through the softplus
-            # function
-            return F.softplus(x)
+        # Return the rescaled values by multiplying the
+        # scaling factor by the means
+        return scaling_factor * mean
 
 
-    def log_nb_density(self,
-                       k,
-                       m,
-                       r):
+    @staticmethod
+    def log_prob_mass(k,
+                      m,
+                      r):
         """Compute the logarithm of the probability density
-        for the negative binomial distributions.
+        for a set of negative binomial distribution.
 
         Thr formula used to compute the logarithm of the
         probability density is:
@@ -981,14 +529,16 @@ class NBLayer(nn.Module):
             "Number of failures" after which the trials
             end (each value in the tensor corresponds to
             the number of failures of a different negative
-            binomials).
+            binomial).
 
         Returns
         -------
         x : ``torch.Tensor``
-            The log-density of the negative binomials (each
-            value in the tensor corresponds to the
-            log-density of a different negative binomial).
+            The log-probability density of the negative binomials.
+            This is a 1D tensor whose length corresponds to the
+            number of negative binomials distributions considered,
+            and each value in the tensor corresponds to the
+            log-probability density of a different negative binomial.
 
         Notes
         -----
@@ -1127,96 +677,87 @@ class NBLayer(nn.Module):
         return x
 
 
-    def rescale(self,
-                scaling_factor,
-                mean):
-        """Rescale the mean of the means of the negative binomial
-        distributions by a per-batch scaling factor.
-
-        Parameters
-        ----------
-        scaling_factor : ``torch.Tensor``
-            The scaling factor.
-
-            This tensor has dimensions (n_batches, 1),
-            meaning there is a scaling factor for each batch
-            of input samples (for instance, the mean gene
-            expression in that batch).
-
-        mean : ``torch.Tensor``
-            A one-dimensional tensor containing the predicted
-            means of the negative binomials (the output of the
-            decoder).
-
-            In the tensor, each value represents the 
-            predicted mean of the expression of a gene.
-
-        Returns
-        -------
-        ``torch.Tensor``
-            The rescaled values.
-        """
-        
-        # Return the rescaled values by multiplying the
-        # scaling factor by the means
-        return scaling_factor * mean
-
-
-    def loss(self,
-             x,
-             scaling_factor,
-             mean):
-        """Compute the loss for a given input ``x``.
-
-        The loss is calculated as the negative log-likelihood
-        of ``x``. In other words, minimizing the loss for
-        ``x`` corresponds to maximizing the log-likelihood
-        of ``x``.
+    def forward(self,
+                x):
+        """Forward pass. Pass the input tensor through the
+        activation function and return the result.
 
         Parameters
         ----------
         x : ``torch.Tensor``
-            Th input tensor.
-
-        scaling_factor : ``torch.Tensor``
-            The scaling factor.
-
-            This tensor has dimensions (n_batches, 1),
-            meaning there is a scaling factor for each batch
-            of input samples (for instance, the mean gene
-            expression in that batch).
-
-        mean : ``torch.Tensor``
-            A one-dimensional tensor containing the predicted
-            means of the negative binomials (the output of the
-            decoder).
-
-            In the tensor, each value represents the 
-            predicted mean of the expression of a gene.
+            The input tensor.
 
         Returns
         -------
         ``torch.Tensor``
+            A tensor containing the result of passing the input
+            tensor through the activation function. This tensor
+            has the same shape as the input tensor.
+        """
+        
+        # If the activation function is a sigmoid
+        if self.activation == "sigmoid":
+            
+            # Pass the input through the sigmoid
+            # function
+            return torch.sigmoid(x)
+        
+        # If the activation function is a softplus
+        elif self.activation == "softplus":
+
+            # Pass the input through the softplus
+            # function
+            return F.softplus(x)
+
+
+    def loss(self,
+             obs_count,
+             scaling_factor,
+             pred_mean):
+        """Compute the loss given observed means ``obs_count`` and
+        predicted means ``pred_mean``.
+
+        Parameters
+        ----------
+        obs_count : ``torch.Tensor``
+            The observed gene counts. This is a tensor whose shape
+            must match that of ``pred_mean``.
+
+        scaling_factor : ``torch.Tensor``
+            A tensor containing the scaling factor(s). It must have the
+            same dimensionality as ``obs_count`` and ``pred_mean``, and
+            the size of the first dimension must match that of the
+            first dimension of ``obs_count`` and ``pred_mean``.
+
+        pred_mean : ``torch.Tensor``
+            The predicted means of the negative binomials. This is a
+            tensor whose shape must match that of ``obs_count``.
+
+        Returns
+        -------
+        ``torch.Tensor``
+            The loss associated to the input ``x``.
+
             * If the ``reduction`` property is ``None``, the
-              tensor will contain as many values as the
-              dimensions of the input ``x`` (the loss for each
-              of the negative binomials associated with ``x``).
+              tensor will have two dimensions whose size correspond
+              to the size of the first and last dimension of
+              ``obs_count`` and ``pred_mean``, respectively.
 
             * If the ``reduction`` property is ``sum``, the tensor
-              will contain a single value (the total loss for
-              the given input ``x``).
+              will contain a single value.
         """
-
+        
         # If no reduction method was defined
         if self.reduction is None:
             
             # Return a tensor with as many values as the
             # dimensions of the input ``x`` (the loss for each
             # of the negative binomials associated with ``x``)
-            return - self.log_nb_density(\
-                            x,
-                            self.rescale(scaling_factor, mean),
-                            torch.exp(self.log_r))
+            return - self.__class__.log_prob_mass(\
+                            k = obs_count,
+                            m = self.__class__.rescale(scaling_factor,
+                                                       pred_mean),
+                            r = torch.exp(self.log_r))
         
         # If a reduction of the output needs to be performed by
         # summing up its components
@@ -1224,10 +765,11 @@ class NBLayer(nn.Module):
             
             # Return a tensor with only one value (the total loss
             # associated with ``x``)
-            return - self.log_nb_density(\
-                            x,
-                            self.rescale(scaling_factor, mean),
-                            torch.exp(self.log_r)).sum()
+            return - self.__class__.log_prob_mass(\
+                            k = obs_count,
+                            m = self.__class__.rescale(scaling_factor,
+                                                       pred_mean),
+                            r = torch.exp(self.log_r)).sum()
 
 
     def log_prob(self,
@@ -1239,33 +781,27 @@ class NBLayer(nn.Module):
         Parameters
         ----------
         x : ``torch.Tensor``
-            Input tensor.
+            The input tensor.
 
         scaling_factor : ``torch.Tensor``
-            The scaling factor.
-
-            This tensor has dimensions (n_batches, 1),
-            meaning there is a scaling factor for each batch
-            of input samples (for instance, the mean gene
-            expression in that batch).
+            A tensor containing the scaling factor(s).
 
         mean : ``torch.Tensor``
-            A one-dimensional tensor containing the predicted
-            means of the negative binomials (the output of the
-            decoder).
-
-            In the tensor, each value represents the 
-            predicted mean of the expression of a gene.
+            A one-dimensional tensor containing the means of
+            the negative binomials.
         
         Returns
         -------
         ``torch.Tensor``
-            Log-likelihood of the input.
+            The log-likelihood of the input.
+
+            This tensor contains a value for each of the negative
+            binomials associated with the values in ``x``.
         """
         
-        return self.log_nb_density(\
+        return self.__class__.log_prob_mass(\
                     x,
-                    self.rescale(scaling_factor, mean),
+                    self.__class__.rescale(scaling_factor, mean),
                     torch.exp(self.log_r))
 
 
@@ -1281,12 +817,7 @@ class NBLayer(nn.Module):
             Number of samples to get.
 
         scaling_factor : ``torch.Tensor``
-            The scaling factor.
-
-            This tensor has dimensions (n_batches, 1),
-            meaning there is a scaling factor for each batch
-            of input samples (for instance, the mean gene
-            expression in that batch).
+            A tensor containing the scaling factor(s).
 
         mean : ``torch.Tensor``
             A one-dimensional tensor containing the predicted
@@ -1298,15 +829,20 @@ class NBLayer(nn.Module):
         
         Returns
         -------
-        ???
-            ???
+        ``torch.Tensor``
+            The samples drawn from the negative binomial distributions.
+            
+            The shape of this tensor depends on the shape of ``n``
+            and ``scaling_factor``, but the first dimension always
+            has a length equal to the number of samples drawn from
+            the negative binomial distribution.
         """
         
         # Disable gradient calculation
         with torch.no_grad():
             
             # Rescale the means
-            m = self.rescale(scaling_factor, mean)
+            m = self.__class__.rescale(scaling_factor, mean)
             
             # Get the probabilities from the means
             # m = p * r / (1-p), so p = m / (m+r)

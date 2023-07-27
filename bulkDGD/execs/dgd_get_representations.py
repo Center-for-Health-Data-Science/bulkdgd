@@ -33,6 +33,10 @@ import argparse
 import logging as log
 import os
 import sys
+# Third-party packages
+import pandas as pd
+import torch
+from torch.utils.data import DataLoader
 # bulkDGD
 from bulkDGD.utils import dgd, misc
 
@@ -48,14 +52,15 @@ def main():
 
     # Add the arguments
     i_help = \
-        f"The input CSV file containing a data frame with " \
-        f"gene expression data for the samples for which a " \
-        f"representation in latent space should be found. " \
-        f"The columns must represent the genes (Ensembl IDs), " \
-        f"while the rows must represent the samples. The genes " \
-        f"should be the ones the DGD model has been trained on, " \
-        f"whose Ensembl IDs can be found in " \
-        f"'{dgd.DGD_GENES_FILE}'."
+        "The input CSV file containing a data frame with " \
+        "the gene expression data for the samples for which a " \
+        "representation in latent space should be found. " \
+        "The rows must represent the samples. The first column " \
+        "must contain the unique names of the samples, while " \
+        "the other columns must represent the genes (identified " \
+        "by their Ensembl IDs). The genes should be the ones " \
+        "the DGD model was trained on, whose Ensembl IDs can " \
+        f"be found in '{dgd.DGD_GENES_FILE}'."
     parser.add_argument("-i", "--input-csv",
                         type = str,
                         required = True,
@@ -63,13 +68,14 @@ def main():
 
     or_default = "representations.csv"
     or_help = \
-        f"The name of the output CSV file containing the data frame " \
-        f"with the representation of each input sample in latent " \
-        f"space. The columns represent the values of the " \
-        f"representations along the latent space's dimensions, " \
-        f"while the rows represent the samples. The file will " \
-        f"be written in the working directory. The default file " \
-        f"name is '{or_default}'."
+        "The name of the output CSV file containing the data frame " \
+        "with the representation of each input sample in latent " \
+        "space. The rows represent the samples. The first column " \
+        "contains the unique names of the samples, while the other " \
+        "columns represent the values of the representations along " \
+        "the latent space's dimensions. The file will be written in " 
+        "the working directory. The default file name is " \
+        f"'{or_default}'."
     parser.add_argument("-or", "--output-csv-rep",
                         type = str,
                         default = or_default,
@@ -77,12 +83,13 @@ def main():
 
     od_default = "decoder_outputs.csv"
     od_help = \
-        f"The name of the output CSV file containing the data frame " \
-        f"with the decoder output for each input sample. The " \
-        f"columns of the data frame represent the genes for which " \
-        f"the decoder outputs are reported, while the rows represent " \
-        f"the samples. The file will be written in the working " \
-        f"directory. The default file name is '{od_default}'."
+        "The name of the output CSV file containing the data frame " \
+        "with the decoder output for each input sample. The " \
+        "rows represent the samples. The first column contains the " \
+        "unique names of the samples, while the other columns " \
+        "represent the genes (identified by their Ensembl IDs). " \
+        "The file will be written in the working directory. " \
+        f"The default file name is '{od_default}'."
     parser.add_argument("-od", "--output-csv-dec",
                         type = str,
                         default = od_default,
@@ -90,13 +97,13 @@ def main():
 
     ol_default = "loss.csv"
     ol_help = \
-        f"The name of the output CSV file containing the data frame " \
-        f"with the per-sample, per-gene loss associated with the " \
-        f"best representation found for each sample of interest. " \
-        f"The columns of the data frame represent the genes, " \
-        f"while the rows represent the samples. The file will " \
-        f"be written in the working directory. The default " \
-        f"file name is '{ol_default}'."
+        "The name of the output CSV file containing the data frame " \
+        "with the per-sample loss associated with the best " \
+        "representation found for each sample of interest. " \
+        "The rows represent the samples, while the only column " \
+        "contains the loss. The file will be written in the " \
+        "working directory. The default file name is " \
+        f"'{ol_default}'."
     parser.add_argument("-ol", "--output-csv-loss",
                         type = str,
                         default = ol_default,
@@ -105,27 +112,41 @@ def main():
 
     ot_default = "tissues.csv"
     ot_help = \
-        f"The name of the output CSV file containing a column with  " \
-        f"the labels of the tissues the input samples belong to. " \
-        f"The file will be written in the working directory. The " \
+        "The name of the output CSV file containing the data  " \
+        "frame with the labels of the tissues the amples belong to. " \
+        "The rows represent the samples, while the only column " \
+        "contains the labels of the tissues. "
+        "The file will be written in the working directory. The " \
         f"default file name is '{ot_default}'. This file will not " \
-        f"be generated unless the input CSV file has a " \
+        "be generated unless the input CSV file has a " \
         f"'{dgd._TISSUE_COL}' column containing the labels."
     parser.add_argument("-ot", "--output-csv-tissues",
                         type = str,
                         default = ot_default,
                         help = ot_help)
 
-    c_help = \
-        f"The YAML configuration file specifying the " \
-        f"DGD model parameters and files containing " \
-        f"the trained model. If it is a name without " \
-        f"extension, it is assumed to be the name of a " \
-        f"configuration file in '{dgd.CONFIG_REP_DIR}'."
-    parser.add_argument("-c", "--config-file",
+    cm_help = \
+        "The YAML configuration file specifying the " \
+        "DGD model parameters and files containing " \
+        "the trained model. If it is a name without " \
+        "extension, it is assumed to be the name of a " \
+        f"configuration file in '{dgd.CONFIG_MODEL_DIR}'."
+    parser.add_argument("-cm", "--config-file-model",
                         type = str,
                         required = True,
-                        help = c_help)
+                        help = cm_help)
+
+
+    cr_help = \
+        "The YAMl configuration file containing the " \
+        "options for data loading and optimization when " \
+        "finding the best representations. If it is a name " \
+        "without extension, it is assumed to be the name of " \
+        f"a configuration file in '{dgd.CONFIG_REP_DIR}'."
+    parser.add_argument("-cr", "--config-file-rep",
+                        type = str,
+                        required = True,
+                        help = cr_help)
 
     d_help = \
         "The working directory. The default is the current " \
@@ -154,7 +175,8 @@ def main():
     output_csv_dec = args.output_csv_dec
     output_csv_loss = args.output_csv_loss
     output_csv_tissues = args.output_csv_tissues
-    config_file = args.config_file
+    config_file_model = args.config_file_model
+    config_file_rep = args.config_file_rep
     wd = args.work_dir
     v = args.logging_verbose
     vv = args.logging_debug
@@ -186,54 +208,83 @@ def main():
     log.basicConfig(level = level)
 
 
-    #------------------------- Configuration -------------------------#
+    #--------------------- Configuration - model ---------------------#
 
 
     # Try to load the configuration
     try:
 
-        config = misc.get_config_rep(config_file)
+        config_model = misc.get_config_model(config_file_model)
 
     # If something went wrong
     except Exception as e:
 
         # Warn the user and exit
         errstr = \
-            f"It was not possible to load the configuration from " \
-            f"'{config_file}'. Error: {e}"
+            "It was not possible to load the configuration from " \
+            f"'{config_file_model}'. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the configuration was successfully loaded
     infostr = \
-        f"The configuration was successfully loaded from " \
-        f"'{config_file}'."
+        "The configuration was successfully loaded from " \
+        f"'{config_file_model}'."
     logger.info(infostr)
 
 
-    #------------------------- Data loading --------------------------#
+    #---------------- Configuration - representations ----------------#
 
 
-    # Try to load the data
+    # Try to load the configuration
     try:
 
-        dataset, indexes, n_samples, n_genes, tissues = \
-            dgd.load_samples_data(csv_file = input_csv,
-                                  config = config["data"])
+        config_rep = misc.get_config_rep(config_file_rep)
 
     # If something went wrong
     except Exception as e:
 
         # Warn the user and exit
         errstr = \
-            f"It was not possible to load the data from " \
+            "It was not possible to load the configuration from " \
+            f"'{config_file_rep}'. Error: {e}"
+        logger.exception(errstr)
+        sys.exit(errstr)
+
+    # Inform the user that the configuration was successfully loaded
+    infostr = \
+        "The configuration was successfully loaded from " \
+        f"'{config_file_rep}'."
+    logger.info(infostr)
+
+
+    #------------------------ Load the data --------------------------#
+
+
+    # Try to load the samples' data
+    try:
+
+        # Create the dataset
+        dataset, indexes, genes, tissues = \
+            dgd.load_samples_data(csv_file = input_csv,
+                                  keep_samples_names = True)
+
+        # Create the data loader
+        dataloader = DataLoader(dataset, **config_rep["data"])
+    
+    # If something went wrong
+    except Exception as e:
+
+        # Warn the user and exit
+        errstr = \
+            "It was not possible to load the samples from " \
             f"'{input_csv}'. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the data were successfully loaded
     infostr = \
-        f"The data were successfully loaded from '{input_csv}'."
+        f"The samples were successfully loaded from '{input_csv}'."
     logger.info(infostr)
 
 
@@ -241,10 +292,10 @@ def main():
 
 
     # Get the dimensionality of the latent space
-    dim_latent = config["dim_latent"]
+    dim_latent = config_model["dim_latent"]
 
     # Get the configuration for the GMM
-    config_gmm = config["gmm"]
+    config_gmm = config_model["gmm"]
 
     # Try to get the GMN
     try:
@@ -257,7 +308,7 @@ def main():
 
         # Warn the user and exit
         errstr = \
-            f"It was not possible to set the Gaussian mixture " \
+            "It was not possible to set the Gaussian mixture " \
             f"model. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
@@ -271,7 +322,7 @@ def main():
 
 
     # Get the configuration for the decoder
-    config_dec = config["dec"]
+    config_dec = config_model["dec"]
 
     # Try to get the decoder
     try:
@@ -297,7 +348,7 @@ def main():
 
 
     # Get the configuration for the representation layer
-    config_rep_layer = config["rep_layer"]
+    config_rep_layer = config_model["rep_layer"]
 
     # Try to get the representation layer
     try:
@@ -310,7 +361,7 @@ def main():
 
         # Warn the user and exit
         errstr = \
-            f"It was not possible to set the representation layer. " \
+            "It was not possible to set the representation layer. " \
             f"Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
@@ -328,18 +379,18 @@ def main():
     n_new = 1
 
     # Get the configuration for the initial optimization
-    config_opt1 = config["optimization"]["opt1"]
+    config_opt1 = config_rep["optimization"]["opt1"]
 
     # Get the configuration for further optimization
-    config_opt2 = config["optimization"]["opt2"]
+    config_opt2 = config_rep["optimization"]["opt2"]
     
     # Try to get the representations
     try:
         
         df_loss, df_rep, df_dec_out = \
             dgd.get_representations(\
-                # Dataset
-                dataset = dataset,
+                # DataLoader object
+                dataloader = dataloader,
                 # Samples' unique indexes
                 indexes = indexes,
                 # Gaussian mixture model
@@ -347,12 +398,12 @@ def main():
                 # Decoder
                 dec = dec,
                 # Number of samples in the dataset
-                n_samples = n_samples,
+                n_samples = len(indexes),
                 # Number of genes in the dataset                         
-                n_genes = n_genes,
+                n_genes = len(genes),
                 # Number of new representations per component
                 # per sample                         
-                n_reps_per_mix_comp = 1,
+                n_samples_per_comp = 1,
                 # Dimensionality of the latent space
                 dim = dim_latent,
                 # Configuration for the first round of optimization                         
@@ -365,7 +416,7 @@ def main():
 
         # Warn the user and exit
         errstr = \
-            f"It was not possible to find the representations. " \
+            "It was not possible to find the representations. " \
             f"Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
@@ -394,15 +445,15 @@ def main():
 
         # Warn the user and exit
         errstr = \
-            f"It was not possible to write the representations " \
-            f"to '{output_csv_rep_path}'. Error: {e}"
+            "It was not possible to write the representations " \
+            f"in '{output_csv_rep_path}'. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the representations were successfully
     # written in the output file
     infostr = \
-        f"The representations were successfully written in " \
+        "The representations were successfully written in " \
         f"'{output_csv_rep_path}'."
     logger.info(infostr)
 
@@ -412,6 +463,10 @@ def main():
 
     # Set the path to the output file
     output_csv_dec_path = os.path.join(wd, output_csv_dec)
+
+    # Set the names of the columns of the data frame to be the
+    # names of the genes
+    df_dec_out.columns = genes
 
     # Try to write the decoder outputs in the dedicated CSV file
     try:
@@ -425,15 +480,15 @@ def main():
 
         # Warn the user and exit
         errstr = \
-            f"It was not possible to write the decoder outputs " \
-            f"to '{output_csv_dec_path}'. Error: {e}"
+            "It was not possible to write the decoder outputs " \
+            f"in '{output_csv_dec_path}'. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the decoder outputs were successfully
     # written in the output file
     infostr = \
-        f"The decoder outputs were successfully written in " \
+        "The decoder outputs were successfully written in " \
         f"'{output_csv_dec_path}'."
     logger.info(infostr)
 
@@ -456,15 +511,15 @@ def main():
 
         # Warn the user and exit
         errstr = \
-            f"It was not possible to write the per-sample loss " \
-            f"to '{output_csv_loss_path}'. Error: {e}"
+            "It was not possible to write the per-sample loss " \
+            f"in '{output_csv_loss_path}'. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the per-sample loss was successfully
     # written in the output file
     infostr = \
-        f"The per-sample loss wwas successfully written in " \
+        "The per-sample loss wwas successfully written in " \
         f"'{output_csv_loss_path}'."
     logger.info(infostr)
 
@@ -472,11 +527,11 @@ def main():
     #----------------------- Output - tissues ------------------------#
 
 
-    # Set the path to the output file
-    output_csv_tissues_path = os.path.join(wd, output_csv_tissues)
-
     # If there were tissue labels in the input CSV file
     if not tissues.empty:
+
+        # Set the path to the output file
+        output_csv_tissues_path = os.path.join(wd, output_csv_tissues)
 
         # Try to write the tissue labels in the output CSV file
         try:
@@ -490,14 +545,14 @@ def main():
 
             # Warn the user and exit
             errstr = \
-                f"It was not possible to write the tissues' labels " \
-                f"to '{output_csv_tissues_path}'. Error: {e}"
+                "It was not possible to write the tissues' labels " \
+                f"in '{output_csv_tissues_path}'. Error: {e}"
             logger.exception(errstr)
             sys.exit(errstr)
 
         # Inform the user that the tissues' labels were successfully
         # written in the output file
         infostr = \
-            f"The tissues' labels were successfully written in " \
+            "The tissues' labels were successfully written in " \
             f"'{output_csv_tissues_path}'."
         logger.info(infostr)

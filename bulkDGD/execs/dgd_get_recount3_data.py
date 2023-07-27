@@ -50,7 +50,7 @@ def main():
     ip_choices = ["gtex", "tcga"]
     ip_choices_str = ", ".join(f"'{choice}'" for choice in ip_choices)
     ip_help = \
-        f"The name of the Recount3 project for which samples will " \
+        "The name of the Recount3 project for which samples will " \
         f"be retrieved. Available projects are: {ip_choices_str}."
     parser.add_argument("-ip", "--input-project-name",
                         type = str,
@@ -61,7 +61,7 @@ def main():
     is_help = \
         "The category of samples for which RNA-seq data will be " \
         "retrieved. For GTEx data, this is the name of the tissue " \
-        "the samples belong to " \
+        "the samples belong to. " \
         "For TCGA data, this is the type of cancer the samples are " \
         "associated with."
     parser.add_argument("-is", "--input-samples-category",
@@ -75,7 +75,7 @@ def main():
         "The name of the output CSV file containing the data frame " \
         "with the RNA-seq data for the samples. The rows " \
         "of the data frame represent samples, while the columns " \
-        "represent genes (identified by their Ensembl IDs. The " \
+        "represent genes (identified by their Ensembl IDs). The " \
         "file will be saved in the working directory. The default " \
         "file name is '{input_project_name}_" \
         "{input_samples_category}.csv'."
@@ -93,11 +93,11 @@ def main():
                         help = d_help)
 
     query_string_help = \
-        f"The string that will be used to filter the samples " \
-        f"according to their associated metadata using the " \
-        f"'pandas.DataFrame.query()' method. The option also " \
-        f"accepts a plain text file containing the string " \
-        f"since it can be long for complex queries."
+        "The string that will be used to filter the samples " \
+        "according to their associated metadata using the " \
+        "'pandas.DataFrame.query()' method. The option also " \
+        "accepts a plain text file containing the string " \
+        "since it can be long for complex queries."
     parser.add_argument("--query-string",
                         type = str,
                         default = None,
@@ -190,7 +190,7 @@ def main():
 
         # Warn the user and exit
         errstr = \
-            f"It was not possible to validate the provided " \
+            "It was not possible to validate the provided " \
             f"category. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
@@ -214,7 +214,7 @@ def main():
 
         # Warn the user and exit
         errstr = \
-            f"It was not possible to retrieve the RNA-seq " \
+            "It was not possible to retrieve the RNA-seq " \
             f"data for the '{input_samples_category}' samples " \
             f"from the Recount3 platform. Error: {e}"
         logger.exception(errstr)
@@ -239,7 +239,7 @@ def main():
 
         # Warn the user and exit
         errstr = \
-            f"It was not possible to retrieve the metadata for the " \
+            "It was not possible to retrieve the metadata for the " \
             f"'{input_samples_category}' samples from the Recount3 " \
             f"platform. Error: {e}"
         logger.exception(errstr)
@@ -264,7 +264,7 @@ def main():
 
             # Warn the user and exit
             errstr = \
-                f"It was not possible to get the query string. " \
+                "It was not possible to get the query string. " \
                 f"Error: {e}"
             logger.exception(errstr)
             sys.exit(errstr)
@@ -283,14 +283,14 @@ def main():
 
             # Warn the user and exit
             errstr = \
-                f"It was not possible to add the metadata to the " \
+                "It was not possible to add the metadata to the " \
                 f"'{input_samples_category}' samples. Error: {e}"
             logger.exception(errstr)
             sys.exit(errstr)
 
         # Inform the user that the metadata were successfully added
         infostr = \
-            f"The metadata were successfully added to the " \
+            "The metadata were successfully added to the " \
             f"'{input_samples_category}' samples. Error: {e}"
         logger.info(infostr)
 
@@ -308,15 +308,15 @@ def main():
 
             # Warn the user and exit
             errstr = \
-                f"It was not possible to filter the samples " \
+                "It was not possible to filter the samples " \
                 f"using the associated metadata. Error: {e}"
             logger.exception(errstr)
             sys.exit(errstr)
 
         # Inform the user that the samples were successfully filtered
         infostr = \
-            f"The samples were successfully filtered using the " \
-            f"associated metadata."
+            "The samples were successfully filtered using the " \
+            "associated metadata."
         logger.info(infostr)
 
     # Otherwise
@@ -357,7 +357,7 @@ def main():
 
         # Warn the user and exit
         errstr = \
-            f"It was not possible to write the data frame " \
+            "It was not possible to write the data frame " \
             f"in '{output_csv_path}'. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
@@ -365,6 +365,6 @@ def main():
     # Inform the user that the data frame was successfully
     # written to the output file
     infostr = \
-        f"The data frame was successfully written in " \
+        "The data frame was successfully written in " \
         f"'{output_csv_path}'."
     logger.info(infostr)

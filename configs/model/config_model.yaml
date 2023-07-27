@@ -1,13 +1,3 @@
-# Section containing the options for loading the gene expression data
-data:
-  
-  # The data will be loaded in batches of 'batch_size' size
-  batch_size: 8
-  
-  # Whether to shuffle the data when loading them
-  shuffle: True
- 
-
 # Dimensionality of the latent (= representation) space
 dim_latent: 50
 
@@ -64,7 +54,7 @@ gmm:
   options:
 
     # Number of components in the mixture
-    n_mix_comp: 45
+    n_comp: 45
 
     # Type of covariance matrix. Choices are 'diagonal',
     # 'fixed', and 'isotropic'
@@ -116,55 +106,3 @@ rep_layer:
     # Number of samples the representation layer
     # has been trained on
     n_samples: 17072
-
-
-# Section containing the options for the different
-# rounds of optimization used when finding the
-# best representations for new samples
-optimization:
-
-  # Section containing the options for the initial
-  # round of optimization
-  opt1:
-
-    # Number of epochs
-    epochs: 10
-
-    # Type of optimizer (e.g., "adam")
-    type: "adam"
-
-    # Section containing the options for the optimizer
-    # (they vary according to the type of optimizer)
-    options:
-
-      # Learning rate
-      lr: 0.01
-
-      # Weight decay
-      weight_decay: 0
-
-      # Betas
-      betas: !!seq [0.5, 0.9]
-
-  # Section containing the options for further
-  # optimization
-  opt2:
-
-    # Number of epochs
-    epochs: 50
-
-    # Type of optimizer (e.g., "adam")
-    type: "adam"
-
-    # Section containing the options for the optimizer
-    # (they vary according to the type of optimizer)
-    options:
-
-      # Learning rate
-      lr: 0.01
-
-      # Weight decay
-      weight_decay: 0
-
-      # Betas
-      betas: !!seq [0.5, 0.9]

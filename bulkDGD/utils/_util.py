@@ -27,7 +27,7 @@
 __doc__ = \
     "Internal utility functions. Not part of the public API."
 # Package name
-pkg_name = "BulkDGD"
+pkg_name = "bulkDGD"
 
 
 # Standard library
@@ -45,20 +45,9 @@ logger = log.getLogger(__name__)
 #----------------------------- Constants -----------------------------#
 
 
-# Directory containing the configuration files for finding the
-# representations and the gradients of the corresponding
-# DGD outputs with respect to them
-CONFIG_REP_DIR = \
-    resource_filename(Requirement(pkg_name),
-                      f"{pkg_name}/configs/representations")
-
-# Template to check the configuration file against
-CONFIG_TEMPLATE = \
-    {"data" : \
-        {"batch_size" : int,
-         "shuffle" : bool},
-     
-     "dim_latent" : int,
+# Template to check the model's configuration file against
+CONFIG_MODEL_TEMPLATE = \
+    {"dim_latent" : int,
      
      "dec" : \
         {"pth_file" : str,
@@ -74,7 +63,7 @@ CONFIG_TEMPLATE = \
      "gmm" : \
         {"pth_file" : str,
          "options" : \
-            {"n_mix_comp" : int,
+            {"n_comp" : int,
              "cm_type" : str,
              "logbeta_params" : list,
              "alpha" : int},
@@ -88,6 +77,15 @@ CONFIG_TEMPLATE = \
          "options" : \
             {"n_samples" : int},
         },
+    }
+
+
+# Template to check the representations' configuration file
+# against
+CONFIG_REP_TEMPLATE = \
+    {"data" : \
+        {"batch_size" : int,
+         "shuffle" : bool},
      
      "optimization" : \
         {"opt1" : \
@@ -124,70 +122,6 @@ def get_abspath(path):
 
 
 #--------------------------- Configuration ---------------------------#
-
-
-def recursive_substitute_dict_with_func(d,
-                                        func,
-                                        keys = None):
-    """Recursively traverse a dictionary substituting items which
-    are dictionaries with the return value of a function taking 
-    as arguments the items in the dictionary.
-
-    Parameters
-    ----------
-    d : ``dict``
-        The input dictionary.
-
-    func : any function
-        Function taking as inputs the items of each dictionary
-        and returning a value which will take the dictionary's
-        place.
-
-    keys : {``list``, ``None``}, default: ``None``
-        List of specific keys on whose items the substitution
-        should be performed. This means that all other
-        sub-dictionaries within the input dictionary associated
-        with keys not in the list will not be affected.
-        If ``None``, all keys will be considered.
-
-    Returns
-    -------
-    ``dict``
-        A dictionary where all substitutions have been
-        recursively performed.
-    """
-
-    # If the current object is a dictionary
-    if isinstance(d, dict):
-        
-        # Get the keys of items on which the substitutions
-        # will be performed. If no keys are passed, all keys
-        # in the dictionary will be considered.
-        selkeys = keys if keys else d.keys()
-        
-        # For each key, value pair in the dictionary
-        for k, v in list(d.items()):
-
-            # If the value is a dictionary
-            if isinstance(v, dict):
-                
-                # If the key is in the selected keys
-                if k in selkeys:
-                    
-                    # Substitute the value with a function
-                    # of the current value, with the function
-                    # taking as inputs the key, values pairs
-                    # in the dictionary
-                    d[k] = func(**v)
-                
-                # Recursively check the sub-dictionaries
-                # of the current dictionary
-                recursive_substitute_dict_with_func(d = v,
-                                                    keys = keys,
-                                                    func = func)
-
-        # Return the dictionary
-        return d
 
 
 def load_config(config_file):

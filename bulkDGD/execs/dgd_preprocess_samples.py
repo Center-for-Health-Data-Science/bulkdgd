@@ -50,8 +50,8 @@ def main():
     i_help = \
         "The input CSV file containing a data frame with the " \
         "samples to be preprocessed. The columns must represent " \
-        "the genes (Ensembl IDs), while the rows must represent " \
-        "the samples."
+        "the genes (identified by their Ensembl IDs), while the " \
+        "rows must represent the samples."
     parser.add_argument("-i", "--input-csv",
                         type = str,
                         required = True,
@@ -59,11 +59,12 @@ def main():
 
     os_default = "samples_preprocessed.csv"
     os_help = \
-        f"The name of the output CSV file containing the data frame " \
-        f"with the preprocessed samples. The columns will represent " \
-        f"the genes (Ensembl IDs), while the rows will represent the " \
-        f"samples. The file will be written in the working " \
-        f"directory. The default file name is '{os_default}'."
+        "The name of the output CSV file containing the data frame " \
+        "with the preprocessed samples. The columns will represent " \
+        "the genes (identified by their Ensembl IDs), while the " \
+        "rows will represent the samples. The file will be written " \
+        "in the working directory. The default file name is " \
+        f"'{os_default}'."
     parser.add_argument("-os", "--output-csv-samples",
                         type = str,
                         default = os_default,
@@ -71,12 +72,10 @@ def main():
 
     oge_default = "genes_excluded.csv"
     oge_help = \
-        f"The name of the output plain text file containing the " \
-        f"list of genes whose expression data are excluded from the " \
-        f"data frame with the preprocessed samples. This is done " \
-        f"because the preprocessed samples must contain only data " \
-        f"for the genes on which the DGD model was trained. The " \
-        f"file will be written in the working directory. " \
+        "The name of the output plain text file containing the " \
+        "list of genes whose expression data are excluded from the " \
+        "data frame with the preprocessed samples. The " \
+        "file will be written in the working directory. " \
         f"The default file name is '{oge_default}'."
     parser.add_argument("-oe", "--output-txt-genes-excluded",
                         type = str,
@@ -85,12 +84,12 @@ def main():
 
     ogm_default = "genes_missing.csv"
     ogm_help = \
-        f"The name of the output plain text file containing the " \
-        f"list of genes for which no available expression data " \
-        f"are found in the input data frame. A default count of " \
-        f"0 is assigned to these genes in the output data frame " \
-        f"containing the preprocessed samples. The file will " \
-        f"be written in the working directory. The " \
+        "The name of the output plain text file containing the " \
+        "list of genes for which no available expression data " \
+        "are found in the input data frame. A default count of " \
+        "0 is assigned to these genes in the output data frame " \
+        "containing the preprocessed samples. The file will " \
+        "be written in the working directory. The " \
         f"default file name is '{ogm_default}'."
     parser.add_argument("-om", "--output-txt-genes-missing",
                         type = str,
@@ -199,7 +198,7 @@ def main():
 
             # Warn the user and exit
             errstr = \
-                f"It was not possible to load the samples from " \
+                "It was not possible to load the samples from " \
                 f"'{input_csv}'. Error: {e}"
             logger.exception(errstr)
             sys.exit(errstr)
@@ -219,7 +218,7 @@ def main():
 
             # Warn the user and exit
             errstr = \
-                f"It was not possible to load the samples from " \
+                "It was not possible to load the samples from " \
                 f"'{input_csv}'. Error: {e}"
             logger.exception(errstr)
             sys.exit(errstr)
@@ -266,7 +265,7 @@ def main():
 
         # Warn the user and exit
         errstr = \
-            f"It was not possible to preprocess the samples. " \
+            "It was not possible to preprocess the samples. " \
             f"Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
@@ -291,9 +290,9 @@ def main():
         # Inform the user that the column was added
         infostr = \
             f"The column '{tissues_column}' containing the names " \
-            f"of the tissues the original samples belong to was " \
-            f"added to the data frame of preprocessed samples as " \
-            f"the last column."
+            "of the tissues the original samples belong to was " \
+            "added to the data frame of preprocessed samples as " \
+            "the last column."
         logger.info(infostr)
 
     # If the user did not specify any column containing the samples'
@@ -313,7 +312,7 @@ def main():
 
             # Warn the user and exit
             errstr = \
-                f"It was not possible to write the preprocessed " \
+                "It was not possible to write the preprocessed " \
                 f"samples to '{output_csv_samples_path}'. Error: {e}"
             logger.exception(errstr)
             sys.exit(errstr)
@@ -334,7 +333,7 @@ def main():
 
             # Warn the user and exit
             errstr = \
-                f"It was not possible to write the preprocessed " \
+                "It was not possible to write the preprocessed " \
                 f"samples to '{output_csv_samples_path}'. Error: {e}"
             logger.exception(errstr)
             sys.exit(errstr)
@@ -342,7 +341,7 @@ def main():
     # Inform the user that the preprocessed samples were
     # successfilly written in the output file
     infostr = \
-        f"The preprocessed samples were successfully written in " \
+        "The preprocessed samples were successfully written in " \
         f"'{output_csv_samples_path}'."
     logger.info(infostr)
 
@@ -360,9 +359,9 @@ def main():
         # Warn the user
         warnstr = \
             f"{len(genes_excluded)} genes found in the input " \
-            f"samples are not part of the set of genes used to " \
-            f"train the DGD model. Therefore, they will be removed " \
-            f"from the preprocessed samples."
+            "samples are not part of the set of genes used to " \
+            "train the DGD model. Therefore, they will be removed " \
+            "from the preprocessed samples."
         logger.warning(warnstr)
 
 
@@ -377,9 +376,9 @@ def main():
 
             # Warn the user and exit
             errstr = \
-                f"It was not possible to write the list of genes " \
-                f"that are present in the input samples but are " \
-                f"not among the genes used to train the DGD model " \
+                "It was not possible to write the list of genes " \
+                "that are present in the input samples but are " \
+                "not among the genes used to train the DGD model " \
                 f"to '{output_txt_genes_excluded_path}'. Error: {e}"
             logger.exception(errstr)
             sys.exit(errstr)
@@ -387,9 +386,9 @@ def main():
         # Inform the user that the genes were successfully written
         # to the output file
         infostr = \
-            f"The list of genes that are present in the input " \
-            f"samples but are not among the genes used to train " \
-            f"the DGD model was successfully written in " \
+            "The list of genes that are present in the input " \
+            "samples but are not among the genes used to train " \
+            "the DGD model was successfully written in " \
             f"'{output_txt_genes_excluded_path}'."
         logger.info(infostr)
 
@@ -407,9 +406,9 @@ def main():
         # Warn the user
         warnstr = \
             f"{len(genes_missing)} genes in the set of genes used " \
-            f"to train the DGD model were not found in the input " \
-            f"samples. A default count of 0 will be assigned to " \
-            f"them in all preprocessed samples."
+            "to train the DGD model were not found in the input " \
+            "samples. A default count of 0 will be assigned to " \
+            "them in all preprocessed samples."
         logger.warning(warnstr)
 
         # Try to write the list of missing genes
@@ -423,9 +422,9 @@ def main():
 
             # Warn the user and exit
             errstr = \
-                f"It was not possible to write the list of genes " \
-                f"that were used to train the DGD model but are " \
-                f"not present in the input samples to " \
+                "It was not possible to write the list of genes " \
+                "that were used to train the DGD model but are " \
+                "not present in the input samples to " \
                 f"'{output_txt_genes_missing_path}'."
             logger.exception(errstr)
             sys.exit(errstr)
@@ -433,8 +432,8 @@ def main():
         # Inform the user that the genes were successfully written in the
         # output file
         infostr = \
-            f"The list of genes that were used to train the DGD " \
-            f"model but are not present in the input samples " \
-            f"was successfully written in " \
+            "The list of genes that were used to train the DGD " \
+            "model but are not present in the input samples " \
+            "was successfully written in " \
             f"'{output_txt_genes_missing_path}'."
         logger.info(infostr)

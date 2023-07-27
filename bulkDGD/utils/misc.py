@@ -65,158 +65,22 @@ def get_list(list_file):
          if (not l.startswith("#") and not re.match(r"^\s*$", l))]
 
 
-def filter_2d_array(array,
-                    min_value = None,
-                    max_value = None,
-                    min_inclusive = True,
-                    max_inclusive = True,
-                    flatten = False):
-    """Filter a two-dimensional array.
-
-    Parameters
-    ----------
-    array : ``numpy.ndarray``
-        Input array.
-
-    min_value : ``float``, optional
-        Minimum value to be kept in the array. If not
-        passed, all values will be kept.
-
-    max_value : ``float``, optional
-        Maximum value to be kept in the array. If not
-        passed, all values will be kept.
-
-    min_inclusive : ``bool``, optional, default: ``True``
-        Whether to keep values greater than ``min_value``
-        or equal to ``min_value`` (if ``True``) or only
-        values strictly greater than ``min_value``
-        (if ``False``).
-
-    max_inclusive : ``bool``, optional, default: ``True``
-        Whether to keep values lower than ``max_value``
-        or equal to ``max_value`` (if ``True``) or only
-        values strictly lower than ``max_value``
-        (if ``False``).
-
-    flatten : `bool`, optional, default: `False`
-        Whether to flatten the array.
-
-    Returns
-    -------
-    ``numpy.ndarray``
-        Filtered (and, possibly, flattened) array.
-    """
-
-    # If the user requested flattening of the array
-    if flatten:
-
-        # If the array is multi-dimensional
-        if array.ndim > 1:
-
-            # Inform the user that the array will be flattened
-            # for plotting purposes
-            logger.info(\
-                f"A multi-dimensional array was passed " \
-                f"(ndim = {array.ndim}). The array will be " \
-                f"flattened for plotting.")
-
-            # Flatten the array
-            array = array.flatten()
-
-        # Otherwise
-        elif array.ndim == 1:
-
-            # Warn the user that the array is already
-            # one-dimensional
-            logger.info(\
-                f"'flatten' was set to 'True', but the array " \
-                f"is already one-dimensional. Therefore, no " \
-                f"flattening will be performed.")
-
-    # Inform the user about how many values there are in
-    # the array
-    logger.info(\
-        f"There are {len(array)} values in the array.")
-
-    # Remove NaN values from the array
-    array = array[~np.isnan(array)]
-
-    # Inform the user of the removal of NaN values
-    logger.info(\
-        f"There are {len(array)} values in the array after " \
-        f"removing NaN values.")
-    
-    # If a minimum value was specified
-    if min_value is not None:
-
-        # If the minimum value should be included
-        if min_inclusive:
-
-            # Filter with >=
-            array = array[array >= min_value]
-
-            # Inform the user about the filtering
-            logger.info(\
-                f"There are {len(array)} values in the array " \
-                f"after keeping only values >= {min_value}.")
-
-        # Otherwise
-        else:
-
-            # Filter with >
-            array = array[array > min_value]
-
-            # Inform the user about the filtering
-            logger.info(\
-                f"There are {len(array)} values in the array " \
-                f"after keeping only values > {min_value}.")
-
-    # If a maximum value was specified
-    if max_value is not None:
-
-        # If the maximum value should be included
-        if max_inclusive:
-
-            # Filter with <=
-            array = array[array <= max_value]
-
-            # Inform the user about the filtering
-            logger.info(\
-                f"There are {len(array)} values in the array " \
-                f"after keeping only values <= {max_value}.")
-
-        # Otherwise
-        else:
-
-            # Filter with <
-            array = array[array < max_value]
-
-            # Inform the user about the filtering
-            logger.info(\
-                f"There are {len(array)} values in the array " \
-                f"after keeping only values < {max_value}.")
-
-    # Return the filtered (and possibly flattened) array
-    return array
-
-
 #--------------------------- Configuration ---------------------------#
 
 
-def get_config_rep(config_file):
-    """Get the configuration used to find the representations
-    and the gradients of the corresponding decoder outputs with
-    respect to them.
+def get_config_model(config_file):
+    """Get the configuration specifying the DGD model's parameters
+    and the files containing the trained model.
 
     Parameters
     ----------
     config_file : ``str``
-        YAML configuration file.
+        The YAML configuration file.
 
     Returns
     -------
     ``dict``
-        Dictionary containing the configuration.
+        A dictionary containing the configuration.
     """
 
     # Load the configuration
@@ -225,7 +89,7 @@ def get_config_rep(config_file):
     # Check the configuration against the template
     config = _util.check_config_against_template(\
                 config = config,
-                template = _util.CONFIG_TEMPLATE)
+                template = _util.CONFIG_MODEL_TEMPLATE)
 
     # Get the absolute path to the configuration file
     config_file_path = os.path.abspath(config_file)
@@ -254,32 +118,28 @@ def get_config_rep(config_file):
     return config
 
 
-def get_config_plot(config_file):
-    """Get a configuration file for a plot.
+def get_config_rep(config_file):
+    """Get the configuration file containing the options for data
+    loading and optimization to find the best representations.
 
     Parameters
     ----------
     config_file : ``str``
-        YAML configuration file.
+        The YAML configuration file.
 
     Returns
     -------
     ``dict``
-        Dictionary containing the configuration.
+        A dictionary containing the configuration.
     """
 
     # Load the configuration
     config = _util.load_config(config_file = config_file)
 
-    # Create a copy of the configuration
-    new_config = dict(config)
-    
-    # Substitute the font properties definitions
-    # with the corresponding FontProperties instances
-    _util.recursive_substitute_dict_with_func(\
-        d = new_config,
-        func = fm.FontProperties,
-        keys = {"fontproperties"})
+    # Check the configuration against the template
+    config = _util.check_config_against_template(\
+                config = config,
+                template = _util.CONFIG_REP_TEMPLATE)
 
-    # Return the new configuration
-    return new_config
+    # Return the configuration
+    return config

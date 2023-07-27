@@ -69,19 +69,23 @@ entry_points = \
          f"{name}.execs.dgd_preprocess_samples:main",
          f"dgd_get_representations = " \
          f"{name}.execs.dgd_get_representations:main",
+         f"dgd_perform_dea = " \
+         f"{name}.execs.dgd_perform_dea:main",
          f"dgd_get_probability_density = " \
          f"{name}.execs.dgd_get_probability_density:main",
-         ],
+        ],
     }
 
 # Required dependencies
-install_requires = ["matplotlib",
+install_requires = ["dask",
+                    "distributed",
                     "numpy",
                     "pandas",
-                    "pyyaml",
                     "requests",
-                    "seaborn",
-                    "torch"]
+                    "scipy",
+                    "statsmodels",
+                    "torch",
+                    "PyYAML"]
 
 # Run the setup
 setup(name = name,

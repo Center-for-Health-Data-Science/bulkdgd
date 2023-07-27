@@ -146,8 +146,7 @@ class GeneExpressionDataset(object):
 
     @property
     def n_samples(self):
-        """An integer representing the number of samples in the
-        data frame.
+        """The number of samples in the dataset.
         """
         
         return self._n_samples
@@ -168,8 +167,7 @@ class GeneExpressionDataset(object):
 
     @property
     def n_genes(self):
-        """An integer representing the number of genes in
-        the data frame.
+        """The number of genes in the data frame.
         """
         
         return self._n_genes
@@ -265,3 +263,19 @@ class GeneExpressionDataset(object):
 
         # Return the length of the associated data frame
         return len(self.df)
+
+
+    #------------------------ Public methods -------------------------#
+
+
+    def get_tot_expr_per_gene(self):
+        """Get the total expression of all genes across the samples in
+        the dataset.
+
+        Returns
+        -------
+        ``torch.Tensor``
+            The total expression of all genes across all samples.
+        """
+
+        return torch.from_numpy(self.df.sum(axis = 0).to_numpy())
