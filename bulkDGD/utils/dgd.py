@@ -155,6 +155,21 @@ def preprocess_samples(samples_df):
     # Ensembl IDs are specified without their version
     genes_list_df = list(zip(*samples_df.columns.str.split(".")))[0]
 
+    # If there are duplicate genes
+    if len(genes_list_df) > len(set(genes_list_df)):
+        
+        # Get the duplicate genes
+        genes_series = pd.Series(genes_list_df)
+        duplicates = genes_series[genes_series.duplicated()].tolist()
+
+        # Raise an error informing the user of the duplicated
+        # genes
+        errstr = \
+            "Duplicated genes were found in the input data " \
+            "frame. The duplicated genes are: " \
+            f"{', '.join(duplicates)}."
+        raise ValueError(errstr)
+
     # Change the column names so that only the Ensembl IDs are
     # kept (and not their versions)
     samples_df.columns = genes_list_df

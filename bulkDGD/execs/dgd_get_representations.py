@@ -73,7 +73,7 @@ def main():
         "space. The rows represent the samples. The first column " \
         "contains the unique names of the samples, while the other " \
         "columns represent the values of the representations along " \
-        "the latent space's dimensions. The file will be written in " 
+        "the latent space's dimensions. The file will be written in " \
         "the working directory. The default file name is " \
         f"'{or_default}'."
     parser.add_argument("-or", "--output-csv-rep",
@@ -115,7 +115,7 @@ def main():
         "The name of the output CSV file containing the data  " \
         "frame with the labels of the tissues the amples belong to. " \
         "The rows represent the samples, while the only column " \
-        "contains the labels of the tissues. "
+        "contains the labels of the tissues. " \
         "The file will be written in the working directory. The " \
         f"default file name is '{ot_default}'. This file will not " \
         "be generated unless the input CSV file has a " \

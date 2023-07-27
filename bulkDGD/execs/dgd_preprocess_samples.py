@@ -141,13 +141,15 @@ def main():
     output_txt_genes_excluded = args.output_txt_genes_excluded
     output_txt_genes_missing = args.output_txt_genes_missing
     samples_names_column = \
-        int(args.samples_names_column) \
-        if args.samples_names_column.isdigit() \
-        else args.samples_names_column
+        args.samples_names_column \
+        if args.samples_names_column is None \
+        or not args.samples_names_column.isdigit() \
+        else int(args.samples_names_column)
     tissues_column = \
-        int(args.tissues_column) \
-        if args.tissues_column.isdigit() \
-        else args.tissues_column
+        args.tissues_column \
+        if args.tissues_column is None \
+        or not args.tissues_column.isdigit() \
+        else int(args.tissues_column)
     wd = args.work_dir
     v = args.logging_verbose
     vv = args.logging_debug
