@@ -1,0 +1,888 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-theme="light">
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Command-line interface &#8212; BulkDGD  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "light";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+
+  
+  <link href="_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=12da95d707ffb74b382d" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=12da95d707ffb74b382d" />
+
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'Command-line interface';</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="The core subpackage" href="core.html" />
+    <link rel="prev" title="Installing bulkDGD" href="Installation.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="light">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+<div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+    <span class="fa-solid fa-bars"></span>
+  </label>
+  
+  <div class="navbar-header-items__start">
+    
+      <div class="navbar-item">
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    <p class="title logo__title">BulkDGD  documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="Getting%20started.html">
+                        Getting started
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="Installation.html">
+                        Installing bulkDGD
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="#">
+                        Command-line interface
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="core.html">
+                        The core subpackage
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="utils.html">
+                        The utils subpackage
+                      </a>
+                    </li>
+                
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+`);
+</script>
+        </div>
+      
+      
+        <div class="navbar-item">
+<script>
+document.write(`
+  <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+`);
+</script>
+    </div>
+  
+
+  
+    <label class="sidebar-toggle secondary-toggle" for="__secondary">
+      <span class="fa-solid fa-outdent"></span>
+    </label>
+  
+</div>
+
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="Getting%20started.html">
+                        Getting started
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="Installation.html">
+                        Installing bulkDGD
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="#">
+                        Command-line interface
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="core.html">
+                        The core subpackage
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="utils.html">
+                        The utils subpackage
+                      </a>
+                    </li>
+                
+  </ul>
+</nav></div>
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<script>
+document.write(`
+  <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumbs">
+  <ul class="bd-breadcrumbs" role="navigation" aria-label="Breadcrumb">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page">Command-line interface</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="command-line-interface">
+<h1>Command-line interface<a class="headerlink" href="#command-line-interface" title="Permalink to this heading">#</a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">bulkDGD</span></code> is structured as an importable Python package.</p>
+<p>However, a command-line interface is provided for some of the most common tasks <code class="docutils literal notranslate"><span class="pre">bulkDGD</span></code> is used for.</p>
+<p>This interface consists of a series of executables installed together with the package.</p>
+<section id="executables">
+<h2>Executables<a class="headerlink" href="#executables" title="Permalink to this heading">#</a></h2>
+<section id="dgd-get-recount3-data">
+<h3><code class="docutils literal notranslate"><span class="pre">dgd_get_recount3_data</span></code><a class="headerlink" href="#dgd-get-recount3-data" title="Permalink to this heading">#</a></h3>
+<p>This executable is devoted to retrieving RNA-seq data (and associated metadata) from the <a class="reference external" href="https://rna.recount.bio/">Recount3 platform</a>.</p>
+<p>So far, the program supports the retrieval of data for samples belonging to the <a class="reference external" href="https://gtexportal.org/home/">GTEx</a> and <a class="reference external" href="https://www.cancer.gov/ccg/research/genome-sequencing/tcga">TCGA</a> projects.</p>
+<p>The executable allows selecting samples for a single tissue (for GTEx data) or cancer type (for TCGA) and filtering the samples according to the associated metadata. The filtering is performed using a query string in the format supported by the <a class="reference external" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.query.html"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame.query()</span></code></a> method, which can be passed from the command line as a string or as a plain text file containing the string. Metadata fields on which it is possible to filter the samples differ between GTEx and TCGA samples. A list of the available fields is available in <code class="docutils literal notranslate"><span class="pre">bulkDGD/data/recount3/gtex_metadata_fields.txt</span></code> for GTEx samples and in <code class="docutils literal notranslate"><span class="pre">bulkDGD/data/recount3/tcga_metadata_fields.txt</span></code> for TCGA samples.</p>
+<p>The main output of <code class="docutils literal notranslate"><span class="pre">dgd_get_recount3_data</span></code> is a CSV file containing the RNA-seq data retrieved from Recount3 for the samples of interest. The rows represent the samples, while the columns contain the genes, which are identified by their Ensembl IDs.</p>
+<p>The user also has the option to save the original compressed (<code class="docutils literal notranslate"><span class="pre">.gz</span></code>) files containing the RNA-seq data and the metadata associated with the samples.</p>
+<section id="command-line">
+<h4>Command line<a class="headerlink" href="#command-line" title="Permalink to this heading">#</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dgd_get_recount3_data</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">ip</span> <span class="p">{</span><span class="n">gtex</span><span class="p">,</span><span class="n">tcga</span><span class="p">}</span> <span class="o">-</span><span class="ow">is</span> <span class="n">INPUT_SAMPLES_CATEGORY</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_CSV</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="n">WORK_DIR</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">sg</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">sm</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">qs</span> <span class="n">QUERY_STRING</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">lf</span> <span class="n">LOG_FILE</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">lc</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">v</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">vv</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="options">
+<h4>Options<a class="headerlink" href="#options" title="Permalink to this heading">#</a></h4>
+<table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-h</span></code>, <code class="docutils literal notranslate"><span class="pre">--help</span></code></p></td>
+<td><p>Show the help message and exit.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-ip</span></code>, <code class="docutils literal notranslate"><span class="pre">--input-project-name</span></code></p></td>
+<td><p>The name of the Recount3 project for which samples will be retrieved. Available projects are: <code class="docutils literal notranslate"><span class="pre">&quot;gtex&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;tcga&quot;</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-is</span></code>, <code class="docutils literal notranslate"><span class="pre">--input-samples-category</span></code></p></td>
+<td><p>The category of samples for which RNA-seq data will be retrieved. For GTEx data, this is the name of the tissue the samples belong to. For TCGA data, this is the type of cancer the samples are associated with.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-o</span></code>, <code class="docutils literal notranslate"><span class="pre">--output-csv</span></code></p></td>
+<td><p>The name of the output CSV file containing the data frame with the RNA-seq data for the samples. The file will be written in the working directory. The default file name is <code class="docutils literal notranslate"><span class="pre">{input_project_name}_{input_samples_category}.csv</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-d</span></code>, <code class="docutils literal notranslate"><span class="pre">--work-dir</span></code></p></td>
+<td><p>The working directory. The default is the current working directory.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-sg</span></code>, <code class="docutils literal notranslate"><span class="pre">--save-gene-sums</span></code></p></td>
+<td><p>Save the original GZ file containing the RNA-seq data for the samples. The file will be saved in the working directory and named <code class="docutils literal notranslate"><span class="pre">{input_project_name}_{input_samples_category}_gene_sums.gz</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-sm</span></code>, <code class="docutils literal notranslate"><span class="pre">--save-metadata</span></code></p></td>
+<td><p>Save the original GZ file containing the metadata for the samples. The file will be saved in the working directory and named <code class="docutils literal notranslate"><span class="pre">{input_project_name}_{input_samples_category}_metadata.gz</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-qs</span></code>, <code class="docutils literal notranslate"><span class="pre">--query-string</span></code></p></td>
+<td><p>The string that will be used to filter the samples according to their associated metadata using the <code class="docutils literal notranslate"><span class="pre">pandas.DataFrame.query()</span></code> method. The option also accepts a plain text file containing the string since it can be long for complex queries.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-lf</span></code>, <code class="docutils literal notranslate"><span class="pre">--log-file</span></code></p></td>
+<td><p>The name of the log file. The file will be written in the working directory. The default file name is <code class="docutils literal notranslate"><span class="pre">dgd_get_recount3_data.log</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-lc</span></code>, <code class="docutils literal notranslate"><span class="pre">--log-console</span></code></p></td>
+<td><p>Show log messages also on the console.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-v</span></code>, <code class="docutils literal notranslate"><span class="pre">--logging-verbose</span></code></p></td>
+<td><p>Enable verbose logging (INFO level).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-vv</span></code>, <code class="docutils literal notranslate"><span class="pre">--logging-debug</span></code></p></td>
+<td><p>Enable maximally verbose logging for debugging purposes (DEBUG level).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="dgd-preprocess-samples">
+<h3><code class="docutils literal notranslate"><span class="pre">dgd_preprocess_samples</span></code><a class="headerlink" href="#dgd-preprocess-samples" title="Permalink to this heading">#</a></h3>
+<p>This executable allows users to preprocess new samples to use within the DGD model.</p>
+<p>It expects as input a CSV file containing a data frame with the gene expression data for the new samples.</p>
+<p>Each row must represent a sample, while each column must represent a gene identified by its Ensembl ID. Therefore, each cell of the data frame represents the expression (as RNA-seq read counts) of a gene in a specific sample.</p>
+<p>In detail, sample preprocessing consists of the following steps:</p>
+<ol class="arabic simple">
+<li><p>Excluding all data for genes that are not included in the DGD model. A plain text file containing the list of the genes used in the model is available in <code class="docutils literal notranslate"><span class="pre">bulkDGD/data/model/training_genes.txt</span></code>.</p></li>
+<li><p>Sorting the genes in the order expected by the DGD model.</p></li>
+</ol>
+<p>Preprocessing new samples is a critical step before trying to find the samples’ best representations in latent space using the DGD model (with the <a class="reference internal" href="#dgd-get-representations"><code class="docutils literal notranslate"><span class="pre">dgd_get_representations</span></code></a> executable).</p>
+<p>The main output of <code class="docutils literal notranslate"><span class="pre">dgd_preprocess_samples</span></code> is a CSV file containing the preprocessed samples.</p>
+<p>The Ensembl IDs of the genes found in the input samples but not present in the gene set used to train the DGD model, if any, are written in a separate output file in plain text format, with one gene per line.</p>
+<p>Furthermore, if any gene present in the gene set used to train the DGD model is not found in the genes for which counts are available in the input samples, the gene will be written to the output CSV file containing the preprocessed samples with a count of 0 for all samples. These “missing” genes are also written in a separate plain text file containing one gene per line.</p>
+<section id="id1">
+<h4>Command line<a class="headerlink" href="#id1" title="Permalink to this heading">#</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dgd_preprocess_samples</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">i</span> <span class="n">INPUT_CSV</span> <span class="p">[</span><span class="o">-</span><span class="n">os</span> <span class="n">OUTPUT_CSV_SAMPLES</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">oe</span> <span class="n">OUTPUT_TXT_GENES_EXCLUDED</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">om</span> <span class="n">OUTPUT_TXT_GENES_MISSING</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">sc</span> <span class="n">SAMPLES_NAMES_COLUMN</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="n">WORK_DIR</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">lf</span> <span class="n">LOG_FILE</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">lc</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">v</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">vv</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="id2">
+<h4>Options<a class="headerlink" href="#id2" title="Permalink to this heading">#</a></h4>
+<table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-h</span></code>, <code class="docutils literal notranslate"><span class="pre">--help</span></code></p></td>
+<td><p>Show the help message and exit.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-i</span></code>, <code class="docutils literal notranslate"><span class="pre">--input-csv</span></code></p></td>
+<td><p>The input CSV file containing a data frame with the samples to be preprocessed.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-os</span></code>, <code class="docutils literal notranslate"><span class="pre">--output-csv-samples</span></code></p></td>
+<td><p>The name of the output CSV file containing the data frame with the preprocessed samples. The file will be written in the working directory. The default file name is <code class="docutils literal notranslate"><span class="pre">samples_preprocessed.csv</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-oe</span></code>, <code class="docutils literal notranslate"><span class="pre">--output-txt-genes-excluded</span></code></p></td>
+<td><p>The name of the output plain text file containing the list of genes whose expression data are excluded from the data frame with the preprocessed samples. The file will be written in the working directory. The default file name is <code class="docutils literal notranslate"><span class="pre">genes_excluded.txt</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-om</span></code>, <code class="docutils literal notranslate"><span class="pre">--output-txt-genes-missing</span></code></p></td>
+<td><p>The name of the output plain text file containing the genes for which no available expression data are found in the input data frame. A default count of 0 is assigned to these genes in the output data frame with the preprocessed samples. The file will be written in the working directory. The default file name is <code class="docutils literal notranslate"><span class="pre">genes_missing.txt</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-sc</span></code>, <code class="docutils literal notranslate"><span class="pre">--samples-names-column</span></code></p></td>
+<td><p>The name/index of the column containing the IDs/names of the samples, if any. By default, the program assumes that no such column is present.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-d</span></code>, <code class="docutils literal notranslate"><span class="pre">--work-dir</span></code></p></td>
+<td><p>The working directory. The default is the current working directory.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-lf</span></code>, <code class="docutils literal notranslate"><span class="pre">--log-file</span></code></p></td>
+<td><p>The name of the log file. The file will be written in the working directory. The default file name is <code class="docutils literal notranslate"><span class="pre">dgd_preprocess_samples.log</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-lc</span></code>, <code class="docutils literal notranslate"><span class="pre">--log-console</span></code></p></td>
+<td><p>Show log messages also on the console.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-v</span></code>, <code class="docutils literal notranslate"><span class="pre">--logging-verbose</span></code></p></td>
+<td><p>Enable verbose logging (INFO level).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-vv</span></code>, <code class="docutils literal notranslate"><span class="pre">--logging-debug</span></code></p></td>
+<td><p>Enable maximally verbose logging for debugging purposes (DEBUG level).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="dgd-get-representations">
+<h3><code class="docutils literal notranslate"><span class="pre">dgd_get_representations</span></code><a class="headerlink" href="#dgd-get-representations" title="Permalink to this heading">#</a></h3>
+<p>This executable allows you to get representations in the latent space defined by the DGD model for new samples.</p>
+<p><code class="docutils literal notranslate"><span class="pre">dgd_get_representations</span></code> takes as input a CSV file containing a data frame with the expression data (RNA-seq read counts) for the samples of interest. The program expects the input data frame to display the different samples as rows and the genes as columns so that each cell contains the expression data for a gene in a sample. The genes’ names are expected to be their Ensembl IDs.</p>
+<p>The samples passed to the program must have expression data only for the genes included in the DGD model, and the genes should be sorted according to the order expected from the DGD model. A file containing the sorted list of these genes can be found in the <code class="docutils literal notranslate"><span class="pre">bulkDGD/data/model/training_genes.txt</span></code> file.</p>
+<p>It is recommended to perform this preprocessing step with <a class="reference internal" href="#dgd-preprocess-samples"><code class="docutils literal notranslate"><span class="pre">dgd_preprocess_samples</span></code></a>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">dgd_get_representations</span></code> also needs a YAML configuration file specifying the DGD model parameters, an example of which can be found in <code class="docutils literal notranslate"><span class="pre">bulkDGD/configs/model</span></code>.</p>
+<p>The executable also needs a configuration file defining the data loading and optimization options for finding the representations, an example of which is available in <code class="docutils literal notranslate"><span class="pre">bulkDGD/configs/representations</span></code>.</p>
+<p>To run the executable, you also need the trained DGD model, which comes in three PyTorch files:</p>
+<ul class="simple">
+<li><p>A file containing the trained Gaussian mixture model. The file <code class="docutils literal notranslate"><span class="pre">bulkDGD/data/model/gmm.pth</span></code> is loaded by default unless a different path is specified in the configuration file.</p></li>
+<li><p>A file containing the trained representation layer. The file <code class="docutils literal notranslate"><span class="pre">bulkDGD/data/model/rep.pth</span></code> is loaded by default unless a different path is specified in the configuration file.</p></li>
+<li><p>A file containing the trained deep generative decoder. Since the file is too big to be hosted on GitHub, you can find it <a class="reference external" href="https://drive.google.com/file/d/1SZaoazkvqZ6DBF-adMQ3KRcy4Itxsz77/view?usp=sharing">here</a>. Save it locally and specify its path in the configuration file or in <code class="docutils literal notranslate"><span class="pre">bulkDGD/data/model</span></code> with the name <code class="docutils literal notranslate"><span class="pre">dec.pth</span></code>. This latter strategy would ensure the automatic loading of the file every time you launch the <code class="docutils literal notranslate"><span class="pre">dgd_get_representations</span></code> executable without having to specify its path in the configuration file.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">dgd_get_representations</span></code> produces two output files:</p>
+<ul class="simple">
+<li><p>A CSV file containing a data frame with the best representations found. Here, the rows represent the samples for which the representations were found, while the columns represent the dimensions of the latent space where the representations live, the per-sample loss, and any extra piece of information about the representations that was found in the input data frame.</p></li>
+<li><p>A CSV file containing a data frame with the outputs produced by the decoder when the best representations found for the samples are passed through it. Here, the rows represent the samples, and the columns represent the genes (identified by their Ensembl IDs).</p></li>
+</ul>
+<section id="id3">
+<h4>Command line<a class="headerlink" href="#id3" title="Permalink to this heading">#</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dgd_get_representations</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">i</span> <span class="n">INPUT_CSV</span> <span class="p">[</span><span class="o">-</span><span class="ow">or</span> <span class="n">OUTPUT_CSV_REP</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">od</span> <span class="n">OUTPUT_CSV_DEC</span><span class="p">]</span> <span class="o">-</span><span class="n">cm</span> <span class="n">CONFIG_FILE_MODEL</span> <span class="o">-</span><span class="n">cr</span> <span class="n">CONFIG_FILE_REP</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="n">WORK_DIR</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">lf</span> <span class="n">LOG_FILE</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">lc</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">v</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">vv</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="id4">
+<h4>Options<a class="headerlink" href="#id4" title="Permalink to this heading">#</a></h4>
+<table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-h</span></code>, <code class="docutils literal notranslate"><span class="pre">--help</span></code></p></td>
+<td><p>Show the help message and exit.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-i</span></code>, <code class="docutils literal notranslate"><span class="pre">--input-csv</span></code></p></td>
+<td><p>The input CSV file containing a data frame with gene expression data for the samples for which a representation in latent space should be found.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-or</span></code>, <code class="docutils literal notranslate"><span class="pre">--output-csv-rep</span></code></p></td>
+<td><p>The name of the output CSV file containing a data frame with the representation of each input sample in latent space. The file will be saved in the working directory. The default file name is <code class="docutils literal notranslate"><span class="pre">representations.csv</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-od</span></code>, <code class="docutils literal notranslate"><span class="pre">--output-csv-dec</span></code></p></td>
+<td><p>The name of the output CSV file containing the data frame with the decoder output for each input sample. The file will be written in the working directory. The default tile name is <code class="docutils literal notranslate"><span class="pre">decoder_outputs.csv</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-cm</span></code>, <code class="docutils literal notranslate"><span class="pre">--config-file-model</span></code></p></td>
+<td><p>The YAML configuration file specifying the DGD model parameters and files containing the trained model. If it is a name without extension, it is assumed to be the name of a configuration file in <code class="docutils literal notranslate"><span class="pre">$INSTALLDIR/bulkDGD/configs/model</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-cr</span></code>, <code class="docutils literal notranslate"><span class="pre">--config-file-rep</span></code></p></td>
+<td><p>The YAML configuration file containing the options for data loading and optimization when finding the best representations.  If it is a name without extension, it is assumed to be the name of a configuration file in <code class="docutils literal notranslate"><span class="pre">$INSTALLDIR/bulkDGD/configs/representations</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-d</span></code>, <code class="docutils literal notranslate"><span class="pre">--work-dir</span></code></p></td>
+<td><p>The working directory. The default is the current working directory.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-lf</span></code>, <code class="docutils literal notranslate"><span class="pre">--log-file</span></code></p></td>
+<td><p>The name of the log file. The file will be written in the working directory. The default file name is <code class="docutils literal notranslate"><span class="pre">dgd_get_representations.log</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-lc</span></code>, <code class="docutils literal notranslate"><span class="pre">--log-console</span></code></p></td>
+<td><p>Show log messages also on the console.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-v</span></code>, <code class="docutils literal notranslate"><span class="pre">--logging-verbose</span></code></p></td>
+<td><p>Enable verbose logging (INFO level).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-vv</span></code>, <code class="docutils literal notranslate"><span class="pre">--logging-debug</span></code></p></td>
+<td><p>Enable maximally verbose logging for debugging purposes (DEBUG level).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="dgd-perform-dea">
+<h3><code class="docutils literal notranslate"><span class="pre">dgd_perform_dea</span></code><a class="headerlink" href="#dgd-perform-dea" title="Permalink to this heading">#</a></h3>
+<p>This executable can be used to perform differential expression analysis (DEA) of genes between a “treated” sample (for instance, a cancer sample) against an “untreated” or “control” sample.</p>
+<p>Within the context of the DGD model, the DEA is intended between a “treated” experimental sample and a “control” sample which is the model’s decoder’s output for the best representation of the “treated” sample in latent space. The decoder output for the best representation of the “treated” sample, therefore, acts as an <em>in silico</em> control sample.</p>
+<p>This approach was first presented in the work of Prada-Luengo, Schuster, Liang, and coworkers <a class="footnote-reference brackets" href="#id12" id="id5" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">dgd_perform_dea</span></code> expects three inputs. First, a CSV file containing a data frame set of experimental “treated” samples. The program assumes that each row represents a sample, each column represents a gene, and each cell of the data frame contains the read counts for a gene in a specific sample. Then, the program expects a data frame with the <em>in silico</em> “control” samples, This data frame is structured as the one containing the “treated” samples and can be obtained by running the <a class="reference internal" href="#dgd-get-representations"><code class="docutils literal notranslate"><span class="pre">dgd_get_representations</span></code></a> executable on the “treated” sample.</p>
+<p>The output of <code class="docutils literal notranslate"><span class="pre">dgd_perform_dea</span></code> is a CSV file containing the results of the differential expression analysis. Here, the p-values, q-values (adjusted p-values), and log2-fold changes relative to each gene’s differential expression are reported.</p>
+<p>To speed up performing DEA on a set of samples, <code class="docutils literal notranslate"><span class="pre">dgd_perform_dea</span></code> takes advantage of the <a class="reference external" href="https://www.dask.org/">Dask</a> Python package to parallelize the calculations.</p>
+<section id="id6">
+<h4>Command line<a class="headerlink" href="#id6" title="Permalink to this heading">#</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="ow">is</span> <span class="n">INPUT_CSV_SAMPLES</span> <span class="o">-</span><span class="nb">id</span> <span class="n">INPUT_CSV_DEC</span> <span class="p">[</span><span class="o">-</span><span class="n">op</span> <span class="n">OUTPUT_CSV_PREFIX</span><span class="p">]</span> <span class="o">-</span><span class="n">cm</span> <span class="n">CONFIG_FILE_MODEL</span> <span class="p">[</span><span class="o">-</span><span class="n">pr</span> <span class="n">P_VALUES_RESOLUTION</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">qa</span> <span class="n">Q_VALUES_ALPHA</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">qm</span> <span class="n">Q_VALUES_METHOD</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="n">WORK_DIR</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">n</span> <span class="n">N_PROC</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">lf</span> <span class="n">LOG_FILE</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">lc</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">v</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">vv</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="id7">
+<h4>Options<a class="headerlink" href="#id7" title="Permalink to this heading">#</a></h4>
+<table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-h</span></code>, <code class="docutils literal notranslate"><span class="pre">--help</span></code></p></td>
+<td><p>Show the help message and exit.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-is</span></code>, <code class="docutils literal notranslate"><span class="pre">--input-csv-samples</span></code></p></td>
+<td><p>The input CSV file containing a data frame with the gene expression data for the samples</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-id</span></code>, <code class="docutils literal notranslate"><span class="pre">--input-csv-dec</span></code></p></td>
+<td><p>The input CSV file containing the data frame with the decoder output for each sample’s best representation found with <code class="docutils literal notranslate"><span class="pre">dgd_get_representations</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-op</span></code>, <code class="docutils literal notranslate"><span class="pre">--output-csv-prefix</span></code></p></td>
+<td><p>The prefix of the output CSV file(s) that will contain the results of the differential expression analysis. Since the analysis will be performed for each sample, one file per sample will be created. The files’ names will have the form <code class="docutils literal notranslate"><span class="pre">{output_csv_prefix}{sample_name}.csv</span></code>. The default prefix is <code class="docutils literal notranslate"><span class="pre">dea_</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-cm</span></code>, <code class="docutils literal notranslate"><span class="pre">--config-file-model</span></code></p></td>
+<td><p>The YAMl configuration file specifying the DGD model parameters and files containing the trained model. If it is a name without extension, it is assumed to be the name of a configuration file in <code class="docutils literal notranslate"><span class="pre">$INSTALLDIR/bulkDGD/configs/model</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-pr</span></code>, <code class="docutils literal notranslate"><span class="pre">--p-values-resolution</span></code></p></td>
+<td><p>The resolution at which to sum over the probability mass function to compute the p-values. The lower the resolution, the more accurate the calculation. A resolution of 1 corresponds to an exact calculation of the p-values. The default is 1.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-qa</span></code>, <code class="docutils literal notranslate"><span class="pre">--q-values-alpha</span></code></p></td>
+<td><p>The alpha value used to calculate the q-values (adjusted p-values). The default is 0.05.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-qm</span></code>, <code class="docutils literal notranslate"><span class="pre">--q-values-method</span></code></p></td>
+<td><p>The method used to calculate the q-values (i.e., to adjust the p-values). The default is <code class="docutils literal notranslate"><span class="pre">&quot;fdr_bh&quot;</span></code>. The available methods can be found in the documentation of <code class="docutils literal notranslate"><span class="pre">statsmodels.stats.multitest.multipletests</span></code>, which is used to perform the calculation.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-d</span></code>, <code class="docutils literal notranslate"><span class="pre">--work-dir</span></code></p></td>
+<td><p>The working directory. The default is the current working directory.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-n</span></code>, <code class="docutils literal notranslate"><span class="pre">--nproc</span></code></p></td>
+<td><p>The number of processes to start (the higher the number, the faster the execution of the program). The default number of processes started is 1.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-lf</span></code>, <code class="docutils literal notranslate"><span class="pre">--log-file</span></code></p></td>
+<td><p>The name of the log file. The file will be written in the working directory. The default file name is <code class="docutils literal notranslate"><span class="pre">dgd_perform_dea.log</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-lc</span></code>, <code class="docutils literal notranslate"><span class="pre">--log-console</span></code></p></td>
+<td><p>Show log messages also on the console.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-v</span></code>, <code class="docutils literal notranslate"><span class="pre">--logging-verbose</span></code></p></td>
+<td><p>Enable verbose logging (INFO level).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-vv</span></code>, <code class="docutils literal notranslate"><span class="pre">--logging-debug</span></code></p></td>
+<td><p>Enable maximally verbose logging for debugging purposes (DEBUG level).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="dgd-perform-pca">
+<h3><code class="docutils literal notranslate"><span class="pre">dgd_perform_pca</span></code><a class="headerlink" href="#dgd-perform-pca" title="Permalink to this heading">#</a></h3>
+<p>This executable performs a two-dimensional principal component analysis on a set of given representations found with <a class="reference internal" href="#dgd-get-representations"> <code class="docutils literal notranslate"><span class="pre">dgd_get_representations</span></code></a>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">dgd_perform_pca</span></code> expects in input a CSV file containing a data frame with the representations. Each row of the data frame should contain data for a different representation, and each column should contain either the values of the representations along a dimension of the latent space or additional information about the representations (for instance, the associated loss). The program expects the columns containing the values of the representations to be named <code class="docutils literal notranslate"><span class="pre">latent_dim_*</span></code> where <code class="docutils literal notranslate"><span class="pre">*</span></code> represents an integer from 1 to $<span class="math notranslate nohighlight">\(D\)</span><span class="math notranslate nohighlight">\(, with \)</span><span class="math notranslate nohighlight">\(D\)</span>$ being the dimensionality of the latent space the representations live in.</p>
+<p>The executable produces two outputs:</p>
+<ul class="simple">
+<li><p>A CSV file containing a data frame with the results of the PCA for the representations.</p></li>
+<li><p>A file containing a scatter plot of the results of the PCA.</p></li>
+</ul>
+<p>The executable can also take in input a configuration file specifying the plot’s aesthetics and output format. If not provided, the default configuration file <code class="docutils literal notranslate"><span class="pre">bulkDGD/configs/plot/config_pca_scatter.yaml</span></code> is used to generate the plot.</p>
+<section id="id8">
+<h4>Command line<a class="headerlink" href="#id8" title="Permalink to this heading">#</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dgd_perform_pca</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">i</span> <span class="n">INPUT_CSV</span> <span class="p">[</span><span class="o">-</span><span class="n">oc</span> <span class="n">OUTPUT_CSV_PCA</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">op</span> <span class="n">OUTPUT_PLOT_PCA</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">cp</span> <span class="n">CONFIG_FILE_PLOT</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">gc</span> <span class="n">GROUPS_COLUMN</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="n">WORK_DIR</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">lf</span> <span class="n">LOG_FILE</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">lc</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">v</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">vv</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="id9">
+<h4>Options<a class="headerlink" href="#id9" title="Permalink to this heading">#</a></h4>
+<table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-h</span></code>, <code class="docutils literal notranslate"><span class="pre">--help</span></code></p></td>
+<td><p>Show the help message and exit.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-i</span></code>, <code class="docutils literal notranslate"><span class="pre">--input-csv</span></code></p></td>
+<td><p>The input CSV file containing the data frame with the representations.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-oc</span></code>, <code class="docutils literal notranslate"><span class="pre">--output-csv-pca</span></code></p></td>
+<td><p>The name of the output CSV file containing the results of the PCA. The file will be written in the working directory. The default file name is <code class="docutils literal notranslate"><span class="pre">pca.csv</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-op</span></code>, <code class="docutils literal notranslate"><span class="pre">--output-plot-pca</span></code></p></td>
+<td><p>The name of the output file containing the plot displaying the results of the PCA. The file will be written in the working directory. The default file name is <code class="docutils literal notranslate"><span class="pre">pca.pdf</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-cp</span></code>, <code class="docutils literal notranslate"><span class="pre">--config-file-plot</span></code></p></td>
+<td><p>The YAML configuration file specifying the aesthetics of the plot and the plot’s output format. If not provided, the default configuration file (<code class="docutils literal notranslate"><span class="pre">$INSTALLDIR/configs/plot/config_pca_scatter.yaml</span></code>) will be used.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-gc</span></code>, <code class="docutils literal notranslate"><span class="pre">--groups-column</span></code></p></td>
+<td><p>The name/index of the column in the input data frame containing the groups by which the samples will be colored in the output plot. By default, the program assumes that no such column is present.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-d</span></code>, <code class="docutils literal notranslate"><span class="pre">--work-dir</span></code></p></td>
+<td><p>The working directory. The default is the current working directory.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-lf</span></code>, <code class="docutils literal notranslate"><span class="pre">--log-file</span></code></p></td>
+<td><p>The name of the log file. The file will be written in the working directory. The default file name is <code class="docutils literal notranslate"><span class="pre">dgd_perform_pca.log</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-lc</span></code>, <code class="docutils literal notranslate"><span class="pre">--log-console</span></code></p></td>
+<td><p>Show log messages also on the console.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-v</span></code>, <code class="docutils literal notranslate"><span class="pre">--logging-verbose</span></code></p></td>
+<td><p>Enable verbose logging (INFO level).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-vv</span></code>, <code class="docutils literal notranslate"><span class="pre">--logging-debug</span></code></p></td>
+<td><p>Enable maximally verbose logging for debugging purposes (DEBUG level).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="dgd-get-probability-density">
+<h3><code class="docutils literal notranslate"><span class="pre">dgd_get_probability_density</span></code><a class="headerlink" href="#dgd-get-probability-density" title="Permalink to this heading">#</a></h3>
+<p>For a set of given representations and the Gaussian mixture model (GMM) modeling the representation space in the DGD, this executable outputs the probability density of each representation for each GMM component.</p>
+<p>This is useful, for instance, to identify a representative sample for each GMM component, namely the one having the highest probability for that component with respect to all samples under consideration.</p>
+<p><code class="docutils literal notranslate"><span class="pre">dgd_get_probability_density</span></code> takes as input a CSV file containing the representations for a set of samples formatted as the one produced by <a class="reference internal" href="#dgd-get-representations"><code class="docutils literal notranslate"><span class="pre">dgd_get_representations</span></code></a>. This CSV file stores a data frame where each row represents a sample’s representation, and each column represents a dimension of the latent space where the representations live.</p>
+<section id="id10">
+<h4>Command line<a class="headerlink" href="#id10" title="Permalink to this heading">#</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">i</span> <span class="n">INPUT_CSV</span> <span class="p">[</span><span class="o">-</span><span class="ow">or</span> <span class="n">OUTPUT_CSV_PROB_REP</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">oc</span> <span class="n">OUTPUT_CSV_PROB_COMP</span><span class="p">]</span> <span class="o">-</span><span class="n">cm</span> <span class="n">CONFIG_FILE_MODEL</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="n">WORK_DIR</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">lf</span> <span class="n">LOG_FILE</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">lc</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">v</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">vv</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="id11">
+<h4>Options<a class="headerlink" href="#id11" title="Permalink to this heading">#</a></h4>
+<table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-h</span></code>, <code class="docutils literal notranslate"><span class="pre">--help</span></code></p></td>
+<td><p>Show the help message and exit.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-i</span></code>, <code class="docutils literal notranslate"><span class="pre">--input-csv</span></code></p></td>
+<td><p>The input CSV file containing the data frame with the representations.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-or</span></code>, <code class="docutils literal notranslate"><span class="pre">--output-csv-prob-rep</span></code></p></td>
+<td><p>The name of the output CSV file containing, for each representation, its probability density for each of the Gaussian mixture model’s components, the maximum probability density found, the component the maximum probability density comes from, and the label of the tissue the input sample belongs to. The file will be written in the working directory. The default file name is <code class="docutils literal notranslate"><span class="pre">probability_density_representations.csv</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-oc</span></code>, <code class="docutils literal notranslate"><span class="pre">--output-csv-prob-comp</span></code></p></td>
+<td><p>The name of the output CSV file containing, for each component of the Gaussian mixture model, the representation(s) having the maximum probability density with respect to it. The file will be written in the working directory. The default file name is <code class="docutils literal notranslate"><span class="pre">probability_density_components.csv</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-cm</span></code>, <code class="docutils literal notranslate"><span class="pre">--config-file-model</span></code></p></td>
+<td><p>The YAML configuration file specifying the DGD model parameters and files containing the trained model. If it is a name without extension, it is assumed to be the name of a configuration file in <code class="docutils literal notranslate"><span class="pre">$INSTALLDIR/bulkDGD/configs/model</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-d</span></code>, <code class="docutils literal notranslate"><span class="pre">--work-dir</span></code></p></td>
+<td><p>The working directory. The default is the current working directory.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-lf</span></code>, <code class="docutils literal notranslate"><span class="pre">--log-file</span></code></p></td>
+<td><p>The name of the log file. The file will be written in the working directory. The default file name is <code class="docutils literal notranslate"><span class="pre">dgd_get_probability_density.log</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-lc</span></code>, <code class="docutils literal notranslate"><span class="pre">--log-console</span></code></p></td>
+<td><p>Show log messages also on the console.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-v</span></code>, <code class="docutils literal notranslate"><span class="pre">--logging-verbose</span></code></p></td>
+<td><p>Enable verbose logging (INFO level).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-vv</span></code>, <code class="docutils literal notranslate"><span class="pre">--logging-debug</span></code></p></td>
+<td><p>Enable maximally verbose logging for debugging purposes (DEBUG level).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+</section>
+<section id="references">
+<h2>References<a class="headerlink" href="#references" title="Permalink to this heading">#</a></h2>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="id12" role="note">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id5">1</a><span class="fn-bracket">]</span></span>
+<p>Prada-Luengo, Inigo, et al. “N-of-one differential gene expression without control samples using a deep generative model.” <em>bioRxiv</em> (2023): 2023-01.</p>
+</aside>
+</aside>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+                <footer class="bd-footer-article">
+                  <!-- Previous / next buttons -->
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="Installation.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Installing bulkDGD</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="core.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">The core subpackage</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#executables">Executables</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dgd-get-recount3-data"><code class="docutils literal notranslate"><span class="pre">dgd_get_recount3_data</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#command-line">Command line</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#options">Options</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dgd-preprocess-samples"><code class="docutils literal notranslate"><span class="pre">dgd_preprocess_samples</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Command line</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">Options</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dgd-get-representations"><code class="docutils literal notranslate"><span class="pre">dgd_get_representations</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">Command line</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id4">Options</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dgd-perform-dea"><code class="docutils literal notranslate"><span class="pre">dgd_perform_dea</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id6">Command line</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id7">Options</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dgd-perform-pca"><code class="docutils literal notranslate"><span class="pre">dgd_perform_pca</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id8">Command line</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id9">Options</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dgd-get-probability-density"><code class="docutils literal notranslate"><span class="pre">dgd_get_probability_density</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id10">Command line</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id11">Options</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#references">References</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div class="tocsection sourcelink">
+    <a href="_sources/Command-line interface.md.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            <div class="bd-footer-content__inner"></div>
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/bootstrap.js?digest=12da95d707ffb74b382d"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=12da95d707ffb74b382d"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+  <p class="copyright">
+    
+      © Copyright 2023, Valentina Sora.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+  <p class="sphinx-version">
+    Created using <a href="https://sphinx-doc.org/">Sphinx</a> 6.1.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item"><p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.13.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

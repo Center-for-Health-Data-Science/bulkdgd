@@ -401,7 +401,7 @@ def get_metadata(samples_category,
         # Warn the user that the file will be overwritten
         warnstr = \
             f"'{f_metadata_name}' already exists in '{wd}'. " \
-            f"Metadata will be read from this file."
+            f"The metadata will be read from this file."
         logger.warning(warnstr)
 
         # Read the file content into a data frame
@@ -462,7 +462,7 @@ def get_metadata(samples_category,
             # Inform the user that the file was written
             infostr = \
                 f"The metadata were successfully " \
-                f"written to {f_metadata_path}."
+                f"written in {f_metadata_path}."
             logger.info(infostr)
 
             # Read the file content into a data frame

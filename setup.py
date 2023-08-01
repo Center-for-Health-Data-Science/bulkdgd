@@ -63,15 +63,17 @@ package_data = \
 # Command-line executables
 entry_points = \
     {"console_scripts" : \
-        [f"dgd_get_recount3_data = " \
+        ["dgd_get_recount3_data = " \
          f"{name}.execs.dgd_get_recount3_data:main",
-         f"dgd_preprocess_samples = " \
+         "dgd_preprocess_samples = " \
          f"{name}.execs.dgd_preprocess_samples:main",
-         f"dgd_get_representations = " \
+         "dgd_get_representations = " \
          f"{name}.execs.dgd_get_representations:main",
-         f"dgd_perform_dea = " \
+         "dgd_perform_dea = " \
          f"{name}.execs.dgd_perform_dea:main",
-         f"dgd_get_probability_density = " \
+         "dgd_perform_pca = " \
+         f"{name}.execs.dgd_perform_pca:main",
+         "dgd_get_probability_density = " \
          f"{name}.execs.dgd_get_probability_density:main",
         ],
     }

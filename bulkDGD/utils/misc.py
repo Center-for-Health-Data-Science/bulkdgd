@@ -32,6 +32,7 @@ import logging as log
 import os
 import re
 # Third-party packages
+import matplotlib.font_manager as fm
 import numpy as np
 # bulkDGD
 from . import _util
@@ -143,3 +144,31 @@ def get_config_rep(config_file):
 
     # Return the configuration
     return config
+
+
+def get_config_plot(config_file):
+    """Get a configuration file for a plot.
+
+    Parameters
+    ----------
+    config_file : ``str``
+        A YAML configuration file.
+
+    Returns
+    -------
+    ``dict``
+        A dictionary containing the configuration.
+    """
+
+    # Load the configuration
+    config = _util.load_config(config_file = config_file)
+    
+    # Substitute the font properties definitions
+    # with the corresponding FontProperties instances
+    new_config = _util.recursive_map_dict(\
+        d = config,
+        func = fm.FontProperties,
+        keys = {"fontproperties", "prop", "title_fontproperties"})
+
+    # Return the new configuration
+    return new_config

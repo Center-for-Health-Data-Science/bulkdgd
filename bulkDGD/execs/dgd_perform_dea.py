@@ -61,11 +61,7 @@ def main():
     # Add the arguments
     is_help = \
         "The input CSV file containing a data frame with " \
-        "the gene expression data for the samples. " \
-        "The rows must represent the samples. The first " \
-        "column must contain the samples' unique names or indexes, " \
-        "while the other columns must represent the genes " \
-        "(Ensembl IDs)."
+        "the gene expression data for the samples."
     parser.add_argument("-is", "--input-csv-samples",
                         type = str,
                         required = True,
@@ -74,11 +70,7 @@ def main():
     id_help = \
         "The input CSV file containing the data frame " \
         "with the decoder output for each samples' best " \
-        "representation found with 'dgd_get_representations'. " \
-        "The rows must represent the samples. The first " \
-        "column must contain the samples' unique names or indexes, " \
-        "while the other columns must represent the genes " \
-        "(Ensembl IDs)."
+        "representation found with 'dgd_get_representations'."
     parser.add_argument("-id", "--input-csv-dec",
                         type = str,
                         required = True,
@@ -159,17 +151,31 @@ def main():
                         type = int,
                         default = n_default,
                         help = n_help)
+    
+    lf_default = "dgd_perform_dea.log"
+    lf_help = \
+        "The name of the log file. The file will be written " \
+        "in the working directory. The default file name is " \
+        f"'{lf_default}'."
+    parser.add_argument("-lf", "--log-file",
+                        type = str,
+                        default = lf_default,
+                        help = lf_help)
 
+    lc_help = "Show log messages also on the console."
+    parser.add_argument("-lc", "--log-console",
+                        action = "store_true",
+                        help = lc_help)
 
-    v_help = "Verbose logging (INFO level)."
-    parser.add_argument("-v", "--logging-verbose",
+    v_help = "Enable verbose logging (INFO level)."
+    parser.add_argument("-v", "--log-verbose",
                         action = "store_true",
                         help = v_help)
 
     vv_help = \
-        "Maximally verbose logging for debugging " \
+        "Enable maximally verbose logging for debugging " \
         "purposes (DEBUG level)."
-    parser.add_argument("-vv", "--logging-debug",
+    parser.add_argument("-vv", "--log-debug",
                         action = "store_true",
                         help = vv_help)
 
@@ -184,8 +190,10 @@ def main():
     q_values_method = args.q_values_method
     wd = args.work_dir
     n_proc = args.n_proc
-    v = args.logging_verbose
-    vv = args.logging_debug
+    log_file = args.log_file
+    log_console = args.log_console
+    v = args.log_verbose
+    vv = args.log_debug
 
 
     #---------------------------- Logging ----------------------------#
@@ -210,8 +218,32 @@ def main():
         # The minimal logging level will be DEBUG
         level = log.DEBUG
 
-    # Set the logging level for this module
-    log.basicConfig(level = level)
+    # Initialize the logging handlers to a list containing only
+    # the FileHandler (to log to the log file)
+    handlers = [log.FileHandler(# The log file
+                                filename = log_file,
+                                # How to open the log file ('w' means
+                                # re-create it every time the
+                                # executable is called)
+                                mode = "w")]
+
+    # If the user requested logging to the console, too
+    if log_console:
+
+        # Append a StreamHandler to the list
+        handlers.append(log.StreamHandler())
+
+    # Set the logging level
+    log.basicConfig(# The level below which log messages are silenced
+                    level = level,
+                    # The format of the log strings
+                    format = "{asctime}:{levelname}:{name}:{message}",
+                    # The format for dates/time
+                    datefmt="%Y-%m-%d,%H:%M",
+                    # The format style
+                    style = "{",
+                    # The handlers
+                    handlers = handlers)
 
     # Suppress all Dask logs below WARNING
     log.getLogger("distributed").setLevel(log.WARNING)
@@ -250,7 +282,7 @@ def main():
 
         # Get the observed counts
         obs_counts = \
-            dgd.load_samples_data(\
+            dgd.load_samples(\
                 csv_file = input_csv_samples,
                 keep_samples_names = True)[0].df
 
@@ -286,11 +318,8 @@ def main():
     try:
 
         # Get the predicted means
-        pred_means = \
-            pd.read_csv(input_csv_dec,
-                        sep = ",",
-                        header = 0,
-                        index_col = 0)
+        pred_means, other_data = \
+            dgd.load_decoder_outputs(csv_file = input_csv_dec)
 
         # Get the samples' names
         pred_means_names = pred_means.index.tolist()

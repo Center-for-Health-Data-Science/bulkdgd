@@ -28,7 +28,7 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 # Sphinx documentation
-docs/_build/
+#docs/_build/
 
 # Jupyter Notebook
 .ipynb_checkpoints

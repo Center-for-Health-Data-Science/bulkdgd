@@ -36,6 +36,7 @@ from pkg_resources import resource_filename, Requirement
 import numpy as np
 import pandas as pd
 from scipy.stats import nbinom
+from sklearn.decomposition import PCA
 from statsmodels.stats.multitest import multipletests
 import torch
 # bulkDGD
@@ -80,21 +81,21 @@ _SAMPLE_IDX_COL = "sample_idx"
 # model
 CONFIG_MODEL_DIR = \
     resource_filename(Requirement(pkg_name),
-                      f"{pkg_name}/configs/model")
+                      "/configs/model")
 
 # The directory containing the configuration files specifying the
 # options for data loading and optimization when finding the
 # best representations
 CONFIG_REP_DIR = \
     resource_filename(Requirement(pkg_name),
-                      f"{pkg_name}/configs/representations")
+                      "configs/representations")
 
 # Default PyTorch file containing the trained decoder
 try:
 
     DEC_FILE = \
         resource_filename(Requirement(pkg_name),
-                          f"data/model/dec.pth")
+                          "data/model/dec.pth")
 
 # If no file is found in the directory
 except KeyError:
@@ -105,19 +106,18 @@ except KeyError:
 # Default PyTorch file containing the trained Gaussian mixture model
 GMM_FILE = \
     resource_filename(Requirement(pkg_name),
-                      f"data/model/gmm.pth")
+                      "data/model/gmm.pth")
 
 # Default PyTorch file containing the trained representation layer
 REP_FILE = \
     resource_filename(Requirement(pkg_name),
-                      f"data/model/rep.pth")
-
+                      "data/model/rep.pth")
 
 # File containing the Ensembl IDs of the genes on which the DGD
 # model has been trained
 DGD_GENES_FILE = \
     resource_filename(Requirement(pkg_name),
-                      f"data/model/training_genes.txt")
+                      "data/model/training_genes.txt")
 
 # Available optimizers
 AVAILABLE_OPTIMIZERS = ["adam"]
@@ -126,13 +126,19 @@ AVAILABLE_OPTIMIZERS = ["adam"]
 #------------------------ Preprocess samples -------------------------#
 
 
-def preprocess_samples(samples_df):
+def preprocess_samples(samples_df,
+                       samples_names_column = None):
     """Preprocess new samples to use them with the DGD model.
 
     Parameters
     ----------
     samples_df : ``pandas.DataFrame``
         A data frame containing the samples to be preprocessed.
+
+    samples_names_column : ``str`` or ``int``, optional
+        The name/index of the column containing the names/IDs/indexes
+        of the samples, if any. By default, it is assumed that no
+        such column is present.
 
     Returns
     -------
@@ -146,33 +152,183 @@ def preprocess_samples(samples_df):
           the DGD model but not found in the input data frame.
     """
 
-    # Load the list of genes used to train the DGD model
-    genes_list_dgd = misc.get_list(list_file = DGD_GENES_FILE)
 
-    # Remove the Ensembl gene IDs' versions from the names of
-    # the genes to obtain all genes for which expression data
-    # are available in the data frame. It works also if the
-    # Ensembl IDs are specified without their version
-    genes_list_df = list(zip(*samples_df.columns.str.split(".")))[0]
+    #------------------------- Index column --------------------------#
+
+
+    # If the user provided the name/index of a column where
+    # the samples' names/IDs/indexes are stored
+    if samples_names_column is not None:
+
+        # If the user provided an index
+        if isinstance(samples_names_column, int):
+
+            # Get the name of the column
+            samples_names_column = \
+                samples_df.columns[samples_names_column]
+
+        # Set the column as the new index of the data frame
+        samples_df = samples_df.set_index(samples_names_column,
+                                          drop = True,
+                                          verify_integrity = True)
+
+        # Inform the user about the new index
+        warnstr = \
+            "The row names of the data frame of preprocessed " \
+            "samples will be the values found in the " \
+            f"'{samples_names_column}' column of the input " \
+            "data frame."
+        logger.warning(warnstr)
+
+
+    #------------------------- Other columns -------------------------#
+
+
+    # Get the names of the columns containing gene expression data
+    # from the original data frame
+    genes_columns_old = \
+        [col for col in samples_df.columns if col.startswith("ENSG")]
+
+    # Get the Ensembl IDs without the version
+    genes_columns = [col.split(".")[0] for col in genes_columns_old]
+
+    # Rename the columns containing gene expression data
+    samples_df = \
+        samples_df.rename(\
+            mapper = dict(zip(genes_columns_old, genes_columns)),
+            axis = 1)
+
+    # Get the names of the other columns
+    other_columns = \
+        [col for col in samples_df.columns if col not in genes_columns]
+
+    # If additional columns were found
+    if other_columns:
+
+        # Inform the user of the other columns found
+        infostr = \
+            f"{len(other_columns)} column(s) containing additional " \
+            "information (not gene expression data) were found in " \
+            f"the input data frame: {', '.join(other_columns)}."
+        logger.info(infostr)
+
+
+    #----------------------- Duplicate samples -----------------------#
+
+
+    # Inform the user that we are about to perform a check on
+    # duplicated samples
+    infostr = "Now looking for duplicated samples..."
+    logger.info(infostr)
+
+    # Get duplicate samples, if any
+    duplicated_samples = samples_df.duplicated(keep = "first")
+
+    # If duplicate samples were found
+    if duplicated_samples.any():
+
+        # Warn the user that the duplicates will be removed
+        warnstr = \
+            f"{duplicated_samples.values.sum()} duplicated samples " \
+            "were found in the data frame at indexes. These " \
+            "duplicates will be removed from the data frame, and " \
+            "only the first instance of the duplicate row will be " \
+            "kept."
+        logger.warning(warnstr)
+
+        # Remove the duplicate samples
+        samples_df = samples_df[~duplicated_samples]
+
+    # Otherwise
+    else:
+
+        # Inform the user that no duplicate samples were found
+        infostr = "No duplicated samples were found."
+        logger.info(infostr)
+
+
+    #------------------------ Missing values -------------------------#
+
+
+    # Inform the user that we are about to perform a check on
+    # missing values
+    infostr = \
+        "Now looking for missing values in the columns containing " \
+        "gene expression data..."
+    logger.info(infostr)
+
+    # Get samples containing missing values in the columns containing
+    # gene counts
+    na_samples = samples_df[genes_columns].isnull().any(axis = 1)
+
+    # If there are samples containing missing values
+    if na_samples.any():
+
+        # Warn the user of the samples containing missing values 
+        warnstr = \
+            f"{na_samples.values.sum()} samples with missing values " \
+            "in the columns containing gene expression data were " \
+            "found. They will be removed from the data frame of " \
+            "preprocessed samples."
+        logger.warning(warnstr)
+
+        # Remove the samples with missing values
+        samples_df = samples_df[~na_samples]
+
+    # Otherwise
+    else:
+
+        # Inform the user that no NA values were found in the
+        # columns containing gene expression data
+        infostr = \
+            "No missing values were found in the columns containing " \
+            "gene expression data."
+        logger.info(infostr)
+
+
+    #------------------------ Duplicate genes ------------------------#
+
+
+    # Inform the user that we are looking for duplicate genes
+    infostr = "Now looking for duplicated genes..."
+    logger.info(infostr)
 
     # If there are duplicate genes
-    if len(genes_list_df) > len(set(genes_list_df)):
+    if len(genes_columns) > len(set(genes_columns)):
         
         # Get the duplicate genes
-        genes_series = pd.Series(genes_list_df)
-        duplicates = genes_series[genes_series.duplicated()].tolist()
+        genes_series = pd.Series(genes_columns)
+        duplicated_genes = \
+            genes_series[genes_series.duplicated()].tolist()
 
         # Raise an error informing the user of the duplicated
         # genes
         errstr = \
             "Duplicated genes were found in the input data " \
             "frame. The duplicated genes are: " \
-            f"{', '.join(duplicates)}."
+            f"{', '.join(duplicated_genes)}."
         raise ValueError(errstr)
 
-    # Change the column names so that only the Ensembl IDs are
-    # kept (and not their versions)
-    samples_df.columns = genes_list_df
+    # Inform the user that no duplicated genes were found
+    infostr = "No duplicated genes were found."
+    logger.info(infostr)
+
+
+    #------------------------- Final columns -------------------------#
+
+
+    # Load the list of genes used to train the DGD model
+    genes_list_dgd = misc.get_list(list_file = DGD_GENES_FILE)
+
+    # Warn the user that the columns have been rearranged
+    warnstr = \
+        "In the data frame containing the pre-processed samples, " \
+        "the columns found in the input data frame which did not " \
+        "contain gene expression data, if any were present, " \
+        "will appended as the last columns of the data frame, " \
+        "and appear in the same order as they did in the input data " \
+        "frame."
+    logger.warning(warnstr)
 
     # Select only the genes used to train the DGD model
     # from the samples' data frame to obrain the data frame
@@ -180,45 +336,67 @@ def preprocess_samples(samples_df):
     # (= genes) in the order expected by the DGD model, and,
     # if no data were found for some genes, add a default
     # count of 0
-    preproc_df = samples_df.reindex(genes_list_dgd,
+    preproc_df = samples_df.reindex(genes_list_dgd + other_columns,
                                     axis = 1,
                                     fill_value = 0)
+
+
+    #-------------------- Excluded/missing genes ---------------------#
+
 
     # Create a list containing the genes present in the original
     # data frame but not in the list of genes on which the DGD
     # model was trained on. Use lists instead of sets (which
     # would be faster) to preserve the order
     genes_excluded = \
-        [gene for gene in genes_list_df if gene not in genes_list_dgd]
+        [gene for gene in genes_columns if gene not in genes_list_dgd]
+
+    # If some genes to be excluded were found
+    if genes_excluded:
+
+        # Warn the user
+        warnstr = \
+            f"{len(genes_excluded)} genes found in the input " \
+            "samples are not part of the set of genes used to " \
+            "train the DGD model. They will be removed from the " \
+            "data frame of preprocessed samples."
+        logger.warning(warnstr)
 
     # Create a list containing the genes present in the list of genes
     # used to train the DGD model but not in the original data frame.
     # Use lists instead of sets (which would be faster) to preserve
     # the order
     genes_missing = \
-        [gene for gene in genes_list_dgd if gene not in genes_list_df]
+        [gene for gene in genes_list_dgd if gene not in genes_columns]
+
+    # If genes with missing counts were found
+    if genes_missing:
+
+        # Warn the user
+        warnstr = \
+            f"{len(genes_missing)} genes in the set of genes used " \
+            "to train the DGD model were not found in the input " \
+            "samples. A default count of 0 will be assigned to " \
+            "them in all preprocessed samples."
+        logger.warning(warnstr)
 
     # Return the data frame with the preprocessed samples and the
     # two lists
     return preproc_df, genes_excluded, genes_missing
 
 
-#--------------------- Load/Initialize the model ---------------------#
+#----------------------------- Load data -----------------------------#
 
 
-def load_samples_data(csv_file,
-                      keep_samples_names = True):
+def load_samples(csv_file,
+                 keep_samples_names = True):
     """Load the data frame containing the gene expression data for
-    the samples, and return data in a PyTorch-compatible format.
+    the samples.
 
     Parameters
     ----------
     csv_file : `str``
         A CSV file containing the samples' data.
-
-        Rows must represent the samples, while columns must
-        represent genes. Therefore, each cell must hold the
-        expression of a gene in a specific sample.
 
     keep_samples_names : ``bool``, default: ``True``
         Whether to keep the name assigned to the samples in
@@ -266,34 +444,32 @@ def load_samples_data(csv_file,
         indexes = list(range(len(df)))
 
 
-    #---------------------- Tissue information -----------------------#
+    # Get the names of the columns containing gene expression data
+    # from the original data frame
+    genes_columns = \
+        [col for col in df.columns if col.startswith("ENSG")]
 
+    # Get the names of the other columns
+    other_columns = \
+        [col for col in df.columns if col not in genes_columns]
 
-    # Initialize the data frame containing the tissue labels
-    # for the samples to an empty data frame
-    tissues = pd.DataFrame() 
+    # If additional columns were found
+    if other_columns:
 
-    # If a column of the data frame contains tissue
-    # information
-    if _TISSUE_COL in df.columns.tolist():
-
-        # Save the tissue information into a separate
-        # data frame
-        tissues = df.iloc[:,-1] 
-
-        # Add the indexes to the tissue labels as well
-        tissues.index = indexes
-
-        # Remove the column from the original data frame
-        df = df.iloc[:,:-1]
-
-        # Inform the user that you found tissue information
+        # Inform the user of the other columns found
         infostr = \
-            f"'{_TISSUE_COL}' column found in the data frame in " \
-            f"'{csv_file}'. The column is assumed to " \
-            f"contain the labels of the tissues the samples " \
-            f"belong to."
+            f"{len(other_columns)} column(s) containing additional " \
+            "information (not gene expression data) were found in " \
+            f"the input data frame: {', '.join(other_columns)}."
         logger.info(infostr)
+
+    # Create a data frame with only those columns containing gene
+    # expression data    
+    df_expr_data = df[genes_columns]
+
+    # Create a data frame with only those columns containing
+    # additional information    
+    df_other_data = df[other_columns]
 
 
     #------------------------ Check the genes ------------------------#
@@ -304,7 +480,7 @@ def load_samples_data(csv_file,
 
     # CIf the genes in the samples are not the same as those
     # used to train the DGD model
-    if genes != df.columns.tolist():
+    if genes != df_expr_data.columns.tolist():
 
         # Raise an error
         errstr = \
@@ -320,90 +496,115 @@ def load_samples_data(csv_file,
 
 
     # Create the dataset
-    dataset = dataclasses.GeneExpressionDataset(df = df)
+    dataset = dataclasses.GeneExpressionDataset(df = df_expr_data)
 
     # Load the dataset and the data dimensionality and
     # return the data of interest
-    data = (dataset, indexes, genes, tissues)
+    data = (dataset, indexes, genes, df_other_data)
 
     # Inform the user about the number of samples found in the dataset
-    logger.info(f"{len(indexes)} samples were found in the dataset.")
-
-    # If tissue information was found
-    if not tissues.empty:
-
-        # Inform the user about the number of unique tissues found
-        # in the dataset
-        unique_tissues = tissues.unique().tolist()
-        logger.info(\
-            f"{len(unique_tissues)} tissue(s) was (were) found " \
-            f"in the dataset ({', '.join(unique_tissues)}).")
+    logger.info(f"{len(indexes)} sample(s) were found in the dataset.")
 
     # Return the data
     return data
 
 
-def load_pth_file(pth_file,
-                  model_type,
-                  model):
-    """Load a PyTorch file containing a model's state.
+def load_representations(csv_file):
+    """Load the representations from a CSV file.
 
     Parameters
     ----------
-    pth_file : ``str``
-        A PyTorch file containing the state of the model.
-
-    model_type : ``str``, {``"decoder"``, ``"gmm"``, ``"rep"``}
-        The type of model whose state is contained inside
-        the PyTorch file. ``"decoder"`` indicates the decoder,
-        ``"gmm"`` indicates the Gaussian mixture model,
-        and ``"rep"`` indicates the representation layer.
-    
-    model : ``torch.nn.Module``
-        The model whose state is to be loaded.
+    csv_file : ``str``
+        A CSV file containing a data frame with the representations.
 
     Returns
     -------
-    ``torch.nn.Module``
-        The model after the state has been loaded.
+    ``tuple``
+        A tuple containing:
+
+        * A ``pandas.DataFrame`` containing the representations'
+          values along the latent space's dimensions.
+        * A ``pandas.DataFrame`` containing extra information about
+          the representations found in the input data frame (for
+          instance, the tissues from which the original samples
+          came from).
     """
 
-    # If the file was not passed
-    if pth_file is None or pth_file == "":
+    # Load the data frame with the representations
+    df = pd.read_csv(csv_file,
+                     sep = ",",
+                     index_col = 0,
+                     header = 0)
 
-        # If the file contains the trained decoder
-        if model_type == "decoder":
+    # Get the names of the columns containing the values of
+    # the representations along the latent space's dimensions
+    latent_dims_columns = \
+        [col for col in df.columns if col.startswith("latent_dim_")]
 
-            # Set the file to the default one
-            pth_file = DEC_FILE
+    # Get the names of the other columns
+    other_columns = \
+        [col for col in df.columns if col not in latent_dims_columns]
 
-        # If the file contains the trained Gaussian mixture
-        # model
-        elif model_type == "gmm":
+    # If additional columns were found
+    if other_columns:
 
-            # Set the file to the default one
-            pth_file = GMM_FILE
+        # Inform the user of the other columns found
+        infostr = \
+            f"{len(other_columns)} column(s) containing additional " \
+            "information (not values of the representations along " \
+            "the latent space's dimensions) were found in " \
+            f"the input data frame: {', '.join(other_columns)}."
+        logger.info(infostr)
 
-        # If the file contains the trained representation
-        # layer
-        elif model_type == "rep":
+    # Return a data frame with the representations' values and
+    # another with the extra information
+    return df[latent_dims_columns], df[other_columns]
 
-            # Set the file to the default one
-            pth_file = REP_FILE
 
-        # Warn the user that the default file will
-        # be used
-        warnstr = \
-            f"No PTH file was passed for '{model_type}' " \
-            f"in the configuration file. The default file " \
-            f"'{pth_file}' will be used instead."
-        logger.warning(warnstr)
+def load_decoder_outputs(csv_file):
+    """Load the decoder outputs from a CSV file.
 
-    # Load the file
-    model.load_state_dict(torch.load(pth_file))
+    Parameters
+    ----------
+    csv_file : ``str``
+        A CSV file containing a data frame with the decoder outputs.
 
-    # Return the model
-    return model
+    Returns
+    -------
+    """
+
+    # Load the data frame with the decoder outputs
+    df = pd.read_csv(csv_file,
+                     sep = ",",
+                     index_col = 0,
+                     header = 0)
+
+    # Get the names of the columns containing the decoder outputs
+    # for the genes
+    dec_out_columns = \
+        [col for col in df.columns if col.startswith("ENSG")]
+
+    # Get the names of the other columns
+    other_columns = \
+        [col for col in df.columns if col not in dec_out_columns]
+
+    # If additional columns were found
+    if other_columns:
+
+        # Inform the user of the other columns found
+        infostr = \
+            f"{len(other_columns)} column(s) containing additional " \
+            "information (not the decoder outputs for each " \
+            "gene) were found in the input data frame: " \
+            f"{', '.join(other_columns)}."
+        logger.info(infostr)
+
+    # Return a data frame with the decoder outputs and
+    # another with the extra information
+    return df[dec_out_columns], df[other_columns]
+
+
+#----------------------- Initialize the model ------------------------#
 
 
 def get_gmm(dim,
@@ -423,7 +624,7 @@ def get_gmm(dim,
 
     Returns
     -------
-    ``DDGPerturbations.core.latent.GaussianMixtureModel``
+    ``bulkDGD.core.latent.GaussianMixtureModel``
         The Gaussian mixture model.
     """
 
@@ -470,9 +671,7 @@ def get_gmm(dim,
     # Try to load the model's state
     try:
 
-        gmm = load_pth_file(pth_file = pth_file,
-                            model_type = "gmm",
-                            model = gmm)
+        gmm.load_state_dict(torch.load(pth_file))
 
     # If something went wrong
     except Exception as e:
@@ -497,7 +696,8 @@ def get_gmm(dim,
 
 def get_decoder(dim,
                 config):
-    """Initialize the decoder, load its state, and return it.
+    """Initialize the decoder, load its state,
+    and return it.
 
     Parameters
     ----------
@@ -510,7 +710,7 @@ def get_decoder(dim,
 
     Returns
     -------
-    ``DDGPerturbations.core.decoder.Decoder``
+    ``bulkDGD.core.decoder.Decoder``
         The trained decoder.
     """
 
@@ -541,9 +741,7 @@ def get_decoder(dim,
     # Try to load the model's state
     try:
 
-        dec = load_pth_file(pth_file = pth_file,
-                            model_type = "decoder",
-                            model = dec)
+        dec.load_state_dict(torch.load(pth_file))
 
     # If something went wrong
     except Exception as e:
@@ -581,7 +779,7 @@ def get_rep_layer(dim,
 
     Returns
     -------
-    ``DDGPerturbations.core.latent.RepresentationLayer``
+    ``bulkDGD.core.latent.RepresentationLayer``
         The representation layer.
     """
 
@@ -618,9 +816,7 @@ def get_rep_layer(dim,
     # Try to load the representation layer's state
     try:
 
-        rep_layer = load_pth_file(pth_file = pth_file,
-                                  model_type = "rep",
-                                  model = rep_layer)
+        rep_layer.load_state_dict(torch.load(pth_file))
 
     # If something went wrong
     except Exception as e:
@@ -642,6 +838,21 @@ def get_rep_layer(dim,
     return rep_layer
 
 
+def load_training_representations():
+    """Load the representations of the samples belonging to the
+    DGD model's training set as a data frame.
+    """
+
+    # Load the representations' values
+    rep = torch.load(REP_FILE)["_z"].numpy()
+
+    # Create a data frame containing the representation values
+    df_training_rep = pd.DataFrame(rep)
+
+    # Return the data frame
+    return df_training_rep
+
+
 #-------------------------- Representations --------------------------#
 
 
@@ -649,7 +860,6 @@ def get_representations(dataloader,
                         indexes,
                         gmm,
                         dec,
-                        n_samples,
                         n_genes,
                         n_samples_per_comp,
                         dim,
@@ -671,9 +881,6 @@ def get_representations(dataloader,
 
     dec : ``DGDPerturbations.core.decoder.Decoder``
         The trained decoder.
-
-    n_samples : ``int``
-        The number of samples in the dataset.
 
     n_genes : ``int``
         The number of genes in the dataset.
@@ -698,6 +905,8 @@ def get_representations(dataloader,
         and a ``np.ndarray`` containing the best representation
         for each sample.
     """
+
+    n_samples = len(indexes)
 
 
     #---------------------- First optimization -----------------------#
@@ -774,7 +983,7 @@ def get_representations(dataloader,
     logger.info(infostr)
 
     # For each epoch
-    for epoch in range(config_opt1["epochs"]):
+    for epoch in range(1, config_opt1["epochs"]+1):
 
         # Make the gradients zero
         rep_samples_optimizer.zero_grad()
@@ -1009,7 +1218,7 @@ def get_representations(dataloader,
 
 
             # Update the average loss for the current epoch
-            rep_avg_loss[epoch] += \
+            rep_avg_loss[epoch-1] += \
                 total_loss.item() / (n_samples * n_genes * \
                                      n_comp * n_samples_per_comp)
 
@@ -1021,7 +1230,7 @@ def get_representations(dataloader,
         rep_samples_optimizer.step()
 
         # Inform the user about the loss at the current epoch
-        infostr = f"Epoch {epoch}: loss {rep_avg_loss[epoch]}."
+        infostr = f"Epoch {epoch}: loss {rep_avg_loss[epoch-1]}."
         logger.info(infostr)
 
 
@@ -1384,7 +1593,7 @@ def get_representations(dataloader,
     logger.info(infostr)
     
     # For each epoch
-    for epoch in range(config_opt2["epochs"]):
+    for epoch in range(1, config_opt2["epochs"]+1):
 
         # Make the gradients zero
         best_rep_optimizer.zero_grad()
@@ -1516,7 +1725,7 @@ def get_representations(dataloader,
 
 
             # Update the best average for the current epoch
-            rep_avg_loss[epoch] += \
+            rep_avg_loss[epoch-1] += \
                 total_loss.item() / \
                 (n_samples * n_genes * n_samples_per_comp)
         
@@ -1524,18 +1733,18 @@ def get_representations(dataloader,
         best_rep_optimizer.step()
 
         # Inform the user about the loss at the current epoch
-        infostr = f"Epoch {epoch}: loss {rep_avg_loss[epoch]}."
+        infostr = f"Epoch {epoch}: loss {rep_avg_loss[epoch-1]}."
         logger.info(infostr)
 
         # If we reached the last epoch
-        if epoch == config_opt2["epochs"]-1:
+        if epoch == config_opt2["epochs"]:
 
 
-            #-------------------- Loss data frame --------------------#
+            #---------------------- Loss series ----------------------#
 
 
-            # Create a data frame to store the loss
-            df_loss = pd.DataFrame(sample_avg_loss)
+            # Create a series to store the loss
+            series_loss = pd.Series(sample_avg_loss)
 
 
             #-------------- Decoder outputs data frame ---------------#
@@ -1577,7 +1786,7 @@ def get_representations(dataloader,
             df_dec_out.index = indexes
 
             # Re-index also the loss data frame
-            df_loss.index = indexes
+            series_loss.index = indexes
 
 
             #--------------- Representations dataframe ---------------#
@@ -1589,8 +1798,13 @@ def get_representations(dataloader,
             df_rep = pd.DataFrame(best_rep_final.z.detach().numpy())
             df_rep.index = indexes
 
-            # Return the data frames
-            return (df_loss, df_rep, df_dec_out)
+            # Name the columns of the data frame as the dimensions
+            # of the latent space
+            df_rep.columns = \
+                [f"latent_dim_{i}" for i in range(1, df_rep.shape[1]+1)]
+
+            # Return the data frames/series
+            return (df_rep, df_dec_out, series_loss)
 
 
 #---------------------------- Statistics -----------------------------#
@@ -2010,12 +2224,66 @@ def perform_dea(obs_counts_sample,
     return df_stats, sample_name
 
 
+#-------------------------------- PCA --------------------------------#
+
+
+def perform_2d_pca(df_rep,
+                   pc_columns = ["PC1", "PC2"],
+                   groups = None,
+                   groups_column = "group"):
+    """Perform a 2D principal component analysis (PCA) on a set
+    of representations.
+
+    Parameters
+    ----------
+    df_rep : ``pandas.DataFrame``
+        Data frame containing the representations. The rows of the
+        data frame should represent the samples, while the columns
+        should represent the dimensions of the space where the
+        representations live.
+
+    pc_columns : ``list``, ``["PC1", "PC2"]``
+        A list with the names of the two columns that will contain
+        the values of the first two principal components.
+
+    Returns
+    -------
+    ``pandas.DataFrame``
+        A data frame containing the results of the PCA. The rows
+        will contain the representations, while the columns
+        will  contain the values of each representation's
+        projection along the principal components.
+    """
+
+    # Get the representations' values
+    rep_values = df_rep.values
+
+    # Get the representations' names/Ds
+    rep_names = df_rep.index.tolist()
+
+    # Set up the PCA
+    pca = PCA(n_components = 2)
+
+    # Fit the model
+    pca.fit(rep_values)
+    
+    # Fit the model and apply the dimensionality reduction
+    projected = pca.fit_transform(rep_values)
+
+    # Create a data frame containing the projected points
+    df_projected = pd.DataFrame(projected,
+                                columns = pc_columns,
+                                index = rep_names)
+
+    # Return the data frame
+    return df_projected
+
+
 #----------------------- Probability densities -----------------------#
 
 
 def get_probability_density(gmm,
-                            df_rep,
-                            df_tissues):
+                            df_rep):
     """Given a trained Gaussian mixture model and a set of
     representations, get the probability density of each
     component for each representation and the representation(s)
@@ -2023,16 +2291,11 @@ def get_probability_density(gmm,
 
     Parameters
     ----------
-    gmm : ``DGDPerturbations.src.latent.GaussianMixtureModel``
+    gmm : ``bulkDGD.core.latent.GaussianMixtureModel``
         The trained Gaussian mixture model.
 
     df_rep : ``pandas.DataFrame``
         A data frame containing the representations.
-
-    df_tissues : ``pandas.DataFrame``
-        A data frame containing the labels of the tissues the
-        samples from which the representations come from
-        belong to.
 
     Returns
     -------
@@ -2042,13 +2305,11 @@ def get_probability_density(gmm,
         * A ``pandas.DataFrame`` containing the probability
           densities for each representation, together with an
           indication of what the maximum probability density found is
-          and for which component is was found, and the label of the
-          tissue the original sample belongs to.
+          and for which component is was found.
         * A ``pandas.DataFrame`` containing, for each component,
           the representation(s) having the maximum probability
           density for the component, together with the probability
-          density for that(those) representation(s) and the label(s)
-          of the tissue(s) the original sample(s) belong(s) to.
+          density for that(those) representation(s).
     """
     
     # Get the probability densities of the representations
@@ -2065,9 +2326,6 @@ def get_probability_density(gmm,
     # Add a column storing which component has the highest
     # probability density per representation
     df_prob_rep[_MAX_PROB_COMP_COL] = df_prob_rep.idxmax(axis = 1)
-    
-    # Match the representations with the tissue labels
-    df_prob_rep[_TISSUE_COL] = df_tissues
 
     # Initialize an empty list to store the rows containing
     # the representations/samples that have the highest

@@ -54,13 +54,7 @@ def main():
     i_help = \
         "The input CSV file containing a data frame with " \
         "the gene expression data for the samples for which a " \
-        "representation in latent space should be found. " \
-        "The rows must represent the samples. The first column " \
-        "must contain the unique names of the samples, while " \
-        "the other columns must represent the genes (identified " \
-        "by their Ensembl IDs). The genes should be the ones " \
-        "the DGD model was trained on, whose Ensembl IDs can " \
-        f"be found in '{dgd.DGD_GENES_FILE}'."
+        "representation in latent space should be found."
     parser.add_argument("-i", "--input-csv",
                         type = str,
                         required = True,
@@ -70,12 +64,9 @@ def main():
     or_help = \
         "The name of the output CSV file containing the data frame " \
         "with the representation of each input sample in latent " \
-        "space. The rows represent the samples. The first column " \
-        "contains the unique names of the samples, while the other " \
-        "columns represent the values of the representations along " \
-        "the latent space's dimensions. The file will be written in " \
-        "the working directory. The default file name is " \
-        f"'{or_default}'."
+        "space. The rows represent the samples. The file will be " \
+        "written in the working directory. The default file name " \
+        f"is '{or_default}'."
     parser.add_argument("-or", "--output-csv-rep",
                         type = str,
                         default = or_default,
@@ -84,46 +75,13 @@ def main():
     od_default = "decoder_outputs.csv"
     od_help = \
         "The name of the output CSV file containing the data frame " \
-        "with the decoder output for each input sample. The " \
-        "rows represent the samples. The first column contains the " \
-        "unique names of the samples, while the other columns " \
-        "represent the genes (identified by their Ensembl IDs). " \
+        "with the decoder output for each input sample. " \
         "The file will be written in the working directory. " \
         f"The default file name is '{od_default}'."
     parser.add_argument("-od", "--output-csv-dec",
                         type = str,
                         default = od_default,
                         help = od_help)
-
-    ol_default = "loss.csv"
-    ol_help = \
-        "The name of the output CSV file containing the data frame " \
-        "with the per-sample loss associated with the best " \
-        "representation found for each sample of interest. " \
-        "The rows represent the samples, while the only column " \
-        "contains the loss. The file will be written in the " \
-        "working directory. The default file name is " \
-        f"'{ol_default}'."
-    parser.add_argument("-ol", "--output-csv-loss",
-                        type = str,
-                        default = ol_default,
-                        help = ol_help)
-
-
-    ot_default = "tissues.csv"
-    ot_help = \
-        "The name of the output CSV file containing the data  " \
-        "frame with the labels of the tissues the amples belong to. " \
-        "The rows represent the samples, while the only column " \
-        "contains the labels of the tissues. " \
-        "The file will be written in the working directory. The " \
-        f"default file name is '{ot_default}'. This file will not " \
-        "be generated unless the input CSV file has a " \
-        f"'{dgd._TISSUE_COL}' column containing the labels."
-    parser.add_argument("-ot", "--output-csv-tissues",
-                        type = str,
-                        default = ot_default,
-                        help = ot_help)
 
     cm_help = \
         "The YAML configuration file specifying the " \
@@ -135,7 +93,6 @@ def main():
                         type = str,
                         required = True,
                         help = cm_help)
-
 
     cr_help = \
         "The YAMl configuration file containing the " \
@@ -156,15 +113,30 @@ def main():
                         default = os.getcwd(),
                         help = d_help)
 
-    v_help = "Verbose logging (INFO level)."
-    parser.add_argument("-v", "--logging-verbose",
+    lf_default = "dgd_get_representations.log"
+    lf_help = \
+        "The name of the log file. The file will be written " \
+        "in the working directory. The default file name is " \
+        f"'{lf_default}'."
+    parser.add_argument("-lf", "--log-file",
+                        type = str,
+                        default = lf_default,
+                        help = lf_help)
+
+    lc_help = "Show log messages also on the console."
+    parser.add_argument("-lc", "--log-console",
+                        action = "store_true",
+                        help = lc_help)
+
+    v_help = "Enable verbose logging (INFO level)."
+    parser.add_argument("-v", "--log-verbose",
                         action = "store_true",
                         help = v_help)
 
     vv_help = \
-        "Maximally verbose logging for debugging " \
+        "Enable maximally verbose logging for debugging " \
         "purposes (DEBUG level)."
-    parser.add_argument("-vv", "--logging-debug",
+    parser.add_argument("-vv", "--log-debug",
                         action = "store_true",
                         help = vv_help)
 
@@ -173,13 +145,13 @@ def main():
     input_csv = args.input_csv
     output_csv_rep = args.output_csv_rep
     output_csv_dec = args.output_csv_dec
-    output_csv_loss = args.output_csv_loss
-    output_csv_tissues = args.output_csv_tissues
     config_file_model = args.config_file_model
     config_file_rep = args.config_file_rep
     wd = args.work_dir
-    v = args.logging_verbose
-    vv = args.logging_debug
+    log_file = args.log_file
+    log_console = args.log_console
+    v = args.log_verbose
+    vv = args.log_debug
 
 
     #---------------------------- Logging ----------------------------#
@@ -204,8 +176,32 @@ def main():
         # The minimal logging level will be DEBUG
         level = log.DEBUG
 
+    # Initialize the logging handlers to a list containing only
+    # the FileHandler (to log to the log file)
+    handlers = [log.FileHandler(# The log file
+                                filename = log_file,
+                                # How to open the log file ('w' means
+                                # re-create it every time the
+                                # executable is called)
+                                mode = "w")]
+
+    # If the user requested logging to the console, too
+    if log_console:
+
+        # Append a StreamHandler to the list
+        handlers.append(log.StreamHandler())
+
     # Set the logging level
-    log.basicConfig(level = level)
+    log.basicConfig(# The level below which log messages are silenced
+                    level = level,
+                    # The format of the log strings
+                    format = "{asctime}:{levelname}:{name}:{message}",
+                    # The format for dates/time
+                    datefmt="%Y-%m-%d,%H:%M",
+                    # The format style
+                    style = "{",
+                    # The handlers
+                    handlers = handlers)
 
 
     #--------------------- Configuration - model ---------------------#
@@ -265,13 +261,13 @@ def main():
     try:
 
         # Create the dataset
-        dataset, indexes, genes, tissues = \
-            dgd.load_samples_data(csv_file = input_csv,
-                                  keep_samples_names = True)
+        dataset, indexes, genes, df_other_data = \
+            dgd.load_samples(csv_file = input_csv,
+                             keep_samples_names = True)
 
         # Create the data loader
         dataloader = DataLoader(dataset, **config_rep["data"])
-    
+
     # If something went wrong
     except Exception as e:
 
@@ -387,7 +383,7 @@ def main():
     # Try to get the representations
     try:
         
-        df_loss, df_rep, df_dec_out = \
+        df_rep, df_dec_out, series_loss = \
             dgd.get_representations(\
                 # DataLoader object
                 dataloader = dataloader,
@@ -397,8 +393,6 @@ def main():
                 gmm = gmm,
                 # Decoder
                 dec = dec,
-                # Number of samples in the dataset
-                n_samples = len(indexes),
                 # Number of genes in the dataset                         
                 n_genes = len(genes),
                 # Number of new representations per component
@@ -430,6 +424,13 @@ def main():
     #------------------- Output - representations --------------------#
 
 
+    # Add the 'loss' column to the data frame
+    df_rep["loss"] = series_loss
+
+    # Add the extra data found in the input data frame to the
+    # representations' data frame
+    df_rep = df_rep.join(df_other_data)
+
     # Set the path to the output file
     output_csv_rep_path = os.path.join(wd, output_csv_rep)
 
@@ -438,7 +439,8 @@ def main():
 
         df_rep.to_csv(output_csv_rep_path,
                       sep = ",",
-                      header = False)
+                      index = True,
+                      header = True)
 
     # If something went wrong
     except Exception as e:
@@ -461,12 +463,16 @@ def main():
     #-------------------- Output - decoder output --------------------#
 
 
-    # Set the path to the output file
-    output_csv_dec_path = os.path.join(wd, output_csv_dec)
-
     # Set the names of the columns of the data frame to be the
     # names of the genes
     df_dec_out.columns = genes
+
+    # Add the extra data found in the input data frame to the
+    # decoder outputs' data frame
+    df_dec_out = df_dec_out.join(df_other_data)
+
+    # Set the path to the output file
+    output_csv_dec_path = os.path.join(wd, output_csv_dec)
 
     # Try to write the decoder outputs in the dedicated CSV file
     try:
@@ -491,68 +497,3 @@ def main():
         "The decoder outputs were successfully written in " \
         f"'{output_csv_dec_path}'."
     logger.info(infostr)
-
-
-    #------------------------- Output - loss -------------------------#
-
-
-    # Set the path to the output file
-    output_csv_loss_path = os.path.join(wd, output_csv_loss)
-
-    # Try to save the per-sample loss to the output file
-    try:
-
-        df_loss.to_csv(output_csv_loss_path,
-                       sep = ",",
-                       header = False)
-
-    # If something went wrong
-    except Exception as e:
-
-        # Warn the user and exit
-        errstr = \
-            "It was not possible to write the per-sample loss " \
-            f"in '{output_csv_loss_path}'. Error: {e}"
-        logger.exception(errstr)
-        sys.exit(errstr)
-
-    # Inform the user that the per-sample loss was successfully
-    # written in the output file
-    infostr = \
-        "The per-sample loss wwas successfully written in " \
-        f"'{output_csv_loss_path}'."
-    logger.info(infostr)
-
-
-    #----------------------- Output - tissues ------------------------#
-
-
-    # If there were tissue labels in the input CSV file
-    if not tissues.empty:
-
-        # Set the path to the output file
-        output_csv_tissues_path = os.path.join(wd, output_csv_tissues)
-
-        # Try to write the tissue labels in the output CSV file
-        try:
-
-            tissues.to_csv(output_csv_tissues_path,
-                           sep = ",",
-                           header = False)
-
-        # If something went wrong
-        except Exception as e:
-
-            # Warn the user and exit
-            errstr = \
-                "It was not possible to write the tissues' labels " \
-                f"in '{output_csv_tissues_path}'. Error: {e}"
-            logger.exception(errstr)
-            sys.exit(errstr)
-
-        # Inform the user that the tissues' labels were successfully
-        # written in the output file
-        infostr = \
-            "The tissues' labels were successfully written in " \
-            f"'{output_csv_tissues_path}'."
-        logger.info(infostr)

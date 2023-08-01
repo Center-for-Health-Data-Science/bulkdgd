@@ -49,9 +49,7 @@ def main():
     # Add the arguments
     i_help = \
         "The input CSV file containing a data frame with the " \
-        "samples to be preprocessed. The columns must represent " \
-        "the genes (identified by their Ensembl IDs), while the " \
-        "rows must represent the samples."
+        "samples to be preprocessed."
     parser.add_argument("-i", "--input-csv",
                         type = str,
                         required = True,
@@ -60,9 +58,7 @@ def main():
     os_default = "samples_preprocessed.csv"
     os_help = \
         "The name of the output CSV file containing the data frame " \
-        "with the preprocessed samples. The columns will represent " \
-        "the genes (identified by their Ensembl IDs), while the " \
-        "rows will represent the samples. The file will be written " \
+        "with the preprocessed samples. The file will be written " \
         "in the working directory. The default file name is " \
         f"'{os_default}'."
     parser.add_argument("-os", "--output-csv-samples",
@@ -97,22 +93,13 @@ def main():
                         help = ogm_help)
 
     sc_help = \
-        "The name/index of the column containing the IDs/names " \
-        "of the samples, if any. By default, the program assumes " \
-        "that no such column is present."
+        "The name/index of the column containing the names/IDs/" \
+        "indexes of the samples, if any. By default, the program " \
+        "assumes that no such column is present."
     parser.add_argument("-sc", "--samples-names-column",
                         type = str,
                         default = None,
                         help = sc_help)
-
-    tc_help = \
-        "The name/index of the column containing the names of the " \
-        "tissues the samples belong to, if any. By default, " \
-        "the program assumes that no such column is present. "
-    parser.add_argument("-tc", "--tissues-column",
-                        type = str,
-                        default = None,
-                        help = tc_help)
 
     d_help = \
         "The working directory. The default is the current " \
@@ -122,15 +109,30 @@ def main():
                         default = os.getcwd(),
                         help = d_help)
 
-    v_help = "Verbose logging (INFO level)."
-    parser.add_argument("-v", "--logging-verbose",
+    lf_default = "dgd_preprocess_samples.log"
+    lf_help = \
+        "The name of the log file. The file will be written " \
+        "in the working directory. The default file name is " \
+        f"'{lf_default}'."
+    parser.add_argument("-lf", "--log-file",
+                        type = str,
+                        default = lf_default,
+                        help = lf_help)
+
+    lc_help = "Show log messages also on the console."
+    parser.add_argument("-lc", "--log-console",
+                        action = "store_true",
+                        help = lc_help)
+
+    v_help = "Enable verbose logging (INFO level)."
+    parser.add_argument("-v", "--log-verbose",
                         action = "store_true",
                         help = v_help)
 
     vv_help = \
-        "Maximally verbose logging for debugging " \
+        "Enable maximally verbose logging for debugging " \
         "purposes (DEBUG level)."
-    parser.add_argument("-vv", "--logging-debug",
+    parser.add_argument("-vv", "--log-debug",
                         action = "store_true",
                         help = vv_help)
 
@@ -145,14 +147,11 @@ def main():
         if args.samples_names_column is None \
         or not args.samples_names_column.isdigit() \
         else int(args.samples_names_column)
-    tissues_column = \
-        args.tissues_column \
-        if args.tissues_column is None \
-        or not args.tissues_column.isdigit() \
-        else int(args.tissues_column)
     wd = args.work_dir
-    v = args.logging_verbose
-    vv = args.logging_debug
+    log_file = args.log_file
+    log_console = args.log_console
+    v = args.log_verbose
+    vv = args.log_debug
 
 
     #---------------------------- Logging ----------------------------#
@@ -177,80 +176,54 @@ def main():
         # The minimal logging level will be DEBUG
         level = log.DEBUG
 
+    # Initialize the logging handlers to a list containing only
+    # the FileHandler (to log to the log file)
+    handlers = [log.FileHandler(# The log file
+                                filename = log_file,
+                                # How to open the log file ('w' means
+                                # re-create it every time the
+                                # executable is called)
+                                mode = "w")]
+
+    # If the user requested logging to the console, too
+    if log_console:
+
+        # Append a StreamHandler to the list
+        handlers.append(log.StreamHandler())
+
     # Set the logging level
-    log.basicConfig(level = level)
+    log.basicConfig(# The level below which log messages are silenced
+                    level = level,
+                    # The format of the log strings
+                    format = "{asctime}:{levelname}:{name}:{message}",
+                    # The format for dates/time
+                    datefmt="%Y-%m-%d,%H:%M",
+                    # The format style
+                    style = "{",
+                    # The handlers
+                    handlers = handlers)
 
 
     #------------------------- Data loading --------------------------#
 
 
-    # If the user did not specify any column containing the samples'
-    # IDs/names
-    if samples_names_column is None:
+    # Try to load the input samples
+    try:
 
-        # Try to load the input samples
-        try:
+        samples_df = pd.read_csv(input_csv,
+                                 sep = ",",
+                                 index_col = False,
+                                 header = 0)
 
-            samples_df = pd.read_csv(input_csv,
-                                     sep = ",",
-                                     index_col = False)
+    # If something went wrong
+    except Exception as e:
 
-        # If something went wrong
-        except Exception as e:
-
-            # Warn the user and exit
-            errstr = \
-                "It was not possible to load the samples from " \
-                f"'{input_csv}'. Error: {e}"
-            logger.exception(errstr)
-            sys.exit(errstr)
-
-    # If the user specified a column containing the samples' IDs/names
-    else:
-
-        # Try to load the input samples
-        try:
-
-            samples_df = pd.read_csv(input_csv,
-                                     sep = ",",
-                                     index_col = samples_names_column)
-
-        # If something went wrong
-        except Exception as e:
-
-            # Warn the user and exit
-            errstr = \
-                "It was not possible to load the samples from " \
-                f"'{input_csv}'. Error: {e}"
-            logger.exception(errstr)
-            sys.exit(errstr)
-
-    # If the user specified a column containing the tissues' labels
-    if tissues_column is not None:
-
-        # If the column index was passed
-        if isinstance(tissues_column, int):
-
-            # Take the column values
-            tissues_column_values = \
-                samples_df[samples_df.columns[tissues_column]].tolist()
-
-            # Drop the column before preprocessing
-            samples_df = \
-                samples_df.drop(samples_df.columns[tissues_column],
-                                axis = 1)
-
-        # If the column name was passed
-        else:
-
-            # Take the column values
-            tissues_column_values = \
-                samples_df[tissues_column].tolist()
-
-            # Drop the column before preprocessing
-            samples_df = \
-                samples_df.drop(tissues_column,
-                                axis = 1)
+        # Warn the user and exit
+        errstr = \
+            "It was not possible to load the samples from " \
+            f"'{input_csv}'. Error: {e}"
+        logger.exception(errstr)
+        sys.exit(errstr)
 
 
     #-------------------- Samples' preprocessing ---------------------#
@@ -260,7 +233,9 @@ def main():
     try:
 
         preproc_df, genes_excluded, genes_missing = \
-            dgd.preprocess_samples(samples_df = samples_df)
+            dgd.preprocess_samples(\
+                samples_df = samples_df,
+                samples_names_column = samples_names_column)
 
     # If something went wrong
     except Exception as e:
@@ -279,66 +254,46 @@ def main():
     # Set the path to the output file
     output_csv_samples_path = os.path.join(wd, output_csv_samples)
 
-    # If there was a column containing the tissues' labels in the
-    # input data frame
-    if tissues_column is not None:
-
-        # Add it to the data frame containing the preprocessed
-        # samples (as the last column)
-        preproc_df.insert(len(preproc_df.columns),
-                          tissues_column,
-                          tissues_column_values)
-
-        # Inform the user that the column was added
-        infostr = \
-            f"The column '{tissues_column}' containing the names " \
-            "of the tissues the original samples belong to was " \
-            "added to the data frame of preprocessed samples as " \
-            "the last column."
-        logger.info(infostr)
-
-    # If the user did not specify any column containing the samples'
-    # IDs/names
+    # If no column with the samples names/IDs was present
     if samples_names_column is None:
 
-        # Try to write out the preprocessed samples without the
-        # index column
-        try:
+        # Inform the user that numeric indexes will be used
+        # to identify the samples
+        infostr = \
+            "The names of the rows in the data frame of pre-" \
+            "processed samples will be unique numeric indexes " \
+            "assigned to the samples (from 0 to " \
+            f"{len(preproc_df)-1})."
+        logger.info(infostr)
 
-            preproc_df.to_csv(output_csv_samples_path,
-                              sep = ",",
-                              index = False)
-
-        # If something went wrong
-        except Exception as e:
-
-            # Warn the user and exit
-            errstr = \
-                "It was not possible to write the preprocessed " \
-                f"samples to '{output_csv_samples_path}'. Error: {e}"
-            logger.exception(errstr)
-            sys.exit(errstr)
-
-    # If the user specified a column containing the samples' IDs/names
+    # If such column was present
     else:
 
-        # Try to write out the preprocessed samples with the
-        # index column
-        try:
+        # Inform the user that the column is the index of
+        # the new data frame
+        infostr = \
+            "The names of the rows in the data frame of pre-" \
+            "processed samples will be the names/IDs provided " \
+            f"in the '{samples_names_column}' column."
+        logger.info(infostr)
 
-            preproc_df.to_csv(output_csv_samples_path,
-                              sep = ",",
-                              index = True)
+    # Try to write out the preprocessed samples
+    try:
 
-        # If something went wrong
-        except Exception as e:
+        preproc_df.to_csv(output_csv_samples_path,
+                          sep = ",",
+                          index = True,
+                          header = True)
 
-            # Warn the user and exit
-            errstr = \
-                "It was not possible to write the preprocessed " \
-                f"samples to '{output_csv_samples_path}'. Error: {e}"
-            logger.exception(errstr)
-            sys.exit(errstr)
+    # If something went wrong
+    except Exception as e:
+
+        # Warn the user and exit
+        errstr = \
+            "It was not possible to write the preprocessed " \
+            f"samples to '{output_csv_samples_path}'. Error: {e}"
+        logger.exception(errstr)
+        sys.exit(errstr)
 
     # Inform the user that the preprocessed samples were
     # successfilly written in the output file
@@ -357,15 +312,6 @@ def main():
         # Set the path to the output file
         output_txt_genes_excluded_path = \
             os.path.join(wd, output_txt_genes_excluded)
-
-        # Warn the user
-        warnstr = \
-            f"{len(genes_excluded)} genes found in the input " \
-            "samples are not part of the set of genes used to " \
-            "train the DGD model. Therefore, they will be removed " \
-            "from the preprocessed samples."
-        logger.warning(warnstr)
-
 
         # Try to write the list of excluded genes
         try:
@@ -404,14 +350,6 @@ def main():
         # Set the path to the output file
         output_txt_genes_missing_path = \
             os.path.join(wd, output_txt_genes_missing)
-
-        # Warn the user
-        warnstr = \
-            f"{len(genes_missing)} genes in the set of genes used " \
-            "to train the DGD model were not found in the input " \
-            "samples. A default count of 0 will be assigned to " \
-            "them in all preprocessed samples."
-        logger.warning(warnstr)
 
         # Try to write the list of missing genes
         try:

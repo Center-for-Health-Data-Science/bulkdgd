@@ -50,9 +50,9 @@ author = "Valentina Sora"
 #   to be installed separately (it can be done with 'pip install
 #   myst-parser').
 extensions = \
-   ["sphinx.ext.autodoc",
-    "numpydoc",
-    "myst_parser"]
+   ["myst_parser",
+    "sphinx.ext.autodoc",
+    "numpydoc"]
 
 
 autodoc_member_order = "groupwise"
@@ -79,6 +79,13 @@ templates_path = ["_templates"]
 
 # Which 'myst-parser' extensions should be anabled
 myst_enable_extensions = ["amsmath", "dollarmath"]
+
+# Create automatic heading anchors for heading up to level 3
+myst_heading_anchors = 3
+
+# Silence the warning regarding having the document ending with
+# footnotes preceded by a heading
+myst_footnote_transition = False
 
 
 #---------------------- Options for HTML output ----------------------#

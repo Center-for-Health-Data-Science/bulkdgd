@@ -56,25 +56,13 @@ def main():
     parser = argparse.ArgumentParser(description = __doc__)
 
     # Add the arguments
-    ir_help = \
+    i_help = \
         "The input CSV file containing the data frame with " \
-        "the samples' representations in latent space. " \
-        "The columns represent the values of the " \
-        "representations along the latent space's dimensions, " \
-        "while the rows represent the samples."
-    parser.add_argument("-ir", "--input-csv-rep",
+        "the representations."
+    parser.add_argument("-i", "--input-csv",
                         type = str,
                         required = True,
-                        help = ir_help)
-
-    it_help = \
-        "The input CSV file containing one column with the labels " \
-        "of the tissues the input samples belong to. This " \
-        "input file is optional."
-    parser.add_argument("-it", "--input-csv-tissues",
-                        type = str,
-                        default = None,
-                        help = it_help)
+                        help = i_help)
 
     or_default = "probability_density_representations.csv"
     or_help = \
@@ -123,28 +111,44 @@ def main():
                         default = os.getcwd(),
                         help = d_help)
 
-    v_help = "Verbose logging (INFO level)."
-    parser.add_argument("-v", "--logging-verbose",
+    lf_default = "dgd_get_probability_density.log"
+    lf_help = \
+        "The name of the log file. The file will be written " \
+        "in the working directory. The default file name is " \
+        f"'{lf_default}'."
+    parser.add_argument("-lf", "--log-file",
+                        type = str,
+                        default = lf_default,
+                        help = lf_help)
+
+    lc_help = "Show log messages also on the console."
+    parser.add_argument("-lc", "--log-console",
+                        action = "store_true",
+                        help = lc_help)
+
+    v_help = "Enable verbose logging (INFO level)."
+    parser.add_argument("-v", "--log-verbose",
                         action = "store_true",
                         help = v_help)
 
     vv_help = \
-        "Maximally verbose logging for debugging " \
+        "Enable maximally verbose logging for debugging " \
         "purposes (DEBUG level)."
-    parser.add_argument("-vv", "--logging-debug",
+    parser.add_argument("-vv", "--log-debug",
                         action = "store_true",
                         help = vv_help)
 
     # Parse the arguments
     args = parser.parse_args()
-    input_csv_rep = args.input_csv_rep
-    input_csv_tissues = args.input_csv_tissues
+    input_csv = args.input_csv
     output_csv_prob_rep = args.output_csv_prob_rep
     output_csv_prob_comp = args.output_csv_prob_comp
     config_file_model = args.config_file_model
     wd = args.work_dir
-    v = args.logging_verbose
-    vv = args.logging_debug    
+    log_file = args.log_file
+    log_console = args.log_console
+    v = args.log_verbose
+    vv = args.log_debug
 
 
     #---------------------------- Logging ----------------------------#
@@ -169,8 +173,32 @@ def main():
         # The minimal logging level will be DEBUG
         level = log.DEBUG
 
+    # Initialize the logging handlers to a list containing only
+    # the FileHandler (to log to the log file)
+    handlers = [log.FileHandler(# The log file
+                                filename = log_file,
+                                # How to open the log file ('w' means
+                                # re-create it every time the
+                                # executable is called)
+                                mode = "w")]
+
+    # If the user requested logging to the console, too
+    if log_console:
+
+        # Append a StreamHandler to the list
+        handlers.append(log.StreamHandler())
+
     # Set the logging level
-    log.basicConfig(level = level)
+    log.basicConfig(# The level below which log messages are silenced
+                    level = level,
+                    # The format of the log strings
+                    format = "{asctime}:{levelname}:{name}:{message}",
+                    # The format for dates/time
+                    datefmt="%Y-%m-%d,%H:%M",
+                    # The format style
+                    style = "{",
+                    # The handlers
+                    handlers = handlers)
 
 
     #------------------------- Configuration -------------------------#
@@ -204,10 +232,8 @@ def main():
     # Try to load the data
     try:
 
-        df_rep = pd.read_csv(input_csv_rep,
-                             sep = ",",
-                             index_col = 0,
-                             header = None)
+        df_rep, df_other_data = \
+            dgd.load_representations(csv_file = input_csv)
 
     # If something went wrong
     except Exception as e:
@@ -215,7 +241,7 @@ def main():
         # Warn the user and exit
         errstr = \
             "It was not possible to load the data from " \
-            f"'{input_csv_rep}'. Error: {e}"
+            f"'{input_csv}'. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
 
@@ -226,40 +252,8 @@ def main():
 
     # Inform the user that the data were successfully loaded
     infostr = \
-        f"The data were successfully loaded from '{input_csv_rep}'."
+        f"The data were successfully loaded from '{input_csv}'."
     logger.info(infostr)
-
-
-    #-------------------- Data loading (tissues) ---------------------#
-
-
-    # If the user passed a CSV file containing the label of the
-    # tissues the original samples belonged to
-    if input_csv_tissues is not None:
-
-        # Try to load the data
-        try:
-
-            df_tissues = pd.read_csv(input_csv_tissues,
-                                     sep = ",",
-                                     index_col = 0,
-                                     header = None)
-
-        # If something went wrong
-        except Exception as e:
-
-            # Warn the user and exit
-            errstr = \
-                "It was not possible to load the data from " \
-                f"'{input_csv_tissues}'. Error: {e}"
-            logger.exception(errstr)
-            sys.exit(errstr)
-
-        # Inform the user that the data were successfully loaded
-        infostr = \
-            "The data were successfully loaded from " \
-            f"'{input_csv_tissues}'."
-        logger.info(infostr)
 
 
     #-------------------- Gaussian mixture model ---------------------#
@@ -309,8 +303,7 @@ def main():
 
     df_prob_rep, df_prob_comp = \
         dgd.get_probability_density(gmm = gmm,
-                                    df_rep = df_rep,
-                                    df_tissues = df_tissues)
+                                    df_rep = df_rep)
 
 
     #------------- Output - p.d. for all representations --------------#

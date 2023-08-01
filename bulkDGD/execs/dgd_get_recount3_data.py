@@ -73,10 +73,8 @@ def main():
     o_default = "{:s}_{:s}.csv"
     o_help = \
         "The name of the output CSV file containing the data frame " \
-        "with the RNA-seq data for the samples. The rows " \
-        "of the data frame represent samples, while the columns " \
-        "represent genes (identified by their Ensembl IDs). The " \
-        "file will be saved in the working directory. The default " \
+        "with the RNA-seq data for the samples. The " \
+        "file will be written in the working directory. The default " \
         "file name is '{input_project_name}_" \
         "{input_samples_category}.csv'."
     parser.add_argument("-o", "--output-csv",
@@ -92,46 +90,61 @@ def main():
                         default = os.getcwd(),
                         help = d_help)
 
-    query_string_help = \
-        "The string that will be used to filter the samples " \
-        "according to their associated metadata using the " \
-        "'pandas.DataFrame.query()' method. The option also " \
-        "accepts a plain text file containing the string " \
-        "since it can be long for complex queries."
-    parser.add_argument("--query-string",
-                        type = str,
-                        default = None,
-                        help = query_string_help)
-
-    save_gene_sums_help = \
+    sg_help = \
         "Save the original GZ file containing the RNA-seq " \
         "data for the samples. The file will be saved in the " \
         "working directory and named " \
         "'{input_project_name}_{input_samples_category}_" \
         "gene_sums.gz'."
-    parser.add_argument("--save-gene-sums",
+    parser.add_argument("-sg", "--save-gene-sums",
                         action = "store_true",
-                        help = save_gene_sums_help)
+                        help = sg_help)
 
-    save_metadata_help = \
+    sm_help = \
         "Save the original GZ file containing the metadata " \
         "for the samples. The file will be saved in the working " \
         "directory and named " \
         "'{input_project_name}_{input_samples_category}_" \
         "metadata.gz'."
-    parser.add_argument("--save-metadata",
+    parser.add_argument("-sm", "--save-metadata",
                         action = "store_true",
-                        help = save_metadata_help)
+                        help = sm_help)
 
-    v_help = "Verbose logging (INFO level)."
-    parser.add_argument("-v", "--logging-verbose",
+    qs_help = \
+        "The string that will be used to filter the samples " \
+        "according to their associated metadata using the " \
+        "'pandas.DataFrame.query()' method. The option also " \
+        "accepts a plain text file containing the string " \
+        "since it can be long for complex queries."
+    parser.add_argument("-qs", "--query-string",
+                        type = str,
+                        default = None,
+                        help = qs_help)
+
+    lf_default = "dgd_get_recount3_data.log"
+    lf_help = \
+        "The name of the log file. The file will be written " \
+        "in the working directory. The default file name is " \
+        f"'{lf_default}'."
+    parser.add_argument("-lf", "--log-file",
+                        type = str,
+                        default = lf_default,
+                        help = lf_help)
+
+    lc_help = "Show log messages also on the console."
+    parser.add_argument("-lc", "--log-console",
+                        action = "store_true",
+                        help = lc_help)
+
+    v_help = "Enable verbose logging (INFO level)."
+    parser.add_argument("-v", "--log-verbose",
                         action = "store_true",
                         help = v_help)
 
     vv_help = \
-        "Maximally verbose logging for debugging " \
+        "Enable maximally verbose logging for debugging " \
         "purposes (DEBUG level)."
-    parser.add_argument("-vv", "--logging-debug",
+    parser.add_argument("-vv", "--log-debug",
                         action = "store_true",
                         help = vv_help)
 
@@ -141,11 +154,13 @@ def main():
     input_samples_category = args.input_samples_category
     output_csv = args.output_csv
     wd = args.work_dir
+    query_string = args.query_string
     save_gene_sums = args.save_gene_sums
     save_metadata = args.save_metadata
-    query_string = args.query_string
-    v = args.logging_verbose
-    vv = args.logging_debug
+    log_file = args.log_file
+    log_console = args.log_console
+    v = args.log_verbose
+    vv = args.log_debug
 
 
     #---------------------------- Logging ----------------------------#
@@ -170,8 +185,32 @@ def main():
         # The minimal logging level will be DEBUG
         level = log.DEBUG
 
+    # Initialize the logging handlers to a list containing only
+    # the FileHandler (to log to the log file)
+    handlers = [log.FileHandler(# The log file
+                                filename = log_file,
+                                # How to open the log file ('w' means
+                                # re-create it every time the
+                                # executable is called)
+                                mode = "w")]
+
+    # If the user requested logging to the console, too
+    if log_console:
+
+        # Append a StreamHandler to the list
+        handlers.append(log.StreamHandler())
+
     # Set the logging level
-    log.basicConfig(level = level)
+    log.basicConfig(# The level below which log messages are silenced
+                    level = level,
+                    # The format of the log strings
+                    format = "{asctime}:{levelname}:{name}:{message}",
+                    # The format for dates/time
+                    datefmt="%Y-%m-%d,%H:%M",
+                    # The format style
+                    style = "{",
+                    # The handlers
+                    handlers = handlers)
 
 
     #------------------ Check the samples' category ------------------#

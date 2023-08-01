@@ -1,0 +1,1244 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-theme="light">
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>The utils subpackage &#8212; BulkDGD  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "light";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+
+  
+  <link href="_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=12da95d707ffb74b382d" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=12da95d707ffb74b382d" />
+
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'utils';</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="The core subpackage" href="core.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="light">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+<div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+    <span class="fa-solid fa-bars"></span>
+  </label>
+  
+  <div class="navbar-header-items__start">
+    
+      <div class="navbar-item">
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    <p class="title logo__title">BulkDGD  documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="Getting%20started.html">
+                        Getting started
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="Installation.html">
+                        Installing bulkDGD
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="Command-line%20interface.html">
+                        Command-line interface
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="core.html">
+                        The core subpackage
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="#">
+                        The utils subpackage
+                      </a>
+                    </li>
+                
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+`);
+</script>
+        </div>
+      
+      
+        <div class="navbar-item">
+<script>
+document.write(`
+  <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+`);
+</script>
+    </div>
+  
+
+  
+    <label class="sidebar-toggle secondary-toggle" for="__secondary">
+      <span class="fa-solid fa-outdent"></span>
+    </label>
+  
+</div>
+
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="Getting%20started.html">
+                        Getting started
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="Installation.html">
+                        Installing bulkDGD
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="Command-line%20interface.html">
+                        Command-line interface
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="core.html">
+                        The core subpackage
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="#">
+                        The utils subpackage
+                      </a>
+                    </li>
+                
+  </ul>
+</nav></div>
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<script>
+document.write(`
+  <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumbs">
+  <ul class="bd-breadcrumbs" role="navigation" aria-label="Breadcrumb">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page">The utils subpackage</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <section id="the-utils-subpackage">
+<h1>The utils subpackage<a class="headerlink" href="#the-utils-subpackage" title="Permalink to this heading">#</a></h1>
+<section id="module-utils.dgd">
+<span id="utils-dgd"></span><h2>utils.dgd<a class="headerlink" href="#module-utils.dgd" title="Permalink to this heading">#</a></h2>
+<p>Utility functions to use the DGD model.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.dgd.get_decoder">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">get_decoder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.get_decoder" title="Permalink to this definition">#</a></dt>
+<dd><p>Initialize the decoder, load its state,
+and return it.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>dim</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The dimensionality of the input space for the decoder.</p>
+</dd>
+<dt><strong>config</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">dict</span></code></span></dt><dd><p>A dictionary containing the options for initializing
+the decoder and loading its state.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">bulkDGD.core.decoder.Decoder</span></code></dt><dd><p>The trained decoder.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.dgd.get_gmm">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">get_gmm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.get_gmm" title="Permalink to this definition">#</a></dt>
+<dd><p>Initialize the Gaussian mixture model, load its state,
+and return it.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>dim</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The simensionality of the space for the Gaussian
+mixture model.</p>
+</dd>
+<dt><strong>config</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">dict</span></code></span></dt><dd><p>A dictionary containing the options for initializing
+the Gaussian mixture model and loading its state.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">bulkDGD.core.latent.GaussianMixtureModel</span></code></dt><dd><p>The Gaussian mixture model.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.dgd.get_log2_fold_changes">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">get_log2_fold_changes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obs_counts_sample</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pred_means_sample</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.get_log2_fold_changes" title="Permalink to this definition">#</a></dt>
+<dd><p>Get the log-fold change of the gene expression.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.dgd.get_p_values">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">get_p_values</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obs_counts_sample</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pred_means_sample</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.get_p_values" title="Permalink to this definition">#</a></dt>
+<dd><p>Calculate the p-value associated to the predicted mean
+of each negative binomial.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>obs_counts_sample</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The observed gene counts in a single sample.</p>
+<p>This is a 1D tensor whose length is equal to the
+dimensionality of the gene space.</p>
+</dd>
+<dt><strong>pred_mean_sample</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The (rescaled) predicted mean of the negative binomial
+modeling the gene counts for a single sample.</p>
+<p>This is a 1D tensor whose length is equal to the
+dimensionality of the gene space.</p>
+</dd>
+<dt><strong>r_values</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>A tensor containing one r-value for each negative binomial
+(= one r-value for each gene).</p>
+<p>This is a 1D tensor whose length is equal to the
+dimensionality of the gene space.</p>
+</dd>
+<dt><strong>resolution</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code>, <code class="docutils literal notranslate"><span class="pre">1</span></code></span></dt><dd><p>How accurate the calculation of the p-values should be.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">resolution</span></code> corresponds to the coarseness of the sum
+over the probability mass function of each negative binomial
+to compute the corresponding p-value.</p>
+<p>The lower the <code class="docutils literal notranslate"><span class="pre">resolution</span></code>, the more accurate the
+calculation of the p-values.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">1</span></code> (the default), the calculation will be exact
+(but it will be more computationally expensive).</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">tuple</span></code></dt><dd><p>A tuple containing:</p>
+<ul class="simple">
+<li><p>A <code class="docutils literal notranslate"><span class="pre">list</span></code> of all p-values (one per gene).</p></li>
+<li><p>A 2D <code class="docutils literal notranslate"><span class="pre">numpy.ndarray</span></code> containing the count values at 
+which the probability mass function was evaluated
+to compute the p-values. The array has as many
+rows as the number of genes and as many columns as
+the number of count values.</p></li>
+<li><p>A 2D <code class="docutils literal notranslate"><span class="pre">numpy.ndarray</span></code> containing the value of the
+probability mass function for each count value
+at which it was evaluated. The array has as many
+rows as the number of genes and as many columns as
+the number of count values.</p></li>
+</ul>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.dgd.get_probability_density">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">get_probability_density</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gmm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">df_rep</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.get_probability_density" title="Permalink to this definition">#</a></dt>
+<dd><p>Given a trained Gaussian mixture model and a set of
+representations, get the probability density of each
+component for each representation and the representation(s)
+having the maximum probability density for each component.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>gmm</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">bulkDGD.core.latent.GaussianMixtureModel</span></code></span></dt><dd><p>The trained Gaussian mixture model.</p>
+</dd>
+<dt><strong>df_rep</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>A data frame containing the representations.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">tuple</span></code></dt><dd><p>A tuple containing:</p>
+<ul class="simple">
+<li><p>A <code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> containing the probability
+densities for each representation, together with an
+indication of what the maximum probability density found is
+and for which component is was found.</p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> containing, for each component,
+the representation(s) having the maximum probability
+density for the component, together with the probability
+density for that(those) representation(s).</p></li>
+</ul>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.dgd.get_q_values">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">get_q_values</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p_values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'fdr_bh'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.get_q_values" title="Permalink to this definition">#</a></dt>
+<dd><p>Get the q-values associated to a set of p-values. The q-values
+are the p-values adjusted for the false discovery rate.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>p_values</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">list</span></code> or <code class="docutils literal notranslate"><span class="pre">tuple</span></code></span></dt><dd><p>The p-values.</p>
+</dd>
+<dt><strong>alpha</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">float</span></code>, <code class="docutils literal notranslate"><span class="pre">0.05</span></code></span></dt><dd><p>The family-wise error rate for the calculation of the
+q-values.</p>
+</dd>
+<dt><strong>method</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, <code class="docutils literal notranslate"><span class="pre">fdr_bh</span></code></span></dt><dd><p>The method used to adjust the p-values. The available
+methods are listed in the documentation for
+<code class="docutils literal notranslate"><span class="pre">statsmodels.stats.multitest.multipletests</span></code>.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.dgd.get_rep_layer">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">get_rep_layer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.get_rep_layer" title="Permalink to this definition">#</a></dt>
+<dd><p>Initialize the representation layer, load its state,
+and return it.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>dim</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The dimensionality of the representation layer.</p>
+</dd>
+<dt><strong>config</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">dict</span></code></span></dt><dd><p>A dictionary containing the options for initializing
+the representation layer and loading its state.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">bulkDGD.core.latent.RepresentationLayer</span></code></dt><dd><p>The representation layer.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.dgd.get_representations">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">get_representations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataloader</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">indexes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gmm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_genes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_samples_per_comp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_opt1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_opt2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.get_representations" title="Permalink to this definition">#</a></dt>
+<dd><p>Initialize and optimize the representations.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>dataloader</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.utils.data.DataLoader</span></code></span></dt><dd><p>The <code class="docutils literal notranslate"><span class="pre">DataLoader</span></code> object containing the gene expression
+data for the samples.</p>
+</dd>
+<dt><strong>indexes</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">list</span></code></span></dt><dd><p>A list of unique indexes representing the samples.</p>
+</dd>
+<dt><strong>gmm</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">DGDPerturbations.core.latent.GaussianMixtureModel</span></code></span></dt><dd><p>The trained Gaussian mixture model.</p>
+</dd>
+<dt><strong>dec</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">DGDPerturbations.core.decoder.Decoder</span></code></span></dt><dd><p>The trained decoder.</p>
+</dd>
+<dt><strong>n_genes</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The number of genes in the dataset.</p>
+</dd>
+<dt><strong>n_samples_per_comp</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The number of new representations to be taken
+per component per sample.</p>
+</dd>
+<dt><strong>dim</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The dimensionality of the Gaussian mixture model.</p>
+</dd>
+<dt><strong>config_opt1</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">dict</span></code></span></dt><dd><p>A dictionary of options for the initial optimization.</p>
+</dd>
+<dt><strong>config_opt2</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">dict</span></code></span></dt><dd><p>A dictionary of options for the second optimization.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">tuple</span></code></dt><dd><p>A tuple containing a <code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> with the loss,
+and a <code class="docutils literal notranslate"><span class="pre">np.ndarray</span></code> containing the best representation
+for each sample.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.dgd.load_decoder_outputs">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">load_decoder_outputs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">csv_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.load_decoder_outputs" title="Permalink to this definition">#</a></dt>
+<dd><p>Load the decoder outputs from a CSV file.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>csv_file</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>A CSV file containing a data frame with the decoder outputs.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"></dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.dgd.load_representations">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">load_representations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">csv_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.load_representations" title="Permalink to this definition">#</a></dt>
+<dd><p>Load the representations from a CSV file.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>csv_file</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>A CSV file containing a data frame with the representations.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">tuple</span></code></dt><dd><p>A tuple containing:</p>
+<ul class="simple">
+<li><p>A <code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> containing the representations’
+values along the latent space’s dimensions.</p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> containing extra information about
+the representations found in the input data frame (for
+instance, the tissues from which the original samples
+came from).</p></li>
+</ul>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.dgd.load_samples">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">load_samples</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">csv_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_samples_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.load_samples" title="Permalink to this definition">#</a></dt>
+<dd><p>Load the data frame containing the gene expression data for
+the samples.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>csv_file</strong><span class="classifier"><cite>str`</cite></span></dt><dd><p>A CSV file containing the samples’ data.</p>
+</dd>
+<dt><strong>keep_samples_names</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">bool</span></code>, default: <code class="docutils literal notranslate"><span class="pre">True</span></code></span></dt><dd><p>Whether to keep the name assigned to the samples in
+the input dataframe, if any were found.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">tuple</span></code></dt><dd><p>A <code class="docutils literal notranslate"><span class="pre">tuple</span></code> containing:</p>
+<ul class="simple">
+<li><p>A <code class="docutils literal notranslate"><span class="pre">bulkDGD.core.dataclasses.GeneExpressionDataset</span></code>
+object with the dataset.</p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">list</span></code> representing the unique indexes of the samples.</p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">list</span></code> representing the genes in the dataset.</p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> with the labels of the tissues the
+samples belong to. It will be empty if no column containing
+tissue information is found in the input data frame.</p></li>
+</ul>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.dgd.load_training_representations">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">load_training_representations</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.load_training_representations" title="Permalink to this definition">#</a></dt>
+<dd><p>Load the representations of the samples belonging to the
+DGD model’s training set as a data frame.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.dgd.perform_2d_pca">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">perform_2d_pca</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df_rep</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pc_columns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['PC1',</span> <span class="pre">'PC2']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groups</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groups_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'group'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.perform_2d_pca" title="Permalink to this definition">#</a></dt>
+<dd><p>Perform a 2D principal component analysis (PCA) on a set
+of representations.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>df_rep</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>Data frame containing the representations. The rows of the
+data frame should represent the samples, while the columns
+should represent the dimensions of the space where the
+representations live.</p>
+</dd>
+<dt><strong>pc_columns</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">list</span></code>, <code class="docutils literal notranslate"><span class="pre">[&quot;PC1&quot;,</span> <span class="pre">&quot;PC2&quot;]</span></code></span></dt><dd><p>A list with the names of the two columns that will contain
+the values of the first two principal components.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></dt><dd><p>A data frame containing the results of the PCA. The rows
+will contain the representations, while the columns
+will  contain the values of each representation’s
+projection along the principal components.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.dgd.perform_dea">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">perform_dea</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obs_counts_sample</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pred_means_sample</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">statistics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['p_values',</span> <span class="pre">'q_values',</span> <span class="pre">'log2_fold_changes']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">genes_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'fdr_bh'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.perform_dea" title="Permalink to this definition">#</a></dt>
+<dd><p>Perform differential expression analysis (DEA).</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>obs_counts_sample</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The observed gene counts in a single sample.</p>
+<p>This is a 1D tensor whose length is equal to the
+dimensionality of the gene space.</p>
+</dd>
+<dt><strong>pred_mean_sample</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The (rescaled) predicted mean of the negative binomial
+modeling the gene counts for a single sample.</p>
+<p>This is a 1D tensor whose length is equal to the
+dimensionality of the gene space.</p>
+</dd>
+<dt><strong>statistics</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">list</span></code>,</span></dt><dd><blockquote>
+<div><p>{<code class="docutils literal notranslate"><span class="pre">[&quot;p_values&quot;,</span> <span class="pre">&quot;q_values&quot;,</span> <span class="pre">&quot;log2_fold_changes&quot;]</span></code>}</p>
+</div></blockquote>
+<p>The statistics to be computed. By default, all of them
+will be computed (<code class="docutils literal notranslate"><span class="pre">&quot;p_values&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;q_values&quot;</span></code>,
+<code class="docutils literal notranslate"><span class="pre">&quot;log2_fold_changes&quot;</span></code>).</p>
+</dd>
+<dt><strong>genes_names</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">list</span></code>, optional</span></dt><dd><p>The names of the genes on which DEA is performed. If provided,
+the genes will be the names of the rows of the output data
+frame. If not, the rows will be indexed starting from 0.</p>
+</dd>
+<dt><strong>r_values</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>A tensor containing one r-value for each negative binomial
+(= one r-value for each gene).</p>
+<p>This is a 1D tensor whose length is equal to the
+dimensionality of the gene space.</p>
+</dd>
+<dt><strong>resolution</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code>, <code class="docutils literal notranslate"><span class="pre">1</span></code></span></dt><dd><p>How accurate the calculation of the p-values should be.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">resolution</span></code> corresponds to the coarseness of the sum
+over the probability mass function of each negative binomial
+to compute the corresponding p-value.</p>
+<p>The lower the <code class="docutils literal notranslate"><span class="pre">resolution</span></code>, the more accurate the
+calculation of the p-values.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">1</span></code> (the default), the calculation will be exact
+(but it will be more computationally expensive).</p>
+</dd>
+<dt><strong>alpha</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">float</span></code>, <code class="docutils literal notranslate"><span class="pre">0.05</span></code></span></dt><dd><p>The family-wise error rate for the calculation of the
+q-values.</p>
+</dd>
+<dt><strong>method</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, <code class="docutils literal notranslate"><span class="pre">fdr_bh</span></code></span></dt><dd><p>The method used to adjust the p-values. The available
+methods are listed in the documentation for
+<code class="docutils literal notranslate"><span class="pre">statsmodels.stats.multitest.multipletests</span></code>.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></dt><dd><p>A data frame whose rows represent the genes on which
+DEA was performed, and whose columns contain the statistics
+computed (p-values, q_values, log2-fold changes). If not
+all statistics were computed, the columns corresponding
+to the missing ones will be empty.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.dgd.preprocess_samples">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">preprocess_samples</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">samples_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">samples_names_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.preprocess_samples" title="Permalink to this definition">#</a></dt>
+<dd><p>Preprocess new samples to use them with the DGD model.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>samples_df</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>A data frame containing the samples to be preprocessed.</p>
+</dd>
+<dt><strong>samples_names_column</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code> or <code class="docutils literal notranslate"><span class="pre">int</span></code>, optional</span></dt><dd><p>The name/index of the column containing the names/IDs/indexes
+of the samples, if any. By default, it is assumed that no
+such column is present.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">tuple</span></code></dt><dd><p>A tuple containing:</p>
+<ul class="simple">
+<li><p>The data frame with the preprocessed samples.</p></li>
+<li><p>The list of genes found in the input data frame but not
+belonging to the gene set used to train the DGD model.</p></li>
+<li><p>The list of genes present in the gene set used to train
+the DGD model but not found in the input data frame.</p></li>
+</ul>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-utils.misc">
+<span id="utils-misc"></span><h2>utils.misc<a class="headerlink" href="#module-utils.misc" title="Permalink to this heading">#</a></h2>
+<p>Miscellanea utility functions.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.misc.get_config_model">
+<span class="sig-prename descclassname"><span class="pre">utils.misc.</span></span><span class="sig-name descname"><span class="pre">get_config_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.misc.get_config_model" title="Permalink to this definition">#</a></dt>
+<dd><p>Get the configuration specifying the DGD model’s parameters
+and the files containing the trained model.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>config_file</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>The YAML configuration file.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">dict</span></code></dt><dd><p>A dictionary containing the configuration.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.misc.get_config_plot">
+<span class="sig-prename descclassname"><span class="pre">utils.misc.</span></span><span class="sig-name descname"><span class="pre">get_config_plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.misc.get_config_plot" title="Permalink to this definition">#</a></dt>
+<dd><p>Get a configuration file for a plot.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>config_file</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>A YAML configuration file.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">dict</span></code></dt><dd><p>A dictionary containing the configuration.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.misc.get_config_rep">
+<span class="sig-prename descclassname"><span class="pre">utils.misc.</span></span><span class="sig-name descname"><span class="pre">get_config_rep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.misc.get_config_rep" title="Permalink to this definition">#</a></dt>
+<dd><p>Get the configuration file containing the options for data
+loading and optimization to find the best representations.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>config_file</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>The YAML configuration file.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">dict</span></code></dt><dd><p>A dictionary containing the configuration.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.misc.get_list">
+<span class="sig-prename descclassname"><span class="pre">utils.misc.</span></span><span class="sig-name descname"><span class="pre">get_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">list_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.misc.get_list" title="Permalink to this definition">#</a></dt>
+<dd><p>Get a list of entities from a plain text file.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>list_file</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>File containing the list of entities of interest.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">list</span></code></dt><dd><p>List of entities of interest.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-utils.plotting">
+<span id="utils-plotting"></span><h2>utils.plotting<a class="headerlink" href="#module-utils.plotting" title="Permalink to this heading">#</a></h2>
+<p>Plotting utilities.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.plotting.plot_2d_pca">
+<span class="sig-prename descclassname"><span class="pre">utils.plotting.</span></span><span class="sig-name descname"><span class="pre">plot_2d_pca</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df_pca</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pc_columns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['PC1',</span> <span class="pre">'PC2']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groups_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.plotting.plot_2d_pca" title="Permalink to this definition">#</a></dt>
+<dd><p>Plot the results of a principal component analysis (PCA).</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>df_pca</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>A data frame containing the results of the PCA. The rows
+should contain the representations, while the columns
+should contain the values of each representation’s
+projection along the principal components.</p>
+</dd>
+<dt><strong>output_file</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>The file where the plot will be saved.</p>
+</dd>
+<dt><strong>config</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">dict</span></code></span></dt><dd><p>A dictionary containing the configuration of the plot’s
+aesthetics.</p>
+</dd>
+<dt><strong>pc_columns</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">list</span></code>, <code class="docutils literal notranslate"><span class="pre">[&quot;PC1&quot;,</span> <span class="pre">&quot;PC2&quot;]</span></code></span></dt><dd><p>A list with the names of the two columns that contain
+the values of the first two principal components.</p>
+</dd>
+<dt><strong>groups_column</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, optional</span></dt><dd><p>The name of the column containing the labels of different
+samples’ groups, if any. If not provided, the samples
+will be assumed to belong to the sample group. If
+provided, the samples will be colored according to the
+group they belong.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.plotting.plot_r_values_hist">
+<span class="sig-prename descclassname"><span class="pre">utils.plotting.</span></span><span class="sig-name descname"><span class="pre">plot_r_values_hist</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">r_values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.plotting.plot_r_values_hist" title="Permalink to this definition">#</a></dt>
+<dd><p>Plot a histogram of the r-values.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>r_values</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The r-values. This is a 1D tensor whose length
+is equal to the size of the gene space.</p>
+</dd>
+<dt><strong>output_file</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>The file where the plot will be saved.</p>
+</dd>
+<dt><strong>config</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">dict</span></code></span></dt><dd><p>The configuration of the plot’s aesthetics.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-utils.recount3">
+<span id="utils-recount3"></span><h2>utils.recount3<a class="headerlink" href="#module-utils.recount3" title="Permalink to this heading">#</a></h2>
+<p>Utility functions to interact with the Recount3 platform.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.recount3.check_samples_category">
+<span class="sig-prename descclassname"><span class="pre">utils.recount3.</span></span><span class="sig-name descname"><span class="pre">check_samples_category</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">samples_category</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.recount3.check_samples_category" title="Permalink to this definition">#</a></dt>
+<dd><p>Check that the category of samples requested by the user (cancer
+type or tissue is present for the project of choice (GTEX, TCGA,
+etc.).</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>samples_category</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>The category of samples requested.</p>
+</dd>
+<dt><strong>project_name</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, {<code class="docutils literal notranslate"><span class="pre">&quot;gtex&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;tcga&quot;</span></code>}</span></dt><dd><p>The name of the project of interest.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.recount3.filter_by_metadata">
+<span class="sig-prename descclassname"><span class="pre">utils.recount3.</span></span><span class="sig-name descname"><span class="pre">filter_by_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_string</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.recount3.filter_by_metadata" title="Permalink to this definition">#</a></dt>
+<dd><p>Filter samples using the associated metadata.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>df</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>Data frame containing both RNA-seq data
+and metadata for a set of samples.</p>
+</dd>
+<dt><strong>query_string</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>String to query the data frame with.</p>
+</dd>
+<dt><strong>project_name</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, {<code class="docutils literal notranslate"><span class="pre">&quot;gtex&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;tcga&quot;</span></code>}</span></dt><dd><p>The name of the project of interest.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></dt><dd><p>Filtered data frame. This data frame will only
+contain the RNA-seq counts.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.recount3.get_gene_sums">
+<span class="sig-prename descclassname"><span class="pre">utils.recount3.</span></span><span class="sig-name descname"><span class="pre">get_gene_sums</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">samples_category</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_gene_sums</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wd</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.recount3.get_gene_sums" title="Permalink to this definition">#</a></dt>
+<dd><p>Get RNA-seq data for the samples deposited
+in the Recount3 platform.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>samples_category</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>The category of samples requested.</p>
+</dd>
+<dt><strong>project_name</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, {<code class="docutils literal notranslate"><span class="pre">&quot;gtex&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;tcga&quot;</span></code>}</span></dt><dd><p>The name of the project of interest.</p>
+</dd>
+<dt><strong>save_gene_sums</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">bool</span></code></span></dt><dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, save the original RNA-seq data
+file in the working directory.</p>
+</dd>
+<dt><strong>wd</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>Working directory.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></dt><dd><p>Data frame containing the RNA-seq counts for
+the samples associated with the given category.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.recount3.get_metadata">
+<span class="sig-prename descclassname"><span class="pre">utils.recount3.</span></span><span class="sig-name descname"><span class="pre">get_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">samples_category</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_metadata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wd</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.recount3.get_metadata" title="Permalink to this definition">#</a></dt>
+<dd><p>Get the samples’ metadata from the Recount3 platform.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>samples_category</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>The category of samples requested.</p>
+</dd>
+<dt><strong>project_name</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, {<code class="docutils literal notranslate"><span class="pre">&quot;gtex&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;tcga&quot;</span></code>}</span></dt><dd><p>The name of the project of interest.</p>
+</dd>
+<dt><strong>save_metadata</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">bool</span></code></span></dt><dd><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, save the original metadata file in
+the working directory.</p>
+</dd>
+<dt><strong>wd</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>Working directory.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></dt><dd><p>Data frame containing the metadata for the samples
+associated with the given category.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.recount3.get_metadata_fields">
+<span class="sig-prename descclassname"><span class="pre">utils.recount3.</span></span><span class="sig-name descname"><span class="pre">get_metadata_fields</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">project_name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.recount3.get_metadata_fields" title="Permalink to this definition">#</a></dt>
+<dd><p>Get the fields of the metadata for the samples from a
+plain text file.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>project_name</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, {<code class="docutils literal notranslate"><span class="pre">&quot;gtex&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;tcga&quot;</span></code>}</span></dt><dd><p>The name of the project of interest.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">list</span></code></dt><dd><p>List of supported metadata fields for the samples
+of the project of interest.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.recount3.get_query_string">
+<span class="sig-prename descclassname"><span class="pre">utils.recount3.</span></span><span class="sig-name descname"><span class="pre">get_query_string</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query_string</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.recount3.get_query_string" title="Permalink to this definition">#</a></dt>
+<dd><p>Get the string that will be used to filter the samples
+according to their metadata.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>query_str</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>The query string that will be used to filter the samples
+according to their associated metadata, or the path to a
+plain text file containing the query string.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">str</span></code></dt><dd><p>The query string.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.recount3.merge_gene_sums_and_metadata">
+<span class="sig-prename descclassname"><span class="pre">utils.recount3.</span></span><span class="sig-name descname"><span class="pre">merge_gene_sums_and_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df_gene_sums</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">df_metadata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.recount3.merge_gene_sums_and_metadata" title="Permalink to this definition">#</a></dt>
+<dd><p>Add the metadata for TCGA samples deposited
+in the Recount3 platform.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>df_gene_sums</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>Data frame containing the RNA-seq data
+for the samples.</p>
+</dd>
+<dt><strong>df_metadata</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>Data frame containing the metadata for the
+samples.</p>
+</dd>
+<dt><strong>project_name</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, {<code class="docutils literal notranslate"><span class="pre">&quot;gtex&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;tcga&quot;</span></code>}</span></dt><dd><p>The name of the project of interest.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></dt><dd><p>Data frame containing both RNA-seq counts
+and metadata for the samples.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+                <footer class="bd-footer-article">
+                  <!-- Previous / next buttons -->
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="core.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">The core subpackage</p>
+      </div>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-utils.dgd">utils.dgd</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.get_decoder"><code class="docutils literal notranslate"><span class="pre">get_decoder()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.get_gmm"><code class="docutils literal notranslate"><span class="pre">get_gmm()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.get_log2_fold_changes"><code class="docutils literal notranslate"><span class="pre">get_log2_fold_changes()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.get_p_values"><code class="docutils literal notranslate"><span class="pre">get_p_values()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.get_probability_density"><code class="docutils literal notranslate"><span class="pre">get_probability_density()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.get_q_values"><code class="docutils literal notranslate"><span class="pre">get_q_values()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.get_rep_layer"><code class="docutils literal notranslate"><span class="pre">get_rep_layer()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.get_representations"><code class="docutils literal notranslate"><span class="pre">get_representations()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.load_decoder_outputs"><code class="docutils literal notranslate"><span class="pre">load_decoder_outputs()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.load_representations"><code class="docutils literal notranslate"><span class="pre">load_representations()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.load_samples"><code class="docutils literal notranslate"><span class="pre">load_samples()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.load_training_representations"><code class="docutils literal notranslate"><span class="pre">load_training_representations()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.perform_2d_pca"><code class="docutils literal notranslate"><span class="pre">perform_2d_pca()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.perform_dea"><code class="docutils literal notranslate"><span class="pre">perform_dea()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.preprocess_samples"><code class="docutils literal notranslate"><span class="pre">preprocess_samples()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-utils.misc">utils.misc</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.misc.get_config_model"><code class="docutils literal notranslate"><span class="pre">get_config_model()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.misc.get_config_plot"><code class="docutils literal notranslate"><span class="pre">get_config_plot()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.misc.get_config_rep"><code class="docutils literal notranslate"><span class="pre">get_config_rep()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.misc.get_list"><code class="docutils literal notranslate"><span class="pre">get_list()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-utils.plotting">utils.plotting</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.plotting.plot_2d_pca"><code class="docutils literal notranslate"><span class="pre">plot_2d_pca()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.plotting.plot_r_values_hist"><code class="docutils literal notranslate"><span class="pre">plot_r_values_hist()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-utils.recount3">utils.recount3</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.recount3.check_samples_category"><code class="docutils literal notranslate"><span class="pre">check_samples_category()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.recount3.filter_by_metadata"><code class="docutils literal notranslate"><span class="pre">filter_by_metadata()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.recount3.get_gene_sums"><code class="docutils literal notranslate"><span class="pre">get_gene_sums()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.recount3.get_metadata"><code class="docutils literal notranslate"><span class="pre">get_metadata()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.recount3.get_metadata_fields"><code class="docutils literal notranslate"><span class="pre">get_metadata_fields()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.recount3.get_query_string"><code class="docutils literal notranslate"><span class="pre">get_query_string()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.recount3.merge_gene_sums_and_metadata"><code class="docutils literal notranslate"><span class="pre">merge_gene_sums_and_metadata()</span></code></a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div class="tocsection sourcelink">
+    <a href="_sources/utils.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            <div class="bd-footer-content__inner"></div>
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/bootstrap.js?digest=12da95d707ffb74b382d"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=12da95d707ffb74b382d"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+  <p class="copyright">
+    
+      © Copyright 2023, Valentina Sora.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+  <p class="sphinx-version">
+    Created using <a href="https://sphinx-doc.org/">Sphinx</a> 6.1.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item"><p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.13.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
