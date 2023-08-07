@@ -1,4 +1,4 @@
-# Command-line interface
+# The command-line interface
 
 `bulkDGD` is structured as an importable Python package.
 
@@ -31,7 +31,7 @@ dgd_get_recount3_data [-h] -ip {gtex,tcga} -is INPUT_SAMPLES_CATEGORY [-o OUTPUT
 | Option                            | Description                                                  |
 | --------------------------------- | ------------------------------------------------------------ |
 | `-h`, `--help`                    | Show the help message and exit.                              |
-| `-ip`, `--input-project-name`     | The name of the Recount3 project for which samples will be retrieved. Available projects are: `"gtex"`, `"tcga"`. |
+| `-ip`, `--input-project-name`     | The name of the Recount3 project for which samples will be retrieved. The available projects are: `"gtex"`, `"tcga"`. |
 | `-is`, `--input-samples-category` | The category of samples for which RNA-seq data will be retrieved. For GTEx data, this is the name of the tissue the samples belong to. For TCGA data, this is the type of cancer the samples are associated with. |
 | `-o`, `--output-csv`              | The name of the output CSV file containing the data frame with the RNA-seq data for the samples. The file will be written in the working directory. The default file name is `{input_project_name}_{input_samples_category}.csv`. |
 | `-d`, `--work-dir`                | The working directory. The default is the current working directory. |
@@ -49,12 +49,17 @@ This executable allows users to preprocess new samples to use within the DGD mod
 
 It expects as input a CSV file containing a data frame with the gene expression data for the new samples.
 
-Each row must represent a sample, while each column must represent a gene identified by its Ensembl ID. Therefore, each cell of the data frame represents the expression (as RNA-seq read counts) of a gene in a specific sample.
+Each row must represent a sample, while each column must represent a gene identified by its Ensembl ID or additional information about the samples. The first column is expected to contain the unique names, IDs, or indexes of the samples.
 
 In detail, sample preprocessing consists of the following steps:
 
-1. Excluding all data for genes that are not included in the DGD model. A plain text file containing the list of the genes used in the model is available in `bulkDGD/data/model/training_genes.txt`.
-2. Sorting the genes in the order expected by the DGD model.
+1. Removing duplicated samples.
+2. Removing samples containing missing values for the expression of some genes.
+3. Excluding all data for genes that are not included in the DGD model. A plain text file containing the list of the genes used in the model is available in `bulkDGD/data/model/training_genes.txt`.
+4. Adding a count of 0 for all genes which are not found in the input samples but are part of the set of genes used to train the DGD model.
+5. Sorting the genes in the order expected by the DGD model.
+
+The program will exit with an error if it finds duplicated genes.
 
 Preprocessing new samples is a critical step before trying to find the samples' best representations in latent space using the DGD model (with the [`dgd_get_representations`](#dgd_get_representations) executable).
 
@@ -67,7 +72,7 @@ Furthermore, if any gene present in the gene set used to train the DGD model is 
 #### Command line
 
 ```
-dgd_preprocess_samples [-h] -i INPUT_CSV [-os OUTPUT_CSV_SAMPLES] [-oe OUTPUT_TXT_GENES_EXCLUDED] [-om OUTPUT_TXT_GENES_MISSING] [-sc SAMPLES_NAMES_COLUMN] [-d WORK_DIR] [-lf LOG_FILE] [-lc] [-v] [-vv]
+dgd_preprocess_samples [-h] -i INPUT_CSV [-os OUTPUT_CSV_SAMPLES] [-oe OUTPUT_TXT_GENES_EXCLUDED] [-om OUTPUT_TXT_GENES_MISSING] [-d WORK_DIR] [-lf LOG_FILE] [-lc] [-v] [-vv]
 ```
 
 #### Options
@@ -79,7 +84,6 @@ dgd_preprocess_samples [-h] -i INPUT_CSV [-os OUTPUT_CSV_SAMPLES] [-oe OUTPUT_TX
 | `-os`, `--output-csv-samples`        | The name of the output CSV file containing the data frame with the preprocessed samples. The file will be written in the working directory. The default file name is `samples_preprocessed.csv`. |
 | `-oe`, `--output-txt-genes-excluded` | The name of the output plain text file containing the list of genes whose expression data are excluded from the data frame with the preprocessed samples. The file will be written in the working directory. The default file name is `genes_excluded.txt`. |
 | `-om`, `--output-txt-genes-missing`  | The name of the output plain text file containing the genes for which no available expression data are found in the input data frame. A default count of 0 is assigned to these genes in the output data frame with the preprocessed samples. The file will be written in the working directory. The default file name is `genes_missing.txt`. |
-| `-sc`, `--samples-names-column`      | The name/index of the column containing the IDs/names of the samples, if any. By default, the program assumes that no such column is present. |
 | `-d`, `--work-dir`                   | The working directory. The default is the current working directory. |
 | `-lf`, `--log-file`                  | The name of the log file. The file will be written in the working directory. The default file name is `dgd_preprocess_samples.log`. |
 | `-lc`, `--log-console`               | Show log messages also on the console.                       |

@@ -35,7 +35,7 @@ import re
 import matplotlib.font_manager as fm
 import numpy as np
 # bulkDGD
-from . import _util
+from . import _util, dgd
 
 
 # Get the module's logger
@@ -51,7 +51,7 @@ def get_list(list_file):
     Parameters
     ----------
     list_file : ``str``
-        File containing the list of entities of interest.
+        The plain text file containing the entities of interest.
 
     Returns
     -------
@@ -87,11 +87,6 @@ def get_config_model(config_file):
     # Load the configuration
     config = _util.load_config(config_file = config_file)
 
-    # Check the configuration against the template
-    config = _util.check_config_against_template(\
-                config = config,
-                template = _util.CONFIG_MODEL_TEMPLATE)
-
     # Get the absolute path to the configuration file
     config_file_path = os.path.abspath(config_file)
 
@@ -99,21 +94,80 @@ def get_config_model(config_file):
     # the file name) and its 'tail' (the file name)
     path_head, path_tail = os.path.split(config_file_path)
 
-    # Get the correct path for the PyTorch files containing the
-    # parameters of the training decoder, the Gaussian mixture
-    # model, and the representations'a layer (they may be given as
-    # relative paths with respect to the location of the configuration
-    # file, which may or may not correspond to the location from
-    # where this function is called)
-    config["dec"]["pth_file"] = \
-        os.path.normpath(os.path.join(path_head,
-                                      config["dec"]["pth_file"]))
-    config["gmm"]["pth_file"] = \
-        os.path.normpath(os.path.join(path_head,
-                                      config["gmm"]["pth_file"]))
-    config["rep_layer"]["pth_file"] = \
-        os.path.normpath(os.path.join(path_head,
-                                      config["rep_layer"]["pth_file"]))
+
+    #------------------ Check against the template -------------------#
+
+
+    # Check the configuration against the template
+    config = _util.check_config_against_template(\
+                config = config,
+                template = _util.CONFIG_MODEL_TEMPLATE)
+
+
+    #--------- Check the GMM's and decoder's dimensionality ----------#
+
+
+    # Get the dimensionality of the Gaussian mixture model
+    # and the decoder
+    dim_gmm = config["gmm"]["options"]["dim"]
+    dim_dec = config["dec"]["options"]["n_neurons_input"]
+
+    # If they are not identical
+    if dim_gmm != dim_dec:
+
+        # Raise an error
+        errstr = \
+            "The dimensionality of the Gaussian mixture model " \
+            "('gmm' --> 'options' --> 'dim') " \
+            "and the number of neurons in the decoder's input layer " \
+            "('dec' --> 'options' --> 'n_neurons_input') " \
+            "must be identical."
+        raise ValueError(errstr)
+
+
+    #--------------------- Load the trained GMM ----------------------#
+
+
+    # Get the PyTorch file containing the trained Gaussian
+    # mixture model
+    gmm_pth_file = config["gmm"]["pth_file"]
+
+    # If the default file should be used
+    if gmm_pth_file == "default":
+
+        # Get the path to the default file
+        config["gmm"]["pth_file"] = \
+            os.path.normpath(dgd.GMM_FILE)
+
+    # Otherwise
+    else:
+
+        # Get the correct path to the file
+        config["gmm"]["pth_file"] = \
+            os.path.normpath(os.path.join(path_head,
+                                          gmm_pth_file))
+
+
+    #------------------- Load the trained decoder --------------------#
+
+
+    # Get the PyTorch file containing the trained decoder
+    dec_pth_file = config["dec"]["pth_file"]
+
+    # If the default file should be used
+    if dec_pth_file == "default":
+
+        # Get the path to the default file
+        config["dec"]["pth_file"] = \
+            os.path.normpath(dgd.DEC_FILE)
+
+    # Otherwise
+    else:
+
+        # Get the correct path to the file
+        config["dec"]["pth_file"] = \
+            os.path.normpath(os.path.join(path_head,
+                             dec_pth_file))
 
     # Return the configuration
     return config

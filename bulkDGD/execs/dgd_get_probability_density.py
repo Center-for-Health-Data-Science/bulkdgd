@@ -262,7 +262,7 @@ def main():
     # If the dimensionality of the latent space provided in the
     # configuration file does not match the one found in the
     # input file
-    if dim_latent != config_model["dim_latent"]:
+    if dim_latent != config_model["gmm"]["options"]["dim"]:
 
         # Warn the user and exit
         errstr = \
@@ -280,8 +280,7 @@ def main():
     # Try to get the GMN
     try:
         
-        gmm = dgd.get_gmm(dim = dim_latent,
-                          config = config_gmm)
+        gmm = dgd.get_gmm(config = config_gmm)
 
     # If something went wrong
     except Exception as e:

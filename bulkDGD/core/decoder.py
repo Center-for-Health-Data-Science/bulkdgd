@@ -117,17 +117,13 @@ class NBLayer(nn.Module):
     possible mutually exclusive outcomes. 
     """
 
-    # Supported scaling types for the means of the negative binomial
-    # distrbutions
-    SCALING_TYPES = \
-        ["library", "total_count", "mean", "median"]
-
+    # Supported activation functions
+    ACTIVATION_FUNCTIONS = ["sigmoid", "softplus"]
 
     def __init__(self,
                  dim,
                  r_init,
-                 scaling_type = "library",
-                 reduction = None):
+                 activation = "softplus"):
         """Initialize an instance of the class.
 
         Parameters
@@ -140,26 +136,8 @@ class NBLayer(nn.Module):
             The initial value for ``r``, representing the "number
             of failures" after which the "trials" stop.
 
-        scaling_type : ``str``, {``"library"``, ``"total_count"``, \
-                       ``"mean"``, ``"median"``}, default: \
-                       ``"library"``
-            The type of scaling applied to the means of the
-            negative binomial distributions.
-
-            The type of scaling determines the activation
-            function used in the ``NBLayer``.
-
-            If the scaling type is ``"library"`` or ``"total_count"``,
-            the acivation function will be ``"sigmoid"``.
-
-            If the scaling type is ``"mean"`` or ``"median"``,
-            the activation function will be ``"softplus"``.
-
-        reduction : ``str``, optional, {``"sum"``}
-            Whether to reduce the output by summing over its
-            components when computing the output's loss
-            (``"sum"``) or to compute a per-component loss
-            (if not passed).
+        activation : ``str``, ``"softplus"``
+            The name of the activation function to be used.
         """
         
         # Initialize the class
@@ -168,81 +146,20 @@ class NBLayer(nn.Module):
         # Set the dimensionality of the NBLayer
         self._dim = dim
 
-        # Set the type of scaling
-        self._scaling_type = \
-            self._get_scaling_type(scaling_type = scaling_type)
-
         # Initialize the value of the log of r. Real-valued positive
         # parameters are usually used as their log equivalent.
         self._log_r = \
             self._get_log_r(r_init = r_init,
                             dim = self.dim)
+
+        # Check the name of the activation function provided
+        self._check_activation(activation = activation)
         
         # Get the activation function to be used
-        self._activation = \
-            self._get_activation(scaling_type = self.scaling_type)
-        
-        # Set the reduction
-        self._reduction = reduction
+        self._activation = activation
 
 
     #-------------------- Initialization methods ---------------------#
-
-
-    def _get_scaling_type(self,
-                          scaling_type):
-        """Return the scaling type after checking whether it is
-        supported.
-
-        Parameters
-        ----------
-        scaling_type : ``str``, {``"library"``, ``"total_count"``, \
-                       ``"mean"``, ``"median"``}, default: \
-                       ``"library"``
-            The type of scaling applied to the means of the
-            negative binomial distributions.
-
-            The type of scaling determines the activation
-            function used in the ``NBLayer``.
-
-            If the scaling type is ``"library"`` or ``"total_count"``,
-            the acivation function will be ``"sigmoid"``.
-
-            If the scaling type is ``"mean"`` or ``"median"``,
-            the activation function will be ``"softplus"``.
-
-        Returns
-        -------
-        scaling_type : ``str``, {``"library"``, ``"total_count"``, \
-                       ``"mean"``, ``"median"``}, default: \
-                       ``"library"``
-            The type of scaling applied to the means of the
-            negative binomial distributions.
-
-            The type of scaling determines the activation
-            function used in the ``NBLayer``.
-
-            If the scaling type is ``"library"`` or ``"total_count"``,
-            the acivation function will be ``"sigmoid"``.
-
-            If the scaling type is ``"mean"`` or ``"median"``,
-            the activation function will be ``"softplus"``.
-        """
-
-        # If the scaling type is not supported
-        if not scaling_type in self.SCALING_TYPES:
-
-            # Raise an error
-            supported_stypes = \
-                ", ".join([f"'{st}'" for st in self.SCALING_TYPES])
-            errstr = \
-                f"Invalid 'scaling_type' provided " \
-                f"('{scaling_type}'). Supported scaling types " \
-                f"are: {supported_stypes}."
-            raise ValueError(errstr)
-
-        # Return the scaling type
-        return scaling_type
     
 
     def _get_log_r(self,
@@ -276,64 +193,26 @@ class NBLayer(nn.Module):
                          requires_grad = True)
 
 
-    def _get_activation(self,
-                        scaling_type):
+    def _check_activation(self,
+                          activation):
         """Get the activation function based on the scaling
         requested.
 
         Parameters
         ----------
-        scaling_type : ``str``, {``"library"``, ``"total_count"``, \
-                       ``"mean"``, ``"median"``}, default: \
-                       ``"library"``
-            The type of scaling applied to the means of the
-            negative binomial distributions.
-
-            The type of scaling determines the activation
-            function used in the ``NBLayer``.
-
-            If the scaling type is ``"library"`` or ``"total_count"``,
-            the acivation function will be ``"sigmoid"``.
-
-            If the scaling type is ``"mean"`` or ``"median"``,
-            the activation function will be ``"softplus"``.
-
-        Returns
-        -------
-        activation : ``str``, {``sigmoid``, ``softplus``}
-            The name of the activation function to be used
-            (depending on the provided scaling type). If the
-            scaling type is ``"library"`` or ``"total_count"``
-            the acivation function will be ``"sigmoid"``.
-            If the scaling type is ``"mean"`` or ``"median"``
-            the activation function will be ``"softplus"``.
+        activation : ``str``
+            The name of the activation function to be used.
         """
-
-        # If scaling based on the library or total count
-        # was requested
-        if scaling_type in ["library", "total_count"]:
-            
-            # The activation function will be a sigmoid
-            activation = "sigmoid"
         
-        # If scaling based on the mean or median was requested
-        elif scaling_type in ["mean", "median"]:
-
-            # The activation function will be a softplus
-            activation = "softplus"
-        
-        # Otherwise
-        else:
+        # If the provided activation function is not supported
+        if activation not in self.ACTIVATION_FUNCTIONS:
 
             # Raise an exception
             errstr = \
-                f"Unknown 'scaling_type' ({scaling_type}). " \
-                f"Supported values are: " \
-                f"{', '.join(self.SCALING_TYPES)}."
+                f"Unknown 'activation' ({activation}). " \
+                f"Supported activation functions are: " \
+                f"{', '.join(self.ACTIVATION_FUNCTIONS)}."
             raise ValueError(errstr)
-
-        # Return the activation
-        return activation
 
 
     #-------------------------- Properties ---------------------------#
@@ -422,29 +301,6 @@ class NBLayer(nn.Module):
         
         errstr = \
             "The value of 'activation' cannot be changed " \
-            "after initialization."
-        raise ValueError(errstr)
-
-
-    @property
-    def reduction(self):
-        """Whether to reduce the output by summing over its
-        components when computing the output's loss or to
-        compute a per-component loss.
-        """
-
-        return self._reduction
-
-
-    @reduction.setter
-    def reduction(self,
-                  value):
-        """Raise an exception if the user tries to modify
-        the value of ``reduction`` after initialization.
-        """
-        
-        errstr = \
-            "The value of 'reduction' cannot be changed " \
             "after initialization."
         raise ValueError(errstr)
 
@@ -720,75 +576,66 @@ class NBLayer(nn.Module):
         Parameters
         ----------
         obs_count : ``torch.Tensor``
-            The observed gene counts. This is a tensor whose shape
-            must match that of ``pred_mean``.
+            The observed gene counts.
 
         scaling_factor : ``torch.Tensor``
             A tensor containing the scaling factor(s). It must have the
-            same dimensionality as ``obs_count`` and ``pred_mean``, and
+            same dimensionality as ``obs_count``, and
             the size of the first dimension must match that of the
-            first dimension of ``obs_count`` and ``pred_mean``.
+            first dimension of ``obs_count``.
 
         pred_mean : ``torch.Tensor``
             The predicted means of the negative binomials. This is a
-            tensor whose shape must match that of ``obs_count``.
+            tensor whose shape must match that of ``obs_count`` and
+            ``scaling_factor``.
 
         Returns
         -------
         ``torch.Tensor``
             The loss associated to the input ``x``.
 
-            * If the ``reduction`` property is ``None``, the
-              tensor will have two dimensions whose size correspond
-              to the size of the first and last dimension of
-              ``obs_count`` and ``pred_mean``, respectively.
+            This is a 2D tensor where:
 
-            * If the ``reduction`` property is ``sum``, the tensor
-              will contain a single value.
-        """
-        
-        # If no reduction method was defined
-        if self.reduction is None:
-            
-            # Return a tensor with as many values as the
-            # dimensions of the input ``x`` (the loss for each
-            # of the negative binomials associated with ``x``)
-            return - self.__class__.log_prob_mass(\
-                            k = obs_count,
-                            m = self.__class__.rescale(scaling_factor,
-                                                       pred_mean),
-                            r = torch.exp(self.log_r))
-        
-        # If a reduction of the output needs to be performed by
-        # summing up its components
-        elif self.reduction == "sum":
-            
-            # Return a tensor with only one value (the total loss
-            # associated with ``x``)
-            return - self.__class__.log_prob_mass(\
-                            k = obs_count,
-                            m = self.__class__.rescale(scaling_factor,
-                                                       pred_mean),
-                            r = torch.exp(self.log_r)).sum()
+            * The first dimension has a length equal to the length
+              of the first dimension of ``obs_count`` and
+              ``pred_mean``.
 
+            * The second dimension has a length equal to the length
+              of the second dimension of ``obs_count`` and
+              ``pred_mean``.
+        """  
+            
+        # Return a tensor with as many values as the
+        # dimensions of the input ``x`` (the loss for each
+        # of the negative binomials associated with ``x``)
+        return - self.__class__.log_prob_mass(\
+                        k = obs_count,
+                        m = self.__class__.rescale(scaling_factor,
+                                                   pred_mean),
+                        r = torch.exp(self.log_r))
+    
 
     def log_prob(self,
-                 x,
+                 obs_count,
                  scaling_factor,
                  mean):
         """Get the log-likelihood of an input ``x``.
 
         Parameters
         ----------
-        x : ``torch.Tensor``
-            The input tensor.
+        obs_count : ``torch.Tensor``
+            The observed gene counts.
 
         scaling_factor : ``torch.Tensor``
-            A tensor containing the scaling factor(s).
+            A tensor containing the scaling factor(s). It must have the
+            same dimensionality as ``obs_count``, and
+            the size of the first dimension must match that of the
+            first dimension of ``obs_count``.
 
-        mean : ``torch.Tensor``
-            A one-dimensional tensor containing the means of
-            the negative binomials.
+        pred_mean : ``torch.Tensor``
+            The predicted means of the negative binomials. This is a
+            tensor whose shape must match that of ``obs_count`` and
+            ``scaling_factor``.
         
         Returns
         -------
@@ -800,32 +647,28 @@ class NBLayer(nn.Module):
         """
         
         return self.__class__.log_prob_mass(\
-                    x,
-                    self.__class__.rescale(scaling_factor, mean),
+                    obs_count,
+                    self.__class__.rescale(scaling_factor, pred_mean),
                     torch.exp(self.log_r))
 
 
     def sample(self,
                n,
                scaling_factor,
-               mean):
+               pred_mean):
         """Get ``n`` samples from the negative binomials.
 
         Parameters
         ----------
         n : ``int``
-            Number of samples to get.
+            The number of samples to get.
 
         scaling_factor : ``torch.Tensor``
             A tensor containing the scaling factor(s).
 
-        mean : ``torch.Tensor``
-            A one-dimensional tensor containing the predicted
-            means of the negative binomials (the output of the
-            decoder).
-
-            In the tensor, each value represents the 
-            predicted mean of the expression of a gene.
+        pred_mean : ``torch.Tensor``
+            The predicted means of the negative binomials. This is a
+            tensor whose shape must match that of  ``scaling_factor``.
         
         Returns
         -------
@@ -842,7 +685,7 @@ class NBLayer(nn.Module):
         with torch.no_grad():
             
             # Rescale the means
-            m = self.__class__.rescale(scaling_factor, mean)
+            m = self.__class__.rescale(scaling_factor, pred_mean)
             
             # Get the probabilities from the means
             # m = p * r / (1-p), so p = m / (m+r)
@@ -869,20 +712,19 @@ class Decoder(nn.Module):
     """
 
     def __init__(self,
-                 n_neurons_latent,
+                 n_neurons_input,
                  n_neurons_hidden1,
                  n_neurons_hidden2,
-                 n_neurons_out,
+                 n_neurons_output,
                  r_init = 2,
-                 scaling_type = "library"):
+                 activation_output = "softplus"):
         """Initialize an instance of the neural network representing
         the decoder.
 
         Parameters
         ----------
-        n_neurons_latent : ``int``
-            The mumber of neurons in the layer facing the latent
-            space (input layer).
+        n_neurons_input : ``int``
+            The mumber of neurons in the input layer.
 
         n_neurons_hidden1 : ``int``
             The number of neurons in the first hidden layer.
@@ -890,7 +732,7 @@ class Decoder(nn.Module):
         n_neurons_hidden2 : ``int``
             The number of neurons in the second hidden layer.
 
-        n_neurons_out : ``int``
+        n_neurons_output : ``int``
             The number of neurons in the output layer.
 
         r_init : ``int``
@@ -898,20 +740,9 @@ class Decoder(nn.Module):
             of failures" after which the "trials" stop in the
             ``NBLayer``.
 
-        scaling_type : ``str``, {``"library"``, ``"total_count"``, \
-                       ``"mean"``, ``"median"``}, default: \
-                       ``"library"``
-            The type of scaling applied to the means of the
-            negative binomial distributions.
-
-            The type of scaling determines the activation
-            function used in the ``NBLayer``.
-
-            If the scaling type is ``"library"`` or ``"total_count"``,
-            the acivation function will be ``"sigmoid"``.
-
-            If the scaling type is ``"mean"`` or ``"median"``,
-            the activation function will be ``"softplus"``.
+        activation_output : ``str``
+            The name of the activation function to be used in
+            the output layer.
         """
 
         # Initialize the class
@@ -922,17 +753,17 @@ class Decoder(nn.Module):
 
         # Add layers to the decoder
         self.main.extend(\
-            [nn.Linear(n_neurons_latent, n_neurons_hidden1),
+            [nn.Linear(n_neurons_input, n_neurons_hidden1),
              nn.ReLU(True),
              nn.Linear(n_neurons_hidden1, n_neurons_hidden2),
              nn.ReLU(True),
-             nn.Linear(n_neurons_hidden2, n_neurons_out)])
+             nn.Linear(n_neurons_hidden2, n_neurons_output)])
 
         # Create the output layer
         self.nb = \
-            NBLayer(dim = n_neurons_out,
+            NBLayer(dim = n_neurons_output,
                     r_init = r_init,
-                    scaling_type = scaling_type)
+                    activation = activation_output)
 
 
     def forward(self,

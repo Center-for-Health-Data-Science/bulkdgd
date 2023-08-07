@@ -281,10 +281,10 @@ def main():
     try:
 
         # Get the observed counts
-        obs_counts = \
+        obs_counts, other_data = \
             dgd.load_samples(\
                 csv_file = input_csv_samples,
-                keep_samples_names = True)[0].df
+                keep_samples_names = True)
 
         # Get the samples' names
         obs_counts_names = obs_counts.index.tolist()
@@ -381,9 +381,6 @@ def main():
     #----------------------- Get the r-values ------------------------#
 
 
-    # Get the dimensionality of the latent space
-    dim_latent = config_model["dim_latent"]
-
     # Get the configuration for the decoder
     config_dec = config_model["dec"]
 
@@ -391,15 +388,11 @@ def main():
     try:
 
         # Initialize and set the decoder
-        dec = dgd.get_decoder(dim = dim_latent,
-                              config = config_dec)
+        dec = dgd.get_decoder(config = config_dec)
 
         # Get the r values of the negative binomials from the log-r
         # values stored in the negative binomial layer of the decoder.
-        # This is a 1D tensor with:
-        #
-        # - 1st dimension: the dimensionality of the gene space
-        r_values = torch.exp(dec.nb.log_r).squeeze().detach()
+        r_values = dgd.get_r_values(dec = dec)
 
     # If something went wrong
     except Exception as e:

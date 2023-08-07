@@ -50,35 +50,31 @@ logger = log.getLogger(__name__)
 
 # Template to check the model's configuration file against
 CONFIG_MODEL_TEMPLATE = \
-    {"dim_latent" : int,
-     
-     "dec" : \
-        {"pth_file" : str,
-         "options" : \
-            {"n_neurons_hidden1" : int,
-             "n_neurons_hidden2" : int,
-             "n_neurons_out" : int,
-             "r_init" : int,
-             "scaling_type" : str
-             },
-        },
-     
+    {# Options for the Gaussian mixture model
      "gmm" : \
         {"pth_file" : str,
          "options" : \
-            {"n_comp" : int,
+            {"dim" : int,
+             "n_comp" : int,
              "cm_type" : str,
-             "logbeta_params" : list,
+             "log_var_params" : list,
              "alpha" : int},
          "mean_prior" : \
             {"type" : str,
              "options" : None},
         },
-     
-     "rep_layer" : \
+
+     # Options for the decoder
+     "dec" : \
         {"pth_file" : str,
          "options" : \
-            {"n_samples" : int},
+            {"n_neurons_input" : int,
+             "n_neurons_hidden1" : int,
+             "n_neurons_hidden2" : int,
+             "n_neurons_output" : int,
+             "r_init" : int,
+             "activation_output" : str,
+            },
         },
     }
 
@@ -90,8 +86,9 @@ CONFIG_REP_TEMPLATE = \
         {"batch_size" : int,
          "shuffle" : bool},
      
-     "optimization" : \
-        {"opt1" : \
+     "rep" : \
+        {"n_rep_per_comp" : int,
+         "opt1" : \
             {"epochs" : int,
              "type" : str,
              "options" : None},

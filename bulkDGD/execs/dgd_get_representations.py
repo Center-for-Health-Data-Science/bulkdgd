@@ -35,8 +35,6 @@ import os
 import sys
 # Third-party packages
 import pandas as pd
-import torch
-from torch.utils.data import DataLoader
 # bulkDGD
 from bulkDGD.utils import dgd, misc
 
@@ -260,13 +258,13 @@ def main():
     # Try to load the samples' data
     try:
 
-        # Create the dataset
-        dataset, indexes, genes, df_other_data = \
+        df_expr_data, df_other_data = \
             dgd.load_samples(csv_file = input_csv,
+                             sep = ",",
                              keep_samples_names = True)
 
-        # Create the data loader
-        dataloader = DataLoader(dataset, **config_rep["data"])
+        df_samples = pd.concat([df_expr_data, df_other_data],
+                               axis = 1)
 
     # If something went wrong
     except Exception as e:
@@ -287,17 +285,13 @@ def main():
     #-------------------- Gaussian mixture model ---------------------#
 
 
-    # Get the dimensionality of the latent space
-    dim_latent = config_model["dim_latent"]
-
     # Get the configuration for the GMM
     config_gmm = config_model["gmm"]
 
     # Try to get the GMN
     try:
         
-        gmm = dgd.get_gmm(dim = dim_latent,
-                          config = config_gmm)
+        gmm = dgd.get_gmm(config = config_gmm)
 
     # If something went wrong
     except Exception as e:
@@ -323,8 +317,7 @@ def main():
     # Try to get the decoder
     try:
 
-        dec = dgd.get_decoder(dim = dim_latent,
-                              config = config_dec)
+        dec = dgd.get_decoder(config = config_dec)
 
     # If something went wrong
     except Exception as e:
@@ -340,66 +333,42 @@ def main():
     logger.info(infostr)
 
 
-    #---------------- Representation layer (training) ----------------#
-
-
-    # Get the configuration for the representation layer
-    config_rep_layer = config_model["rep_layer"]
-
-    # Try to get the representation layer
-    try:
-        
-        rep_layer = dgd.get_rep_layer(dim = dim_latent,
-                                      config = config_rep_layer)
-
-    # If something went wrong
-    except Exception as e:
-
-        # Warn the user and exit
-        errstr = \
-            "It was not possible to set the representation layer. " \
-            f"Error: {e}"
-        logger.exception(errstr)
-        sys.exit(errstr)
-
-    # Inform the user that the representation layer was successfully
-    # set
-    infostr = "The representation layer was successfully set."
-    logger.info(infostr)
-
-
     #------------------------- Optimization --------------------------#
 
 
     # Set how many representations per sample to start from
     n_new = 1
 
+    # Get the configuration for loading the data
+    config_data = config_rep["data"]
+
+    # Get the number of representations per component
+    # per sample
+    n_rep_per_comp = config_rep["rep"]["n_rep_per_comp"]
+
     # Get the configuration for the initial optimization
-    config_opt1 = config_rep["optimization"]["opt1"]
+    config_opt1 = config_rep["rep"]["opt1"]
 
     # Get the configuration for further optimization
-    config_opt2 = config_rep["optimization"]["opt2"]
+    config_opt2 = config_rep["rep"]["opt2"]
     
-    # Try to get the representations
+    # Try to get the representations and the associated
+    # decoder outputs
     try:
         
-        df_rep, df_dec_out, series_loss = \
+        df_rep, df_dec_out = \
             dgd.get_representations(\
-                # DataLoader object
-                dataloader = dataloader,
-                # Samples' unique indexes
-                indexes = indexes,
+                # Data frame with the samples
+                df = df_samples,
                 # Gaussian mixture model
                 gmm = gmm,
                 # Decoder
                 dec = dec,
-                # Number of genes in the dataset                         
-                n_genes = len(genes),
                 # Number of new representations per component
                 # per sample                         
-                n_samples_per_comp = 1,
-                # Dimensionality of the latent space
-                dim = dim_latent,
+                n_rep_per_comp = n_rep_per_comp,
+                # Configuration for loading the data
+                config_data = config_data,
                 # Configuration for the first round of optimization                         
                 config_opt1 = config_opt1,
                 # Configuration for the second round of optimization                         
@@ -424,23 +393,15 @@ def main():
     #------------------- Output - representations --------------------#
 
 
-    # Add the 'loss' column to the data frame
-    df_rep["loss"] = series_loss
-
-    # Add the extra data found in the input data frame to the
-    # representations' data frame
-    df_rep = df_rep.join(df_other_data)
-
     # Set the path to the output file
     output_csv_rep_path = os.path.join(wd, output_csv_rep)
 
     # Try to write the representations in the output CSV file
     try:
 
-        df_rep.to_csv(output_csv_rep_path,
-                      sep = ",",
-                      index = True,
-                      header = True)
+        dgd.save_representations(df = df_rep,
+                                 csv_file = output_csv_rep_path,
+                                 sep = ",")
 
     # If something went wrong
     except Exception as e:
@@ -463,23 +424,15 @@ def main():
     #-------------------- Output - decoder output --------------------#
 
 
-    # Set the names of the columns of the data frame to be the
-    # names of the genes
-    df_dec_out.columns = genes
-
-    # Add the extra data found in the input data frame to the
-    # decoder outputs' data frame
-    df_dec_out = df_dec_out.join(df_other_data)
-
     # Set the path to the output file
     output_csv_dec_path = os.path.join(wd, output_csv_dec)
 
     # Try to write the decoder outputs in the dedicated CSV file
     try:
 
-        df_dec_out.to_csv(output_csv_dec_path,
-                          sep = ",",
-                          header = True)
+        dgd.save_decoder_outputs(df = df_dec_out,
+                                 csv_file = output_csv_dec_path,
+                                 sep = ",")
 
     # If something went wrong
     except Exception as e:

@@ -414,7 +414,7 @@ mean gene expression for each sample.</p>
 <h2>core.decoder<a class="headerlink" href="#core-decoder" title="Permalink to this heading">#</a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="core.decoder.NBLayer">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.decoder.</span></span><span class="sig-name descname"><span class="pre">NBLayer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_init</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'library'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.decoder.NBLayer" title="Permalink to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.decoder.</span></span><span class="sig-name descname"><span class="pre">NBLayer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_init</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">activation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'softplus'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.decoder.NBLayer" title="Permalink to this definition">#</a></dt>
 <dd><p>Class implementing an output layer representing the means
 of the negative binomial distributions modeling the outputs
 (e.g., the means of the gene expression counts). One negative
@@ -427,7 +427,7 @@ trials before a specified number of “failures” occur.</p>
 possible mutually exclusive outcomes.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="core.decoder.NBLayer.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_init</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'library'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.decoder.NBLayer.__init__" title="Permalink to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_init</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">activation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'softplus'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.decoder.NBLayer.__init__" title="Permalink to this definition">#</a></dt>
 <dd><p>Initialize an instance of the class.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -438,19 +438,7 @@ distributions.</p>
 <dt><strong>r_init</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The initial value for <code class="docutils literal notranslate"><span class="pre">r</span></code>, representing the “number
 of failures” after which the “trials” stop.</p>
 </dd>
-<dt><strong>scaling_type</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, {<code class="docutils literal notranslate"><span class="pre">&quot;library&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;total_count&quot;</span></code>,                        <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code>}, default:                        <code class="docutils literal notranslate"><span class="pre">&quot;library&quot;</span></code></span></dt><dd><p>The type of scaling applied to the means of the
-negative binomial distributions.</p>
-<p>The type of scaling determines the activation
-function used in the <code class="docutils literal notranslate"><span class="pre">NBLayer</span></code>.</p>
-<p>If the scaling type is <code class="docutils literal notranslate"><span class="pre">&quot;library&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;total_count&quot;</span></code>,
-the acivation function will be <code class="docutils literal notranslate"><span class="pre">&quot;sigmoid&quot;</span></code>.</p>
-<p>If the scaling type is <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code>,
-the activation function will be <code class="docutils literal notranslate"><span class="pre">&quot;softplus&quot;</span></code>.</p>
-</dd>
-<dt><strong>reduction</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, optional, {<code class="docutils literal notranslate"><span class="pre">&quot;sum&quot;</span></code>}</span></dt><dd><p>Whether to reduce the output by summing over its
-components when computing the output’s loss
-(<code class="docutils literal notranslate"><span class="pre">&quot;sum&quot;</span></code>) or to compute a per-component loss
-(if not passed).</p>
+<dt><strong>activation</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;softplus&quot;</span></code></span></dt><dd><p>The name of the activation function to be used.</p>
 </dd>
 </dl>
 </dd>
@@ -482,17 +470,21 @@ has the same shape as the input tensor.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="core.decoder.NBLayer.log_prob">
-<span class="sig-name descname"><span class="pre">log_prob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_factor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.decoder.NBLayer.log_prob" title="Permalink to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">log_prob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obs_count</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_factor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.decoder.NBLayer.log_prob" title="Permalink to this definition">#</a></dt>
 <dd><p>Get the log-likelihood of an input <code class="docutils literal notranslate"><span class="pre">x</span></code>.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
-<dt><strong>x</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The input tensor.</p>
+<dt><strong>obs_count</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The observed gene counts.</p>
 </dd>
-<dt><strong>scaling_factor</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>A tensor containing the scaling factor(s).</p>
+<dt><strong>scaling_factor</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>A tensor containing the scaling factor(s). It must have the
+same dimensionality as <code class="docutils literal notranslate"><span class="pre">obs_count</span></code>, and
+the size of the first dimension must match that of the
+first dimension of <code class="docutils literal notranslate"><span class="pre">obs_count</span></code>.</p>
 </dd>
-<dt><strong>mean</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>A one-dimensional tensor containing the means of
-the negative binomials.</p>
+<dt><strong>pred_mean</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The predicted means of the negative binomials. This is a
+tensor whose shape must match that of <code class="docutils literal notranslate"><span class="pre">obs_count</span></code> and
+<code class="docutils literal notranslate"><span class="pre">scaling_factor</span></code>.</p>
 </dd>
 </dl>
 </dd>
@@ -617,29 +609,30 @@ predicted means <code class="docutils literal notranslate"><span class="pre">pre
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
-<dt><strong>obs_count</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The observed gene counts. This is a tensor whose shape
-must match that of <code class="docutils literal notranslate"><span class="pre">pred_mean</span></code>.</p>
+<dt><strong>obs_count</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The observed gene counts.</p>
 </dd>
 <dt><strong>scaling_factor</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>A tensor containing the scaling factor(s). It must have the
-same dimensionality as <code class="docutils literal notranslate"><span class="pre">obs_count</span></code> and <code class="docutils literal notranslate"><span class="pre">pred_mean</span></code>, and
+same dimensionality as <code class="docutils literal notranslate"><span class="pre">obs_count</span></code>, and
 the size of the first dimension must match that of the
-first dimension of <code class="docutils literal notranslate"><span class="pre">obs_count</span></code> and <code class="docutils literal notranslate"><span class="pre">pred_mean</span></code>.</p>
+first dimension of <code class="docutils literal notranslate"><span class="pre">obs_count</span></code>.</p>
 </dd>
 <dt><strong>pred_mean</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The predicted means of the negative binomials. This is a
-tensor whose shape must match that of <code class="docutils literal notranslate"><span class="pre">obs_count</span></code>.</p>
+tensor whose shape must match that of <code class="docutils literal notranslate"><span class="pre">obs_count</span></code> and
+<code class="docutils literal notranslate"><span class="pre">scaling_factor</span></code>.</p>
 </dd>
 </dl>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
+<dd class="field-even"><dl>
 <dt><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></dt><dd><p>The loss associated to the input <code class="docutils literal notranslate"><span class="pre">x</span></code>.</p>
+<p>This is a 2D tensor where:</p>
 <ul class="simple">
-<li><p>If the <code class="docutils literal notranslate"><span class="pre">reduction</span></code> property is <code class="docutils literal notranslate"><span class="pre">None</span></code>, the
-tensor will have two dimensions whose size correspond
-to the size of the first and last dimension of
-<code class="docutils literal notranslate"><span class="pre">obs_count</span></code> and <code class="docutils literal notranslate"><span class="pre">pred_mean</span></code>, respectively.</p></li>
-<li><p>If the <code class="docutils literal notranslate"><span class="pre">reduction</span></code> property is <code class="docutils literal notranslate"><span class="pre">sum</span></code>, the tensor
-will contain a single value.</p></li>
+<li><p>The first dimension has a length equal to the length
+of the first dimension of <code class="docutils literal notranslate"><span class="pre">obs_count</span></code> and
+<code class="docutils literal notranslate"><span class="pre">pred_mean</span></code>.</p></li>
+<li><p>The second dimension has a length equal to the length
+of the second dimension of <code class="docutils literal notranslate"><span class="pre">obs_count</span></code> and
+<code class="docutils literal notranslate"><span class="pre">pred_mean</span></code>.</p></li>
 </ul>
 </dd>
 </dl>
@@ -680,20 +673,17 @@ means were rescaled.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="core.decoder.NBLayer.sample">
-<span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_factor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.decoder.NBLayer.sample" title="Permalink to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_factor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pred_mean</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.decoder.NBLayer.sample" title="Permalink to this definition">#</a></dt>
 <dd><p>Get <code class="docutils literal notranslate"><span class="pre">n</span></code> samples from the negative binomials.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
-<dt><strong>n</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>Number of samples to get.</p>
+<dt><strong>n</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The number of samples to get.</p>
 </dd>
 <dt><strong>scaling_factor</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>A tensor containing the scaling factor(s).</p>
 </dd>
-<dt><strong>mean</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>A one-dimensional tensor containing the predicted
-means of the negative binomials (the output of the
-decoder).</p>
-<p>In the tensor, each value represents the 
-predicted mean of the expression of a gene.</p>
+<dt><strong>pred_mean</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The predicted means of the negative binomials. This is a
+tensor whose shape must match that of  <code class="docutils literal notranslate"><span class="pre">scaling_factor</span></code>.</p>
 </dd>
 </dl>
 </dd>
@@ -731,55 +721,34 @@ with the negative binomial distributions (the “number
 of failures” after which the “trials” end).</p>
 </dd></dl>
 
-<dl class="py property">
-<dt class="sig sig-object py" id="core.decoder.NBLayer.reduction">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">reduction</span></span><a class="headerlink" href="#core.decoder.NBLayer.reduction" title="Permalink to this definition">#</a></dt>
-<dd><p>Whether to reduce the output by summing over its
-components when computing the output’s loss or to
-compute a per-component loss.</p>
-</dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="core.decoder.NBLayer.scaling_type">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">scaling_type</span></span><a class="headerlink" href="#core.decoder.NBLayer.scaling_type" title="Permalink to this definition">#</a></dt>
-<dd><p>The type of scaling used.</p>
-</dd></dl>
-
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="core.decoder.Decoder">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.decoder.</span></span><span class="sig-name descname"><span class="pre">Decoder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_neurons_latent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_neurons_hidden1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_neurons_hidden2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_neurons_out</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_init</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'library'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.decoder.Decoder" title="Permalink to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.decoder.</span></span><span class="sig-name descname"><span class="pre">Decoder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_neurons_input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_neurons_hidden1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_neurons_hidden2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_neurons_output</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_init</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">activation_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'softplus'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.decoder.Decoder" title="Permalink to this definition">#</a></dt>
 <dd><p>Class implementing the decoder.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="core.decoder.Decoder.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_neurons_latent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_neurons_hidden1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_neurons_hidden2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_neurons_out</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_init</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'library'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.decoder.Decoder.__init__" title="Permalink to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_neurons_input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_neurons_hidden1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_neurons_hidden2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_neurons_output</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_init</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">activation_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'softplus'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.decoder.Decoder.__init__" title="Permalink to this definition">#</a></dt>
 <dd><p>Initialize an instance of the neural network representing
 the decoder.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
-<dt><strong>n_neurons_latent</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The mumber of neurons in the layer facing the latent
-space (input layer).</p>
+<dt><strong>n_neurons_input</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The mumber of neurons in the input layer.</p>
 </dd>
 <dt><strong>n_neurons_hidden1</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The number of neurons in the first hidden layer.</p>
 </dd>
 <dt><strong>n_neurons_hidden2</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The number of neurons in the second hidden layer.</p>
 </dd>
-<dt><strong>n_neurons_out</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The number of neurons in the output layer.</p>
+<dt><strong>n_neurons_output</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The number of neurons in the output layer.</p>
 </dd>
 <dt><strong>r_init</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The initial value for <code class="docutils literal notranslate"><span class="pre">r</span></code>, representing the “number
 of failures” after which the “trials” stop in the
 <code class="docutils literal notranslate"><span class="pre">NBLayer</span></code>.</p>
 </dd>
-<dt><strong>scaling_type</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, {<code class="docutils literal notranslate"><span class="pre">&quot;library&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;total_count&quot;</span></code>,                        <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code>}, default:                        <code class="docutils literal notranslate"><span class="pre">&quot;library&quot;</span></code></span></dt><dd><p>The type of scaling applied to the means of the
-negative binomial distributions.</p>
-<p>The type of scaling determines the activation
-function used in the <code class="docutils literal notranslate"><span class="pre">NBLayer</span></code>.</p>
-<p>If the scaling type is <code class="docutils literal notranslate"><span class="pre">&quot;library&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;total_count&quot;</span></code>,
-the acivation function will be <code class="docutils literal notranslate"><span class="pre">&quot;sigmoid&quot;</span></code>.</p>
-<p>If the scaling type is <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code>,
-the activation function will be <code class="docutils literal notranslate"><span class="pre">&quot;softplus&quot;</span></code>.</p>
+<dt><strong>activation_output</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>The name of the activation function to be used in
+the output layer.</p>
 </dd>
 </dl>
 </dd>
@@ -815,12 +784,12 @@ for the given representations.</p>
 <h2>core.latent<a class="headerlink" href="#core-latent" title="Permalink to this heading">#</a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="core.latent.GaussianMixtureModel">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.latent.</span></span><span class="sig-name descname"><span class="pre">GaussianMixtureModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_comp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean_prior</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cm_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'isotropic'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">softball_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0.0,</span> <span class="pre">1.0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logbeta_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0.5,</span> <span class="pre">0.5)</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.latent.GaussianMixtureModel" title="Permalink to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.latent.</span></span><span class="sig-name descname"><span class="pre">GaussianMixtureModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_comp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean_prior</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cm_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'isotropic'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_var_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0.5,</span> <span class="pre">0.5)</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.latent.GaussianMixtureModel" title="Permalink to this definition">#</a></dt>
 <dd><p>A class implementing a mixture of multivariate Gaussians
 (Gaussian mixture model or GMM).</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="core.latent.GaussianMixtureModel.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_comp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean_prior</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cm_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'isotropic'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">softball_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0.0,</span> <span class="pre">1.0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logbeta_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0.5,</span> <span class="pre">0.5)</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.latent.GaussianMixtureModel.__init__" title="Permalink to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_comp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean_prior</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cm_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'isotropic'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_var_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0.5,</span> <span class="pre">0.5)</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.latent.GaussianMixtureModel.__init__" title="Permalink to this definition">#</a></dt>
 <dd><p>Initialize an instance of the GMM.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -829,9 +798,7 @@ for the given representations.</p>
 </dd>
 <dt><strong>n_comp</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The number of components in the mixture.</p>
 </dd>
-<dt><strong>mean_prior</strong><span class="classifier">any object representing a prior, optional</span></dt><dd><p>Instance of a class representing a prior. If
-not passed, the <code class="docutils literal notranslate"><span class="pre">bulkDGD.core.priors.softball</span></code>
-prior will be used.</p>
+<dt><strong>mean_prior</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">object</span></code></span></dt><dd><p>Instance of a class representing a prior.</p>
 </dd>
 <dt><strong>cm_type</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, {<code class="docutils literal notranslate"><span class="pre">&quot;fixed&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;isotropic&quot;</span></code>,         <code class="docutils literal notranslate"><span class="pre">&quot;diagonal&quot;</span></code>}, <code class="docutils literal notranslate"><span class="pre">&quot;isotropic&quot;</span></code></span></dt><dd><p>Shape of the covariance matrix.</p>
 </dd>
@@ -839,27 +806,16 @@ prior will be used.</p>
 the uniformity of the weights of the components
 in the mixture.</p>
 </dd>
-<dt><strong>softball_params</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">tuple</span></code>, <code class="docutils literal notranslate"><span class="pre">(0.0,</span> <span class="pre">1.0)</span></code></span></dt><dd><p>Parameters (radius, sharpness) of the softball
-prior, if no prior was passed.</p>
-</dd>
-<dt><strong>logbeta_params</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">tuple</span></code>, <code class="docutils literal notranslate"><span class="pre">(0.5,</span> <span class="pre">0.5)</span></code></span></dt><dd><p>Tuple containing the parameters to initialize the
+<dt><strong>log_var_params</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">tuple</span></code>, <code class="docutils literal notranslate"><span class="pre">(0.5,</span> <span class="pre">0.5)</span></code></span></dt><dd><p>Tuple containing the parameters to initialize the
 Gaussian prior on the log-variances of the components:</p>
 <ul class="simple">
-<li><p>Mean: <code class="docutils literal notranslate"><span class="pre">2</span> <span class="pre">*</span> <span class="pre">log(logbeta_params[0])</span></code></p></li>
-<li><p>Standard deviation: <code class="docutils literal notranslate"><span class="pre">logbeta_params[1]</span></code></p></li>
+<li><p>Mean: <code class="docutils literal notranslate"><span class="pre">2</span> <span class="pre">*</span> <span class="pre">log(log_var_params[0])</span></code></p></li>
+<li><p>Standard deviation: <code class="docutils literal notranslate"><span class="pre">log_var_params[1]</span></code></p></li>
 </ul>
 </dd>
 </dl>
 </dd>
 </dl>
-<p class="rubric">Notes</p>
-<p>The difference between giving a prior beforehand and
-giving only init values is that with a given prior
-the logbetas will be sampled from it. Otherwise,
-the alpha determines the Dirichlet prior on the
-mixture coefficients. The mixture coefficients
-are initialized uniformly, while other parameters
-are sampled from the prior.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -875,8 +831,8 @@ of the Gaussian mixture.</p>
 </dl>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></dt><dd><p>The sampled points from the components of the Gaussian
+<dd class="field-even"><dl>
+<dt><strong>component_samples</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The sampled points from the components of the Gaussian
 mixture. This is a 3D tensor where:</p>
 <ul class="simple">
 <li><p>The first dimension has a length equal to the number
@@ -912,7 +868,7 @@ dimensionality of the data points.</p></li>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><dl>
-<dt><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></dt><dd><p>This is a 1D tensor whose size is equal to the number
+<dt><strong>y</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>This is a 1D tensor whose size is equal to the number
 of input data points.</p>
 <p>Each element of the tensor is the negative log-probability
 density of a data point.</p>
@@ -926,10 +882,10 @@ density of a data point.</p>
 <dt class="sig sig-object py" id="core.latent.GaussianMixtureModel.get_distribution">
 <span class="sig-name descname"><span class="pre">get_distribution</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#core.latent.GaussianMixtureModel.get_distribution" title="Permalink to this definition">#</a></dt>
 <dd><p>Create a distribution from the GMM for sampling.</p>
-<dl class="field-list simple">
+<dl class="field-list">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">torch.distributions.MixtureSameFamily</span></code></dt><dd><p>A distribution created from the GMM.</p>
+<dd class="field-odd"><dl>
+<dt><strong>dist</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.distributions.MixtureSameFamily</span></code></span></dt><dd><p>A distribution created from the GMM.</p>
 </dd>
 </dl>
 </dd>
@@ -941,10 +897,10 @@ density of a data point.</p>
 <span class="sig-name descname"><span class="pre">get_mixture_probs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#core.latent.GaussianMixtureModel.get_mixture_probs" title="Permalink to this definition">#</a></dt>
 <dd><p>Convert the weights into mixture probabilities using
 the softmax function.</p>
-<dl class="field-list simple">
+<dl class="field-list">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></dt><dd><p>The mixture probabilities. This is a 1D tensor whose
+<dd class="field-odd"><dl>
+<dt><strong>mixture_probs</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The mixture probabilities. This is a 1D tensor whose
 size equals the number of components in the Gaussian
 mixture.</p>
 </dd>
@@ -987,8 +943,8 @@ dimensionality of the data points.</p></li>
 </dl>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></dt><dd><p>A 1D tensor storing the log-probability density of each
+<dd class="field-even"><dl>
+<dt><strong>log_prob</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>A 1D tensor storing the log-probability density of each
 input data points to be drawn from the GMM. The tensor
 has a size equal to the number of data points passed.</p>
 </dd>
@@ -1010,7 +966,7 @@ has a size equal to the number of data points passed.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><dl>
-<dt><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></dt><dd><p>The points sampled from the GMM distribution.</p>
+<dt><strong>samples</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The points sampled from the GMM distribution.</p>
 <p>This is a 2D tensor where:</p>
 <ul class="simple">
 <li><p>The first dimension has a length equal to the number
@@ -1057,8 +1013,8 @@ to calling the <code class="docutils literal notranslate"><span class="pre">comp
 </dl>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></dt><dd><p>The samples drawn. This is a 2D tensor where:</p>
+<dd class="field-even"><dl>
+<dt><strong>new_points</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The samples drawn. This is a 2D tensor where:</p>
 <ul class="simple">
 <li><p>The first dimension has a length equal to
 <code class="docutils literal notranslate"><span class="pre">n_points</span> <span class="pre">*</span> <span class="pre">n_reps_per_mix_comp</span> <span class="pre">*</span> <span class="pre">n_comp</span></code>.</p></li>
@@ -1074,7 +1030,7 @@ dimensionality of the Gaussian mixture model.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="core.latent.GaussianMixtureModel.sample_probs">
 <span class="sig-name descname"><span class="pre">sample_probs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.latent.GaussianMixtureModel.sample_probs" title="Permalink to this definition">#</a></dt>
-<dd><p>Return the probability density per sample per component.</p>
+<dd><p>Get the probability density per sample per component.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
@@ -1090,7 +1046,7 @@ dimensionality of the data points.</p></li>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><dl>
-<dt><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></dt><dd><p>The probability densities.</p>
+<dt><strong>probs</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The probability densities.</p>
 <p>This is a 2D tensor where:</p>
 <ul class="simple">
 <li><p>The first dimension has a length equal to the number
@@ -1126,38 +1082,38 @@ weights of the components in the Gaussian mixture.</p>
 </dd></dl>
 
 <dl class="py property">
-<dt class="sig sig-object py" id="core.latent.GaussianMixtureModel.logbeta">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">logbeta</span></span><a class="headerlink" href="#core.latent.GaussianMixtureModel.logbeta" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="core.latent.GaussianMixtureModel.log_var">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log_var</span></span><a class="headerlink" href="#core.latent.GaussianMixtureModel.log_var" title="Permalink to this definition">#</a></dt>
 <dd><p>The log-variance of the Gaussian components in the
 mixture.</p>
 </dd></dl>
 
 <dl class="py property">
-<dt class="sig sig-object py" id="core.latent.GaussianMixtureModel.logbeta_dim">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">logbeta_dim</span></span><a class="headerlink" href="#core.latent.GaussianMixtureModel.logbeta_dim" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="core.latent.GaussianMixtureModel.log_var_dim">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log_var_dim</span></span><a class="headerlink" href="#core.latent.GaussianMixtureModel.log_var_dim" title="Permalink to this definition">#</a></dt>
 <dd><p>The dimensionality of the log-variance.</p>
 </dd></dl>
 
 <dl class="py property">
-<dt class="sig sig-object py" id="core.latent.GaussianMixtureModel.logbeta_factor">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">logbeta_factor</span></span><a class="headerlink" href="#core.latent.GaussianMixtureModel.logbeta_factor" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="core.latent.GaussianMixtureModel.log_var_factor">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log_var_factor</span></span><a class="headerlink" href="#core.latent.GaussianMixtureModel.log_var_factor" title="Permalink to this definition">#</a></dt>
 <dd><p>The log-variance factor.</p>
 </dd></dl>
 
 <dl class="py property">
-<dt class="sig sig-object py" id="core.latent.GaussianMixtureModel.logbeta_params">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">logbeta_params</span></span><a class="headerlink" href="#core.latent.GaussianMixtureModel.logbeta_params" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="core.latent.GaussianMixtureModel.log_var_params">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log_var_params</span></span><a class="headerlink" href="#core.latent.GaussianMixtureModel.log_var_params" title="Permalink to this definition">#</a></dt>
 <dd><p>The parameters used to inizialize the Gaussian
 prior on the log-variances of the components:</p>
 <ul class="simple">
-<li><p>Mean: <code class="docutils literal notranslate"><span class="pre">2</span> <span class="pre">*</span> <span class="pre">log(logbeta_params[0])</span></code></p></li>
-<li><p>Standard deviation: <code class="docutils literal notranslate"><span class="pre">logbeta_params[1]</span></code></p></li>
+<li><p>Mean: <code class="docutils literal notranslate"><span class="pre">2</span> <span class="pre">*</span> <span class="pre">log(log_var_params[0])</span></code></p></li>
+<li><p>Standard deviation: <code class="docutils literal notranslate"><span class="pre">log_var_params[1]</span></code></p></li>
 </ul>
 </dd></dl>
 
 <dl class="py property">
-<dt class="sig sig-object py" id="core.latent.GaussianMixtureModel.logbeta_prior">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">logbeta_prior</span></span><a class="headerlink" href="#core.latent.GaussianMixtureModel.logbeta_prior" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="core.latent.GaussianMixtureModel.log_var_prior">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log_var_prior</span></span><a class="headerlink" href="#core.latent.GaussianMixtureModel.log_var_prior" title="Permalink to this definition">#</a></dt>
 <dd><p>The prior over the log-variance.</p>
 </dd></dl>
 
@@ -1178,13 +1134,6 @@ in the mixture.</p>
 <dt class="sig sig-object py" id="core.latent.GaussianMixtureModel.n_comp">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">n_comp</span></span><a class="headerlink" href="#core.latent.GaussianMixtureModel.n_comp" title="Permalink to this definition">#</a></dt>
 <dd><p>The number of components in the Gaussian mixture.</p>
-</dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="core.latent.GaussianMixtureModel.softball_params">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">softball_params</span></span><a class="headerlink" href="#core.latent.GaussianMixtureModel.softball_params" title="Permalink to this definition">#</a></dt>
-<dd><p>The parameters (radius, sharpness) of the softball
-prior that will be used, if no prior is passed.</p>
 </dd></dl>
 
 <dl class="py property">
@@ -1263,9 +1212,16 @@ will be returned.</p>
 </dl>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
+<dd class="field-even"><dl>
 <dt><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></dt><dd><p>A tensor containing the representations for the samples
 of interest.</p>
+<p>This is a 2D tensor where:</p>
+<ul class="simple">
+<li><p>The first dimension has a length equal to the number
+of representations.</p></li>
+<li><p>The second dimension has a length equal to the
+dimensionality of the representations.</p></li>
+</ul>
 </dd>
 </dl>
 </dd>
@@ -1285,6 +1241,21 @@ representation <span class="math notranslate nohighlight">\(z^{n}_{rescaled}\)</
 \[z^{n}_{rescaled} = \frac{z^{n} - \bar{z}}{s}\]</div>
 <p>Where <span class="math notranslate nohighlight">\(\bar{z}\)</span> is the mean of the representations
 and <span class="math notranslate nohighlight">\(s\)</span> is the standard deviation.</p>
+<dl class="field-list">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></dt><dd><p>The rescaled representations.</p>
+<p>This is a 2D tensor where:</p>
+<ul class="simple">
+<li><p>The first dimension has a length equal to the number
+of representations.</p></li>
+<li><p>The second dimension has a length equal to the
+dimensionality of the representations.</p></li>
+</ul>
+</dd>
+</dl>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py property">
@@ -1330,23 +1301,23 @@ when initializing the <code class="docutils literal notranslate"><span class="pr
 <section id="core-priors">
 <h2>core.priors<a class="headerlink" href="#core-priors" title="Permalink to this heading">#</a></h2>
 <dl class="py class">
-<dt class="sig sig-object py" id="core.priors.softball">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.priors.</span></span><span class="sig-name descname"><span class="pre">softball</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sharpness</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.priors.softball" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="core.priors.SoftballPrior">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.priors.</span></span><span class="sig-name descname"><span class="pre">SoftballPrior</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sharpness</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.priors.SoftballPrior" title="Permalink to this definition">#</a></dt>
 <dd><p>Class implementing a “softball” prior.</p>
 <p>It is an almost uniform prior for an m-dimensional ball, with
 the logistic function making a soft (differentiable) boundary.</p>
 <dl class="py method">
-<dt class="sig sig-object py" id="core.priors.softball.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sharpness</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.priors.softball.__init__" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="core.priors.SoftballPrior.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sharpness</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.priors.SoftballPrior.__init__" title="Permalink to this definition">#</a></dt>
 <dd><p>Initialize an instance of the “softball” distribution.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
-<dt><strong>dim</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>Dimensionality of the prior.</p>
+<dt><strong>dim</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The dimensionality of the prior.</p>
 </dd>
-<dt><strong>radius</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">float</span></code></span></dt><dd><p>Radius of the ball.</p>
+<dt><strong>radius</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">float</span></code></span></dt><dd><p>The radius of the ball.</p>
 </dd>
-<dt><strong>sharpness</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>Sharpness of the “soft” boundary.</p>
+<dt><strong>sharpness</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The sharpness of the “soft” boundary.</p>
 </dd>
 </dl>
 </dd>
@@ -1354,20 +1325,19 @@ the logistic function making a soft (differentiable) boundary.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="core.priors.softball.log_prob">
-<span class="sig-name descname"><span class="pre">log_prob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">z</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.priors.softball.log_prob" title="Permalink to this definition">#</a></dt>
-<dd><p>Return the log probabilities of the elements of a tensor
-(the last dimension is assumed to be <code class="docutils literal notranslate"><span class="pre">z</span></code> vectors).</p>
+<dt class="sig sig-object py" id="core.priors.SoftballPrior.log_prob">
+<span class="sig-name descname"><span class="pre">log_prob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">z</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.priors.SoftballPrior.log_prob" title="Permalink to this definition">#</a></dt>
+<dd><p>Return the log-probabilities of the elements of a tensor.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
-<dt><strong>z</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The tensor to find the log probabilities of.</p>
+<dt><strong>z</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The input tensor.</p>
 </dd>
 </dl>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></dt><dd><p>The log probabilities of the input tensor.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></dt><dd><p>The log-probabilities of the input tensor.</p>
 </dd>
 </dl>
 </dd>
@@ -1375,21 +1345,21 @@ the logistic function making a soft (differentiable) boundary.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="core.priors.softball.sample">
-<span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.priors.softball.sample" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="core.priors.SoftballPrior.sample">
+<span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.priors.SoftballPrior.sample" title="Permalink to this definition">#</a></dt>
 <dd><p>Get <code class="docutils literal notranslate"><span class="pre">n</span></code> random samples from the softball distribution.
 The sampling is uniform from the <code class="docutils literal notranslate"><span class="pre">dim</span></code>-dimensional ball,
 and approximate.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
-<dt><strong>n</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>Number of random samples.</p>
+<dt><strong>n</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The number of random samples.</p>
 </dd>
 </dl>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></dt><dd><p>Sampled points from the softball distribution.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></dt><dd><p>The points samples from the softball distribution.</p>
 </dd>
 </dl>
 </dd>
@@ -1397,42 +1367,42 @@ and approximate.</p>
 </dd></dl>
 
 <dl class="py property">
-<dt class="sig sig-object py" id="core.priors.softball.dim">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dim</span></span><a class="headerlink" href="#core.priors.softball.dim" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="core.priors.SoftballPrior.dim">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dim</span></span><a class="headerlink" href="#core.priors.SoftballPrior.dim" title="Permalink to this definition">#</a></dt>
 <dd><p>The dimensionality of the softball prior.</p>
 </dd></dl>
 
 <dl class="py property">
-<dt class="sig sig-object py" id="core.priors.softball.radius">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">radius</span></span><a class="headerlink" href="#core.priors.softball.radius" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="core.priors.SoftballPrior.radius">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">radius</span></span><a class="headerlink" href="#core.priors.SoftballPrior.radius" title="Permalink to this definition">#</a></dt>
 <dd><p>The radius of the ball.</p>
 </dd></dl>
 
 <dl class="py property">
-<dt class="sig sig-object py" id="core.priors.softball.sharpness">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">sharpness</span></span><a class="headerlink" href="#core.priors.softball.sharpness" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="core.priors.SoftballPrior.sharpness">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">sharpness</span></span><a class="headerlink" href="#core.priors.SoftballPrior.sharpness" title="Permalink to this definition">#</a></dt>
 <dd><p>The sharpness of the “soft” boundary of the ball.</p>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="core.priors.gaussian">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.priors.</span></span><span class="sig-name descname"><span class="pre">gaussian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stddev</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.priors.gaussian" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="core.priors.GaussianPrior">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">core.priors.</span></span><span class="sig-name descname"><span class="pre">GaussianPrior</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stddev</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.priors.GaussianPrior" title="Permalink to this definition">#</a></dt>
 <dd><p>Class implementing a Gaussian prior used to initialize
 the Gaussian mixture model’s means.</p>
 <dl class="py method">
-<dt class="sig sig-object py" id="core.priors.gaussian.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stddev</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.priors.gaussian.__init__" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="core.priors.GaussianPrior.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stddev</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.priors.GaussianPrior.__init__" title="Permalink to this definition">#</a></dt>
 <dd><p>Initialize an instance of the Gaussian distribution.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
-<dt><strong>dim</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>Dimensionality of the space.</p>
+<dt><strong>dim</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The dimensionality of the prior.</p>
 </dd>
-<dt><strong>mean</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">float</span></code></span></dt><dd><p>Mean of the Gaussian distribution.</p>
+<dt><strong>mean</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">float</span></code></span></dt><dd><p>The mean of the Gaussian distribution.</p>
 </dd>
-<dt><strong>stddev</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">float</span></code></span></dt><dd><p>Standard deviation of the Gaussian distribution.</p>
+<dt><strong>stddev</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">float</span></code></span></dt><dd><p>The standard deviation of the Gaussian distribution.</p>
 </dd>
 </dl>
 </dd>
@@ -1440,8 +1410,8 @@ the Gaussian mixture model’s means.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="core.priors.gaussian.log_prob">
-<span class="sig-name descname"><span class="pre">log_prob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.priors.gaussian.log_prob" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="core.priors.GaussianPrior.log_prob">
+<span class="sig-name descname"><span class="pre">log_prob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.priors.GaussianPrior.log_prob" title="Permalink to this definition">#</a></dt>
 <dd><p>Return the log probabilities of a tensor.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -1460,19 +1430,19 @@ the Gaussian mixture model’s means.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="core.priors.gaussian.sample">
-<span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_samples</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.priors.gaussian.sample" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="core.priors.GaussianPrior.sample">
+<span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_samples</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core.priors.GaussianPrior.sample" title="Permalink to this definition">#</a></dt>
 <dd><p>Sample from the Gaussian distribution.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
-<dt><strong>n_samples</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>Number of samples.</p>
+<dt><strong>n_samples</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The number of samples.</p>
 </dd>
 </dl>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></dt><dd><p>Sampled points from the Gaussian distribution.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></dt><dd><p>The points sampled from the Gaussian distribution.</p>
 </dd>
 </dl>
 </dd>
@@ -1480,26 +1450,26 @@ the Gaussian mixture model’s means.</p>
 </dd></dl>
 
 <dl class="py property">
-<dt class="sig sig-object py" id="core.priors.gaussian.dim">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dim</span></span><a class="headerlink" href="#core.priors.gaussian.dim" title="Permalink to this definition">#</a></dt>
-<dd><p>The dimensionality of the gaussian prior.</p>
+<dt class="sig sig-object py" id="core.priors.GaussianPrior.dim">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dim</span></span><a class="headerlink" href="#core.priors.GaussianPrior.dim" title="Permalink to this definition">#</a></dt>
+<dd><p>The dimensionality of the Gaussian prior.</p>
 </dd></dl>
 
 <dl class="py property">
-<dt class="sig sig-object py" id="core.priors.gaussian.dist">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dist</span></span><a class="headerlink" href="#core.priors.gaussian.dist" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="core.priors.GaussianPrior.dist">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dist</span></span><a class="headerlink" href="#core.priors.GaussianPrior.dist" title="Permalink to this definition">#</a></dt>
 <dd><p>The distribution associated with the prior.</p>
 </dd></dl>
 
 <dl class="py property">
-<dt class="sig sig-object py" id="core.priors.gaussian.mean">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mean</span></span><a class="headerlink" href="#core.priors.gaussian.mean" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="core.priors.GaussianPrior.mean">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mean</span></span><a class="headerlink" href="#core.priors.GaussianPrior.mean" title="Permalink to this definition">#</a></dt>
 <dd><p>The mean of the Gaussian distribution.</p>
 </dd></dl>
 
 <dl class="py property">
-<dt class="sig sig-object py" id="core.priors.gaussian.stddev">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">stddev</span></span><a class="headerlink" href="#core.priors.gaussian.stddev" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="core.priors.GaussianPrior.stddev">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">stddev</span></span><a class="headerlink" href="#core.priors.GaussianPrior.stddev" title="Permalink to this definition">#</a></dt>
 <dd><p>The standard deviation of the Gaussian distribution.</p>
 </dd></dl>
 
@@ -1572,8 +1542,6 @@ the Gaussian mixture model’s means.</p>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.decoder.NBLayer.activation"><code class="docutils literal notranslate"><span class="pre">NBLayer.activation</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.decoder.NBLayer.dim"><code class="docutils literal notranslate"><span class="pre">NBLayer.dim</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.decoder.NBLayer.log_r"><code class="docutils literal notranslate"><span class="pre">NBLayer.log_r</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.decoder.NBLayer.reduction"><code class="docutils literal notranslate"><span class="pre">NBLayer.reduction</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.decoder.NBLayer.scaling_type"><code class="docutils literal notranslate"><span class="pre">NBLayer.scaling_type</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#core.decoder.Decoder"><code class="docutils literal notranslate"><span class="pre">Decoder</span></code></a><ul class="nav section-nav flex-column">
@@ -1598,15 +1566,14 @@ the Gaussian mixture model’s means.</p>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.latent.GaussianMixtureModel.alpha"><code class="docutils literal notranslate"><span class="pre">GaussianMixtureModel.alpha</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.latent.GaussianMixtureModel.dim"><code class="docutils literal notranslate"><span class="pre">GaussianMixtureModel.dim</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.latent.GaussianMixtureModel.dirichlet_constant"><code class="docutils literal notranslate"><span class="pre">GaussianMixtureModel.dirichlet_constant</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.latent.GaussianMixtureModel.logbeta"><code class="docutils literal notranslate"><span class="pre">GaussianMixtureModel.logbeta</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.latent.GaussianMixtureModel.logbeta_dim"><code class="docutils literal notranslate"><span class="pre">GaussianMixtureModel.logbeta_dim</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.latent.GaussianMixtureModel.logbeta_factor"><code class="docutils literal notranslate"><span class="pre">GaussianMixtureModel.logbeta_factor</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.latent.GaussianMixtureModel.logbeta_params"><code class="docutils literal notranslate"><span class="pre">GaussianMixtureModel.logbeta_params</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.latent.GaussianMixtureModel.logbeta_prior"><code class="docutils literal notranslate"><span class="pre">GaussianMixtureModel.logbeta_prior</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.latent.GaussianMixtureModel.log_var"><code class="docutils literal notranslate"><span class="pre">GaussianMixtureModel.log_var</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.latent.GaussianMixtureModel.log_var_dim"><code class="docutils literal notranslate"><span class="pre">GaussianMixtureModel.log_var_dim</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.latent.GaussianMixtureModel.log_var_factor"><code class="docutils literal notranslate"><span class="pre">GaussianMixtureModel.log_var_factor</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.latent.GaussianMixtureModel.log_var_params"><code class="docutils literal notranslate"><span class="pre">GaussianMixtureModel.log_var_params</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.latent.GaussianMixtureModel.log_var_prior"><code class="docutils literal notranslate"><span class="pre">GaussianMixtureModel.log_var_prior</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.latent.GaussianMixtureModel.mean"><code class="docutils literal notranslate"><span class="pre">GaussianMixtureModel.mean</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.latent.GaussianMixtureModel.mean_prior"><code class="docutils literal notranslate"><span class="pre">GaussianMixtureModel.mean_prior</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.latent.GaussianMixtureModel.n_comp"><code class="docutils literal notranslate"><span class="pre">GaussianMixtureModel.n_comp</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.latent.GaussianMixtureModel.softball_params"><code class="docutils literal notranslate"><span class="pre">GaussianMixtureModel.softball_params</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.latent.GaussianMixtureModel.weight"><code class="docutils literal notranslate"><span class="pre">GaussianMixtureModel.weight</span></code></a></li>
 </ul>
 </li>
@@ -1624,23 +1591,23 @@ the Gaussian mixture model’s means.</p>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-priors">core.priors</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.softball"><code class="docutils literal notranslate"><span class="pre">softball</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.softball.__init__"><code class="docutils literal notranslate"><span class="pre">softball.__init__()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.softball.log_prob"><code class="docutils literal notranslate"><span class="pre">softball.log_prob()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.softball.sample"><code class="docutils literal notranslate"><span class="pre">softball.sample()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.softball.dim"><code class="docutils literal notranslate"><span class="pre">softball.dim</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.softball.radius"><code class="docutils literal notranslate"><span class="pre">softball.radius</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.softball.sharpness"><code class="docutils literal notranslate"><span class="pre">softball.sharpness</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.SoftballPrior"><code class="docutils literal notranslate"><span class="pre">SoftballPrior</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.SoftballPrior.__init__"><code class="docutils literal notranslate"><span class="pre">SoftballPrior.__init__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.SoftballPrior.log_prob"><code class="docutils literal notranslate"><span class="pre">SoftballPrior.log_prob()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.SoftballPrior.sample"><code class="docutils literal notranslate"><span class="pre">SoftballPrior.sample()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.SoftballPrior.dim"><code class="docutils literal notranslate"><span class="pre">SoftballPrior.dim</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.SoftballPrior.radius"><code class="docutils literal notranslate"><span class="pre">SoftballPrior.radius</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.SoftballPrior.sharpness"><code class="docutils literal notranslate"><span class="pre">SoftballPrior.sharpness</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.gaussian"><code class="docutils literal notranslate"><span class="pre">gaussian</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.gaussian.__init__"><code class="docutils literal notranslate"><span class="pre">gaussian.__init__()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.gaussian.log_prob"><code class="docutils literal notranslate"><span class="pre">gaussian.log_prob()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.gaussian.sample"><code class="docutils literal notranslate"><span class="pre">gaussian.sample()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.gaussian.dim"><code class="docutils literal notranslate"><span class="pre">gaussian.dim</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.gaussian.dist"><code class="docutils literal notranslate"><span class="pre">gaussian.dist</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.gaussian.mean"><code class="docutils literal notranslate"><span class="pre">gaussian.mean</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.gaussian.stddev"><code class="docutils literal notranslate"><span class="pre">gaussian.stddev</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.GaussianPrior"><code class="docutils literal notranslate"><span class="pre">GaussianPrior</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.GaussianPrior.__init__"><code class="docutils literal notranslate"><span class="pre">GaussianPrior.__init__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.GaussianPrior.log_prob"><code class="docutils literal notranslate"><span class="pre">GaussianPrior.log_prob()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.GaussianPrior.sample"><code class="docutils literal notranslate"><span class="pre">GaussianPrior.sample()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.GaussianPrior.dim"><code class="docutils literal notranslate"><span class="pre">GaussianPrior.dim</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.GaussianPrior.dist"><code class="docutils literal notranslate"><span class="pre">GaussianPrior.dist</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.GaussianPrior.mean"><code class="docutils literal notranslate"><span class="pre">GaussianPrior.mean</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#core.priors.GaussianPrior.stddev"><code class="docutils literal notranslate"><span class="pre">GaussianPrior.stddev</span></code></a></li>
 </ul>
 </li>
 </ul>

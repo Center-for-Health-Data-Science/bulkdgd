@@ -137,7 +137,14 @@
 
                     <li class="nav-item">
                       <a class="nav-link nav-internal" href="Command-line%20interface.html">
-                        Command-line interface
+                        The command-line interface
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="Tutorials.html">
+                        Tutorials
                       </a>
                     </li>
                 
@@ -148,13 +155,21 @@
                       </a>
                     </li>
                 
-
+            <div class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    More
+                </button>
+                <div class="dropdown-menu">
+                    
                     <li class="nav-item">
                       <a class="nav-link nav-internal" href="utils.html">
                         The utils subpackage
                       </a>
                     </li>
                 
+                </div>
+            </div>
+            
   </ul>
 </nav></div>
       
@@ -244,7 +259,14 @@ document.write(`
 
                     <li class="nav-item">
                       <a class="nav-link nav-internal" href="Command-line%20interface.html">
-                        Command-line interface
+                        The command-line interface
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="Tutorials.html">
+                        Tutorials
                       </a>
                     </li>
                 
@@ -255,13 +277,21 @@ document.write(`
                       </a>
                     </li>
                 
-
+            <div class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    More
+                </button>
+                <div class="dropdown-menu">
+                    
                     <li class="nav-item">
                       <a class="nav-link nav-internal" href="utils.html">
                         The utils subpackage
                       </a>
                     </li>
                 
+                </div>
+            </div>
+            
   </ul>
 </nav></div>
         
@@ -344,9 +374,9 @@ document.write(`
 </li>
         <li><a href="core.html#core.latent.RepresentationLayer.__init__">(core.latent.RepresentationLayer method)</a>
 </li>
-        <li><a href="core.html#core.priors.gaussian.__init__">(core.priors.gaussian method)</a>
+        <li><a href="core.html#core.priors.GaussianPrior.__init__">(core.priors.GaussianPrior method)</a>
 </li>
-        <li><a href="core.html#core.priors.softball.__init__">(core.priors.softball method)</a>
+        <li><a href="core.html#core.priors.SoftballPrior.__init__">(core.priors.SoftballPrior method)</a>
 </li>
       </ul></li>
   </ul></td>
@@ -390,16 +420,16 @@ document.write(`
 </li>
         <li><a href="core.html#core.latent.RepresentationLayer.dim">(core.latent.RepresentationLayer property)</a>
 </li>
-        <li><a href="core.html#core.priors.gaussian.dim">(core.priors.gaussian property)</a>
+        <li><a href="core.html#core.priors.GaussianPrior.dim">(core.priors.GaussianPrior property)</a>
 </li>
-        <li><a href="core.html#core.priors.softball.dim">(core.priors.softball property)</a>
+        <li><a href="core.html#core.priors.SoftballPrior.dim">(core.priors.SoftballPrior property)</a>
 </li>
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.latent.GaussianMixtureModel.dirichlet_constant">dirichlet_constant (core.latent.GaussianMixtureModel property)</a>
 </li>
-      <li><a href="core.html#core.priors.gaussian.dist">dist (core.priors.gaussian property)</a>
+      <li><a href="core.html#core.priors.GaussianPrior.dist">dist (core.priors.GaussianPrior property)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -425,9 +455,9 @@ document.write(`
 <h2 id="G">G</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="core.html#core.priors.gaussian">gaussian (class in core.priors)</a>
-</li>
       <li><a href="core.html#core.latent.GaussianMixtureModel">GaussianMixtureModel (class in core.latent)</a>
+</li>
+      <li><a href="core.html#core.priors.GaussianPrior">GaussianPrior (class in core.priors)</a>
 </li>
       <li><a href="core.html#core.dataclasses.GeneExpressionDataset">GeneExpressionDataset (class in core.dataclasses)</a>
 </li>
@@ -457,6 +487,8 @@ document.write(`
 </li>
       <li><a href="core.html#core.latent.GaussianMixtureModel.get_mixture_probs">get_mixture_probs() (core.latent.GaussianMixtureModel method)</a>
 </li>
+      <li><a href="utils.html#utils.dgd.get_model">get_model() (in module utils.dgd)</a>
+</li>
       <li><a href="utils.html#utils.dgd.get_p_values">get_p_values() (in module utils.dgd)</a>
 </li>
       <li><a href="core.html#core.latent.GaussianMixtureModel.get_prior_log_prob">get_prior_log_prob() (core.latent.GaussianMixtureModel method)</a>
@@ -467,7 +499,7 @@ document.write(`
 </li>
       <li><a href="utils.html#utils.recount3.get_query_string">get_query_string() (in module utils.recount3)</a>
 </li>
-      <li><a href="utils.html#utils.dgd.get_rep_layer">get_rep_layer() (in module utils.dgd)</a>
+      <li><a href="utils.html#utils.dgd.get_r_values">get_r_values() (in module utils.dgd)</a>
 </li>
       <li><a href="utils.html#utils.dgd.get_representations">get_representations() (in module utils.dgd)</a>
 </li>
@@ -483,16 +515,14 @@ document.write(`
 </li>
       <li><a href="utils.html#utils.dgd.load_samples">load_samples() (in module utils.dgd)</a>
 </li>
-      <li><a href="utils.html#utils.dgd.load_training_representations">load_training_representations() (in module utils.dgd)</a>
-</li>
       <li><a href="core.html#core.decoder.NBLayer.log_prob">log_prob() (core.decoder.NBLayer method)</a>
 
       <ul>
         <li><a href="core.html#core.latent.GaussianMixtureModel.log_prob">(core.latent.GaussianMixtureModel method)</a>
 </li>
-        <li><a href="core.html#core.priors.gaussian.log_prob">(core.priors.gaussian method)</a>
+        <li><a href="core.html#core.priors.GaussianPrior.log_prob">(core.priors.GaussianPrior method)</a>
 </li>
-        <li><a href="core.html#core.priors.softball.log_prob">(core.priors.softball method)</a>
+        <li><a href="core.html#core.priors.SoftballPrior.log_prob">(core.priors.SoftballPrior method)</a>
 </li>
       </ul></li>
   </ul></td>
@@ -501,15 +531,15 @@ document.write(`
 </li>
       <li><a href="core.html#core.decoder.NBLayer.log_r">log_r (core.decoder.NBLayer property)</a>
 </li>
-      <li><a href="core.html#core.latent.GaussianMixtureModel.logbeta">logbeta (core.latent.GaussianMixtureModel property)</a>
+      <li><a href="core.html#core.latent.GaussianMixtureModel.log_var">log_var (core.latent.GaussianMixtureModel property)</a>
 </li>
-      <li><a href="core.html#core.latent.GaussianMixtureModel.logbeta_dim">logbeta_dim (core.latent.GaussianMixtureModel property)</a>
+      <li><a href="core.html#core.latent.GaussianMixtureModel.log_var_dim">log_var_dim (core.latent.GaussianMixtureModel property)</a>
 </li>
-      <li><a href="core.html#core.latent.GaussianMixtureModel.logbeta_factor">logbeta_factor (core.latent.GaussianMixtureModel property)</a>
+      <li><a href="core.html#core.latent.GaussianMixtureModel.log_var_factor">log_var_factor (core.latent.GaussianMixtureModel property)</a>
 </li>
-      <li><a href="core.html#core.latent.GaussianMixtureModel.logbeta_params">logbeta_params (core.latent.GaussianMixtureModel property)</a>
+      <li><a href="core.html#core.latent.GaussianMixtureModel.log_var_params">log_var_params (core.latent.GaussianMixtureModel property)</a>
 </li>
-      <li><a href="core.html#core.latent.GaussianMixtureModel.logbeta_prior">logbeta_prior (core.latent.GaussianMixtureModel property)</a>
+      <li><a href="core.html#core.latent.GaussianMixtureModel.log_var_prior">log_var_prior (core.latent.GaussianMixtureModel property)</a>
 </li>
       <li><a href="core.html#core.decoder.NBLayer.loss">loss() (core.decoder.NBLayer method)</a>
 </li>
@@ -524,7 +554,7 @@ document.write(`
       <ul>
         <li><a href="core.html#core.latent.RepresentationLayer.mean">(core.latent.RepresentationLayer property)</a>
 </li>
-        <li><a href="core.html#core.priors.gaussian.mean">(core.priors.gaussian property)</a>
+        <li><a href="core.html#core.priors.GaussianPrior.mean">(core.priors.GaussianPrior property)</a>
 </li>
       </ul></li>
       <li><a href="core.html#core.dataclasses.GeneExpressionDataset.mean_exp">mean_exp (core.dataclasses.GeneExpressionDataset property)</a>
@@ -592,14 +622,12 @@ document.write(`
 <h2 id="R">R</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="core.html#core.priors.softball.radius">radius (core.priors.softball property)</a>
+      <li><a href="core.html#core.priors.SoftballPrior.radius">radius (core.priors.SoftballPrior property)</a>
 </li>
-      <li><a href="core.html#core.decoder.NBLayer.reduction">reduction (core.decoder.NBLayer property)</a>
+      <li><a href="core.html#core.latent.RepresentationLayer">RepresentationLayer (class in core.latent)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="core.html#core.latent.RepresentationLayer">RepresentationLayer (class in core.latent)</a>
-</li>
       <li><a href="core.html#core.decoder.NBLayer.rescale">rescale() (core.decoder.NBLayer static method)</a>
 
       <ul>
@@ -617,9 +645,9 @@ document.write(`
       <ul>
         <li><a href="core.html#core.latent.GaussianMixtureModel.sample">(core.latent.GaussianMixtureModel method)</a>
 </li>
-        <li><a href="core.html#core.priors.gaussian.sample">(core.priors.gaussian method)</a>
+        <li><a href="core.html#core.priors.GaussianPrior.sample">(core.priors.GaussianPrior method)</a>
 </li>
-        <li><a href="core.html#core.priors.softball.sample">(core.priors.softball method)</a>
+        <li><a href="core.html#core.priors.SoftballPrior.sample">(core.priors.SoftballPrior method)</a>
 </li>
       </ul></li>
       <li><a href="core.html#core.latent.GaussianMixtureModel.sample_new_points">sample_new_points() (core.latent.GaussianMixtureModel method)</a>
@@ -628,18 +656,20 @@ document.write(`
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="core.html#core.decoder.NBLayer.scaling_type">scaling_type (core.decoder.NBLayer property)</a>
+      <li><a href="utils.html#utils.dgd.save_decoder_outputs">save_decoder_outputs() (in module utils.dgd)</a>
 </li>
-      <li><a href="core.html#core.priors.softball.sharpness">sharpness (core.priors.softball property)</a>
+      <li><a href="utils.html#utils.dgd.save_representations">save_representations() (in module utils.dgd)</a>
 </li>
-      <li><a href="core.html#core.priors.softball">softball (class in core.priors)</a>
+      <li><a href="utils.html#utils.dgd.save_samples">save_samples() (in module utils.dgd)</a>
 </li>
-      <li><a href="core.html#core.latent.GaussianMixtureModel.softball_params">softball_params (core.latent.GaussianMixtureModel property)</a>
+      <li><a href="core.html#core.priors.SoftballPrior.sharpness">sharpness (core.priors.SoftballPrior property)</a>
+</li>
+      <li><a href="core.html#core.priors.SoftballPrior">SoftballPrior (class in core.priors)</a>
 </li>
       <li><a href="core.html#core.latent.RepresentationLayer.stddev">stddev (core.latent.RepresentationLayer property)</a>
 
       <ul>
-        <li><a href="core.html#core.priors.gaussian.stddev">(core.priors.gaussian property)</a>
+        <li><a href="core.html#core.priors.GaussianPrior.stddev">(core.priors.GaussianPrior property)</a>
 </li>
       </ul></li>
   </ul></td>

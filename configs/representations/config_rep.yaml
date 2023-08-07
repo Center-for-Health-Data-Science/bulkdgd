@@ -8,10 +8,13 @@ data:
   shuffle: True
  
 
-# Section containing the options for the different
-# rounds of optimization used when finding the
-# best representations for new samples
-optimization:
+# Section containing the options to fine-tune the
+# search for the best representations
+rep:
+
+  # How many representations to initialize per component of
+  # the Gaussian mixture model per sample
+  n_rep_per_comp: 1
 
   # Section containing the options for the initial
   # round of optimization

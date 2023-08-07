@@ -92,15 +92,6 @@ def main():
                         default = ogm_default,
                         help = ogm_help)
 
-    sc_help = \
-        "The name/index of the column containing the names/IDs/" \
-        "indexes of the samples, if any. By default, the program " \
-        "assumes that no such column is present."
-    parser.add_argument("-sc", "--samples-names-column",
-                        type = str,
-                        default = None,
-                        help = sc_help)
-
     d_help = \
         "The working directory. The default is the current " \
         "working directory."
@@ -142,11 +133,6 @@ def main():
     output_csv_samples = args.output_csv_samples
     output_txt_genes_excluded = args.output_txt_genes_excluded
     output_txt_genes_missing = args.output_txt_genes_missing
-    samples_names_column = \
-        args.samples_names_column \
-        if args.samples_names_column is None \
-        or not args.samples_names_column.isdigit() \
-        else int(args.samples_names_column)
     wd = args.work_dir
     log_file = args.log_file
     log_console = args.log_console
@@ -210,11 +196,14 @@ def main():
     # Try to load the input samples
     try:
 
-        samples_df = pd.read_csv(input_csv,
-                                 sep = ",",
-                                 index_col = False,
-                                 header = 0)
+        df_expr_data, df_other_data = \
+            dgd.load_samples(csv_file = input_csv,
+                             sep = ",",
+                             keep_samples_names = True)
 
+        df_samples = pd.concat([df_expr_data, df_other_data],
+                               axis = 1)
+        print(df_samples)
     # If something went wrong
     except Exception as e:
 
@@ -233,9 +222,7 @@ def main():
     try:
 
         preproc_df, genes_excluded, genes_missing = \
-            dgd.preprocess_samples(\
-                samples_df = samples_df,
-                samples_names_column = samples_names_column)
+            dgd.preprocess_samples(df_samples = df_samples)
 
     # If something went wrong
     except Exception as e:
@@ -254,36 +241,12 @@ def main():
     # Set the path to the output file
     output_csv_samples_path = os.path.join(wd, output_csv_samples)
 
-    # If no column with the samples names/IDs was present
-    if samples_names_column is None:
-
-        # Inform the user that numeric indexes will be used
-        # to identify the samples
-        infostr = \
-            "The names of the rows in the data frame of pre-" \
-            "processed samples will be unique numeric indexes " \
-            "assigned to the samples (from 0 to " \
-            f"{len(preproc_df)-1})."
-        logger.info(infostr)
-
-    # If such column was present
-    else:
-
-        # Inform the user that the column is the index of
-        # the new data frame
-        infostr = \
-            "The names of the rows in the data frame of pre-" \
-            "processed samples will be the names/IDs provided " \
-            f"in the '{samples_names_column}' column."
-        logger.info(infostr)
-
     # Try to write out the preprocessed samples
     try:
 
-        preproc_df.to_csv(output_csv_samples_path,
-                          sep = ",",
-                          index = True,
-                          header = True)
+        dgd.save_samples(df = preproc_df,
+                         csv_file = output_csv_samples_path,
+                         sep = ",")
 
     # If something went wrong
     except Exception as e:

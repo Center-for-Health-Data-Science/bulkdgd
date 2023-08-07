@@ -10,10 +10,6 @@ A PyTorch file containing the state of the trained decoder. Since it is too larg
 
 A PyTorch file containing the state of the trained Gaussian mixture model.
 
-## `rep.pth`
-
-A PyTorch file containing the state of the trained representation layer.
-
 ## `training_genes.txt`
 
 A plain text file containing the list of genes (represented by their Ensembl IDs) used to train the DGD model.

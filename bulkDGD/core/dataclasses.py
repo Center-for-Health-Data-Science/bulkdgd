@@ -86,6 +86,12 @@ class GeneExpressionDataset(object):
         # Get the data frame
         self._df = df
 
+        # Get the samples' names
+        self._samples = df.index
+
+        # Get the genes' names
+        self._genes = df.columns
+
         # Get the number of samples
         self._n_samples = df.shape[0]
 
@@ -110,13 +116,14 @@ class GeneExpressionDataset(object):
 
         Returns
         -------
-        ``torch.Tensor``
-            A tensor containing the mean gene expression for each
+        ``pandas.Series``
+            A column containing the mean gene expression for each
             sample.
         """
 
-        return torch.mean(torch.Tensor(df.to_numpy()),
-                          dim = -1).unsqueeze(1)
+        return torch.mean(\
+                torch.Tensor(self.df.iloc[:, 0:self.n_genes].values),
+                dim = 1).unsqueeze(1)
 
 
     #-------------------------- Properties ---------------------------#
@@ -134,12 +141,52 @@ class GeneExpressionDataset(object):
     @df.setter
     def df(self,
            value):
-        """Raise an exception if the user tries to modify
+        """Raise an error if the user tries to modify
         the value of ``df`` after initialization.
         """
         
         errstr = \
             "The value of 'df' cannot be changed " \
+            "after initialization."
+        raise ValueError(errstr)
+
+
+    @property
+    def samples(self):
+        """The names/IDs/indexes of the samples in the dataset.
+        """
+        return self._samples
+
+
+    @samples.setter
+    def samples(self,
+                value):
+        """Raise an error if the user tries to modify the value
+        of ``samples`` after initialization.
+        """
+
+        errstr = \
+            "The value of 'samples' cannot be changed " \
+            "after initialization."
+        raise ValueError(errstr)
+
+
+    @property
+    def genes(self):
+        """The genes in the dataset.
+        """
+        return self._genes
+
+
+    @genes.setter
+    def genes(self,
+              value):
+        """Raise an error if the user tries to modify the value
+        of ``genes`` after initialization.
+        """
+    
+        errstr = \
+            "The value of 'genes' cannot be changed " \
             "after initialization."
         raise ValueError(errstr)
 
@@ -155,7 +202,7 @@ class GeneExpressionDataset(object):
     @n_samples.setter
     def n_samples(self,
                   value):
-        """Raise an exception if the user tries to modify
+        """Raise an error if the user tries to modify
         the value of ``n_samples`` after initialization.
         """
         
@@ -176,7 +223,7 @@ class GeneExpressionDataset(object):
     @n_genes.setter
     def n_genes(self,
                 value):
-        """Raise an exception if the user tries to modify
+        """Raise an error if the user tries to modify
         the value of ``n_genes`` after initialization.
         """
         
@@ -199,7 +246,7 @@ class GeneExpressionDataset(object):
     @mean_exp.setter
     def mean_exp(self,
                  value):
-        """Raise an exception if the user tries to modify
+        """Raise an error if the user tries to modify
         the value of ``mean_exp`` after initialization.
         """
         
@@ -218,17 +265,20 @@ class GeneExpressionDataset(object):
         
         Parameters
         ----------
-        idx : ``list``, optional
-            If passed, a list of indexes of the samples to get from
-            the dataset.
+        idx : ``list`` or ``torch.Tensor``, optional
+            If passed, a list of indexes of the
+            samples to get from the dataset.
 
         Returns
         -------
-        ``tuple``
-            A length-2 tuple with a ``numpy.ndarray`` containing the
-            data for the selected samples, a ``numpy.ndarray`` with
-            the mean gene expression for each sample, and the
-            ``list`` of indexes of the samples.
+        data : ``numpy.ndarray``
+            An array containing the data for the selected samples.
+
+        mean_expr : ``numpy.ndarray``
+            An array with the mean gene expression for each sample.
+
+        idx : ``list``
+            A list of indexes of the samples that are returned.
         """
 
         # If no index is passed
@@ -247,7 +297,7 @@ class GeneExpressionDataset(object):
         # Get the data of interest from the data frame
         # as a numpy array
         data = \
-            np.array(self.df.iloc[idx, 0:self.n_genes],
+            np.array(self.df.iloc[idx, 0:self.n_genes].values,
                      dtype = "float64")
 
         # Return the data for the sample(s) of interest,

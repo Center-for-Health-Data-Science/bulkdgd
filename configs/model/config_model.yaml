@@ -1,43 +1,6 @@
-# Dimensionality of the latent (= representation) space
-dim_latent: 50
 
 
-# Section containing the options for setting up the decoder
-dec:
-
-  # PyTorch file containing the parameters of the trained decoder.
-  # Make sure that the file contains a decoder whose parameters
-  # fit the architecture specified in the 'options' section.
-  pth_file: ""
-  
-  # Section containing the options to initialize the decoder
-  options:
-
-    # The number of neurons in the input layer of the decoder
-    # does not need to be specified since it corresponds to
-    # the dimensionality of the latent space
-    
-    # Number of neurons in the first hidden layer
-    n_neurons_hidden1: 500
-    
-    # Number of neurons in the second hidden layer
-    n_neurons_hidden2: 8000
-    
-    # Number of neurons in the output layer (= number of
-    # genes the decoder has been trained on)
-    n_neurons_out: 16883
-    
-    # Initial "number of successes" (r) for the negative
-    # binomial distributions modeling the output layer
-    r_init: 2
-    
-    # Type of scaling used in the negative binomial
-    # distributions. Choices are: 'library', 'total_count',
-    # 'mean', and 'median', with 'library' and 'total_count'
-    # determining the selection of the sigmoid activation function,
-    # and 'mean' and 'median' meaning a the relu activation
-    # function will be used
-    scaling_type: "mean"
+#---------------------- Gaussian mixture model -----------------------#
 
 
 # Section containing the options for setting up the Gaussian
@@ -47,24 +10,27 @@ gmm:
   # PyTorch file containing the parameters of the trained GMM.
   # Make sure that the file contains a GMM whose parameters
   # fit the architecture specified in the 'options' section.
-  pth_file: ""
+  pth_file: default
 
   # Section containing the options to initialize the Gaussian
   # mixture model (GMM)
   options:
+
+    # Dimensionality of the Gaussian mixture model
+    dim: 50
 
     # Number of components in the mixture
     n_comp: 45
 
     # Type of covariance matrix. Choices are 'diagonal',
     # 'fixed', and 'isotropic'
-    cm_type: "diagonal"
+    cm_type: diagonal
 
     # Parameters to initialize the Gaussian prior
     # on the log-variants of the components:
     # - mean: 2 * log(logbeta_params[0])
     # - stddev: logbeta_params[1]
-    logbeta_params: !!seq [0.1, 1]
+    log_var_params: [0.1, 1]
 
     # Alpha of the Dirichlet distribution determining
     # the uniformity of the weights of the components
@@ -75,7 +41,7 @@ gmm:
   mean_prior:
 
     # Type of prior (e.g., "softball")
-    type: "softball"
+    type: softball
 
     # Section containing the options for the prior
     # (they vary according to the type of prior)
@@ -89,20 +55,40 @@ gmm:
       sharpness: 10
 
 
-# Section containing the options for setting up the
-# representation layer
-rep_layer:
+#------------------------------ Decoder ------------------------------#
 
-  # PyTorch file containing the parameters of the trained
-  # representation layer. Make sure that the file contains
-  # a representation layer whose parameters fit the
-  # architecture specified in the 'options' section.
-  pth_file: ""
 
-  # Section containing the options to initialize the
-  # representation layer
+# Section containing the options for setting up the decoder
+dec:
+
+  # PyTorch file containing the parameters of the trained decoder.
+  # Make sure that the file contains a decoder whose parameters
+  # fit the architecture specified in the 'options' section
+  pth_file: default
+  
+  # Section containing the options to initialize the decoder
   options:
 
-    # Number of samples the representation layer
-    # has been trained on
-    n_samples: 17072
+    # Number of neurons in the input layer. They must correspond
+    # to the dimensionality of the latent space (Gaussian mixture
+    # model and representation layer)
+    n_neurons_input: 50
+    
+    # Number of neurons in the first hidden layer
+    n_neurons_hidden1: 500
+    
+    # Number of neurons in the second hidden layer
+    n_neurons_hidden2: 8000
+    
+    # Number of neurons in the output layer (= number of
+    # genes the decoder has been trained on)
+    n_neurons_output: 16883
+    
+    # Initial "number of successes" (r) for the negative
+    # binomial distributions modeling the output layer
+    r_init: 2
+
+    # Name of the activation function to be used in the
+    # output layer
+    activation_output: softplus
+    

@@ -35,7 +35,7 @@ import logging as log
 import os
 import sys
 # bulDGD
-from bulkDGD.utils import misc, recount3
+from bulkDGD.utils import dgd, misc, recount3
 
 
 def main():
@@ -51,7 +51,7 @@ def main():
     ip_choices_str = ", ".join(f"'{choice}'" for choice in ip_choices)
     ip_help = \
         "The name of the Recount3 project for which samples will " \
-        f"be retrieved. Available projects are: {ip_choices_str}."
+        f"be retrieved. The available projects are: {ip_choices_str}."
     parser.add_argument("-ip", "--input-project-name",
                         type = str,
                         required = True,
@@ -216,7 +216,7 @@ def main():
     #------------------ Check the samples' category ------------------#
 
 
-    # Try to get the category of samples
+    # Try to validate the category of samples to be retrieved
     try:
 
         cancer_type = \
@@ -387,9 +387,9 @@ def main():
     # Try to write the data frame to the output CSV file
     try:
 
-        df_final.to_csv(output_csv_path,
-                        sep = ",",
-                        index = True)
+        dgd.save_samples(df = df_final,
+                         csv_file = output_csv_path,
+                         sep = ",")
 
     # If something went wrong
     except Exception as e:

@@ -49,7 +49,7 @@ import math
 import torch
 
 
-class softball():
+class SoftballPrior():
     
     """
     Class implementing a "softball" prior.
@@ -67,13 +67,13 @@ class softball():
         Parameters
         ----------
         dim : ``int``
-            Dimensionality of the prior.
+            The dimensionality of the prior.
 
         radius : ``float``
-            Radius of the ball.
+            The radius of the ball.
 
         sharpness : ``int``
-            Sharpness of the "soft" boundary.
+            The sharpness of the "soft" boundary.
         """
         
         # Set the dimensionality of the prior
@@ -164,12 +164,12 @@ class softball():
         Parameters
         ----------
         n : ``int``
-            Number of random samples.
+            The number of random samples.
 
         Returns
         -------
         ``torch.Tensor``
-            Sampled points from the softball distribution.
+            The points samples from the softball distribution.
         """
 
         # Disable gradient calculation
@@ -203,18 +203,17 @@ class softball():
 
     def log_prob(self,
                  z):
-        """Return the log probabilities of the elements of a tensor
-        (the last dimension is assumed to be ``z`` vectors).
+        """Return the log-probabilities of the elements of a tensor.
 
         Parameters
         ----------
         z : ``torch.Tensor``
-            The tensor to find the log probabilities of.
+            The input tensor.
 
         Returns
         -------
         ``torch.Tensor``
-            The log probabilities of the input tensor.
+            The log-probabilities of the input tensor.
         """
 
         # Compute the norm
@@ -231,7 +230,7 @@ class softball():
                             self.radius-1))))
 
 
-class gaussian():
+class GaussianPrior():
     
     """
     Class implementing a Gaussian prior used to initialize
@@ -247,13 +246,13 @@ class gaussian():
         Parameters
         ----------
         dim : ``int``
-            Dimensionality of the space.
+            The dimensionality of the prior.
         
         mean : ``float``
-            Mean of the Gaussian distribution.
+            The mean of the Gaussian distribution.
 
         stddev : ``float``
-            Standard deviation of the Gaussian distribution.
+            The standard deviation of the Gaussian distribution.
         """
 
         # Set the dimensionality
@@ -277,7 +276,7 @@ class gaussian():
 
     @property
     def dim(self):
-        """The dimensionality of the gaussian prior.
+        """The dimensionality of the Gaussian prior.
         """
 
         return self._dim
@@ -370,12 +369,12 @@ class gaussian():
         Parameters
         ----------
         n_samples : ``int``
-            Number of samples.
+            The number of samples.
 
         Returns
         -------
         ``torch.Tensor``
-            Sampled points from the Gaussian distribution.
+            The points sampled from the Gaussian distribution.
         """
         
         return self.dist.sample((n_samples, self.dim))

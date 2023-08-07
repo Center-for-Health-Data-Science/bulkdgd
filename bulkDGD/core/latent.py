@@ -69,11 +69,10 @@ class GaussianMixtureModel(nn.Module):
     def __init__(self,
                  dim,
                  n_comp,
-                 mean_prior = None,
+                 mean_prior,
                  cm_type = "isotropic",
-                 alpha = 1, 
-                 softball_params = (0.0, 1.0),
-                 logbeta_params = (0.5, 0.5)):
+                 alpha = 1,
+                 log_var_params = (0.5, 0.5)):
         """Initialize an instance of the GMM.
 
         Parameters
@@ -84,10 +83,8 @@ class GaussianMixtureModel(nn.Module):
         n_comp : ``int``
             The number of components in the mixture.
 
-        mean_prior : any object representing a prior, optional
-            Instance of a class representing a prior. If
-            not passed, the ``bulkDGD.core.priors.softball``
-            prior will be used.
+        mean_prior : ``object``
+            Instance of a class representing a prior.
 
         cm_type : ``str``, {``"fixed"``, ``"isotropic"``, \
         ``"diagonal"``}, ``"isotropic"``
@@ -97,29 +94,23 @@ class GaussianMixtureModel(nn.Module):
             Alpha of the Dirichlet distribution determining
             the uniformity of the weights of the components
             in the mixture.
-        
-        softball_params : ``tuple``, ``(0.0, 1.0)``
-            Parameters (radius, sharpness) of the softball
-            prior, if no prior was passed.
 
-        logbeta_params : ``tuple``, ``(0.5, 0.5)``
+        log_var_params : ``tuple``, ``(0.5, 0.5)``
             Tuple containing the parameters to initialize the
             Gaussian prior on the log-variances of the components:
 
-            * Mean: ``2 * log(logbeta_params[0])``
+            * Mean: ``2 * log(log_var_params[0])``
 
-            * Standard deviation: ``logbeta_params[1]``
-        
-        Notes
-        -----
-        The difference between giving a prior beforehand and
-        giving only init values is that with a given prior
-        the logbetas will be sampled from it. Otherwise,
-        the alpha determines the Dirichlet prior on the
-        mixture coefficients. The mixture coefficients
-        are initialized uniformly, while other parameters
-        are sampled from the prior.
+            * Standard deviation: ``log_var_params[1]``
         """
+
+        # The difference between giving a prior beforehand and
+        # giving only init values is that with a given prior
+        # the log_vars will be sampled from it. Otherwise,
+        # the alpha determines the Dirichlet prior on the
+        # mixture coefficients. The mixture coefficients
+        # are initialized uniformly, while other parameters
+        # are sampled from the prior.
 
         # Initialize the class
         super().__init__()
@@ -130,13 +121,9 @@ class GaussianMixtureModel(nn.Module):
         # Set the number of components in the mixture
         self._n_comp = n_comp
 
-        # Set the parameters (radius, sharpness) of the
-        # softball prior, if no prior was passed
-        self._softball_params = softball_params
-
         # Set the parameters to initialize the Gaussian prior
         # on the log-variances of the components
-        self._logbeta_params = logbeta_params
+        self._log_var_params = log_var_params
 
         # Set the Dirichlet alpha determining the uniformity of
         # the weights of the components in the mixture
@@ -155,16 +142,15 @@ class GaussianMixtureModel(nn.Module):
         # Initialize the prior on the means and the means themselves
         self._mean_prior, self._mean = \
             self._get_means(mean_prior = mean_prior,
-                            softball_params = self.softball_params,
                             dim = self.dim,
                             n_comp = self.n_comp)
 
         # Initialize the covariance matrix and related parameters
-        self._logbeta, self._logbeta_dim, \
-            self._logbeta_factor, self._logbeta_prior = \
-                self._get_logbeta(\
+        self._log_var, self._log_var_dim, \
+            self._log_var_factor, self._log_var_prior = \
+                self._get_log_var(\
                     cm_type = cm_type,
-                    logbeta_params = self.logbeta_params,
+                    log_var_params = self.log_var_params,
                     n_comp = self.n_comp,
                     dim = self.dim)
 
@@ -180,10 +166,10 @@ class GaussianMixtureModel(nn.Module):
         Parameters
         ----------
         n_comp : ``int``
-            The number of components in the mixture.
+            The number of components in the Gaussian mixture.
 
         alpha : ``int``
-            Alpha of the Dirichlet distribution determining
+            The alpha of the Dirichlet distribution determining
             the uniformity of the weights of the components
             in the mixture.
 
@@ -209,10 +195,10 @@ class GaussianMixtureModel(nn.Module):
         Returns
         -------
         ``torch.Tensor``
-            A one-dimensional tensor containing the weights of
-            the components in the mixture. The tensor has a
-            length equal to the number of components in the
-            Gaussian mixture.
+            The weights of the components in the Gaussian mixture.
+            
+            The is a 1D tensor having a length equal to the number
+            of components in the Gaussian mixture.
         """
 
         return nn.Parameter(torch.ones(n_comp),
@@ -221,7 +207,6 @@ class GaussianMixtureModel(nn.Module):
 
     def _get_means(self,
                    mean_prior,
-                   softball_params,
                    dim,
                    n_comp):
         """Return the prior on the means of the Gaussians
@@ -229,72 +214,45 @@ class GaussianMixtureModel(nn.Module):
 
         Parameters
         ----------
-        mean_prior : any object representing a prior
-            Instance of a class representing a prior. If
-            not passed, the ``DGDPerturbations.core.priors.softball``
-            prior will be used.
-
-        softball_params : ``tuple``
-            Parameters (radius, sharpness) of the softball
-            prior, if no prior was passed.
+        mean_prior : ``object``
+            Instance of a class representing a prior.
 
         dim : ``int``
             The dimensionality of the Gaussian mixture model.
 
         n_comp : ``int``
-            The number of components in the mixture.
+            The number of components in the Gaussian mixture.
 
         Returns
         -------
-        ``tuple``
-            A tuple containing:
-
-            * The prior used over the means of the mixture
+        mean_prior : ``object``
+            The prior used over the means of the mixture
             components.
+        
+        means : ``torch.Tensor``
+            The means of the mixture components sampled from the
+            prior.
 
-            * The tensor containing the means of the mixture
-            components samples from the prior. This tensor
-            is two-dimensional, with the first dimension having
-            a length equal to the number of components in the
-            Gaussian mixture and the second dimension having
-            a length equal to the dimensionality of the Gaussian
-            mixture model.
+            This is a 2D tensor where:
+            
+            * The first dimension has a length equal to the
+              number of components in the Gaussian mixture.
+
+            * The second dimension has a length equal to the
+              dimensionality of the Gaussian mixture model.
         """
 
-        # If the user has passed a prior
-        if mean_prior is not None:
+        # Check the prior
+        self._check_mean_prior(mean_prior = mean_prior)
 
-            # Check the prior
-            self._check_mean_prior(mean_prior = mean_prior)
+        # Inform the user that the prior passed will be
+        # used
+        infostr = \
+            f"The {mean_prior.__class__.__name__} prior " \
+            f"will be used as prior over the means of " \
+            f"the mixture components."
+        logger.info(infostr)
 
-            # Inform the user that the prior passed will be
-            # used
-            infostr = \
-                f"The {mean_prior.__class__.__name__} prior " \
-                f"will be used as prior over the means of " \
-                f"the mixture components."
-            logger.info(infostr)
-
-        # Otherwise
-        else:
-
-            # Get the radius and sharpness of the softball
-            # prior that will be used
-            radius, sharpness = softball_params
-
-            # Get the mean prior as a softball prior
-            mean_prior = \
-                priors.softball(dim = dim,
-                                radius = radius,
-                                sharpness = sharpness)
-
-            # Inform the user that the softball prior will be
-            # used
-            infostr = \
-                f"The softball prior with radius {radius} and " \
-                f"sharpness {sharpness} will be used as prior " \
-                f"over the means of the mixture components."
-            logger.info(infostr)
 
         # Means with shape: n_comp, dim
         mean = \
@@ -305,9 +263,9 @@ class GaussianMixtureModel(nn.Module):
         return mean_prior, mean
 
 
-    def _get_logbeta(self,
+    def _get_log_var(self,
                      cm_type,
-                     logbeta_params,
+                     log_var_params,
                      n_comp,
                      dim):
         """Return the parameters to learn the covariance matrix
@@ -316,39 +274,43 @@ class GaussianMixtureModel(nn.Module):
 
         Parameters
         ----------
-        cm_type : ``str``, {``"fixed"``, ``"isotropic"``, \
-                  ``"diagonal"``"}
-            Shape of the covariance matrix.
+        cm_type : ``str``
+            The shape of the covariance matrix.
 
-        logbeta_params : ``tuple``
-            Tuple containing the parameters to initialize the
+        log_var_params : ``tuple``
+            A tuple containing the parameters to initialize the
             Gaussian prior on the log-variances of the components:
             
-            * Mean: ``2 * log(logbeta_params[0])``
-            * Standard deviation: ``logbeta_params[1]``
+            * Mean: ``2 * log(log_var_params[0])``
+            * Standard deviation: ``log_var_params[1]``
 
         n_comp : ``int``
             The number of components in the mixture.
 
-        dim : ``int``
-            The dimensionality of the Gaussian mixture model.
+        log_var_dim : ``int``
+            The dimensionality of the log-variance.
 
         Returns
         -------
-        ``tuple``
-            A tuple containing:
+        log_var : ``torch.Tensor``
+            The log-variance.
 
-            * The log-variance. It is a two-dimensional tensor
-            where the first dimension has a length equal to the
-            number of components in the Gaussian mixture and the
-            second dimension has a length equal to the dimensionality
-            of the Gaussian mixture model.
+            It is a 2D tensor where:
 
-            * The dimensionality of the Gaussian mixture model.
+            * The first dimension has a length equal to the number
+              of components in the Gaussian mixture.
 
-            * The log-variance factor.
-
-            * The prior over the log-variance.
+            * The second dimension has a length equal to the
+              dimensionality of the Gaussian mixture model.
+        
+        dim : ``int``
+            The dimensionality of the Gaussian mixture model.
+        
+        log_var_factor : ``float``
+            The log-variance factor.
+        
+        log_var_prior: ``bulkDGD.core.priors.GaussianPrior``
+            The prior over the log-variance.
         """
         
         # If the covariance matrix is fixed
@@ -356,16 +318,16 @@ class GaussianMixtureModel(nn.Module):
 
             # The log-variance factor will be half
             # of the dimensionality of the space
-            logbeta_factor = dim * 0.5
+            log_var_factor = dim * 0.5
 
             # The dimensionality of the log-variance
             # factor will be 1
-            logbeta_dim = 1
+            log_var_dim = 1
 
             # No gradient is needed for training
-            logbeta = \
+            log_var = \
                 nn.Parameter(torch.empty(n_comp,
-                                         logbeta_dim),
+                                         log_var_dim),
                              requires_grad = False)
 
         # If the covariance matrix is isotropic
@@ -373,32 +335,32 @@ class GaussianMixtureModel(nn.Module):
 
             # The log-variance factor will be half
             # of the dimensionality of the space
-            logbeta_factor = dim * 0.5
+            log_var_factor = dim * 0.5
 
             # The dimensionality of the log-variance
             # factor will be 1
-            logbeta_dim = 1
+            log_var_dim = 1
 
             # Gradients are required
-            logbeta = \
+            log_var = \
                 nn.Parameter(torch.empty(n_comp,
-                                         logbeta_dim),
+                                         log_var_dim),
                              requires_grad = True)
         
         # If the covariance matrix is diagonal
         elif cm_type == "diagonal":
             
             # The log-variance factor will be 1/2
-            logbeta_factor = 0.5
+            log_var_factor = 0.5
 
             # The dimensionality of the log-variance
             # will be the dimensionality of the space
-            logbeta_dim = dim
+            log_var_dim = dim
 
             # Gradients are required
-            logbeta = \
+            log_var = \
                 nn.Parameter(torch.empty(n_comp,
-                                         logbeta_dim),
+                                         log_var_dim),
                              requires_grad = True)
 
         # If an invalid covariance matrix type was passed
@@ -412,18 +374,19 @@ class GaussianMixtureModel(nn.Module):
 
         # Disable gradient calculation
         with torch.no_grad():
-            logbeta.fill_(2 * math.log(logbeta_params[0]))
+            log_var.fill_(2 * math.log(log_var_params[0]))
 
         # Get the prior over the log-variance
-        logbeta_prior = \
-            priors.gaussian(dim = logbeta_dim,
-                            mean = 2 * math.log(logbeta_params[0]),
-                            stddev = logbeta_params[1])
+        log_var_prior = \
+            priors.GaussianPrior(\
+                dim = log_var_dim,
+                mean = 2 * math.log(log_var_params[0]),
+                stddev = log_var_params[1])
 
         # Return the log-variance, its dimensionality, the
         # log-variance factor, and the prior over the
         # log-variance
-        return logbeta, logbeta_dim, logbeta_factor, logbeta_prior
+        return log_var, log_var_dim, log_var_factor, log_var_prior
 
 
     def _check_mean_prior(self,
@@ -433,10 +396,8 @@ class GaussianMixtureModel(nn.Module):
 
         Parameters
         ----------
-        mean_prior : any object representing a prior
-            Instance of a class representing a prior. If
-            not passed, the ``DGDPerturbations.core.priors.softball``
-            prior will be used.
+        mean_prior : ``object``
+            An instance of a class representing a prior.
         """
 
         # If the prior does not have a 'sample' method
@@ -506,48 +467,26 @@ class GaussianMixtureModel(nn.Module):
 
 
     @property
-    def softball_params(self):
-        """The parameters (radius, sharpness) of the softball
-        prior that will be used, if no prior is passed.
-        """
-
-        return self._softball_params
-
-
-    @softball_params.setter
-    def softball_params(self,
-                        value):
-        """Raise an exception if the user tries to modify
-        the value of ``softball_params`` after initialization.
-        """
-        
-        errstr = \
-            "The value of 'softball_params' cannot be changed " \
-            "after initialization."
-        raise ValueError(errstr)
-
-
-    @property
-    def logbeta_params(self):
+    def log_var_params(self):
         """The parameters used to inizialize the Gaussian
         prior on the log-variances of the components:
 
-        * Mean: ``2 * log(logbeta_params[0])``
-        * Standard deviation: ``logbeta_params[1]``
+        * Mean: ``2 * log(log_var_params[0])``
+        * Standard deviation: ``log_var_params[1]``
         """
 
-        return self._logbeta_params
+        return self._log_var_params
 
 
-    @logbeta_params.setter
-    def logbeta_params(self,
+    @log_var_params.setter
+    def log_var_params(self,
                        value):
         """Raise an exception if the user tries to modify
-        the value of ``logbeta_params`` after initialization.
+        the value of ``log_var_params`` after initialization.
         """
         
         errstr = \
-            "The value of 'logbeta_params' cannot be changed " \
+            "The value of 'log_var_params' cannot be changed " \
             "after initialization."
         raise ValueError(errstr)
 
@@ -660,86 +599,86 @@ class GaussianMixtureModel(nn.Module):
 
 
     @property
-    def logbeta(self):
+    def log_var(self):
         """The log-variance of the Gaussian components in the
         mixture.
         """
 
-        return self._logbeta
+        return self._log_var
 
 
-    @logbeta.setter
-    def logbeta(self,
+    @log_var.setter
+    def log_var(self,
                 value):
         """Raise an exception if the user tries to modify
-        the value of ``logbeta`` after initialization.
+        the value of ``log_var`` after initialization.
         """
         
         errstr = \
-            "The value of 'logbeta' cannot be changed " \
+            "The value of 'log_var' cannot be changed " \
             "after initialization."
         raise ValueError(errstr)
 
 
     @property
-    def logbeta_dim(self):
+    def log_var_dim(self):
         """The dimensionality of the log-variance.
         """
 
-        return self._logbeta_dim
+        return self._log_var_dim
 
 
-    @logbeta_dim.setter
-    def logbeta_dim(self,
+    @log_var_dim.setter
+    def log_var_dim(self,
                     value):
         """Raise an exception if the user tries to modify
-        the value of ``logbeta_dim`` after initialization.
+        the value of ``log_var_dim`` after initialization.
         """
         
         errstr = \
-            "The value of 'logbeta_dim' cannot be changed " \
+            "The value of 'log_var_dim' cannot be changed " \
             "after initialization."
         raise ValueError(errstr)
 
 
     @property
-    def logbeta_factor(self):
+    def log_var_factor(self):
         """The log-variance factor.
         """
 
-        return self._logbeta_factor
+        return self._log_var_factor
 
 
-    @logbeta_factor.setter
-    def logbeta_factor(self,
+    @log_var_factor.setter
+    def log_var_factor(self,
                        value):
         """Raise an exception if the user tries to modify
-        the value of ``logbeta_factor`` after initialization.
+        the value of ``log_var_factor`` after initialization.
         """
         
         errstr = \
-            "The value of 'logbeta_factor' cannot be changed " \
+            "The value of 'log_var_factor' cannot be changed " \
             "after initialization."
         raise ValueError(errstr)
 
 
     @property
-    def logbeta_prior(self):
+    def log_var_prior(self):
         """The prior over the log-variance.
         """
 
-        return self._logbeta_prior
+        return self._log_var_prior
 
 
-    @logbeta_prior.setter
-    def logbeta_prior(self,
+    @log_var_prior.setter
+    def log_var_prior(self,
                       value):
         """Raise an exception if the user tries to modify
-        the value of ``logbeta_prior`` after initialization.
+        the value of ``log_var_prior`` after initialization.
         """
         
         errstr = \
-            "The value of 'logbeta_prior' cannot be changed " \
+            "The value of 'log_var_prior' cannot be changed " \
             "after initialization."
         raise ValueError(errstr)
 
@@ -749,7 +688,7 @@ class GaussianMixtureModel(nn.Module):
 
     def _get_log_prob_comp(self,
                            x):
-        """Get the per-sample, per-component log-probability.
+        """Get the per-data-point, per-component log-probability.
 
         Parameters
         ----------
@@ -758,6 +697,19 @@ class GaussianMixtureModel(nn.Module):
 
             * The first dimension has a length equal to the number of
               data points.
+
+            * The second dimension has a length equal to the
+              dimensionality of the data points.
+
+        Returns
+        -------
+        log_prob_comp : ``torch.Tensor``
+            The per-sample, per-component log-probbaility.
+
+            This is a 2D tensor where:
+
+            * The first dimension has a length equal to the number
+              of data points in the input tensor.
 
             * The second dimension has a length equal to the
               dimensionality of the data points.
@@ -780,7 +732,7 @@ class GaussianMixtureModel(nn.Module):
         y = (y - self.mean).square()
 
         # Multiply the tensor by 0.5 * e^log_var (e^log_var = log_var).
-        y = y.mul(0.5 * torch.exp(self.logbeta))
+        y = y.mul(0.5 * torch.exp(self.log_var))
 
         # Sum the tensor over its last dimension and take the
         # negative. Since we are summing over the dimensionality
@@ -797,13 +749,13 @@ class GaussianMixtureModel(nn.Module):
         # (for which all dimensions have been summmed together).
         # The new tensor has dimensionality:
         # (n_comp)
-        log_var_sum = self.logbeta.sum(-1)
+        log_var_sum = self.log_var.sum(-1)
         
         # Add the summed log-variance multiplied by the log-variance
         # factor to the previous tensor.
         # The output tensor has dimensionality:
         # (n_samples, n_comp)
-        y = y + (self.logbeta_factor * log_var_sum)
+        y = y + (self.log_var_factor * log_var_sum)
 
         # Subtract 0.5 * dim * log(2 * pi).
         # The output tensor has dimensionality:
@@ -829,7 +781,7 @@ class GaussianMixtureModel(nn.Module):
 
         Returns
         -------
-        ``torch.Tensor``
+        mixture_probs : ``torch.Tensor``
             The mixture probabilities. This is a 1D tensor whose
             size equals the number of components in the Gaussian
             mixture.
@@ -844,7 +796,7 @@ class GaussianMixtureModel(nn.Module):
 
         Returns
         -------
-        ``torch.distributions.MixtureSameFamily``
+        dist : ``torch.distributions.MixtureSameFamily``
             A distribution created from the GMM.
         """
 
@@ -861,7 +813,7 @@ class GaussianMixtureModel(nn.Module):
                 dist.Independent(\
                     base_distribution = \
                         dist.Normal(self.mean,
-                                    torch.exp(-0.5 * self.logbeta)),
+                                    torch.exp(-0.5 * self.log_var)),
                     reinterpreted_batch_ndims = 1)
             
             # Return the distribution
@@ -892,11 +844,11 @@ class GaussianMixtureModel(nn.Module):
         # Add the log probability of the means
         p = p + self.mean_prior.log_prob(self.mean).sum()
 
-        # If the logbeta prior is not None
-        if self.logbeta_prior is not None:
+        # If the log_var prior is not None
+        if self.log_var_prior is not None:
 
-            # Add the logbeta probability
-            p =  p + self.logbeta_prior.log_prob(self.logbeta).sum()
+            # Add the log_var probability
+            p =  p + self.log_var_prior.log_prob(self.log_var).sum()
         
         # Return the probability
         return p
@@ -920,7 +872,7 @@ class GaussianMixtureModel(nn.Module):
             
         Returns
         -------
-        ``torch.Tensor``
+        y : ``torch.Tensor``
             This is a 1D tensor whose size is equal to the number
             of input data points.
 
@@ -954,7 +906,7 @@ class GaussianMixtureModel(nn.Module):
 
     def sample_probs(self,
                      x):
-        """Return the probability density per sample per component.
+        """Get the probability density per sample per component.
 
         Parameters
         ----------
@@ -969,7 +921,7 @@ class GaussianMixtureModel(nn.Module):
 
         Returns
         -------
-        ``torch.Tensor``
+        probs : ``torch.Tensor``
             The probability densities.
 
             This is a 2D tensor where:
@@ -1009,7 +961,7 @@ class GaussianMixtureModel(nn.Module):
 
         Returns
         -------
-        ``torch.Tensor``
+        log_prob : ``torch.Tensor``
             A 1D tensor storing the log-probability density of each
             input data points to be drawn from the GMM. The tensor
             has a size equal to the number of data points passed.
@@ -1029,7 +981,7 @@ class GaussianMixtureModel(nn.Module):
 
         Returns
         -------
-        ``torch.Tensor``
+        samples : ``torch.Tensor``
             The points sampled from the GMM distribution.
 
             This is a 2D tensor where:
@@ -1064,7 +1016,7 @@ class GaussianMixtureModel(nn.Module):
 
         Returns
         -------
-        ``torch.Tensor``
+        component_samples : ``torch.Tensor``
             The sampled points from the components of the Gaussian
             mixture. This is a 3D tensor where:
             
@@ -1087,7 +1039,7 @@ class GaussianMixtureModel(nn.Module):
                 dist.Independent(\
                     base_distribution = \
                         dist.Normal(self.mean,
-                                    torch.exp(-0.5 * self.logbeta)),
+                                    torch.exp(-0.5 * self.log_var)),
                     reinterpreted_batch_ndims = 1)
 
             # Return the sample from each component
@@ -1131,7 +1083,7 @@ class GaussianMixtureModel(nn.Module):
 
         Returns
         -------
-        ``torch.Tensor``
+        new_points : ``torch.Tensor``
             The samples drawn. This is a 2D tensor where:
 
             * The first dimension has a length equal to
@@ -1332,33 +1284,37 @@ class RepresentationLayer(nn.Module):
 
         Returns
         -------
-        ``tuple``
-            A tuple containing:
+        n_samples : ``int``
+            The number of samples found in the input tensor (and,
+            therefore, the number of representations).
 
-            * An ``int`` representing the number of samples
-              found in the input tensor (and, therefore,
-              the number of representations).
-            * An ``int`` representing the dimensionality of
-              the representations.
-            * A `None` representing the mean of the distribution
-              from which the representations were sampled (this
-              is populated by something other than ``None`` only
-              when the representations are generated from a
-              distribution, and not when ``values`` is passed).
-            * A `None` representing the standard deviation of the
-              distribution from which the representations were
-              sampled (this is populated by something other than
-              ``None`` only when the representations are generated
-              from a distribution, and not when ``values`` is passed).
-            * A ``torch.Tensor`` containing the representations.
+        dim : ``int``
+            The dimensionality of the representations.
+
+        mean : ``None``
+            The mean of the distribution from which the representations
+            were sampled (this is populated by something other than
+            ``None`` only when the representations are generated from a
+            distribution, and not when ``values`` is passed).
+
+        stddev : ``None``
+            The standard deviation of the distribution from which
+            the representations were sampled (this is populated by
+            something other than ``None`` only when the representations
+            are generated from a distribution, and not when ``values``
+            is passed).
+
+        rep : ``torch.Tensor``
+            The representations.
+
+            This is a 2D tensor where:
+
+            * The first dimension has a length equal to the number of
+              representations.
+
+            * The second dimension has a length equal to the
+              dimensionality of the representations.
         """
-
-        # Inform the user that the representations will be
-        # initialized from the values passed
-        infostr = \
-            f"The representations will be initialized from " \
-            f"'values'."
-        logger.info(infostr)
 
         # Get the number of samples from the first
         # dimension of the tensor
@@ -1412,21 +1368,31 @@ class RepresentationLayer(nn.Module):
 
         Returns
         -------
-        ``tuple``
-            A tuple containing:
+        n_samples : ``int``
+            The number of samples found in the input tensor (and,
+            therefore, the number of representations).
 
-            * An ``int`` representing the number of samples
-              found in the input tensor (and, therefore,
-              the number of representations).
-            * An ``int`` representing the dimensionality of
-              the representations.
-            * A number representing the mean of the normal
-              distribution from which the representations were
-              sampled.
-            * A number representing the standard deviation of the
-              normal distribution from which the representations
-              were sampled.
-            * A ``torch.Tensor`` containing the representations.
+        dim : ``int``
+            The dimensionality of the representations.
+
+        mean : ``float``
+            The mean of the distribution from which the representations
+            were sampled.
+
+        stddev : ``float``
+            The standard deviation of the distribution from which
+            the representations were sampled.
+
+        rep : ``torch.Tensor``
+            The representations.
+
+            This is a 2D tensor where:
+
+            * The first dimension has a length equal to the number of
+              representations.
+
+            * The second dimension has a length equal to the
+              dimensionality of the representations.
         """
 
         # Get the desired number of samples
@@ -1592,6 +1558,14 @@ class RepresentationLayer(nn.Module):
         ``torch.Tensor``
             A tensor containing the representations for the samples
             of interest.
+
+            This is a 2D tensor where:
+
+            * The first dimension has a length equal to the number
+              of representations.
+
+            * The second dimension has a length equal to the
+              dimensionality of the representations.
         """
 
         # If no indexes were provided
@@ -1624,6 +1598,19 @@ class RepresentationLayer(nn.Module):
 
         Where :math:`\\bar{z}` is the mean of the representations
         and :math:`s` is the standard deviation.
+
+        Returns
+        -------
+        ``torch.Tensor``
+            The rescaled representations.
+
+            This is a 2D tensor where:
+
+            * The first dimension has a length equal to the number
+              of representations.
+
+            * The second dimension has a length equal to the
+              dimensionality of the representations.
         """
         
         # Flatten the tensor with the representations

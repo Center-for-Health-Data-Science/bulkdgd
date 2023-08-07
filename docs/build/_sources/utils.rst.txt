@@ -5,7 +5,7 @@ utils.dgd
 ---------
 
 .. automodule:: utils.dgd
-   :members: preprocess_samples, load_samples, load_representations, load_decoder_outputs, get_gmm, get_decoder, get_rep_layer, load_training_representations, get_representations, get_p_values, get_q_values, get_log2_fold_changes, perform_dea, perform_2d_pca, get_probability_density
+   :members: preprocess_samples, load_samples, load_representations, load_decoder_outputs, save_samples, save_representations, save_decoder_outputs, get_gmm, get_decoder, get_model, get_representations, get_r_values, get_p_values, get_q_values, get_log2_fold_changes, perform_dea, perform_2d_pca, get_probability_density
 
 
 utils.misc

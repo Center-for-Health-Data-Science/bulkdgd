@@ -8,6 +8,7 @@ Welcome to the Bulk DGD's documentation!
    Getting started
    Installation
    Command-line interface
+   Tutorials
    core
    utils
 

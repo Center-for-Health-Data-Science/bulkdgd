@@ -256,7 +256,7 @@ def get_gene_sums(samples_category,
         # Warn the user that the file will be overwritten
         warnstr = \
             f"'{f_gene_sums_name}' already exists in '{wd}'. " \
-            f"RNA-seq data will be read from this file."
+            f"The RNA-seq data will be read from this file."
         logger.warning(warnstr)
 
         # Read the file content into a data frame and transpose

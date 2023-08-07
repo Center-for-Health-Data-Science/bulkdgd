@@ -38,6 +38,7 @@ import pandas as pd
 from scipy.stats import nbinom
 from sklearn.decomposition import PCA
 from statsmodels.stats.multitest import multipletests
+from torch.utils.data import DataLoader
 import torch
 # bulkDGD
 from bulkDGD.core import (
@@ -81,7 +82,7 @@ _SAMPLE_IDX_COL = "sample_idx"
 # model
 CONFIG_MODEL_DIR = \
     resource_filename(Requirement(pkg_name),
-                      "/configs/model")
+                      "configs/model")
 
 # The directory containing the configuration files specifying the
 # options for data loading and optimization when finding the
@@ -90,28 +91,15 @@ CONFIG_REP_DIR = \
     resource_filename(Requirement(pkg_name),
                       "configs/representations")
 
-# Default PyTorch file containing the trained decoder
-try:
-
-    DEC_FILE = \
-        resource_filename(Requirement(pkg_name),
-                          "data/model/dec.pth")
-
-# If no file is found in the directory
-except KeyError:
-
-    # Set it to None
-    DEC_FILE = None
-
 # Default PyTorch file containing the trained Gaussian mixture model
 GMM_FILE = \
     resource_filename(Requirement(pkg_name),
                       "data/model/gmm.pth")
 
-# Default PyTorch file containing the trained representation layer
-REP_FILE = \
+# Default PyTorch file containing the trained decoder
+DEC_FILE = \
     resource_filename(Requirement(pkg_name),
-                      "data/model/rep.pth")
+                      "data/model/dec.pth")
 
 # File containing the Ensembl IDs of the genes on which the DGD
 # model has been trained
@@ -122,63 +110,41 @@ DGD_GENES_FILE = \
 # Available optimizers
 AVAILABLE_OPTIMIZERS = ["adam"]
 
+# List of available priors for the means of the Gaussian mixture
+# model
+AVAILABLE_MEAN_PRIORS = ["softball"]
+
 
 #------------------------ Preprocess samples -------------------------#
 
 
-def preprocess_samples(samples_df,
-                       samples_names_column = None):
-    """Preprocess new samples to use them with the DGD model.
+def preprocess_samples(df_samples):
+    """Preprocess new samples.
 
     Parameters
     ----------
-    samples_df : ``pandas.DataFrame``
+    df_samples : ``pandas.DataFrame``
         A data frame containing the samples to be preprocessed.
-
-    samples_names_column : ``str`` or ``int``, optional
-        The name/index of the column containing the names/IDs/indexes
-        of the samples, if any. By default, it is assumed that no
-        such column is present.
 
     Returns
     -------
-    ``tuple``
-        A tuple containing:
+    df_preproc : ``pandas.DataFrame``
+        The data frame with the preprocessed samples.
 
-        * The data frame with the preprocessed samples.
-        * The list of genes found in the input data frame but not
-          belonging to the gene set used to train the DGD model.
-        * The list of genes present in the gene set used to train
-          the DGD model but not found in the input data frame.
+    genes_excluded : ``list``
+        The list of genes found in the input data frame but not
+        belonging to the gene set used to train the DGD model.
+
+        These genes are dropped from the ``df_preproc``
+        data frame.
+
+    genes_missing : ``list``
+        The list of genes present in the gene set used to train
+        the DGD model but not found in the input data frame.
+
+        These genes are added with a count of 0 for all samples
+        in the ``df_preproc`` data frame.
     """
-
-
-    #------------------------- Index column --------------------------#
-
-
-    # If the user provided the name/index of a column where
-    # the samples' names/IDs/indexes are stored
-    if samples_names_column is not None:
-
-        # If the user provided an index
-        if isinstance(samples_names_column, int):
-
-            # Get the name of the column
-            samples_names_column = \
-                samples_df.columns[samples_names_column]
-
-        # Set the column as the new index of the data frame
-        samples_df = samples_df.set_index(samples_names_column,
-                                          drop = True,
-                                          verify_integrity = True)
-
-        # Inform the user about the new index
-        warnstr = \
-            "The row names of the data frame of preprocessed " \
-            "samples will be the values found in the " \
-            f"'{samples_names_column}' column of the input " \
-            "data frame."
-        logger.warning(warnstr)
 
 
     #------------------------- Other columns -------------------------#
@@ -187,20 +153,20 @@ def preprocess_samples(samples_df,
     # Get the names of the columns containing gene expression data
     # from the original data frame
     genes_columns_old = \
-        [col for col in samples_df.columns if col.startswith("ENSG")]
+        [col for col in df_samples.columns if col.startswith("ENSG")]
 
     # Get the Ensembl IDs without the version
     genes_columns = [col.split(".")[0] for col in genes_columns_old]
 
     # Rename the columns containing gene expression data
-    samples_df = \
-        samples_df.rename(\
+    df_samples = \
+        df_samples.rename(\
             mapper = dict(zip(genes_columns_old, genes_columns)),
             axis = 1)
 
     # Get the names of the other columns
     other_columns = \
-        [col for col in samples_df.columns if col not in genes_columns]
+        [col for col in df_samples.columns if col not in genes_columns]
 
     # If additional columns were found
     if other_columns:
@@ -222,7 +188,7 @@ def preprocess_samples(samples_df,
     logger.info(infostr)
 
     # Get duplicate samples, if any
-    duplicated_samples = samples_df.duplicated(keep = "first")
+    duplicated_samples = df_samples.duplicated(keep = "first")
 
     # If duplicate samples were found
     if duplicated_samples.any():
@@ -237,7 +203,7 @@ def preprocess_samples(samples_df,
         logger.warning(warnstr)
 
         # Remove the duplicate samples
-        samples_df = samples_df[~duplicated_samples]
+        df_samples = df_samples[~duplicated_samples]
 
     # Otherwise
     else:
@@ -259,7 +225,7 @@ def preprocess_samples(samples_df,
 
     # Get samples containing missing values in the columns containing
     # gene counts
-    na_samples = samples_df[genes_columns].isnull().any(axis = 1)
+    na_samples = df_samples[genes_columns].isnull().any(axis = 1)
 
     # If there are samples containing missing values
     if na_samples.any():
@@ -273,7 +239,7 @@ def preprocess_samples(samples_df,
         logger.warning(warnstr)
 
         # Remove the samples with missing values
-        samples_df = samples_df[~na_samples]
+        df_samples = df_samples[~na_samples]
 
     # Otherwise
     else:
@@ -320,15 +286,23 @@ def preprocess_samples(samples_df,
     # Load the list of genes used to train the DGD model
     genes_list_dgd = misc.get_list(list_file = DGD_GENES_FILE)
 
-    # Warn the user that the columns have been rearranged
-    warnstr = \
+    # Warn the user that the genes' columns were rearranged
+    infostr = \
+        "In the data frame containing the pre-processed samples, " \
+        "the columns containing gene expression data will be " \
+        "ordered according to the list of genes used to train " \
+        f"the DGD model (which can be found in '{DGD_GENES_FILE}')."
+    logger.info(infostr)
+
+    # Warn the user that the other columns were rearranged
+    infostr = \
         "In the data frame containing the pre-processed samples, " \
         "the columns found in the input data frame which did not " \
         "contain gene expression data, if any were present, " \
         "will appended as the last columns of the data frame, " \
         "and appear in the same order as they did in the input data " \
         "frame."
-    logger.warning(warnstr)
+    logger.info(infostr)
 
     # Select only the genes used to train the DGD model
     # from the samples' data frame to obrain the data frame
@@ -336,7 +310,7 @@ def preprocess_samples(samples_df,
     # (= genes) in the order expected by the DGD model, and,
     # if no data were found for some genes, add a default
     # count of 0
-    preproc_df = samples_df.reindex(genes_list_dgd + other_columns,
+    df_preproc = df_samples.reindex(genes_list_dgd + other_columns,
                                     axis = 1,
                                     fill_value = 0)
 
@@ -362,6 +336,15 @@ def preprocess_samples(samples_df,
             "data frame of preprocessed samples."
         logger.warning(warnstr)
 
+    # Otherwise
+    else:
+
+        # Inform the user that no genes to be excluded were found
+        infostr = \
+            "All genes found in the input samples are part of the " \
+            "set of genes used to train the DGD model."
+        logger.info(infostr)
+
     # Create a list containing the genes present in the list of genes
     # used to train the DGD model but not in the original data frame.
     # Use lists instead of sets (which would be faster) to preserve
@@ -380,15 +363,26 @@ def preprocess_samples(samples_df,
             "them in all preprocessed samples."
         logger.warning(warnstr)
 
+    # Otherwise
+    else:
+
+        # Inform the user that no genes with missing counts were
+        # found
+        infostr = \
+            "All genes used to train the DGD model were found " \
+            "in the input samples."
+        logger.info(infostr)
+
     # Return the data frame with the preprocessed samples and the
     # two lists
-    return preproc_df, genes_excluded, genes_missing
+    return df_preproc, genes_excluded, genes_missing
 
 
 #----------------------------- Load data -----------------------------#
 
 
 def load_samples(csv_file,
+                 sep = ",",
                  keep_samples_names = True):
     """Load the data frame containing the gene expression data for
     the samples.
@@ -398,50 +392,72 @@ def load_samples(csv_file,
     csv_file : `str``
         A CSV file containing the samples' data.
 
+        The rows of the data frame should represent the samples,
+        while the columns should represent the genes and any
+        additional information about the samples.
+
+    sep : ``str``, ``","``
+        The column separator in the input CSV file.
+
     keep_samples_names : ``bool``, default: ``True``
-        Whether to keep the name assigned to the samples in
-        the input dataframe, if any were found.
+        Whether to keep the names/IDs/indexes assigned to the
+        samples in the input data frame, if any were found.
+
+        If ``True``, the names/IDs/indexes are assumed to be in
+        the first column of the input data frame.
 
     Returns
     -------
-    ``tuple``
-        A ``tuple`` containing:
+    df_expr_data : ``pandas.DataFrame``
+        A data frame containing the gene expression data.
 
-        * A ``bulkDGD.core.dataclasses.GeneExpressionDataset``
-          object with the dataset.
-        * A ``list`` representing the unique indexes of the samples.
-        * A ``list`` representing the genes in the dataset.
-        * A ``pandas.DataFrame`` with the labels of the tissues the
-          samples belong to. It will be empty if no column containing
-          tissue information is found in the input data frame.
+        Here, the rows represent the samples and the columns
+        represent the genes.
+
+    df_other_data : ``pandas.DataFrame``
+        A data frame containing the additional information
+        about the samples.
+
+        Here, the rows represent the samples and the columns
+        represent any additional information about the samples found
+        in the input data frame.
     """
 
 
-    #-------------------- Samples' names/indexes ---------------------#
+    #---------------------- Load the data frame ----------------------#
 
 
-    # If we need to keep the samples' names
+    # If we need to keep the original samples' names
     if keep_samples_names:
         
         # Load the data frame assuming the samples' names
-        # are the dataframe's rows' names (= index)
+        # are the data frame's rows' names (= index)
         df = pd.read_csv(csv_file,
-                         sep = ",",
-                         index_col = 0)
-
-        # The samples' indexes will be the samples' names
-        indexes = df.index.tolist()
+                         sep = sep,
+                         index_col = 0,
+                         header = 0)
 
     # Otherwise
     else:
 
         # Load the data frame assuming there is no index
         df = pd.read_csv(csv_file,
-                         sep = ",",
-                         index_col = False)
+                         sep = sep,
+                         index_col = False,
+                         header = 0)
 
-        # Create the unique samples' indexes
-        indexes = list(range(len(df)))
+        # Inform the user that numeric indexes will be used
+        infostr = \
+            "Since 'keep_samples_names = False', the samples " \
+            "will be identifies using integer indexes starting " \
+            "from 0."
+        logger.info(infostr)
+
+        # Set the indexes to numeric indexes
+        df.index = range(len(df))
+
+
+    #--------------------- Split the data frame ----------------------#
 
 
     # Get the names of the columns containing gene expression data
@@ -465,11 +481,11 @@ def load_samples(csv_file,
 
     # Create a data frame with only those columns containing gene
     # expression data    
-    df_expr_data = df[genes_columns]
+    df_expr_data = df.loc[:,genes_columns]
 
     # Create a data frame with only those columns containing
     # additional information    
-    df_other_data = df[other_columns]
+    df_other_data = df.loc[:,other_columns]
 
 
     #------------------------ Check the genes ------------------------#
@@ -478,7 +494,7 @@ def load_samples(csv_file,
     # Load the list of genes used to train the DGD model
     genes = misc.get_list(list_file = DGD_GENES_FILE)
 
-    # CIf the genes in the samples are not the same as those
+    # If the genes in the samples are not the same as those
     # used to train the DGD model
     if genes != df_expr_data.columns.tolist():
 
@@ -487,29 +503,24 @@ def load_samples(csv_file,
             f"The genes whose counts are reported in '{csv_file}' " \
             f"do not correspond to those used to train the DGD " \
             f"model. You can find the the genes (in the order in " \
-            f"which they should appear in the data frame) in " \
+            f"which they should appear in the input data frame) in " \
             f"'{DGD_GENES_FILE}'."
         raise ValueError(errstr)
 
 
-    #---------------------- Create the dataset -----------------------#
+    #-------------------- Return the data frames ---------------------#
 
-
-    # Create the dataset
-    dataset = dataclasses.GeneExpressionDataset(df = df_expr_data)
-
-    # Load the dataset and the data dimensionality and
-    # return the data of interest
-    data = (dataset, indexes, genes, df_other_data)
 
     # Inform the user about the number of samples found in the dataset
-    logger.info(f"{len(indexes)} sample(s) were found in the dataset.")
+    logger.info(\
+        f"{len(df_expr_data)} sample(s) were found in the dataset.")
 
     # Return the data
-    return data
+    return df_expr_data, df_other_data
 
 
-def load_representations(csv_file):
+def load_representations(csv_file,
+                         sep = ","):
     """Load the representations from a CSV file.
 
     Parameters
@@ -517,24 +528,47 @@ def load_representations(csv_file):
     csv_file : ``str``
         A CSV file containing a data frame with the representations.
 
+        Each row should contain a representation. The columns should
+        contain the representation's values along the latent
+        space's dimensions and additional informations about
+        the representations, if present (for instance, the loss
+        associated with each representation).
+
+    sep : ``str``, ``","``
+        The column separator in the input CSV file.
+
     Returns
     -------
-    ``tuple``
-        A tuple containing:
+    df_rep_data : ``pandas.DataFrame``
+        A data frame containing the representations'
+        values along the latent space's dimensions.
 
-        * A ``pandas.DataFrame`` containing the representations'
-          values along the latent space's dimensions.
-        * A ``pandas.DataFrame`` containing extra information about
-          the representations found in the input data frame (for
-          instance, the tissues from which the original samples
-          came from).
+        Here, each row contains a representation and the columns
+        contain the representations' values along the latent
+        space's dimensions.
+
+    df_other_data : ``pandas.DataFrame``
+        A data frame containing the additional information about
+        the representations found in the input data frame.
+
+        Here, each row contains a representation and the columns
+        contain additional information about the representations
+        provided in the input data frame.
     """
+
+
+    #---------------------- Load the data frame ----------------------#
+
 
     # Load the data frame with the representations
     df = pd.read_csv(csv_file,
-                     sep = ",",
+                     sep = sep,
                      index_col = 0,
                      header = 0)
+
+
+    #--------------------- Split the data frame ----------------------#
+
 
     # Get the names of the columns containing the values of
     # the representations along the latent space's dimensions
@@ -561,7 +595,8 @@ def load_representations(csv_file):
     return df[latent_dims_columns], df[other_columns]
 
 
-def load_decoder_outputs(csv_file):
+def load_decoder_outputs(csv_file,
+                         sep = ","):
     """Load the decoder outputs from a CSV file.
 
     Parameters
@@ -569,15 +604,48 @@ def load_decoder_outputs(csv_file):
     csv_file : ``str``
         A CSV file containing a data frame with the decoder outputs.
 
+        Each row should represent the decoder output for a given
+        representation, while each columns should contain either the
+        values of the decoder output or additional information
+        about the decoder outputs.
+
+    sep : ``str``, ``","``
+        The column separator in the input CSV file.
+
     Returns
     -------
+    df_dec_data : ``pandas.DataFrame``
+        A data frame containing the decoder outputs.
+
+        Here, each row contains the decoder output for a given
+        representation. and the columns contain the values
+        of the decoder output.
+
+    df_other_data : ``pandas.DataFrame``
+        A data frame containing additional information about
+        the decoder outputs found in the input data frame (for
+        instance, the tissues from which the original samples
+        came from).
+
+        Here, each row contains the decoder output for a given
+        representations and the columns contain additional
+        information about the decoder outputs provided in the
+        input data frame.
     """
+
+
+    #---------------------- Load the data frame ----------------------#
+
 
     # Load the data frame with the decoder outputs
     df = pd.read_csv(csv_file,
-                     sep = ",",
+                     sep = sep,
                      index_col = 0,
                      header = 0)
+
+
+    #--------------------- Split the data frame ----------------------#
+
 
     # Get the names of the columns containing the decoder outputs
     # for the genes
@@ -604,32 +672,101 @@ def load_decoder_outputs(csv_file):
     return df[dec_out_columns], df[other_columns]
 
 
-#----------------------- Initialize the model ------------------------#
-
-
-def get_gmm(dim,
-            config):
-    """Initialize the Gaussian mixture model, load its state,
-    and return it.
+def save_samples(df,
+                 csv_file,
+                 sep = ","):
+    """Save the samples to a CSV file.
 
     Parameters
     ----------
-    dim : ``int``
-        The simensionality of the space for the Gaussian
-        mixture model.
+    df : ``pandas.DataFrame``
+        A data frame containing the samples.
 
+    csv_file : ``str``
+        The output CSV file.
+
+    sep : ``str``, ``","``
+        The column separator in the output CSV file.
+    """
+
+    # Save the representations
+    df.to_csv(csv_file,
+              sep = sep,
+              index = True,
+              header = True)
+
+
+def save_representations(df,
+                         csv_file,
+                         sep = ","):
+    """Save the representations to a CSV file.
+
+    Parameters
+    ----------
+    df : ``pandas.DataFrame``
+        A data frame containing the representations.
+
+    csv_file : ``str``
+        The output CSV file.
+
+    sep : ``str``, ``","``
+        The column separator in the output CSV file.
+    """
+
+    # Save the representations
+    df.to_csv(csv_file,
+              sep = sep,
+              index = True,
+              header = True)
+
+
+def save_decoder_outputs(df,
+                         csv_file,
+                         sep = ","):
+    """Save the decoder outputs to a CSV file.
+
+    Parameters
+    ----------
+    df : ``pandas.DataFrame``
+        A data frame containing the decoder outputs.
+
+    csv_file : ``str``
+        The output CSV file.
+
+    sep : ``str``, ``","``
+        The column separator in the output CSV file.
+    """
+
+    # Save the decoder outputs
+    df.to_csv(csv_file,
+              sep = sep,
+              index = True,
+              header = True)
+
+
+#----------------------- Initialize the model ------------------------#
+
+
+def get_gmm(config):
+    """Initialize the Gaussian mixture model, load its trained
+    parameters, and return it.
+
+    Parameters
+    ----------
     config : ``dict``
         A dictionary containing the options for initializing
-        the Gaussian mixture model and loading its state.
+        the Gaussian mixture model and loading its trained
+        parameters.
 
     Returns
     -------
-    ``bulkDGD.core.latent.GaussianMixtureModel``
-        The Gaussian mixture model.
+    gmm : ``bulkDGD.core.latent.GaussianMixtureModel``
+        The trained Gaussian mixture model.
     """
 
-    # Set the prior for the means of the Gaussian components
-    # of the model
+
+    #----------------- Get the prior over the means ------------------#
+
 
     # Get the type of prior
     prior_type = config["mean_prior"]["type"]
@@ -644,14 +781,27 @@ def get_gmm(dim,
     if prior_type == "softball":
 
         # Initialize the prior
-        mean_prior = priors.softball(dim = dim,
-                                     **config_prior)
+        mean_prior = \
+            priors.SoftballPrior(dim = config["options"]["dim"],
+                                 **config_prior)
+
+    # Otherwise
+    else:
+
+        # Raise an error
+        errstr = \
+            f"Invalid prior type '{prior_type}'. Available " \
+            f"types are: {', '.join(AVAILABLE_OPTIMIZERS)}."
+        raise ValueError(errstr)
+
+
+    #---------------------- Initialize the GMM -----------------------#
+
 
     # Try to initialize the GMM
     try:
 
-        gmm = latent.GaussianMixtureModel(dim = dim,
-                                          mean_prior = mean_prior,
+        gmm = latent.GaussianMixtureModel(mean_prior = mean_prior,
                                           **config["options"])
 
     # If something went wrong
@@ -668,7 +818,11 @@ def get_gmm(dim,
         "The Gaussian mixture model was successfully initialized."
     logger.info(infostr)
 
-    # Try to load the model's state
+
+    #------------------ Load the GMM's paramenters -------------------#
+
+
+    # Try to load the model's parameters
     try:
 
         gmm.load_state_dict(torch.load(pth_file))
@@ -679,40 +833,40 @@ def get_gmm(dim,
         # Raise an error
         errstr = \
             f"It was not possible to load the Gaussian " \
-            f"mixture model's state from '{pth_file}'. " \
+            f"mixture model's parameters from '{pth_file}'. " \
             f"Error: {e}"
         raise Exception(errstr)
 
-    # Inform the user that the GMM's state was successfully
+    # Inform the user that the GMM's parameters was successfully
     # loaded
     infostr = \
-        f"The Gaussian mixture model's state was successfully " \
-        f"loaded from '{pth_file}'."
+        f"The Gaussian mixture model's parameters was  " \
+        f"successfully loaded from '{pth_file}'."
     logger.info(infostr)
 
     # Return the model
     return gmm
 
 
-def get_decoder(dim,
-                config):
-    """Initialize the decoder, load its state,
+def get_decoder(config):
+    """Initialize the decoder, load its trained parameters,
     and return it.
 
     Parameters
     ----------
-    dim : ``int``
-        The dimensionality of the input space for the decoder.
-
     config : ``dict``
         A dictionary containing the options for initializing
-        the decoder and loading its state.
+        the decoder and loading its trained parameters.
 
     Returns
     -------
-    ``bulkDGD.core.decoder.Decoder``
+    dec : ``bulkDGD.core.decoder.Decoder``
         The trained decoder.
     """
+
+
+    #-------------------- Initialize the decoder ---------------------#
+
 
     # Get the PyTorch file
     pth_file = config["pth_file"]
@@ -720,8 +874,7 @@ def get_decoder(dim,
     # Try to initialize the decoder
     try:
         
-        dec = decoder.Decoder(n_neurons_latent = dim,
-                              **config["options"])
+        dec = decoder.Decoder(**config["options"])
 
     # If something went wrong
     except Exception as e:
@@ -738,7 +891,11 @@ def get_decoder(dim,
         "The decoder was successfully initialized."
     logger.info(infostr)
 
-    # Try to load the model's state
+
+    #----------------- Load the decoder's parameters -----------------#
+
+
+    # Try to load the model's parameters
     try:
 
         dec.load_state_dict(torch.load(pth_file))
@@ -749,13 +906,13 @@ def get_decoder(dim,
         # Raise an error
         errstr = \
             f"It was not possible to load the decoder's " \
-            f"state from '{pth_file}'. Error: {e}"
+            f"parameters from '{pth_file}'. Error: {e}"
         raise Exception(errstr)
 
-    # Inform the user that the decoder's state was successfully
+    # Inform the user that the decoder's parameters were successfully
     # loaded
     infostr = \
-        f"The decoder's state was successfully " \
+        f"The decoder's parameters were successfully " \
         f"loaded from '{pth_file}'."
     logger.info(infostr)
 
@@ -763,134 +920,77 @@ def get_decoder(dim,
     return dec
 
 
-def get_rep_layer(dim,
-                  config):
-    """Initialize the representation layer, load its state,
-    and return it.
+def get_model(config_gmm,
+              config_dec):
+    """Get the trained DGD model (trained Gaussian mixture model
+    and the trained decoder).
 
     Parameters
     ----------
-    dim : ``int``
-        The dimensionality of the representation layer.
-
-    config : ``dict``
+    config_gmm : ``dict``
         A dictionary containing the options for initializing
-        the representation layer and loading its state.
+        the Gaussian mixture model and loading its state.
+
+    config_dec : ``dict``
+        A dictionary containing the options for initializing
+        the decoder and loading its state.
 
     Returns
     -------
-    ``bulkDGD.core.latent.RepresentationLayer``
-        The representation layer.
+    gmm : ``bulkDGD.core.latent.GaussianMixtureModel``
+        The Gaussian mixture model.
+
+    dec : ``bulkDGD.core.decoder.Decoder``
+        The trained decoder.
     """
 
-    # Get the PyTorch file
-    pth_file = config["pth_file"]
 
-    # Get the number of training samples
-    n_samples = config["options"]["n_samples"]
-
-    # Get the values
-    values = torch.zeros(size = (n_samples, dim))
-
-    # Try to initialize the representation layer
-    try:
-
-        rep_layer = latent.RepresentationLayer(values = values)
-    
-    # If something went wront
-    except Exception as e:
-
-        # Raise an error
-        errstr = \
-            f"It was not possible to initialize the " \
-            f"representation layer. Error: {e}"
-        raise Exception(errstr)
-
-    # Inform the user that the representation layer was
-    # successfully initialized
-    infostr = \
-        "The representation layer was successfully " \
-        "initialized."
-    logger.info(infostr)   
-    
-    # Try to load the representation layer's state
-    try:
-
-        rep_layer.load_state_dict(torch.load(pth_file))
-
-    # If something went wrong
-    except Exception as e:
-
-        # Raise an error
-        errstr = \
-            f"It was not possible to load the representation " \
-            f"layers's state from '{pth_file}'. Error: {e}"
-        raise Exception(errstr)
-
-    # Inform the user that the representation layer's state
-    # was successfully loaded
-    infostr = \
-        f"The representation layers's state was successfully " \
-        f"loaded from '{pth_file}'."
-    logger.info(infostr)
-
-    # Return the representation layer
-    return rep_layer
+    #---------------- Get the Gaussian mixture model -----------------#
 
 
-def load_training_representations():
-    """Load the representations of the samples belonging to the
-    DGD model's training set as a data frame.
-    """
+    # Get the trained Gaussian mixture model
+    gmm = get_gmm(config = config_gmm)
 
-    # Load the representations' values
-    rep = torch.load(REP_FILE)["_z"].numpy()
 
-    # Create a data frame containing the representation values
-    df_training_rep = pd.DataFrame(rep)
+    #------------------------ Get the decoder ------------------------#
 
-    # Return the data frame
-    return df_training_rep
+
+    # Get the trained decoder
+    dec = get_decoder(config = config_dec)
+
+    # Return the GMM and the decoder
+    return gmm, dec
 
 
 #-------------------------- Representations --------------------------#
 
 
-def get_representations(dataloader,
-                        indexes,
+def get_representations(df,
                         gmm,
                         dec,
-                        n_genes,
-                        n_samples_per_comp,
-                        dim,
+                        n_rep_per_comp,
+                        config_data,
                         config_opt1,
                         config_opt2):
     """Initialize and optimize the representations.
 
     Parameters
     ----------
-    dataloader : ``torch.utils.data.DataLoader``
-        The ``DataLoader`` object containing the gene expression
-        data for the samples.
+    df : ``pandas.DataFrame``
+        A data frame containing the samples.
 
-    indexes : ``list``
-        A list of unique indexes representing the samples.
-
-    gmm : ``DGDPerturbations.core.latent.GaussianMixtureModel``
+    gmm : ``bulkDGD.core.latent.GaussianMixtureModel``
         The trained Gaussian mixture model.
 
-    dec : ``DGDPerturbations.core.decoder.Decoder``
+    dec : ``bulkDGD.core.decoder.Decoder``
         The trained decoder.
 
-    n_genes : ``int``
-        The number of genes in the dataset.
-
-    n_samples_per_comp : ``int``
+    n_rep_per_comp : ``int``
         The number of new representations to be taken
         per component per sample.
 
-    dim : ``int``
-        The dimensionality of the Gaussian mixture model.
+    config_data : ``dict``
+        A dictionary of options to load the data.
     
     config_opt1 : ``dict``
         A dictionary of options for the initial optimization.
@@ -900,13 +1000,65 @@ def get_representations(dataloader,
 
     Returns
     -------
-    ``tuple``
-        A tuple containing a ``pandas.DataFrame`` with the loss,
-        and a ``np.ndarray`` containing the best representation
-        for each sample.
+    df_rep : ``pandas.DataFrame``
+        A data frame containing the representations.
+
+        Here, each row contains a representation and the
+        columns contain either the values of the representations'
+        along the latent space's dimensions or additional
+        information about the input samples found in the
+        input data frame. Columns containing additional
+        information, if present in the input data frame, will
+        appear last in the data frame.
+
+    df_dec_out : ``pandas.DataFrame``
+        A data frame containing the decoder outputs
+        corresponding to the representations found.
+
+        Here, each row contains the decoder output for a given
+        representation, and the columns contain either the
+        values of the decoder outputs or additional information
+        about the input samples found in the input
+        data frame. Columns containing additional
+        information, if present in the input data frame, will
+        appear last in the data frame.
     """
 
-    n_samples = len(indexes)
+    # Get the columns containing gene expression data
+    genes_columns = \
+        [col for col in df.columns if col.startswith("ENSG")]
+
+    # Get the other columns
+    other_columns = \
+        [col for col in df.columns if col not in genes_columns]
+
+    # Keep only the columns containing gene expression data
+    df_expr_data = df[genes_columns]
+
+    # Get a data frame with only the columns containing additional
+    # data
+    df_other_data = df[other_columns]
+
+    # Create the dataset
+    dataset = dataclasses.GeneExpressionDataset(df = df_expr_data)
+
+    # Create the data loader
+    dataloader = DataLoader(dataset, **config_data)
+
+    # Get the number of samples and genes in the dataset from
+    # the input data frame's shape
+    n_samples, n_genes = df_expr_data.shape
+
+    # Get the samples' names in the original order
+    ordered_samples_names = df_expr_data.index
+
+    # Create a dictionary mapping each sample's unique numeric
+    # index in the DataLoader to its name
+    ixs2names = dict(zip(range(len(ordered_samples_names)),
+                         ordered_samples_names))
+
+    # Get the dimensionality of the latent space
+    dim = gmm.dim
 
 
     #---------------------- First optimization -----------------------#
@@ -924,7 +1076,7 @@ def get_representations(dataloader,
     #                  component per sample ->
     #                  'n_samples' *
     #                  'n_comp' * 
-    #                  'n_samples_per_comp'
+    #                  'n_rep_per_comp'
     #
     # - 2nd dimension: the dimensionality of the Gaussian mixture
     #                  model ->
@@ -932,7 +1084,7 @@ def get_representations(dataloader,
     rep_init_values = \
         gmm.sample_new_points(n_points = n_samples, 
                               sampling_method = "mean",
-                              n_samples_per_comp = n_samples_per_comp)
+                              n_samples_per_comp = n_rep_per_comp)
 
     # Initialize the representation layer with 'dim'
     # dimensions and 'n_samples' samples that have values
@@ -988,36 +1140,36 @@ def get_representations(dataloader,
         # Make the gradients zero
         rep_samples_optimizer.zero_grad()
 
+        # Get the representations' values from the representation
+        # layer. The representations are stored in a 2D tensor with:
+        #
+        # - 1st dimension: the number of samples in the current
+        #                  batch times the number of components
+        #                  in the Gaussian mixture model times the
+        #                  number of representations taken per
+        #                  component per sample ->
+        #                  'n_samples' * 
+        #                  'n_comp' *
+        #                  'n_rep_per_comp'
+        #
+        # - 2nd dimension: the dimensionality of the Gaussian
+        #                  mixture model ->
+        #                  'dim'
+        z_all = rep_samples_layer.z
+
         # For each batch:
-        # 'expr' : gene expression for all samples in the batch
-        # 'mean_expr' : mean gene expression for all samples
+        # 'expr' : the gene expression for all samples in the batch
+        # 'mean_expr' : the mean gene expression for all samples
         #               in the batch
-        # 'sample_ixs' : the indexes of the samples in the batch
+        # 'sample_ixs' : the numeric indexes of the samples in
+        #                the batch
         for expr, mean_expr, sample_ixs in dataloader:
 
             # Get the number of samples in the batch
             n_samples_in_batch = len(sample_ixs)
 
-
             #------------ Initialize the representations -------------#
 
-
-            # Get the representations' values from the representation
-            # layer. The representations are stored in a 2D tensor with:
-            #
-            # - 1st dimension: the number of samples in the current
-            #                  batch times the number of components
-            #                  in the Gaussian mixture model times the
-            #                  number of representations taken per
-            #                  component per sample ->
-            #                  'n_samples_in_batch' * 
-            #                  'n_comp' *
-            #                  'n_samples_per_comp'
-            #
-            # - 2nd dimension: the dimensionality of the Gaussian
-            #                  mixture model ->
-            #                  'dim'
-            z_raw = rep_samples_layer.z
 
             # Reshape the tensor containing the representations. The
             # output is a 4D tensor with:
@@ -1028,7 +1180,7 @@ def get_representations(dataloader,
             # 
             # - 2nd dimension: the number of representations taken
             #                  per component per sample ->
-            #                  'n_samples_per_comp'
+            #                  'n_rep_per_comp'
             #
             # - 3rd dimension: the number of components in the
             #                  Gaussian mixture model ->
@@ -1037,10 +1189,10 @@ def get_representations(dataloader,
             # - 4th dimension: the dimensionality of the Gaussian
             #                  mixture model ->
             #                  'dim'
-            z_reshaped = z_raw.view(n_samples,
-                                    n_samples_per_comp,
-                                    n_comp,
-                                    dim)[sample_ixs]
+            z_4d = z_all.view(n_samples,
+                              n_rep_per_comp,
+                              n_comp,
+                              dim)[sample_ixs]
 
             # Reshape it again. The output is a 2D tensor with:
             #
@@ -1050,16 +1202,16 @@ def get_representations(dataloader,
             #                  number of representations taken per
             #                  component per sample ->
             #                  'n_samples_in_batch' * 
-            #                  'n_samples_per_comp' *
+            #                  'n_rep_per_comp' *
             #                  'n_comp'
             #
             # - 2nd dimension: the dimensionality of the Gaussian
             #                  mixture model ->
             #                  'dim'
-            z = z_reshaped.view(n_samples_in_batch * \
-                                    n_samples_per_comp * \
-                                    n_comp,
-                                dim)
+            z = z_4d.view(n_samples_in_batch * \
+                            n_rep_per_comp * \
+                            n_comp,
+                          dim)
 
             #-------------- Decode the representations ---------------#
 
@@ -1075,7 +1227,7 @@ def get_representations(dataloader,
             #                  component per sample ->
             #                  'n_samples_in_batch' * 
             #                  'n_comp' *
-            #                  'n_samples_per_comp'
+            #                  'n_rep_per_comp'
             #
             # - 2nd dimension: the dimensionality of the output
             #                  (= gene) space ->
@@ -1095,17 +1247,17 @@ def get_representations(dataloader,
             #
             # - 2nd dimension: the number of representations taken
             #                  per component per sample ->
-            #                  'n_samples_per_comp'
+            #                  'n_rep_per_comp'
             #
-            # -3rd dimension: the number of components in the Gaussian
-            #                 mixture model -> 'n_comp'
+            # - 3rd dimension: the number of components in the Gaussian
+            #                  mixture model -> 'n_comp'
             #
             # - 4th dimension: the dimensionality of the output
             #                  (= gene) space -> 'n_genes'
             obs_count = \
                 expr.unsqueeze(1).unsqueeze(1).expand(\
                     -1,
-                    n_samples_per_comp,
+                    n_rep_per_comp,
                     n_comp,
                     -1)
 
@@ -1134,7 +1286,7 @@ def get_representations(dataloader,
             #
             # - 2nd dimension: the number of representations taken
             #                  per component per sample ->
-            #                  'n_samples_per_comp'
+            #                  'n_rep_per_comp'
             #
             # -3rd dimension: the number of components in the Gaussian
             #                 mixture model -> 'n_comp'
@@ -1142,7 +1294,7 @@ def get_representations(dataloader,
             # - 4th dimension: the dimensionality of the output
             #                  (= gene) space -> 'n_genes'      
             pred_mean = dec_out.view(n_samples_in_batch,
-                                     n_samples_per_comp,
+                                     n_rep_per_comp,
                                      n_comp,
                                      n_genes)
 
@@ -1155,7 +1307,7 @@ def get_representations(dataloader,
             # 
             # - 2nd dimension: the number of representations taken
             #                  per component per sample ->
-            #                  'n_samples_per_comp'
+            #                  'n_rep_per_comp'
             #
             # - 3rd dimension: the number of components in the
             #                  Gaussian mixture model ->
@@ -1190,7 +1342,7 @@ def get_representations(dataloader,
             #                  component per sample ->
             #                  'n_samples_in_batch' * 
             #                  'n_comp' *
-            #                  'n_samples_per_comp'
+            #                  'n_rep_per_comp'
             gmm_loss = gmm(z)
 
             # Get the total GMM loss by summing over all values in
@@ -1220,7 +1372,7 @@ def get_representations(dataloader,
             # Update the average loss for the current epoch
             rep_avg_loss[epoch-1] += \
                 total_loss.item() / (n_samples * n_genes * \
-                                     n_comp * n_samples_per_comp)
+                                     n_comp * n_rep_per_comp)
 
 
         #------------------------ Take a step ------------------------#
@@ -1250,28 +1402,46 @@ def get_representations(dataloader,
     #                  model ->
     #                  'dim'
     rep_new_values = torch.empty((n_samples, dim))
+
+    # Get the representations' values from the representation
+    # layer. The representations are stored in a 2D tensor with:
+    #
+    # - 1st dimension: the number of samples in the current
+    #                  batch times the number of components
+    #                  in the Gaussian mixture model times the
+    #                  number of representations taken per
+    #                  component per sample ->
+    #                  'n_samples' * 
+    #                  'n_comp' *
+    #                  'n_rep_per_comp'
+    #
+    # - 2nd dimension: the dimensionality of the Gaussian
+    #                  mixture model ->
+    #                  'dim'
+    z_all_after_optim1 = rep_samples_layer.z
     
     # For each batch:
-    # 'expr' : gene expression for all samples in the batch
-    # 'mean_expr' : mean gene expression for all samples
+    # 'expr' : the gene expression for all samples in the batch
+    # 'mean_expr' : the mean gene expression for all samples
     #               in the batch
-    # 'sample_ixs' : the indexes of the samples in the batch
+    # 'sample_ixs' : the numeric indexes of the samples
+    #                in the batch
     for expr, mean_expr, sample_ixs in dataloader:
 
         # Re-initialize the number of samples in the current batch
         # since we are looping again over the dataset
         n_samples_in_batch = len(sample_ixs)
 
-        # 'z_raw' is a 2D tensor with:
+        # 'z_all_after_optim1' is a 2D tensor with:
         #
         # - 1st dimension: the number of samples in the current
         #                  batch times the number of components
         #                  in the Gaussian mixture model times the
         #                  number of representations taken per
         #                  component per sample ->
-        #                  'n_samples_in_batch' * 
+        #                  'n_samples' * 
         #                  'n_comp' *
-        #                  'n_samples_per_comp'
+        #                  'n_rep_per_comp'
         #
         # - 2nd dimension: the dimensionality of the Gaussian
         #                  mixture model ->
@@ -1286,7 +1456,7 @@ def get_representations(dataloader,
         # 
         # - 2nd dimension: the number of representations taken per
         #                  component per sample ->
-        #                  'n_samples_per_comp'
+        #                  'n_rep_per_comp'
         #
         # - 3rd dimension: the number of components in the Gaussian
         #                  mixture model ->
@@ -1295,10 +1465,11 @@ def get_representations(dataloader,
         # - 4th dimension: the dimensionality of the Gaussian
         #                  mixture model ->
         #                  'dim'
-        z_reshaped = z_raw.view(n_samples,
-                                n_samples_per_comp,
-                                n_comp,
-                                dim)[sample_ixs]
+        z_4d = \
+            z_all_after_optim1.view(n_samples,
+                                    n_rep_per_comp,
+                                    n_comp,
+                                    dim)[sample_ixs]
 
         # Reshape it again. The output is a 2D tensor with:
         #
@@ -1308,16 +1479,16 @@ def get_representations(dataloader,
         #                  number of representations taken per
         #                  component per sample ->
         #                  'n_samples_in_batch' * 
-        #                  'n_samples_per_comp' *
+        #                  'n_rep_per_comp' *
         #                  'n_comp'
         #
         # - 2nd dimension: the dimensionality of the Gaussian mixture
         #                  model ->
         #                  'dim'
-        z = z_reshaped.view(n_samples_in_batch * \
-                                n_samples_per_comp * \
-                                n_comp,
-                            dim)
+        z = z_4d.view(n_samples_in_batch * \
+                        n_rep_per_comp * \
+                        n_comp,
+                      dim)
 
         #---------------- Decode the representations -----------------#
 
@@ -1333,7 +1504,7 @@ def get_representations(dataloader,
         #                  component per sample ->
         #                  'n_samples_in_batch' * 
         #                  'n_comp' *
-        #                  'n_samples_per_comp'
+        #                  'n_rep_per_comp'
         #
         # - 2nd dimension: the dimensionality of the output
         #                  (= gene) space ->
@@ -1353,7 +1524,7 @@ def get_representations(dataloader,
         #
         # - 2nd dimension: the number of representations taken
         #                  per component per sample ->
-        #                  'n_samples_per_comp'
+        #                  'n_rep_per_comp'
         #
         # - 3rd dimension: the number of components in the Gaussian
         #                 mixture model -> 'n_comp'
@@ -1363,7 +1534,7 @@ def get_representations(dataloader,
         obs_count = \
             expr.unsqueeze(1).unsqueeze(1).expand(\
                 -1,
-                n_samples_per_comp,
+                n_rep_per_comp,
                 n_comp,
                 -1)
 
@@ -1392,7 +1563,7 @@ def get_representations(dataloader,
         #
         # - 2nd dimension: the number of representations taken
         #                  per component per sample ->
-        #                  'n_samples_per_comp'
+        #                  'n_rep_per_comp'
         #
         # - 3rd dimension: the number of components in the Gaussian
         #                  mixture model -> 'n_comp'
@@ -1400,7 +1571,7 @@ def get_representations(dataloader,
         # - 4th dimension: the dimensionality of the output
         #                  (= gene) space -> 'n_genes'      
         pred_mean = dec_out.view(n_samples_in_batch,
-                                 n_samples_per_comp,
+                                 n_rep_per_comp,
                                  n_comp,
                                  n_genes)
  
@@ -1414,7 +1585,7 @@ def get_representations(dataloader,
         # 
         # - 2nd dimension: the number of representations taken per
         #                  component per sample ->
-        #                  'n_samples_per_comp'
+        #                  'n_rep_per_comp'
         #
         # - 3rd dimension: the number of components in the Gaussian
         #                  mixture model ->
@@ -1438,7 +1609,7 @@ def get_representations(dataloader,
         #
         # - 2nd dimension: the number of representations taken per
         #                  component per sample ->
-        #                  'n_samples_per_comp'
+        #                  'n_rep_per_comp'
         #
         # - 3rd dimension: the number of components in the Gaussian
         #                  mixture model ->
@@ -1457,10 +1628,10 @@ def get_representations(dataloader,
         #                  component per sample ->
         #                  'n_samples_in_batch' * 
         #                  'n_comp' *
-        #                  'n_samples_per_comp'
+        #                  'n_rep_per_comp'
         recon_loss_sum_reshaped = \
             recon_loss_sum.view(n_samples_in_batch * \
-                                n_samples_per_comp * \
+                                n_rep_per_comp * \
                                 n_comp)
 
         #--------------- Compute the overall GMM loss ----------------#
@@ -1480,7 +1651,7 @@ def get_representations(dataloader,
         #                  component per sample ->
         #                  'n_samples_in_batch' * 
         #                  'n_comp' *
-        #                  'n_samples_per_comp'
+        #                  'n_rep_per_comp'
         gmm_loss = gmm(z).clone()
 
 
@@ -1489,7 +1660,7 @@ def get_representations(dataloader,
 
         # Get the total loss. The loss has has many components as the
         # total number of representations computed for the current
-        # batch ('n_samples_per_comp' * 'n_comp'
+        # batch ('n_rep_per_comp' * 'n_comp'
         # representations for each sample in the batch).
         # The output is a 1D tensor with:
         #
@@ -1500,7 +1671,7 @@ def get_representations(dataloader,
         #                  component per sample ->
         #                  'n_samples_in_batch' * 
         #                  'n_comp' *
-        #                  'n_samples_per_comp'
+        #                  'n_rep_per_comp'
         total_loss = recon_loss_sum_reshaped + gmm_loss
 
 
@@ -1514,10 +1685,10 @@ def get_representations(dataloader,
         #                  per component of the Gaussian mixture
         #                  model per sample times the number of
         #                  components -> 
-        #                  'n_samples_per_comp' * 'n_comp'
+        #                  'n_rep_per_comp' * 'n_comp'
         total_loss_reshaped = \
             total_loss.view(n_samples_in_batch,
-                            n_samples_per_comp * n_comp)
+                            n_rep_per_comp * n_comp)
 
         # Get the best representation for each sample in the
         # current batch. The output is a 1D tensor with:
@@ -1528,7 +1699,7 @@ def get_representations(dataloader,
                                            dim = 1).squeeze(-1)
 
         # Get the best representations for the samples in the batch
-        # from the 'n_samples_per_comp' * 'n_comp'
+        # from the 'n_rep_per_comp' * 'n_comp'
         # representations taken for each sample.
         # The output is a 2D tensor with:
         #
@@ -1541,7 +1712,7 @@ def get_representations(dataloader,
         #                  'dim'
         rep_new_values[sample_ixs] = \
             z.view(n_samples_in_batch,
-                   n_samples_per_comp * n_comp,
+                   n_rep_per_comp * n_comp,
                    dim)[range(n_samples_in_batch), best_rep_per_sample]
 
 
@@ -1603,10 +1774,11 @@ def get_representations(dataloader,
         sample_avg_loss = np.zeros(n_samples)
         
         # For each batch:
-        # 'expr' : gene expression for all samples in the batch
-        # 'mean_expr' : mean gene expression for all samples
+        # 'expr' : the gene expression for all samples in the batch
+        # 'mean_expr' : the mean gene expression for all samples
         #               in the batch
-        # 'sample_ixs' : the indexes of the samples in the batch
+        # 'sample_ixs' : the numeric indexes of the samples
+        #                in the batch
         for expr, mean_expr, sample_ixs in dataloader:
 
             # Find the best representations corresponding to the
@@ -1727,7 +1899,7 @@ def get_representations(dataloader,
             # Update the best average for the current epoch
             rep_avg_loss[epoch-1] += \
                 total_loss.item() / \
-                (n_samples * n_genes * n_samples_per_comp)
+                (n_samples * n_genes * n_rep_per_comp)
         
         # Take an optimization step
         best_rep_optimizer.step()
@@ -1739,75 +1911,141 @@ def get_representations(dataloader,
         # If we reached the last epoch
         if epoch == config_opt2["epochs"]:
 
-
-            #---------------------- Loss series ----------------------#
-
-
-            # Create a series to store the loss
-            series_loss = pd.Series(sample_avg_loss)
-
-
-            #-------------- Decoder outputs data frame ---------------#
-
-
             # Representation layer for the best representations
             best_rep_final = \
                 latent.RepresentationLayer(values = best_rep_layer.z)
 
-            # Create a list to store all samples' indexes
-            all_sample_ixs = []
+            # Create a list to store the samples' names (possibly
+            # shuffled since it may be that the data were shuffled
+            # when loaded with the DataLoader)
+            all_sample_names = []
+
+            # Create a list to store the representations
+            all_rep = []
 
             # Create a list to store the decoder outputs for all
             # samples/representations
             all_dec_out = []
 
             # For each batch:
-            # 'expr' : gene expression for all samples in the batch
-            # 'mean_expr' : mean gene expression for all samples
+            # 'expr' : the gene expression for all samples in the batch
+            # 'mean_expr' : the mean gene expression for all samples
             #               in the batch
-            # 'sample_ixs' : the indexes of the samples in the batch
+            # 'sample_ixs' : the numeric indexes of the samples in the
+            #                batch
             for expr, mean_expr, sample_ixs in dataloader:
                 
-                # Add the indexes of the samples in the batch
+                # Add the names of the samples in the batch
                 # to the list                
-                all_sample_ixs.extend(\
-                    sample_ixs.detach().numpy().tolist())
+                all_sample_names.extend(\
+                    [ixs2names[ix] for ix \
+                     in sample_ixs.numpy().tolist()])
+
+                # Get the representations for the samples in the
+                # current batch
+                rep_batch = best_rep_final(sample_ixs)
+
+                # Add the representations for the current samples
+                # to the list
+                all_rep.extend(\
+                    rep_batch.detach().numpy().tolist())
 
                 # Add the decoder outputs for the samples in the
                 # batch to the list
                 all_dec_out.extend(\
-                    dec(best_rep_final(sample_ixs)).detach(\
-                            ).numpy().tolist())
+                    dec(rep_batch).detach().numpy().tolist())
+
+
+            #-------------- Decoder outputs data frame ---------------#
+
 
             # Get a data frame containing the decoder outputs
             # for all samples, associating to each of them
-            # the unique index of the sample it comes from
+            # the unique names/IDs/indexes of the sample it comes from
             df_dec_out = pd.DataFrame(all_dec_out)
-            df_dec_out.index = indexes
+            df_dec_out.index = all_sample_names
 
-            # Re-index also the loss data frame
-            series_loss.index = indexes
+            # Re-order the samples' names according to the original
+            # samples' order
+            df_dec_out = df_dec_out.reindex(ordered_samples_names)
+
+            # Set the names of the columns of the data frame to be the
+            # names of the genes
+            df_dec_out.columns = df_expr_data.columns
+
+            # Add the extra data found in the input data frame to the
+            # decoder outputs' data frame
+            df_dec_out = pd.concat([df_dec_out, df_other_data])
 
 
-            #--------------- Representations dataframe ---------------#
+            #-------------- Representations data frame ---------------#
 
 
             # Create a data frame for the representations,
             # associating to each of them the unique index
             # of the sample it comes from
-            df_rep = pd.DataFrame(best_rep_final.z.detach().numpy())
-            df_rep.index = indexes
+            df_rep = pd.DataFrame(all_rep)
+            df_rep.index = all_sample_names
+
+            # Re-order the samples also in the representations'
+            # data frame
+            df_rep = df_rep.reindex(ordered_samples_names)
 
             # Name the columns of the data frame as the dimensions
             # of the latent space
             df_rep.columns = \
-                [f"latent_dim_{i}" for i in range(1, df_rep.shape[1]+1)]
+                [f"latent_dim_{i}" for i \
+                 in range(1, df_rep.shape[1]+1)]
 
-            # Return the data frames/series
-            return (df_rep, df_dec_out, series_loss)
+            # Create a series to store the loss
+            series_loss = pd.Series(sample_avg_loss)
+
+            # Re-index also the loss data frame
+            series_loss.index = all_sample_names
+
+            # Re-order the samples also in the loss' series
+            series_loss = series_loss.reindex(ordered_samples_names)
+
+            # Add the 'loss' column to the data frame (it will
+            # be the current last column)
+            df_rep["loss"] = series_loss
+
+            # Add the extra data found in the input data frame to the
+            # representations' data frame
+            df_rep = pd.concat([df_rep, df_other_data])
+
+
+            #---------------- Return the data frames -----------------#
+
+
+            # Return the data frames
+            return df_rep, df_dec_out
 
 
 #---------------------------- Statistics -----------------------------#
+
+
+def get_r_values(dec):
+    """Get the r-values of the negative binomials modeling the
+    expression of the genes included in the DGD model from the
+    trained decoder.
+
+    Parameters
+    ----------
+    dec : ``bulkDGD.core.decoder.Decoder``
+        The trained decoder.
+
+    Returns
+    -------
+    r_values : ``torch.Tensor``
+        The r-values of the negative binomials modeling the
+        expression of the genes (one per gene).
+
+        This is a 1D tensor whose size equals the dimensionality
+        of the gene space.
+    """
+
+    return torch.exp(dec.nb.log_r).squeeze().detach()
 
 
 def get_p_values(obs_counts_sample,
@@ -1854,20 +2092,22 @@ def get_p_values(obs_counts_sample,
 
     Returns
     -------
-    ``tuple``
-        A tuple containing:
-
-        * A ``list`` of all p-values (one per gene).
-        * A 2D ``numpy.ndarray`` containing the count values at 
-          which the probability mass function was evaluated
-          to compute the p-values. The array has as many
-          rows as the number of genes and as many columns as
-          the number of count values.
-        * A 2D ``numpy.ndarray`` containing the value of the
-          probability mass function for each count value
-          at which it was evaluated. The array has as many
-          rows as the number of genes and as many columns as
-          the number of count values.
+    p_values : ``numpy.ndarray``
+        A 1D array containing one p-value per gene.
+    
+    ks : ``numpy.ndarray``
+        A 2D array containing the count values at 
+        which the probability mass function was evaluated
+        to compute the p-values. The array has as many
+        rows as the number of genes and as many columns as
+        the number of count values.
+    
+    pmfs : ``numpy.ndarray``
+        A 2D array containing the value of the
+        probability mass function for each count value
+        at which it was evaluated. The array has as many
+        rows as the number of genes and as many columns as
+        the number of count values.
     """
 
     # Get the mean gene counts for the sample. The output is
@@ -2007,9 +2247,9 @@ def get_p_values(obs_counts_sample,
     # all 'k' values
     p_values, ks, pmfs = list(zip(*results_sample))
     
-    # Return a list of p-values and two arrays containing the PMFs
+    # Return an array of p-values and two arrays containing the PMFs
     # and the 'k' values
-    return p_values, np.stack(ks), np.stack(pmfs)
+    return np.array(p_values), np.stack(ks), np.stack(pmfs)
 
 
 def get_q_values(p_values,
@@ -2031,6 +2271,16 @@ def get_q_values(p_values,
         The method used to adjust the p-values. The available
         methods are listed in the documentation for
         ``statsmodels.stats.multitest.multipletests``.
+
+    Returns
+    -------
+    q_values : ``numpy.ndarray``
+        A 1D array containing the q-values (adjusted p-values).
+
+    rejected : ``numpy.ndarray``
+        A 1D array containing booleans defining whether a p-value
+        in the input data frame was rejected (``True``) or
+        not (``False``).
     """
 
     # Adjust the p-values
@@ -2044,7 +2294,31 @@ def get_q_values(p_values,
 
 def get_log2_fold_changes(obs_counts_sample,
                           pred_means_sample):
-    """Get the log-fold change of the gene expression.
+    """Get the log2-fold change of the gene expression.
+
+    Parameters
+    ----------
+    obs_counts_sample : ``torch.Tensor``
+        The observed gene counts in a single sample.
+
+        This is a 1D tensor whose length is equal to the
+        dimensionality of the gene space.
+
+    pred_mean_sample : ``torch.Tensor``
+        The (rescaled) predicted mean of the negative binomial
+        modeling the gene counts for a single sample.
+
+        This is a 1D tensor whose length is equal to the
+        dimensionality of the gene space.
+
+    Returns
+    -------
+    ``torch.Tensor``
+        The log2-fold change associated to each gene in the
+        given sample.
+
+        This is a 1D tensor whose length is equal to the
+        dimensionality of the gene space.
     """
     
     # Return the log-fold change for each gene by dividing the
@@ -2299,17 +2573,17 @@ def get_probability_density(gmm,
 
     Returns
     -------
-    ``tuple``
-        A tuple containing:
+    df_prob_rep : ``pandas.DataFrame``
+        A data frame containing the probability densities for each
+        representation, together with an indication of what the
+        maximum probability density found is and for which
+        component it is found.
 
-        * A ``pandas.DataFrame`` containing the probability
-          densities for each representation, together with an
-          indication of what the maximum probability density found is
-          and for which component is was found.
-        * A ``pandas.DataFrame`` containing, for each component,
-          the representation(s) having the maximum probability
-          density for the component, together with the probability
-          density for that(those) representation(s).
+    df_prob_comp : ``pandas.DataFrame``
+        A data frame containing, for each component, the
+        representation(s) having the maximum probability density
+        for the component, together with the probability density
+        for that(those) representation(s).
     """
     
     # Get the probability densities of the representations

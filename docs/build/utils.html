@@ -348,22 +348,20 @@ document.write(`
 <p>Utility functions to use the DGD model.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="utils.dgd.get_decoder">
-<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">get_decoder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.get_decoder" title="Permalink to this definition">#</a></dt>
-<dd><p>Initialize the decoder, load its state,
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">get_decoder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.get_decoder" title="Permalink to this definition">#</a></dt>
+<dd><p>Initialize the decoder, load its trained parameters,
 and return it.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
-<dt><strong>dim</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The dimensionality of the input space for the decoder.</p>
-</dd>
 <dt><strong>config</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">dict</span></code></span></dt><dd><p>A dictionary containing the options for initializing
-the decoder and loading its state.</p>
+the decoder and loading its trained parameters.</p>
 </dd>
 </dl>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">bulkDGD.core.decoder.Decoder</span></code></dt><dd><p>The trained decoder.</p>
+<dd class="field-even"><dl>
+<dt><strong>dec</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">bulkDGD.core.decoder.Decoder</span></code></span></dt><dd><p>The trained decoder.</p>
 </dd>
 </dl>
 </dd>
@@ -372,23 +370,21 @@ the decoder and loading its state.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="utils.dgd.get_gmm">
-<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">get_gmm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.get_gmm" title="Permalink to this definition">#</a></dt>
-<dd><p>Initialize the Gaussian mixture model, load its state,
-and return it.</p>
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">get_gmm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.get_gmm" title="Permalink to this definition">#</a></dt>
+<dd><p>Initialize the Gaussian mixture model, load its trained
+parameters, and return it.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
-<dt><strong>dim</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The simensionality of the space for the Gaussian
-mixture model.</p>
-</dd>
 <dt><strong>config</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">dict</span></code></span></dt><dd><p>A dictionary containing the options for initializing
-the Gaussian mixture model and loading its state.</p>
+the Gaussian mixture model and loading its trained
+parameters.</p>
 </dd>
 </dl>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">bulkDGD.core.latent.GaussianMixtureModel</span></code></dt><dd><p>The Gaussian mixture model.</p>
+<dd class="field-even"><dl>
+<dt><strong>gmm</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">bulkDGD.core.latent.GaussianMixtureModel</span></code></span></dt><dd><p>The trained Gaussian mixture model.</p>
 </dd>
 </dl>
 </dd>
@@ -398,7 +394,58 @@ the Gaussian mixture model and loading its state.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="utils.dgd.get_log2_fold_changes">
 <span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">get_log2_fold_changes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obs_counts_sample</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pred_means_sample</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.get_log2_fold_changes" title="Permalink to this definition">#</a></dt>
-<dd><p>Get the log-fold change of the gene expression.</p>
+<dd><p>Get the log2-fold change of the gene expression.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>obs_counts_sample</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The observed gene counts in a single sample.</p>
+<p>This is a 1D tensor whose length is equal to the
+dimensionality of the gene space.</p>
+</dd>
+<dt><strong>pred_mean_sample</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The (rescaled) predicted mean of the negative binomial
+modeling the gene counts for a single sample.</p>
+<p>This is a 1D tensor whose length is equal to the
+dimensionality of the gene space.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></dt><dd><p>The log2-fold change associated to each gene in the
+given sample.</p>
+<p>This is a 1D tensor whose length is equal to the
+dimensionality of the gene space.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.dgd.get_model">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">get_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config_gmm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_dec</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.get_model" title="Permalink to this definition">#</a></dt>
+<dd><p>Get the trained DGD model (trained Gaussian mixture model
+and the trained decoder).</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>config_gmm</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">dict</span></code></span></dt><dd><p>A dictionary containing the options for initializing
+the Gaussian mixture model and loading its state.</p>
+</dd>
+<dt><strong>config_dec</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">dict</span></code></span></dt><dd><p>A dictionary containing the options for initializing
+the decoder and loading its state.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><strong>gmm</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">bulkDGD.core.latent.GaussianMixtureModel</span></code></span></dt><dd><p>The Gaussian mixture model.</p>
+</dd>
+<dt><strong>dec</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">bulkDGD.core.decoder.Decoder</span></code></span></dt><dd><p>The trained decoder.</p>
+</dd>
+</dl>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -435,21 +482,20 @@ calculation of the p-values.</p>
 </dl>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">tuple</span></code></dt><dd><p>A tuple containing:</p>
-<ul class="simple">
-<li><p>A <code class="docutils literal notranslate"><span class="pre">list</span></code> of all p-values (one per gene).</p></li>
-<li><p>A 2D <code class="docutils literal notranslate"><span class="pre">numpy.ndarray</span></code> containing the count values at 
+<dd class="field-even"><dl>
+<dt><strong>p_values</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></span></dt><dd><p>A 1D array containing one p-value per gene.</p>
+</dd>
+<dt><strong>ks</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></span></dt><dd><p>A 2D array containing the count values at 
 which the probability mass function was evaluated
 to compute the p-values. The array has as many
 rows as the number of genes and as many columns as
-the number of count values.</p></li>
-<li><p>A 2D <code class="docutils literal notranslate"><span class="pre">numpy.ndarray</span></code> containing the value of the
+the number of count values.</p>
+</dd>
+<dt><strong>pmfs</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></span></dt><dd><p>A 2D array containing the value of the
 probability mass function for each count value
 at which it was evaluated. The array has as many
 rows as the number of genes and as many columns as
-the number of count values.</p></li>
-</ul>
+the number of count values.</p>
 </dd>
 </dl>
 </dd>
@@ -473,18 +519,16 @@ having the maximum probability density for each component.</p>
 </dl>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">tuple</span></code></dt><dd><p>A tuple containing:</p>
-<ul class="simple">
-<li><p>A <code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> containing the probability
-densities for each representation, together with an
-indication of what the maximum probability density found is
-and for which component is was found.</p></li>
-<li><p>A <code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> containing, for each component,
-the representation(s) having the maximum probability
-density for the component, together with the probability
-density for that(those) representation(s).</p></li>
-</ul>
+<dd class="field-even"><dl>
+<dt><strong>df_prob_rep</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>A data frame containing the probability densities for each
+representation, together with an indication of what the
+maximum probability density found is and for which
+component it is found.</p>
+</dd>
+<dt><strong>df_prob_comp</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>A data frame containing, for each component, the
+representation(s) having the maximum probability density
+for the component, together with the probability density
+for that(those) representation(s).</p>
 </dd>
 </dl>
 </dd>
@@ -510,27 +554,38 @@ methods are listed in the documentation for
 </dd>
 </dl>
 </dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><strong>q_values</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></span></dt><dd><p>A 1D array containing the q-values (adjusted p-values).</p>
+</dd>
+<dt><strong>rejected</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></span></dt><dd><p>A 1D array containing booleans defining whether a p-value
+in the input data frame was rejected (<code class="docutils literal notranslate"><span class="pre">True</span></code>) or
+not (<code class="docutils literal notranslate"><span class="pre">False</span></code>).</p>
+</dd>
+</dl>
+</dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="utils.dgd.get_rep_layer">
-<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">get_rep_layer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.get_rep_layer" title="Permalink to this definition">#</a></dt>
-<dd><p>Initialize the representation layer, load its state,
-and return it.</p>
+<dt class="sig sig-object py" id="utils.dgd.get_r_values">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">get_r_values</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dec</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.get_r_values" title="Permalink to this definition">#</a></dt>
+<dd><p>Get the r-values of the negative binomials modeling the
+expression of the genes included in the DGD model from the
+trained decoder.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
-<dt><strong>dim</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The dimensionality of the representation layer.</p>
-</dd>
-<dt><strong>config</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">dict</span></code></span></dt><dd><p>A dictionary containing the options for initializing
-the representation layer and loading its state.</p>
+<dt><strong>dec</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">bulkDGD.core.decoder.Decoder</span></code></span></dt><dd><p>The trained decoder.</p>
 </dd>
 </dl>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">bulkDGD.core.latent.RepresentationLayer</span></code></dt><dd><p>The representation layer.</p>
+<dd class="field-even"><dl>
+<dt><strong>r_values</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code></span></dt><dd><p>The r-values of the negative binomials modeling the
+expression of the genes (one per gene).</p>
+<p>This is a 1D tensor whose size equals the dimensionality
+of the gene space.</p>
 </dd>
 </dl>
 </dd>
@@ -539,26 +594,21 @@ the representation layer and loading its state.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="utils.dgd.get_representations">
-<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">get_representations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataloader</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">indexes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gmm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_genes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_samples_per_comp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_opt1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_opt2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.get_representations" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">get_representations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gmm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_rep_per_comp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_opt1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_opt2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.get_representations" title="Permalink to this definition">#</a></dt>
 <dd><p>Initialize and optimize the representations.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
-<dt><strong>dataloader</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">torch.utils.data.DataLoader</span></code></span></dt><dd><p>The <code class="docutils literal notranslate"><span class="pre">DataLoader</span></code> object containing the gene expression
-data for the samples.</p>
+<dt><strong>df</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>A data frame containing the samples.</p>
 </dd>
-<dt><strong>indexes</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">list</span></code></span></dt><dd><p>A list of unique indexes representing the samples.</p>
+<dt><strong>gmm</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">bulkDGD.core.latent.GaussianMixtureModel</span></code></span></dt><dd><p>The trained Gaussian mixture model.</p>
 </dd>
-<dt><strong>gmm</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">DGDPerturbations.core.latent.GaussianMixtureModel</span></code></span></dt><dd><p>The trained Gaussian mixture model.</p>
+<dt><strong>dec</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">bulkDGD.core.decoder.Decoder</span></code></span></dt><dd><p>The trained decoder.</p>
 </dd>
-<dt><strong>dec</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">DGDPerturbations.core.decoder.Decoder</span></code></span></dt><dd><p>The trained decoder.</p>
-</dd>
-<dt><strong>n_genes</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The number of genes in the dataset.</p>
-</dd>
-<dt><strong>n_samples_per_comp</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The number of new representations to be taken
+<dt><strong>n_rep_per_comp</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The number of new representations to be taken
 per component per sample.</p>
 </dd>
-<dt><strong>dim</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">int</span></code></span></dt><dd><p>The dimensionality of the Gaussian mixture model.</p>
+<dt><strong>config_data</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">dict</span></code></span></dt><dd><p>A dictionary of options to load the data.</p>
 </dd>
 <dt><strong>config_opt1</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">dict</span></code></span></dt><dd><p>A dictionary of options for the initial optimization.</p>
 </dd>
@@ -567,10 +617,25 @@ per component per sample.</p>
 </dl>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">tuple</span></code></dt><dd><p>A tuple containing a <code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> with the loss,
-and a <code class="docutils literal notranslate"><span class="pre">np.ndarray</span></code> containing the best representation
-for each sample.</p>
+<dd class="field-even"><dl>
+<dt><strong>df_rep</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>A data frame containing the representations.</p>
+<p>Here, each row contains a representation and the
+columns contain either the values of the representations’
+along the latent space’s dimensions or additional
+information about the input samples found in the
+input data frame. Columns containing additional
+information, if present in the input data frame, will
+appear last in the data frame.</p>
+</dd>
+<dt><strong>df_dec_out</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>A data frame containing the decoder outputs
+corresponding to the representations found.</p>
+<p>Here, each row contains the decoder output for a given
+representation, and the columns contain either the
+values of the decoder outputs or additional information
+about the input samples found in the input
+data frame. Columns containing additional
+information, if present in the input data frame, will
+appear last in the data frame.</p>
 </dd>
 </dl>
 </dd>
@@ -579,42 +644,73 @@ for each sample.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="utils.dgd.load_decoder_outputs">
-<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">load_decoder_outputs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">csv_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.load_decoder_outputs" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">load_decoder_outputs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">csv_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">','</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.load_decoder_outputs" title="Permalink to this definition">#</a></dt>
 <dd><p>Load the decoder outputs from a CSV file.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
 <dt><strong>csv_file</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>A CSV file containing a data frame with the decoder outputs.</p>
+<p>Each row should represent the decoder output for a given
+representation, while each columns should contain either the
+values of the decoder output or additional information
+about the decoder outputs.</p>
+</dd>
+<dt><strong>sep</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;,&quot;</span></code></span></dt><dd><p>The column separator in the input CSV file.</p>
 </dd>
 </dl>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"></dd>
+<dd class="field-even"><dl>
+<dt><strong>df_dec_data</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>A data frame containing the decoder outputs.</p>
+<p>Here, each row contains the decoder output for a given
+representation. and the columns contain the values
+of the decoder output.</p>
+</dd>
+<dt><strong>df_other_data</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>A data frame containing additional information about
+the decoder outputs found in the input data frame (for
+instance, the tissues from which the original samples
+came from).</p>
+<p>Here, each row contains the decoder output for a given
+representations and the columns contain additional
+information about the decoder outputs provided in the
+input data frame.</p>
+</dd>
+</dl>
+</dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="utils.dgd.load_representations">
-<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">load_representations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">csv_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.load_representations" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">load_representations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">csv_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">','</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.load_representations" title="Permalink to this definition">#</a></dt>
 <dd><p>Load the representations from a CSV file.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
 <dt><strong>csv_file</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>A CSV file containing a data frame with the representations.</p>
+<p>Each row should contain a representation. The columns should
+contain the representation’s values along the latent
+space’s dimensions and additional informations about
+the representations, if present (for instance, the loss
+associated with each representation).</p>
+</dd>
+<dt><strong>sep</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;,&quot;</span></code></span></dt><dd><p>The column separator in the input CSV file.</p>
 </dd>
 </dl>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">tuple</span></code></dt><dd><p>A tuple containing:</p>
-<ul class="simple">
-<li><p>A <code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> containing the representations’
-values along the latent space’s dimensions.</p></li>
-<li><p>A <code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> containing extra information about
-the representations found in the input data frame (for
-instance, the tissues from which the original samples
-came from).</p></li>
-</ul>
+<dd class="field-even"><dl>
+<dt><strong>df_rep_data</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>A data frame containing the representations’
+values along the latent space’s dimensions.</p>
+<p>Here, each row contains a representation and the columns
+contain the representations’ values along the latent
+space’s dimensions.</p>
+</dd>
+<dt><strong>df_other_data</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>A data frame containing the additional information about
+the representations found in the input data frame.</p>
+<p>Here, each row contains a representation and the columns
+contain additional information about the representations
+provided in the input data frame.</p>
 </dd>
 </dl>
 </dd>
@@ -623,42 +719,41 @@ came from).</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="utils.dgd.load_samples">
-<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">load_samples</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">csv_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_samples_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.load_samples" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">load_samples</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">csv_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">','</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_samples_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.load_samples" title="Permalink to this definition">#</a></dt>
 <dd><p>Load the data frame containing the gene expression data for
 the samples.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
 <dt><strong>csv_file</strong><span class="classifier"><cite>str`</cite></span></dt><dd><p>A CSV file containing the samples’ data.</p>
+<p>The rows of the data frame should represent the samples,
+while the columns should represent the genes and any
+additional information about the samples.</p>
 </dd>
-<dt><strong>keep_samples_names</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">bool</span></code>, default: <code class="docutils literal notranslate"><span class="pre">True</span></code></span></dt><dd><p>Whether to keep the name assigned to the samples in
-the input dataframe, if any were found.</p>
+<dt><strong>sep</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;,&quot;</span></code></span></dt><dd><p>The column separator in the input CSV file.</p>
+</dd>
+<dt><strong>keep_samples_names</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">bool</span></code>, default: <code class="docutils literal notranslate"><span class="pre">True</span></code></span></dt><dd><p>Whether to keep the names/IDs/indexes assigned to the
+samples in the input data frame, if any were found.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the names/IDs/indexes are assumed to be in
+the first column of the input data frame.</p>
 </dd>
 </dl>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">tuple</span></code></dt><dd><p>A <code class="docutils literal notranslate"><span class="pre">tuple</span></code> containing:</p>
-<ul class="simple">
-<li><p>A <code class="docutils literal notranslate"><span class="pre">bulkDGD.core.dataclasses.GeneExpressionDataset</span></code>
-object with the dataset.</p></li>
-<li><p>A <code class="docutils literal notranslate"><span class="pre">list</span></code> representing the unique indexes of the samples.</p></li>
-<li><p>A <code class="docutils literal notranslate"><span class="pre">list</span></code> representing the genes in the dataset.</p></li>
-<li><p>A <code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> with the labels of the tissues the
-samples belong to. It will be empty if no column containing
-tissue information is found in the input data frame.</p></li>
-</ul>
+<dd class="field-even"><dl>
+<dt><strong>df_expr_data</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>A data frame containing the gene expression data.</p>
+<p>Here, the rows represent the samples and the columns
+represent the genes.</p>
+</dd>
+<dt><strong>df_other_data</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>A data frame containing the additional information
+about the samples.</p>
+<p>Here, the rows represent the samples and the columns
+represent any additional information about the samples found
+in the input data frame.</p>
 </dd>
 </dl>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="utils.dgd.load_training_representations">
-<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">load_training_representations</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.load_training_representations" title="Permalink to this definition">#</a></dt>
-<dd><p>Load the representations of the samples belonging to the
-DGD model’s training set as a data frame.</p>
 </dd></dl>
 
 <dl class="py function">
@@ -756,29 +851,82 @@ to the missing ones will be empty.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="utils.dgd.preprocess_samples">
-<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">preprocess_samples</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">samples_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">samples_names_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.preprocess_samples" title="Permalink to this definition">#</a></dt>
-<dd><p>Preprocess new samples to use them with the DGD model.</p>
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">preprocess_samples</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df_samples</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.preprocess_samples" title="Permalink to this definition">#</a></dt>
+<dd><p>Preprocess new samples.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
-<dt><strong>samples_df</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>A data frame containing the samples to be preprocessed.</p>
-</dd>
-<dt><strong>samples_names_column</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code> or <code class="docutils literal notranslate"><span class="pre">int</span></code>, optional</span></dt><dd><p>The name/index of the column containing the names/IDs/indexes
-of the samples, if any. By default, it is assumed that no
-such column is present.</p>
+<dt><strong>df_samples</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>A data frame containing the samples to be preprocessed.</p>
 </dd>
 </dl>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">tuple</span></code></dt><dd><p>A tuple containing:</p>
-<ul class="simple">
-<li><p>The data frame with the preprocessed samples.</p></li>
-<li><p>The list of genes found in the input data frame but not
-belonging to the gene set used to train the DGD model.</p></li>
-<li><p>The list of genes present in the gene set used to train
-the DGD model but not found in the input data frame.</p></li>
-</ul>
+<dd class="field-even"><dl>
+<dt><strong>df_preproc</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>The data frame with the preprocessed samples.</p>
+</dd>
+<dt><strong>genes_excluded</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">list</span></code></span></dt><dd><p>The list of genes found in the input data frame but not
+belonging to the gene set used to train the DGD model.</p>
+<p>These genes are dropped from the <code class="docutils literal notranslate"><span class="pre">df_preproc</span></code>
+data frame.</p>
+</dd>
+<dt><strong>genes_missing</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">list</span></code></span></dt><dd><p>The list of genes present in the gene set used to train
+the DGD model but not found in the input data frame.</p>
+<p>These genes are added with a count of 0 for all samples
+in the <code class="docutils literal notranslate"><span class="pre">df_preproc</span></code> data frame.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.dgd.save_decoder_outputs">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">save_decoder_outputs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">csv_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">','</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.save_decoder_outputs" title="Permalink to this definition">#</a></dt>
+<dd><p>Save the decoder outputs to a CSV file.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>df</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>A data frame containing the decoder outputs.</p>
+</dd>
+<dt><strong>csv_file</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>The output CSV file.</p>
+</dd>
+<dt><strong>sep</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;,&quot;</span></code></span></dt><dd><p>The column separator in the output CSV file.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.dgd.save_representations">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">save_representations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">csv_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">','</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.save_representations" title="Permalink to this definition">#</a></dt>
+<dd><p>Save the representations to a CSV file.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>df</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>A data frame containing the representations.</p>
+</dd>
+<dt><strong>csv_file</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>The output CSV file.</p>
+</dd>
+<dt><strong>sep</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;,&quot;</span></code></span></dt><dd><p>The column separator in the output CSV file.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.dgd.save_samples">
+<span class="sig-prename descclassname"><span class="pre">utils.dgd.</span></span><span class="sig-name descname"><span class="pre">save_samples</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">csv_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">','</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.dgd.save_samples" title="Permalink to this definition">#</a></dt>
+<dd><p>Save the samples to a CSV file.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>df</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code></span></dt><dd><p>A data frame containing the samples.</p>
+</dd>
+<dt><strong>csv_file</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>The output CSV file.</p>
+</dd>
+<dt><strong>sep</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;,&quot;</span></code></span></dt><dd><p>The column separator in the output CSV file.</p>
 </dd>
 </dl>
 </dd>
@@ -858,7 +1006,7 @@ loading and optimization to find the best representations.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
-<dt><strong>list_file</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>File containing the list of entities of interest.</p>
+<dt><strong>list_file</strong><span class="classifier"><code class="docutils literal notranslate"><span class="pre">str</span></code></span></dt><dd><p>The plain text file containing the entities of interest.</p>
 </dd>
 </dl>
 </dd>
@@ -1142,18 +1290,21 @@ and metadata for the samples.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.get_decoder"><code class="docutils literal notranslate"><span class="pre">get_decoder()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.get_gmm"><code class="docutils literal notranslate"><span class="pre">get_gmm()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.get_log2_fold_changes"><code class="docutils literal notranslate"><span class="pre">get_log2_fold_changes()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.get_model"><code class="docutils literal notranslate"><span class="pre">get_model()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.get_p_values"><code class="docutils literal notranslate"><span class="pre">get_p_values()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.get_probability_density"><code class="docutils literal notranslate"><span class="pre">get_probability_density()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.get_q_values"><code class="docutils literal notranslate"><span class="pre">get_q_values()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.get_rep_layer"><code class="docutils literal notranslate"><span class="pre">get_rep_layer()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.get_r_values"><code class="docutils literal notranslate"><span class="pre">get_r_values()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.get_representations"><code class="docutils literal notranslate"><span class="pre">get_representations()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.load_decoder_outputs"><code class="docutils literal notranslate"><span class="pre">load_decoder_outputs()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.load_representations"><code class="docutils literal notranslate"><span class="pre">load_representations()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.load_samples"><code class="docutils literal notranslate"><span class="pre">load_samples()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.load_training_representations"><code class="docutils literal notranslate"><span class="pre">load_training_representations()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.perform_2d_pca"><code class="docutils literal notranslate"><span class="pre">perform_2d_pca()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.perform_dea"><code class="docutils literal notranslate"><span class="pre">perform_dea()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.preprocess_samples"><code class="docutils literal notranslate"><span class="pre">preprocess_samples()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.save_decoder_outputs"><code class="docutils literal notranslate"><span class="pre">save_decoder_outputs()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.save_representations"><code class="docutils literal notranslate"><span class="pre">save_representations()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utils.dgd.save_samples"><code class="docutils literal notranslate"><span class="pre">save_samples()</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-utils.misc">utils.misc</a><ul class="nav section-nav flex-column">
