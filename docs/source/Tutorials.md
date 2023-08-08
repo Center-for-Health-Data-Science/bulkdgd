@@ -13,7 +13,7 @@ Specifically, we provide detailed tutorials to:
 * Perform differential expression analysis between a set of "treated" samples (for instance, cancer samples) and their corresponding "untreated" samples ("normal" samples) found using the DGD model ([Tutorial 2](#tutorial-2-differential-expression-analysis)).
 * Perform principal component analysis (PCA) on a set of representations and plot the results ([Tutorial 3](#tutorial-3-principal-component-analysis)).
 
-The data needed to reproduce the tutorials can be found in the `bulkDGD/tutorials/data` directory, while the scripts containing the code necessary to run the tutorials and the output files can be found in each tutorial's directory.
+The data needed to reproduce the tutorials can be found in the `bulkDGD/tutorials/data` directory, while the scripts containing the code necessary to run the tutorials and the output files prodiced by the tutorials can be found in each tutorial's directory.
 
 ## Tutorial 1 - Finding the best representations for a set of new samples
 
@@ -31,11 +31,11 @@ In this tutorial, we are going to find the best representations in the latent sp
 ...
 ```
 
-As we can see, each row contains the expression data for a specific sample. The first column contains the samples' unique names, IDs, or indexes, while the rest of the columns contain either the expression data for a specific gene (identified by its Ensembl ID) or additional information about the samples. In our case, the last column identifies the tissue from which the sample comes.
+As we can see, each row contains the expression data for a specific sample. The first column contains the samples' unique names, IDs, or indexes, while the rest of the columns contain either the expression data for a specific gene (identified by its Ensembl ID) or additional information about the samples. In our case, for example, the last column identifies the tissue from which the sample comes.
 
-Before finding the representations for these samples, we want to make sure that the genes whose expression data are reported correspond to the genes used to train the DGD model and that these genes are reported in the correct order in the file. We can do it by using the `preprocess_samples` in the `bulkDGD.utils.dgd` module.
+Before finding the representations for these samples in latent space, we want to make sure that the genes whose expression data are reported in the CSV file correspond to the genes used to train the DGD model and that these genes are reported in the correct order in the file. Furthermore, we would like to know whether we have duplicate samples, duplicate genes, and genes with missing expression values. We can do all this by using the `preprocess_samples` function in the `bulkDGD.utils.dgd` module.
 
-First, we set the logging so that every message above and including the `INFO` level gets reported, to have a better idea of what the program is doing.
+First, we set the logging so that every message above and including the `INFO` level gets reported to have a better idea of what the program is doing. By default, only messages associated with a `WARNING` level or above get reported.
 
 ```python
 # Import the logging module
@@ -58,7 +58,7 @@ df_samples = pd.read_csv(# Name of/path to the file
                          # Column separator used in the file
                          sep = ",",
                          # Name or numerical index of the column
-                         # containing the samples' names/IDs/indexes)
+                         # containing the samples' names/IDs/indexes
                          index_col = 0,
                          # Name or numerical index of the row
                          # containing the columns' names
@@ -85,7 +85,7 @@ INFO:bulkDGD.utils.dgd:All genes found in the input samples are part of the set 
 INFO:bulkDGD.utils.dgd:All genes used to train the DGD model were found in the input samples.
 ```
 
-By inspecting the log messages, we can see that the function has looked for duplicated samples, duplicated genes, and missing values in the columns containing gene expression data. In fact, duplicated samples, duplicated genes, and missing values must be dealt with before preprocessing the samples.
+By inspecting the log messages, we can see that the function has looked for duplicated samples, duplicated genes, and missing values in the columns containing gene expression data. If the function finds duplicated samples or genes with missing expression values, it raises a warning but keeps the samples where the duplication or missing values were found. However, the function will throw an error if it finds duplicated genes since the DGD model assumes the input samples report expression data for unique genes. That is, isoforms should be ignored.
 
 Then, the function informs us that the columns containing gene expression data were re-ordered according to the list of genes used to train the DGD model, and that all the columns containing additional information about the samples (in our case, the `tissue` column) will be the last columns of the output data frame.
 
@@ -133,29 +133,30 @@ Here, we provide a brief description of every option. You can find similar descr
 
 `"gmm"` maps to a dictionary containing the options to get the trained Gaussian mixture model:
 
-* `"pth_file"` defines the PyTorch file containing the pre-trained Gaussian mixture model. If a file path is specified, the corresponding file will be used. If `"default"` is specified in the configuration file, the `bulkDGD/data/model/gmm.pth` file will be used, and the absolute path to this file will appear in the configuration.
-* `"options"` maps to the options needed to initialize the Gaussian mixture model:
+* `"pth_file"` defines the PyTorch file containing the pre-trained Gaussian mixture model. If a file path is specified, the corresponding file will be used. If `default` is specified in the configuration file, the `bulkDGD/data/model/gmm.pth` file will be used, and the absolute path to this file will appear in the configuration.
+* `"options"` maps to the options used to initialize the trained Gaussian mixture model. Therefore, you should leave them unchanged unless you re-train the decoder using a different set of options.
   * `"dim"` indicates the dimensionality of the Gaussian mixture model.
   * `"n_comp"` is the number of components in the Gaussian mixture.
-  * `"cm_type"` determines the type of covariance matrix of the Gaussian mixture model. It can be `"fixed"`, `"isotropic"`, or `"diagonal"`.
-  * `"log_var_params"` stores the parameters to initialize the parameters of the Gaussian prior for the log-variance of the mixture model. The parameters are the mean and standard deviation of the Gaussian prior.
+  * `"cm_type"` determines the type of covariance matrix of the Gaussian mixture. It can be `fixed`, `isotropic`, or `diagonal`.
+  * `"log_var_params"` stores the parameters to initialize the parameters of the Gaussian prior for the log-variance of the mixture model. The two parameters are the mean and standard deviation of the Gaussian prior.
   * `"alpha"` stores the alpha of the Dirichlet distribution, which determines the uniformity of the weights of the components in the Gaussian mixture.
   * `"mean_prior"` stores a set of options referring to the prior used for the means of the components in the Gaussian mixture:
-    * `"type"` is the type of prior that should be used. So far, only the `"softball"` prior has been implemented.
-    * `"options"` is a dictionary storing the options that should be used when initializing the prior. The options can vary depending on the `"type"` of prior. For the `"softball"` prior, we have two options:
-      * `"radius"` is the radius of the multi-dimensional soft ball.
+    * `"type"` is the type of prior that should be used. So far, only the `softball` prior has been implemented.
+    * `"options"` is a dictionary storing the options that should be used when initializing the prior. The options can vary depending on the `"type"` of prior. For the `softball` prior, we have two options:
+      * `"radius"` is the radius of the multi-dimensional ball.
       * `"sharpness"` is the sharpness of the soft boundary of the ball.
 * `"dec"` maps to a sub-dictionary containing decoder-specific options.
 
-  * `"pth_file"` indicates the path to the PyTorch file containing the pre-trained decoder. This file is not available inside the GitHub repository because of size constraints, but can be downloaded using [this link](https://drive.google.com/file/d/1SZaoazkvqZ6DBF-adMQ3KRcy4Itxsz77/view?usp=sharing). Once downloaded, you can move this file into the `bulkDGD/data/model` directory and simply refer to it as `"dec.pth"` in the configuration file, instead of using its full path. If only a file name is provided, the `get_config_model` function will automatically look for a file with the specified name in `bulkDGD/data/model`.
+  * `"pth_file"` indicates the path to the PyTorch file containing the pre-trained decoder. This file is not available inside the GitHub repository because of size constraints but can be downloaded using [this link](https://drive.google.com/file/d/1SZaoazkvqZ6DBF-adMQ3KRcy4Itxsz77/view?usp=sharing). Once downloaded, you can move this file into the `bulkDGD/data/model` directory and simply refer to it by using `default` in the configuration file.
   * `"options"` maps to a sub-dictionary containing options consistent with those used when training the decoder. Therefore, you should leave them unchanged unless you re-train the decoder using a different set of options.
-    * `"n_neurons_input"` defines the number of neurons in the input layer of the decoder. This number must correspond to the one set in the `"dim"` option of the `["gmm"]["options"]` section of the configuration file.
+    * `"n_neurons_input"` defines the number of neurons in the input layer of the decoder. This number must correspond to the one set in the `"dim"` option of the `["gmm"]["options"]` section of the configuration file since the input layer of the decoder must have a number of neurons corresponding to the dimensionality of the latent space.
     * `"n_neurons_hidden1"` defines the number of neurons in the first hidden layer of the decoder.
     * `"n_neurons_hidden2` defines the number of neurons in the second hidden layer of the decoder.
     * `"n_neurons_output"` defines the number of neurons in the output layer of the decoder.
     * `"r_init"` defines the initial r-value of each of the negative binomial distributions modeling the expression of the genes.
+    * `"activation_output"` refers to the name of the activation function that should be used in the output layer of the decoder. So far, only the `softplus` function is supported.
 
-#### The configuration for finding the best representations
+#### The configuration to find the best representations
 
 We can load the configuration with the options to fine-tune the search for the best representations using the `utils.misc.get_config_rep` function.
 

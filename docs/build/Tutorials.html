@@ -383,7 +383,7 @@ document.write(`
 <li><p>Perform differential expression analysis between a set of “treated” samples (for instance, cancer samples) and their corresponding “untreated” samples (“normal” samples) found using the DGD model (<a class="reference internal" href="#tutorial-2-differential-expression-analysis"><span class="xref myst">Tutorial 2</span></a>).</p></li>
 <li><p>Perform principal component analysis (PCA) on a set of representations and plot the results (<a class="reference internal" href="#tutorial-3-principal-component-analysis"><span class="xref myst">Tutorial 3</span></a>).</p></li>
 </ul>
-<p>The data needed to reproduce the tutorials can be found in the <code class="docutils literal notranslate"><span class="pre">bulkDGD/tutorials/data</span></code> directory, while the scripts containing the code necessary to run the tutorials and the output files can be found in each tutorial’s directory.</p>
+<p>The data needed to reproduce the tutorials can be found in the <code class="docutils literal notranslate"><span class="pre">bulkDGD/tutorials/data</span></code> directory, while the scripts containing the code necessary to run the tutorials and the output files prodiced by the tutorials can be found in each tutorial’s directory.</p>
 <section id="tutorial-1-finding-the-best-representations-for-a-set-of-new-samples">
 <h2>Tutorial 1 - Finding the best representations for a set of new samples<a class="headerlink" href="#tutorial-1-finding-the-best-representations-for-a-set-of-new-samples" title="Permalink to this heading">#</a></h2>
 <p>All the code necessary to run this tutorial can be found in the <code class="docutils literal notranslate"><span class="pre">tutorial_1.py</span></code> script.</p>
@@ -397,9 +397,9 @@ document.write(`
 <span class="o">...</span>
 </pre></div>
 </div>
-<p>As we can see, each row contains the expression data for a specific sample. The first column contains the samples’ unique names, IDs, or indexes, while the rest of the columns contain either the expression data for a specific gene (identified by its Ensembl ID) or additional information about the samples. In our case, the last column identifies the tissue from which the sample comes.</p>
-<p>Before finding the representations for these samples, we want to make sure that the genes whose expression data are reported correspond to the genes used to train the DGD model and that these genes are reported in the correct order in the file. We can do it by using the <code class="docutils literal notranslate"><span class="pre">preprocess_samples</span></code> in the <code class="docutils literal notranslate"><span class="pre">bulkDGD.utils.dgd</span></code> module.</p>
-<p>First, we set the logging so that every message above and including the <code class="docutils literal notranslate"><span class="pre">INFO</span></code> level gets reported, to have a better idea of what the program is doing.</p>
+<p>As we can see, each row contains the expression data for a specific sample. The first column contains the samples’ unique names, IDs, or indexes, while the rest of the columns contain either the expression data for a specific gene (identified by its Ensembl ID) or additional information about the samples. In our case, for example, the last column identifies the tissue from which the sample comes.</p>
+<p>Before finding the representations for these samples in latent space, we want to make sure that the genes whose expression data are reported in the CSV file correspond to the genes used to train the DGD model and that these genes are reported in the correct order in the file. Furthermore, we would like to know whether we have duplicate samples, duplicate genes, and genes with missing expression values. We can do all this by using the <code class="docutils literal notranslate"><span class="pre">preprocess_samples</span></code> function in the <code class="docutils literal notranslate"><span class="pre">bulkDGD.utils.dgd</span></code> module.</p>
+<p>First, we set the logging so that every message above and including the <code class="docutils literal notranslate"><span class="pre">INFO</span></code> level gets reported to have a better idea of what the program is doing. By default, only messages associated with a <code class="docutils literal notranslate"><span class="pre">WARNING</span></code> level or above get reported.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Import the logging module</span>
 <span class="kn">import</span> <span class="nn">logging</span> <span class="k">as</span> <span class="nn">log</span>
 
@@ -418,7 +418,7 @@ document.write(`
                          <span class="c1"># Column separator used in the file</span>
                          <span class="n">sep</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="p">,</span>
                          <span class="c1"># Name or numerical index of the column</span>
-                         <span class="c1"># containing the samples&#39; names/IDs/indexes)</span>
+                         <span class="c1"># containing the samples&#39; names/IDs/indexes</span>
                          <span class="n">index_col</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
                          <span class="c1"># Name or numerical index of the row</span>
                          <span class="c1"># containing the columns&#39; names</span>
@@ -443,7 +443,7 @@ document.write(`
 <span class="n">INFO</span><span class="p">:</span><span class="n">bulkDGD</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">dgd</span><span class="p">:</span><span class="n">All</span> <span class="n">genes</span> <span class="n">used</span> <span class="n">to</span> <span class="n">train</span> <span class="n">the</span> <span class="n">DGD</span> <span class="n">model</span> <span class="n">were</span> <span class="n">found</span> <span class="ow">in</span> <span class="n">the</span> <span class="nb">input</span> <span class="n">samples</span><span class="o">.</span>
 </pre></div>
 </div>
-<p>By inspecting the log messages, we can see that the function has looked for duplicated samples, duplicated genes, and missing values in the columns containing gene expression data. In fact, duplicated samples, duplicated genes, and missing values must be dealt with before preprocessing the samples.</p>
+<p>By inspecting the log messages, we can see that the function has looked for duplicated samples, duplicated genes, and missing values in the columns containing gene expression data. If the function finds duplicated samples or genes with missing expression values, it raises a warning but keeps the samples where the duplication or missing values were found. However, the function will throw an error if it finds duplicated genes since the DGD model assumes the input samples report expression data for unique genes. That is, isoforms should be ignored.</p>
 <p>Then, the function informs us that the columns containing gene expression data were re-ordered according to the list of genes used to train the DGD model, and that all the columns containing additional information about the samples (in our case, the <code class="docutils literal notranslate"><span class="pre">tissue</span></code> column) will be the last columns of the output data frame.</p>
 <p>Finally, the function checks that all genes in the input samples are among those used to train the DGD model, and that all genes used in the DGD model are found in the input samples.</p>
 <p>The function returned three objects:</p>
@@ -479,20 +479,20 @@ document.write(`
 <p>Here, we provide a brief description of every option. You can find similar descriptions in the comments inside the configuration file.</p>
 <p><code class="docutils literal notranslate"><span class="pre">&quot;gmm&quot;</span></code> maps to a dictionary containing the options to get the trained Gaussian mixture model:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">&quot;pth_file&quot;</span></code> defines the PyTorch file containing the pre-trained Gaussian mixture model. If a file path is specified, the corresponding file will be used. If <code class="docutils literal notranslate"><span class="pre">&quot;default&quot;</span></code> is specified in the configuration file, the <code class="docutils literal notranslate"><span class="pre">bulkDGD/data/model/gmm.pth</span></code> file will be used, and the absolute path to this file will appear in the configuration.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">&quot;options&quot;</span></code> maps to the options needed to initialize the Gaussian mixture model:</p>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;pth_file&quot;</span></code> defines the PyTorch file containing the pre-trained Gaussian mixture model. If a file path is specified, the corresponding file will be used. If <code class="docutils literal notranslate"><span class="pre">default</span></code> is specified in the configuration file, the <code class="docutils literal notranslate"><span class="pre">bulkDGD/data/model/gmm.pth</span></code> file will be used, and the absolute path to this file will appear in the configuration.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;options&quot;</span></code> maps to the options used to initialize the trained Gaussian mixture model. Therefore, you should leave them unchanged unless you re-train the decoder using a different set of options.</p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;dim&quot;</span></code> indicates the dimensionality of the Gaussian mixture model.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;n_comp&quot;</span></code> is the number of components in the Gaussian mixture.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">&quot;cm_type&quot;</span></code> determines the type of covariance matrix of the Gaussian mixture model. It can be <code class="docutils literal notranslate"><span class="pre">&quot;fixed&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;isotropic&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;diagonal&quot;</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">&quot;log_var_params&quot;</span></code> stores the parameters to initialize the parameters of the Gaussian prior for the log-variance of the mixture model. The parameters are the mean and standard deviation of the Gaussian prior.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;cm_type&quot;</span></code> determines the type of covariance matrix of the Gaussian mixture. It can be <code class="docutils literal notranslate"><span class="pre">fixed</span></code>, <code class="docutils literal notranslate"><span class="pre">isotropic</span></code>, or <code class="docutils literal notranslate"><span class="pre">diagonal</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;log_var_params&quot;</span></code> stores the parameters to initialize the parameters of the Gaussian prior for the log-variance of the mixture model. The two parameters are the mean and standard deviation of the Gaussian prior.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;alpha&quot;</span></code> stores the alpha of the Dirichlet distribution, which determines the uniformity of the weights of the components in the Gaussian mixture.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;mean_prior&quot;</span></code> stores a set of options referring to the prior used for the means of the components in the Gaussian mixture:</p>
 <ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">&quot;type&quot;</span></code> is the type of prior that should be used. So far, only the <code class="docutils literal notranslate"><span class="pre">&quot;softball&quot;</span></code> prior has been implemented.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">&quot;options&quot;</span></code> is a dictionary storing the options that should be used when initializing the prior. The options can vary depending on the <code class="docutils literal notranslate"><span class="pre">&quot;type&quot;</span></code> of prior. For the <code class="docutils literal notranslate"><span class="pre">&quot;softball&quot;</span></code> prior, we have two options:</p>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;type&quot;</span></code> is the type of prior that should be used. So far, only the <code class="docutils literal notranslate"><span class="pre">softball</span></code> prior has been implemented.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;options&quot;</span></code> is a dictionary storing the options that should be used when initializing the prior. The options can vary depending on the <code class="docutils literal notranslate"><span class="pre">&quot;type&quot;</span></code> of prior. For the <code class="docutils literal notranslate"><span class="pre">softball</span></code> prior, we have two options:</p>
 <ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">&quot;radius&quot;</span></code> is the radius of the multi-dimensional soft ball.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;radius&quot;</span></code> is the radius of the multi-dimensional ball.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;sharpness&quot;</span></code> is the sharpness of the soft boundary of the ball.</p></li>
 </ul>
 </li>
@@ -502,22 +502,23 @@ document.write(`
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;dec&quot;</span></code> maps to a sub-dictionary containing decoder-specific options.</p>
 <ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">&quot;pth_file&quot;</span></code> indicates the path to the PyTorch file containing the pre-trained decoder. This file is not available inside the GitHub repository because of size constraints, but can be downloaded using <a class="reference external" href="https://drive.google.com/file/d/1SZaoazkvqZ6DBF-adMQ3KRcy4Itxsz77/view?usp=sharing">this link</a>. Once downloaded, you can move this file into the <code class="docutils literal notranslate"><span class="pre">bulkDGD/data/model</span></code> directory and simply refer to it as <code class="docutils literal notranslate"><span class="pre">&quot;dec.pth&quot;</span></code> in the configuration file, instead of using its full path. If only a file name is provided, the <code class="docutils literal notranslate"><span class="pre">get_config_model</span></code> function will automatically look for a file with the specified name in <code class="docutils literal notranslate"><span class="pre">bulkDGD/data/model</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;pth_file&quot;</span></code> indicates the path to the PyTorch file containing the pre-trained decoder. This file is not available inside the GitHub repository because of size constraints but can be downloaded using <a class="reference external" href="https://drive.google.com/file/d/1SZaoazkvqZ6DBF-adMQ3KRcy4Itxsz77/view?usp=sharing">this link</a>. Once downloaded, you can move this file into the <code class="docutils literal notranslate"><span class="pre">bulkDGD/data/model</span></code> directory and simply refer to it by using <code class="docutils literal notranslate"><span class="pre">default</span></code> in the configuration file.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;options&quot;</span></code> maps to a sub-dictionary containing options consistent with those used when training the decoder. Therefore, you should leave them unchanged unless you re-train the decoder using a different set of options.</p>
 <ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">&quot;n_neurons_input&quot;</span></code> defines the number of neurons in the input layer of the decoder. This number must correspond to the one set in the <code class="docutils literal notranslate"><span class="pre">&quot;dim&quot;</span></code> option of the <code class="docutils literal notranslate"><span class="pre">[&quot;gmm&quot;][&quot;options&quot;]</span></code> section of the configuration file.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;n_neurons_input&quot;</span></code> defines the number of neurons in the input layer of the decoder. This number must correspond to the one set in the <code class="docutils literal notranslate"><span class="pre">&quot;dim&quot;</span></code> option of the <code class="docutils literal notranslate"><span class="pre">[&quot;gmm&quot;][&quot;options&quot;]</span></code> section of the configuration file since the input layer of the decoder must have a number of neurons corresponding to the dimensionality of the latent space.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;n_neurons_hidden1&quot;</span></code> defines the number of neurons in the first hidden layer of the decoder.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;n_neurons_hidden2</span></code> defines the number of neurons in the second hidden layer of the decoder.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;n_neurons_output&quot;</span></code> defines the number of neurons in the output layer of the decoder.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;r_init&quot;</span></code> defines the initial r-value of each of the negative binomial distributions modeling the expression of the genes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;activation_output&quot;</span></code> refers to the name of the activation function that should be used in the output layer of the decoder. So far, only the <code class="docutils literal notranslate"><span class="pre">softplus</span></code> function is supported.</p></li>
 </ul>
 </li>
 </ul>
 </li>
 </ul>
 </section>
-<section id="the-configuration-for-finding-the-best-representations">
-<h4>The configuration for finding the best representations<a class="headerlink" href="#the-configuration-for-finding-the-best-representations" title="Permalink to this heading">#</a></h4>
+<section id="the-configuration-to-find-the-best-representations">
+<h4>The configuration to find the best representations<a class="headerlink" href="#the-configuration-to-find-the-best-representations" title="Permalink to this heading">#</a></h4>
 <p>We can load the configuration with the options to fine-tune the search for the best representations using the <code class="docutils literal notranslate"><span class="pre">utils.misc.get_config_rep</span></code> function.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Load the configuration with the options to configure</span>
 <span class="c1"># the search for the best representations</span>
@@ -711,7 +712,7 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-input-samples">The input samples</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-configuration-files">The configuration files</a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#the-model-s-configuration">The model’s configuration</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#the-configuration-for-finding-the-best-representations">The configuration for finding the best representations</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#the-configuration-to-find-the-best-representations">The configuration to find the best representations</a></li>
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-trained-dgd-model">The trained DGD model</a></li>
