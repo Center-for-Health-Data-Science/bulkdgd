@@ -191,7 +191,7 @@ Here, we provide a brief description of every option. You can find similar descr
   * `"options"` maps to a dictionary containing the options to set up the optimizer. These options may vary according to the optimizer used. For `"adam"`, we have three options, which are passed to the [`torch.optim.Adam`](https://pytorch.org/docs/stable/generated/torch.optim.Adam.html) constructor:
     * `"lr"` defines the learning rate.
     * `"weight_decay"` defines the weight decay.
-    * `"betas"` defines the coefficients used for computing running averages of gradient and its square.
+    * `"betas"` defines the coefficients used for computing the running averages of the gradient and its square.
 * `"opt2"` maps to a dictionary with the options for the second optimization:
   * `"epochs"` defines the number of epochs.
   * `"type"` defines the type of optimizer to be used. So far, only the `"adam"` optimizer is supported.
