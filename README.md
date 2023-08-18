@@ -6,9 +6,8 @@
 
 The first application of the model to bulk RNA-Seq data is presented in the work of Prada-Luengo, Schuster, Liang, and coworkers (Prada-Luego, Schuster, Liang, et al., biorXiv).
 
-* **Installation**: you can find the instructions to install `bulkDGD` [here]().
-* **Documentation**: `bulkDGD`'s documentation is hosted on [readthedocs]().
-* **Bug reports**: please report any bugs or problems you encounter with `bulkDGD` in the dedicated [issues]() section on GitHub.
+* **Documentation**: `bulkDGD`'s documentation will be soon hosted on readthedocs.
+* **Bug reports**: please report any bugs or problems you encounter with `bulkDGD` in the dedicated [issues](https://github.com/Center-for-Health-Data-Science/bulkDGD/issues) section on GitHub.
 
 **References**
 
