@@ -24,7 +24,7 @@ sys.path.insert(0, path)
 
 
 # Name of the project
-project = "BulkDGD"
+project = "bulkDGD"
 
 # Copyright of the project
 copyright = "2023, Valentina Sora"
@@ -56,9 +56,14 @@ extensions = \
     "sphinx_design",
     "sphinxcontrib.bibtex"]
 
-
+# How to order the functions/classes in the modules' documentations
 autodoc_member_order = "groupwise"
-numpydoc_show_class_members = False 
+
+# Suppress showing all class members by default
+numpydoc_show_class_members = False
+
+# Do not overwrite .rst files when creating autosummaries
+autosummary_generate_overwrite = False
 
 # The file extensions of source files. Sphinx considers the files
 # with this suffix as sources. The value can be a dictionary mapping
@@ -75,8 +80,6 @@ source_suffix = \
 # added to exclude_patterns.
 templates_path = ["_templates"]
 
-
-autosummary_generate_overwrite = False
 
 #-------------------------- BibTeX options ---------------------------#
 
