@@ -27,28 +27,28 @@
 from setuptools import setup, find_packages
 
 
-# Name of the package 
+# The name of the project
 name = "bulkDGD"
 
-# URL where to find the package
+# The URL where to find the project
 url = \
     f"https://github.com/Center-for-Health-Data-Science/" \
-    f"{name}-private"
+    f"{name}"
 
-# Package author(s)
+# The project's author(s)
 author = \
     "Valentina Sora, Viktoria Schuster, " \
     "Inigo Prada-Luengo, Anders Krogh"
 
-# Package version
-version = "0.0.1"
+# The project's version
+version = "0.0.2"
 
-# A brief description of the package
+# A brief description of the project
 description = \
     "A generative model for human gene expression from bulk " \
     "RNA-Seq data."
 
-# Directory of the package
+# The directory of the project
 package_dir = {name : name}
 
 # Which packages are included
@@ -56,9 +56,12 @@ packages = [name]
 
 # Which package data to include
 package_data = \
-    {name : ["core/*"
+    {name : ["analysis/*"
+             "core/*"
              "execs/*",
-             "utils/*"]}
+             "ioutil/*",
+             "plotting/*",
+             "recount3/*"]}
 
 # Command-line executables
 entry_points = \
@@ -78,12 +81,15 @@ entry_points = \
         ],
     }
 
-# Required dependencies
+# Any required dependencies
 install_requires = ["dask",
                     "distributed",
+                    "matplotlib",
                     "numpy",
                     "pandas",
                     "requests",
+                    "seaborn",
+                    "scikit-learn",
                     "scipy",
                     "statsmodels",
                     "torch",

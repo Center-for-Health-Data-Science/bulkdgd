@@ -3,9 +3,6 @@
 
 #    dgd_get_recount3_data.py
 #
-#    Get RNA-seq data associated with specific human samples
-#    from the Recount3 platform.
-#
 #    Copyright (C) 2023 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
@@ -24,9 +21,10 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
+# Description of the module
 __doc__ = \
-    "Get RNA-seq data associated with specific " \
-    "human samples from the Recount3 platform."
+    "Get RNA-seq data associated with specific human samples " \
+    "for projects hosted on the Recount3 platform."
 
 
 # Standard library
@@ -35,7 +33,7 @@ import logging as log
 import os
 import sys
 # bulDGD
-from bulkDGD.utils import dgd, misc, recount3
+from bulkDGD import ioutil, recount3
 
 
 def main():
@@ -47,6 +45,7 @@ def main():
     # Create the argument parser
     parser = argparse.ArgumentParser(description = __doc__)
 
+    # Add the arguments
     ip_choices = ["gtex", "tcga"]
     ip_choices_str = ", ".join(f"'{choice}'" for choice in ip_choices)
     ip_help = \
@@ -230,7 +229,8 @@ def main():
         # Warn the user and exit
         errstr = \
             "It was not possible to validate the provided " \
-            f"category. Error: {e}"
+            f"category '{input_samples_category}' for the " \
+            f"project '{input_project_name}'. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
 
@@ -296,7 +296,7 @@ def main():
         try:
             
             query_string = \
-                util.get_query_string(query_string = query_string)
+                recount3.get_query_string(query_string = query_string)
 
         # If something went wrong
         except Exception as e:
@@ -308,37 +308,20 @@ def main():
             logger.exception(errstr)
             sys.exit(errstr)
 
-        # Try to add the metadata to the RNA-seq data frame
+        # Try to filter the samples metadata to the RNA-seq data frame
         try:
 
-            df_final = \
+            # Add the metadata to the RNA-seq data frame
+            df_merged = \
                 recount3.merge_gene_sums_and_metadata(\
                     df_gene_sums = df_gene_sums,
                     df_metadata = df_metadata,
                     project_name = input_project_name)
 
-        # If something went wrong
-        except Exception as e:
-
-            # Warn the user and exit
-            errstr = \
-                "It was not possible to add the metadata to the " \
-                f"'{input_samples_category}' samples. Error: {e}"
-            logger.exception(errstr)
-            sys.exit(errstr)
-
-        # Inform the user that the metadata were successfully added
-        infostr = \
-            "The metadata were successfully added to the " \
-            f"'{input_samples_category}' samples. Error: {e}"
-        logger.info(infostr)
-
-        # Try to filter tha samples according to the query string
-        try:
-        
+            # Filter the samples
             df_final = \
                 recount3.filter_by_metadata(\
-                    df = df,
+                    df = df_merged,
                     query_string = query_string,
                     project_name = input_project_name)
 
@@ -387,23 +370,23 @@ def main():
     # Try to write the data frame to the output CSV file
     try:
 
-        dgd.save_samples(df = df_final,
-                         csv_file = output_csv_path,
-                         sep = ",")
+        ioutil.save_samples(df = df_final,
+                            csv_file = output_csv_path,
+                            sep = ",")
 
     # If something went wrong
     except Exception as e:
 
         # Warn the user and exit
         errstr = \
-            "It was not possible to write the data frame " \
-            f"in '{output_csv_path}'. Error: {e}"
+            "It was not possible to write the output data " \
+            f"frame in '{output_csv_path}'. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the data frame was successfully
     # written to the output file
     infostr = \
-        "The data frame was successfully written in " \
+        "The output data frame was successfully written in " \
         f"'{output_csv_path}'."
     logger.info(infostr)

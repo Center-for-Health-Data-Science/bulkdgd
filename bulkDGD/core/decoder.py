@@ -3,17 +3,11 @@
 
 #    decoder.py
 #
-#    Module containing the classes defining the decoder,
-#    the representation layer (input of the decoder), the
-#    negative binomial layer (output of the decoder),
-#    and helper functions.
-#
 #    The code was originally developed by Viktoria Schuster,
-#    Inigo Prada Luengo, Yuhu Liang, and Anders Krogh.
+#    Inigo Prada Luengo, and Anders Krogh.
 #    
-#    Valentina Sora rearranged it for the purposes of this package.
-#    Therefore, only functions/methods needed for the purposes
-#    of this package were retained in the code.
+#    Valentina Sora modified and complemented it for the purposes
+#    of this package.
 #
 #    Copyright (C) 2023 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
@@ -21,8 +15,6 @@
 #                       <viktoria.schuster@sund.ku.dk>
 #                       Inigo Prada Luengo
 #                       <inlu@diku.dk>
-#                       Yuhu Liang
-#                       <yuhu.liang@di.ku.dk>
 #                       Anders Krogh
 #                       <akrogh@di.ku.dk>
 #
@@ -43,10 +35,14 @@
 
 # Description of the module
 __doc__ = \
-    "Module containing the classes defining the decoder, " \
-    "the representation layer (input of the decoder), the " \
-    "negative binomial layer (output of the decoder), " \
-    "and helper functions."
+    "This module contains the classes defining the decoder " \
+    "(:class:`core.decoder.Decoder`) and the layer representing " \
+    "the negative binomial distributions used to model the " \
+    "expression of the genes " \
+    "(:class:`core.decoder.NBLayer`). " \
+    "This layer is the output layer of the decoder but, " \
+    "because of its complex behavior, is implemented as " \
+    "a separate class."
 
 
 # Standard library
@@ -58,6 +54,7 @@ import torch.distributions as dist
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 # Get the module's logger
 logger = log.getLogger(__name__)
 
@@ -65,8 +62,8 @@ logger = log.getLogger(__name__)
 #------------------------- Helper functions --------------------------#
 
 
-def reshape_scaling_factor(x,
-                           out_dim):
+def reshape_scaling_factors(x,
+                            out_dim):
     """Reshape the scaling factor (a tensor).
 
     Parameters
@@ -152,11 +149,9 @@ class NBLayer(nn.Module):
             self._get_log_r(r_init = r_init,
                             dim = self.dim)
 
-        # Check the name of the activation function provided
-        self._check_activation(activation = activation)
-        
-        # Get the activation function to be used
-        self._activation = activation
+        # Get the name of the activation that will be used
+        self._activation = \
+            self._get_activation(activation = activation)
 
 
     #-------------------- Initialization methods ---------------------#
@@ -193,10 +188,10 @@ class NBLayer(nn.Module):
                          requires_grad = True)
 
 
-    def _check_activation(self,
-                          activation):
-        """Get the activation function based on the scaling
-        requested.
+    def _get_activation(self,
+                        activation):
+        """Get the name of the activation function after checking
+        that it is supported.
 
         Parameters
         ----------
@@ -213,6 +208,9 @@ class NBLayer(nn.Module):
                 f"Supported activation functions are: " \
                 f"{', '.join(self.ACTIVATION_FUNCTIONS)}."
             raise ValueError(errstr)
+
+        # Return the name of the activation function
+        return activation
 
 
     #-------------------------- Properties ---------------------------#
@@ -235,27 +233,6 @@ class NBLayer(nn.Module):
         
         errstr = \
             "The value of 'dim' cannot be changed " \
-            "after initialization."
-        raise ValueError(errstr)
-
-
-    @property
-    def scaling_type(self):
-        """The type of scaling used.
-        """
-
-        return self._scaling_type
-
-
-    @scaling_type.setter
-    def scaling_type(self,
-                     value):
-        """Raise an exception if the user tries to modify
-        the value of ``scaling_type`` after initialization.
-        """
-        
-        errstr = \
-            "The value of 'scaling_type' cannot be changed " \
             "after initialization."
         raise ValueError(errstr)
 
@@ -309,55 +286,56 @@ class NBLayer(nn.Module):
 
 
     @staticmethod
-    def rescale(scaling_factor,
-                mean):
-        """Rescale the mean of the means of the negative binomial
-        distributions by a per-batch scaling factor.
+    def rescale(means,
+                scaling_factors):
+        """Rescale the means of the negative binomial
+        distributions.
 
         Parameters
         ----------
-        scaling_factor : ``torch.Tensor``
-            The scaling factor.
-
-            This is a 1D tensor whose length is equal to the
-            number of scaling factors to be used to rescale
-            the means.
-
-        mean : ``torch.Tensor``
-            A 1D tensor containing the  means of the negative
+        means : ``torch.Tensor``
+            A 1D tensor containing the means of the negative
             binomials o be rescaled.
 
             In the tensor, each value represents the 
             mean of a different negative binomial.
 
+        scaling_factors : ``torch.Tensor``
+            The scaling factors.
+
+            This is a 1D tensor whose length is equal to the
+            number of scaling factors to be used to rescale
+            the means.
+
         Returns
         -------
         ``torch.Tensor``
-            The rescaled means. This is a 1D tensor whose length
-            is equal to the number of negative binomials whose
-            means were rescaled.
+            The rescaled means.
+
+            This is a 1D tensor whose length is equal to the number
+            of negative binomials whose means were rescaled.
         """
         
-        # Return the rescaled values by multiplying the
-        # scaling factor by the means
-        return scaling_factor * mean
+        # Return the rescaled values by multiplying the means
+        # by the scaling factors
+        return means * scaling_factors
 
 
     @staticmethod
     def log_prob_mass(k,
                       m,
                       r):
-        """Compute the logarithm of the probability density
+        """Compute the logarithm of the probability mass
         for a set of negative binomial distribution.
 
         Thr formula used to compute the logarithm of the
-        probability density is:
+        probability mass is:
 
         .. math::
 
-           logPDF_{NB(k,m,r)} =
-           log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) +
-           k \\cdot log(m \\cdot c + \\epsilon) +
+           logPDF_{NB(k,m,r)} &=
+           log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\ 
+           &+ k \\cdot log(m \\cdot c + \\epsilon) +
            r \\cdot log(r \\cdot c)
 
         Where :math:`\\epsilon` is a small value to prevent
@@ -365,7 +343,7 @@ class NBLayer(nn.Module):
         :math:`\\frac{1}{r+m+\\epsilon}`.
 
         The derivation of this formula from the non-logarithmic
-        formulation of the probability density function of the
+        formulation of the probability mass function of the
         negative binomial distribution can be found below.
 
         Parameters
@@ -390,20 +368,20 @@ class NBLayer(nn.Module):
         Returns
         -------
         x : ``torch.Tensor``
-            The log-probability density of the negative binomials.
+            The log-probability mass of the negative binomials.
             This is a 1D tensor whose length corresponds to the
             number of negative binomials distributions considered,
             and each value in the tensor corresponds to the
-            log-probability density of a different negative binomial.
+            log-probability mass of a different negative binomial.
 
         Notes
         -----
         Here, we show how we derived the formula for the logarithm
-        of the probability density of the negative binomial
+        of the probability mass of the negative binomial
         distribution.
 
         We start from the non-logarithmic version of the
-        probability density for the negative binomial, which is:
+        probability mass for the negative binomial, which is:
 
         .. math::
 
@@ -443,9 +421,9 @@ class NBLayer(nn.Module):
         
         .. math::
 
-           logPDF_{NB(k,m,r)} = \
-           log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) +
-           k \\cdot log \\left( \\frac{m}{r+m} \\right) +
+           logPDF_{NB(k,m,r)} &= \
+           log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\
+           &+ k \\cdot log \\left( \\frac{m}{r+m} \\right) +
            r \\cdot log \\left( \\frac{r}{r+m} \\right)
         
         Here, we are adding a small value :math:`\\epsilon` to
@@ -453,9 +431,9 @@ class NBLayer(nn.Module):
 
         .. math::
 
-           logPDF_{NB(k,m,r)} = \
-           log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) +
-           k \\cdot
+           logPDF_{NB(k,m,r)} &= \
+           log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\
+           &+ k \\cdot
            log \\left( m \\cdot \\frac{1}{r+m+\\epsilon} 
            + \\epsilon \\right) +
            r \\cdot
@@ -467,9 +445,9 @@ class NBLayer(nn.Module):
 
         .. math::
 
-           logPDF_{NB(k,m,r)} = \
-           log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) +
-           k \\cdot
+           logPDF_{NB(k,m,r)} &= \
+           log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\
+           &+ k \\cdot
            log \\left( m \\cdot c + \\epsilon \\right) +
            r \\cdot
            log \\left( r \\cdot c \\right)
@@ -484,10 +462,10 @@ class NBLayer(nn.Module):
         eps = 1.e-10
         
         # Set a constant used later in the equation defining
-        # the log-density
+        # the log-probability mass
         c = 1.0 / (r + m + eps)
         
-        # Get the log-density of the negative binomials.
+        # Get the log-probability mass of the negative binomials.
         #
         # The non-log version would be:
         #
@@ -529,7 +507,7 @@ class NBLayer(nn.Module):
             torch.lgamma(k+1) + k*torch.log(m*c+eps) + \
             r*torch.log(r*c)
         
-        # Return the log-density
+        # Return the log-probability mass
         return x
 
 
@@ -564,98 +542,116 @@ class NBLayer(nn.Module):
             # Pass the input through the softplus
             # function
             return F.softplus(x)
+    
 
-
-    def loss(self,
-             obs_count,
-             scaling_factor,
-             pred_mean):
-        """Compute the loss given observed means ``obs_count`` and
-        predicted means ``pred_mean``.
+    def log_prob(self,
+                 obs_counts,
+                 pred_means,
+                 scaling_factors):
+        """Get the log-probability mass.
 
         Parameters
         ----------
-        obs_count : ``torch.Tensor``
+        obs_counts : ``torch.Tensor``
             The observed gene counts.
 
-        scaling_factor : ``torch.Tensor``
-            A tensor containing the scaling factor(s). It must have the
-            same dimensionality as ``obs_count``, and
-            the size of the first dimension must match that of the
-            first dimension of ``obs_count``.
+            The first dimension of this tensor must have a length
+            equal to the number of samples whose counts are
+            reported.
 
-        pred_mean : ``torch.Tensor``
-            The predicted means of the negative binomials. This is a
-            tensor whose shape must match that of ``obs_count`` and
-            ``scaling_factor``.
+        pred_means : ``torch.Tensor``
+            The predicted means of the negative binomials.
 
+            This is a tensor whose shape must match that of
+            ``obs_counts``.
+
+        scaling_factors : ``torch.Tensor``
+            The scaling factors.
+
+            This is a 1D tensor whose length must match that
+            of the first dimension of ``obs_counts`` and
+            ``pred_means``.
+        
         Returns
         -------
         ``torch.Tensor``
-            The loss associated to the input ``x``.
+            The log-probability mass.
 
             This is a 2D tensor where:
 
             * The first dimension has a length equal to the length
-              of the first dimension of ``obs_count`` and
-              ``pred_mean``.
+              of the first dimension of ``obs_counts`` and
+              ``pred_means``.
 
             * The second dimension has a length equal to the length
-              of the second dimension of ``obs_count`` and
-              ``pred_mean``.
-        """  
-            
-        # Return a tensor with as many values as the
-        # dimensions of the input ``x`` (the loss for each
-        # of the negative binomials associated with ``x``)
-        return - self.__class__.log_prob_mass(\
-                        k = obs_count,
-                        m = self.__class__.rescale(scaling_factor,
-                                                   pred_mean),
-                        r = torch.exp(self.log_r))
-    
-
-    def log_prob(self,
-                 obs_count,
-                 scaling_factor,
-                 mean):
-        """Get the log-likelihood of an input ``x``.
-
-        Parameters
-        ----------
-        obs_count : ``torch.Tensor``
-            The observed gene counts.
-
-        scaling_factor : ``torch.Tensor``
-            A tensor containing the scaling factor(s). It must have the
-            same dimensionality as ``obs_count``, and
-            the size of the first dimension must match that of the
-            first dimension of ``obs_count``.
-
-        pred_mean : ``torch.Tensor``
-            The predicted means of the negative binomials. This is a
-            tensor whose shape must match that of ``obs_count`` and
-            ``scaling_factor``.
-        
-        Returns
-        -------
-        ``torch.Tensor``
-            The log-likelihood of the input.
-
-            This tensor contains a value for each of the negative
-            binomials associated with the values in ``x``.
+              of the second dimension of ``obs_counts`` and
+              ``pred_means``.
         """
         
         return self.__class__.log_prob_mass(\
-                    obs_count,
-                    self.__class__.rescale(scaling_factor, pred_mean),
-                    torch.exp(self.log_r))
+                    k = obs_counts,
+                    m = self.__class__.rescale(\
+                            means = pred_means,
+                            scaling_factors = scaling_factors),
+                    r = torch.exp(self.log_r))
+
+
+    def loss(self,
+             obs_counts,
+             pred_means,
+             scaling_factors):
+        """Compute the loss given observed the means ``obs_counts``
+        and predicted means ``pred_mean``, the latter rescaled by
+        ``scaling_factors``.
+
+        The loss corresponds to the negative log-probability density.
+
+        Parameters
+        ----------
+        obs_counts : ``torch.Tensor``
+            The observed gene counts.
+
+        pred_means : ``torch.Tensor``
+            The predicted means of the negative binomials.
+
+            This is a tensor whose shape must match that of
+            ``obs_counts``.
+
+        scaling_factors : ``torch.Tensor``
+            The scaling factors.
+
+            This is a 1D tensor whose length must match that
+            of the first dimension of ``obs_counts`` and
+            ``pred_means``.
+
+        Returns
+        -------
+        ``torch.Tensor``
+            The loss associated with the input ``x``.
+
+            This is a 2D tensor where:
+
+            * The first dimension has a length equal to the length
+              of the first dimension of ``obs_counts`` and
+              ``pred_means``.
+
+            * The second dimension has a length equal to the length
+              of the second dimension of ``obs_counts`` and
+              ``pred_means``.
+        """  
+            
+        # Return a tensor with as many values as the
+        # dimensions of the input 'x' (the loss for each
+        # of the negative binomials associated with 'x')
+        return - self.log_prob(obs_counts = obs_counts,
+                               pred_means = pred_means,
+                               scaling_factors = scaling_factors)
 
 
     def sample(self,
                n,
-               scaling_factor,
-               pred_mean):
+               pred_means,
+               scaling_factors):
         """Get ``n`` samples from the negative binomials.
 
         Parameters
@@ -663,12 +659,14 @@ class NBLayer(nn.Module):
         n : ``int``
             The number of samples to get.
 
-        scaling_factor : ``torch.Tensor``
-            A tensor containing the scaling factor(s).
+        pred_means : ``torch.Tensor``
+            The predicted means of the negative binomials.
 
-        pred_mean : ``torch.Tensor``
-            The predicted means of the negative binomials. This is a
-            tensor whose shape must match that of  ``scaling_factor``.
+        scaling_factors : ``torch.Tensor``
+            A tensor containing the scaling factors.
+
+            This is a 1D tensor whose length must match that
+            of the first dimension of ``pred_means``.
         
         Returns
         -------
@@ -676,7 +674,7 @@ class NBLayer(nn.Module):
             The samples drawn from the negative binomial distributions.
             
             The shape of this tensor depends on the shape of ``n``
-            and ``scaling_factor``, but the first dimension always
+            and ``pred_means``, but the first dimension always
             has a length equal to the number of samples drawn from
             the negative binomial distribution.
         """
@@ -685,7 +683,9 @@ class NBLayer(nn.Module):
         with torch.no_grad():
             
             # Rescale the means
-            m = self.__class__.rescale(scaling_factor, pred_mean)
+            m = self.__class__.rescale(\
+                    means = pred_means,
+                    scaling_factors = scaling_factors)
             
             # Get the probabilities from the means
             # m = p * r / (1-p), so p = m / (m+r)
@@ -712,10 +712,9 @@ class Decoder(nn.Module):
     """
 
     def __init__(self,
-                 n_neurons_input,
-                 n_neurons_hidden1,
-                 n_neurons_hidden2,
-                 n_neurons_output,
+                 n_units_input_layer,
+                 n_units_hidden_layers,
+                 n_units_output_layer,
                  r_init = 2,
                  activation_output = "softplus"):
         """Initialize an instance of the neural network representing
@@ -723,24 +722,23 @@ class Decoder(nn.Module):
 
         Parameters
         ----------
-        n_neurons_input : ``int``
+        n_units_input_layer : ``int``
             The mumber of neurons in the input layer.
 
-        n_neurons_hidden1 : ``int``
-            The number of neurons in the first hidden layer.
+        n_units_hidden_layers : ``list``
+            The number of units in each of the hidden layers. As
+            many hidden layers as the number of items in the list
+            will be created.
 
-        n_neurons_hidden2 : ``int``
-            The number of neurons in the second hidden layer.
-
-        n_neurons_output : ``int``
-            The number of neurons in the output layer.
+        n_units_output_layer : ``init``
+            The number of units in the output layer.
 
         r_init : ``int``
             The initial value for ``r``, representing the "number
             of failures" after which the "trials" stop in the
             ``NBLayer``.
 
-        activation_output : ``str``
+        activation_output : ``str``, {``"sigmoid"``, ``"softplus"``}
             The name of the activation function to be used in
             the output layer.
         """
@@ -748,22 +746,110 @@ class Decoder(nn.Module):
         # Initialize the class
         super().__init__()
 
-        # Create a list of modules
-        self.main = nn.ModuleList()
-
-        # Add layers to the decoder
-        self.main.extend(\
-            [nn.Linear(n_neurons_input, n_neurons_hidden1),
-             nn.ReLU(True),
-             nn.Linear(n_neurons_hidden1, n_neurons_hidden2),
-             nn.ReLU(True),
-             nn.Linear(n_neurons_hidden2, n_neurons_output)])
+        # Create the layers
+        self.main = \
+            self._get_layers(\
+                n_units_input_layer = n_units_input_layer,
+                n_units_hidden_layers = n_units_hidden_layers,
+                n_units_output_layer = n_units_output_layer)
 
         # Create the output layer
         self.nb = \
-            NBLayer(dim = n_neurons_output,
+            NBLayer(dim = n_units_output_layer,
                     r_init = r_init,
                     activation = activation_output)
+
+
+    #-------------------- Initialization methods ---------------------#
+
+
+    def _get_layers(self,
+                    n_units_input_layer,
+                    n_units_hidden_layers,
+                    n_units_output_layer):
+        """Get the decoder's layers.
+
+        Parameters
+        ----------
+        n_units_input_layer : ``int``
+            The mumber of neurons in the input layer.
+
+        n_units_hidden_layers : ``list``
+            The number of units in each of the hidden layers. As
+            many hidden layers as the number of items in the list
+            will be created.
+
+        n_units_output_layer : ``init``
+            The number of units in the output layer.
+
+        Returns
+        -------
+        ``torch.nn.ModuleList``
+            The list of layers.
+        """
+
+        # Create a ModuleList to store the layers
+        layers = nn.ModuleList()
+
+        # Get number of groups of connections (one group of
+        # connections connect two layers, so they are one
+        # less than the total number of layers)
+        n_connects = 1 + len(n_units_hidden_layers)
+
+        # For each group of connections
+        for n_connect in range(n_connects):
+
+            # If it is the first hidden layer
+            if n_connect == 0:
+
+                # Add full connections between the input layer and
+                # the first hidden layer using the ReLu activation
+                # function
+                layers.extend(\
+                    [nn.Linear(n_units_input_layer,
+                               n_units_hidden_layers[n_connect]),
+                     nn.ReLU(True)])
+                
+                # Set the previous number of units (used in the
+                # next step of the loop) as the number of units in
+                # the first hidden layer
+                prev_n_units = n_units_hidden_layers[n_connect]
+
+                # Go to the next step
+                continue
+
+            # If it is the last hidden layer
+            elif n_connect == n_connects-1:
+
+                # Add full connections between the last hidden
+                # layer and the output layer using the ReLu
+                # activation function
+                layers.append(\
+                    nn.Linear(prev_n_units, 
+                              n_units_output_layer))
+
+                # Return the list of layers
+                return layers
+
+            # If it is an intermediate hidden layer
+            else:
+                
+                # Add full connections between the previous
+                # hidden layer and the current hidden layer
+                # using the ReLu activation function
+                layers.extend(\
+                    [nn.Linear(\
+                        prev_n_units,
+                        n_units_hidden_layers[n_connect]),
+                     nn.ReLU(True)])
+
+                # Set the previous number of units (used in the
+                # next step of the loop) as the number of units
+                # in the current hidden layer
+                prev_n_units = n_units_hidden_layers[n_connect]
+
+
+    #------------------------ Public methods -------------------------#
 
 
     def forward(self,

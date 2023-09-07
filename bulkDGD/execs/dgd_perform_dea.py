@@ -45,8 +45,9 @@ import sys
 import pandas as pd
 import torch
 # bulkDGD
-from bulkDGD.core import decoder
-from bulkDGD.utils import dgd, misc
+from bulkDGD.core import model
+from bulkDGD.analysis import dea
+from bulkDGD import defaults, ioutil
 
 
 def main():
@@ -70,7 +71,7 @@ def main():
     id_help = \
         "The input CSV file containing the data frame " \
         "with the decoder output for each samples' best " \
-        "representation found with 'dgd_get_representations'."
+        "representation."
     parser.add_argument("-id", "--input-csv-dec",
                         type = str,
                         required = True,
@@ -91,25 +92,23 @@ def main():
 
     cm_help = \
         "The YAML configuration file specifying the " \
-        "DGD model parameters and files containing " \
+        "DGD model's parameters and files containing " \
         "the trained model. If it is a name without " \
         "extension, it is assumed to be the name of a " \
-        f"configuration file in '{dgd.CONFIG_MODEL_DIR}'."
+        f"configuration file in '{defaults.CONFIG_MODEL_DIR}'."
     parser.add_argument("-cm", "--config-file-model",
                         type = str,
                         required = True,
                         help = cm_help)
 
-    pr_default = 1
     pr_help = \
         "The resolution at which to sum over the probability " \
-        "mass function to compute the p-values. The lower the " \
+        "mass function to compute the p-values. The higher the " \
         "resolution, the more accurate the calculation. A " \
-        "resolution of 1 corresponds to an exact calculation " \
-        f"of the p-values. The default is {pr_default}."
+        "The default is an exact calculation."
     parser.add_argument("-pr", "--p-values-resolution",
                         type = lambda x: int(float(x)),
-                        default = pr_default,
+                        default = None,
                         help = pr_help)
 
     qa_default = 0.05
@@ -255,7 +254,7 @@ def main():
     # Try to load the configuration
     try:
 
-        config_model = misc.get_config_model(config_file_model)
+        config_model = ioutil.load_config_model(config_file_model)
 
     # If something went wrong
     except Exception as e:
@@ -281,24 +280,15 @@ def main():
     try:
 
         # Get the observed counts
-        obs_counts, other_data = \
-            dgd.load_samples(\
-                csv_file = input_csv_samples,
-                keep_samples_names = True)
-
-        # Get the samples' names
-        obs_counts_names = obs_counts.index.tolist()
-
-        # Get the genes' names
-        obs_counts_genes = obs_counts.columns.tolist()
-
-        # Get the observed counts' values
-        obs_counts_values = obs_counts.values
-
-        # Convert the observed counts into a tensor
         obs_counts = \
-            [torch.Tensor(obs_counts_values[i,:]) for i in \
-             range(obs_counts_values.shape[0])]
+            ioutil.load_samples(\
+                csv_file = input_csv_samples,
+                sep = ",",
+                keep_samples_names = True,
+                split = False)
+
+        # Get the sample's names
+        obs_counts_names = obs_counts.index.tolist()
 
     # If something went wrong
     except Exception as e:
@@ -318,22 +308,11 @@ def main():
     try:
 
         # Get the predicted means
-        pred_means, other_data = \
-            dgd.load_decoder_outputs(csv_file = input_csv_dec)
-
-        # Get the samples' names
-        pred_means_names = pred_means.index.tolist()
-
-        # Get the genes' names
-        pred_means_genes = pred_means.columns.tolist()
-
-        # Get the predicted means' values
-        pred_means_values = pred_means.values
-
-        # Convert the predicted mean into a tensor
         pred_means = \
-            [torch.Tensor(pred_means_values[i,:]) for i in \
-             range(pred_means_values.shape[0])]
+            ioutil.load_decoder_outputs(\
+                csv_file = input_csv_dec,
+                sep = ",",
+                split = False)
 
     # If something went wrong
     except Exception as e:
@@ -346,53 +325,36 @@ def main():
         sys.exit(errstr)
 
 
-    #------------------- Check the samples' names --------------------#
+    #------------------------ Load the model -------------------------#
+    
 
+    # Try to get the model
+    try:
+        
+        dgd_model = model.DGDModel(**config_model)
 
-    # If the samples' names differ between observed counts and
-    # predicted means
-    if obs_counts_names != pred_means_names:
-
-        # Warn the user and exit
-        errstr = \
-            "The names of the samples in the observed counts " \
-            "(rows' names) must correspond to the names of the " \
-            "samples in the decoder outputs (rows' names)."
-        logger.exception(errstr)
-        sys.exit(errstr)
-
-
-    #-------------------- Check the genes' names ---------------------#
-
-
-    # If the genes' names found in the observed counts differ from
-    # those found in the predicted means
-    if obs_counts_genes != pred_means_genes:
+    # If something went wrong
+    except Exception as e:
 
         # Warn the user and exit
         errstr = \
-            "The names of the genes in the observed counts " \
-            "(columns' names) must correspond to the names of " \
-            "the genes in the decoder outputs (columns' names)."
+            f"It was not possible to set the DGD model. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
+
+    # Inform the user that the model was successfully set
+    infostr = "The DGD model was successfully set."
+    logger.info(infostr)
 
 
     #----------------------- Get the r-values ------------------------#
 
 
-    # Get the configuration for the decoder
-    config_dec = config_model["dec"]
-
-    # Try to get the decoder
+    # Try to get the r-values
     try:
 
-        # Initialize and set the decoder
-        dec = dgd.get_decoder(config = config_dec)
-
-        # Get the r values of the negative binomials from the log-r
-        # values stored in the negative binomial layer of the decoder.
-        r_values = dgd.get_r_values(dec = dec)
+        # Get the r-values of the negative binomials
+        r_values = dgd_model.get_r_values()
 
     # If something went wrong
     except Exception as e:
@@ -400,14 +362,14 @@ def main():
         # Warn the user and exit
         errstr = \
             "It was not possible to retrieve the r-values from the " \
-            f"decoder's paramenters. Error: {e}"
+            f"models's paramenters. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the r-values were successfully retrieved
     infostr = \
         "The r-values were successfully retrieved from the " \
-        "decoder's paramenters."
+        "model's paramenters."
     logger.info(infostr)
 
 
@@ -447,7 +409,7 @@ def main():
             
         # Submit the calculation to the cluster
         futures.append(\
-            client.submit(dgd.perform_dea,
+            client.submit(dea.perform_dea,
                           obs_counts_sample = obs_counts_sample,
                           pred_means_sample = pred_means_sample,
                           sample_name = sample_name,

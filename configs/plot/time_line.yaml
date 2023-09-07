@@ -1,0 +1,176 @@
+
+
+#------------------------------- Output ------------------------------#
+
+
+# Output file settings (passed to 'matplotlib.pyplot.savefig')
+output:
+  
+  # DPI (the higher the number, the higher the resolution)
+  dpi: 900
+  
+  # Whether to have a transparent or opaque background
+  transparent: True
+  
+  # Format of the output file
+  format: pdf
+  
+  # Bbox in inches. If 'tight', use a tight layout for the figure
+  bbox_inches: tight
+
+
+#----------------------------- Histogram -----------------------------#
+
+
+# Plot settings
+plot:
+
+  # Lineplot settings
+  lineplot:
+
+    # Palette to be used to color the lines
+    palette: husl
+
+
+  # Legend settings
+  legend:
+
+    # Whether the legend should be surrounded by a frame
+    frameon: False
+
+    # The legend's title
+    title: Time (CPU/wall clock)
+
+    # The alignment of the legend's elements
+    alignment: left
+
+    # The absolute position of the legend (1.0, 1.0 roughly means
+    # "center right"
+    bbox_to_anchor: [1.2, 0.9]
+
+    # Number of columns of the legend - adjust this according to
+    # the number of legend elements you have 
+    ncols: 1
+    
+    # For properties of the legend's elements
+    prop:
+
+      # Name of/path to the font
+      fname: !!null
+      
+      # Font size
+      size: 8
+
+    # For properties of the legend's title
+    title_fontproperties:
+
+      # Name of/path to the font
+      fname: !!null
+      
+      # Font size
+      size: 10
+
+  # Plot title settings
+  title:
+
+    label: Optimization round number [opt_round]
+
+    # Font properties of the label
+    fontproperties:
+      
+      # Name of/path to the font
+      fname: !!null
+      
+      # Font size
+      size: 10
+
+
+  # X-axis settings  
+  xaxis:
+    
+    # Label settings (passed to
+    # 'matplotlib.axes.Axes.set_xlabel')
+    label:
+
+      # Text for the label
+      xlabel: Epoch
+
+      # Font properties of the label
+      fontproperties:
+        
+        # Name of/path to the font
+        fname: !!null
+        
+        # Font size
+        size: 10
+    
+    # Tick labels settings (passed to 
+    # 'matplotlib.axes.Axes.set_xticklabels')
+    ticklabels:
+      
+      # Tick label rotation
+      rotation: 0
+
+      # Font properties of the tick labels
+      fontproperties:
+        
+        # Name of/path to the font
+        fname: !!null
+        
+        # Font size
+        size: 8
+
+    # Settings for the interval represented on the axis
+    interval:
+
+      # Type of interval ('discrete' or 'continuous')
+      type: discrete
+
+      # Set the lowest value in the interval that will
+      # be represented on the axis
+      bottom: 0
+
+      # Set the spacing of the values on the axis
+      spacing: 5
+
+
+  # Y-axis settings
+  yaxis:
+    
+    # Label settings (passed to
+    # 'matplotlib.axes.Axes.set_ylabel')
+    label:
+
+      # Text for the label
+      ylabel: Time (s)
+
+      # Font properties of the label
+      fontproperties:
+        
+        # Name of/path to the font
+        fname: !!null
+        
+        # Font size
+        size: 10
+    
+    # Tick labels settings (passed to
+    # 'matplotlib.axes.Axes.set_yticklabels')
+    ticklabels:
+      
+      # Tick label rotation
+      rotation: 0
+
+      # Font properties of the tick labels
+      fontproperties:
+        
+        # Name of/path to the font
+        fname: !!null
+        
+        # Font size
+        size: 8
+
+    # Settings for the interval represented on the axis
+    interval:
+
+      # Type of interval ('discrete' or 'continuous')      
+      type: discrete

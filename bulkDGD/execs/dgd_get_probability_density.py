@@ -43,7 +43,8 @@ import sys
 import pandas as pd
 import torch
 # bulkDGD
-from bulkDGD.utils import dgd, misc
+from bulkDGD.core import model
+from bulkDGD import defaults, ioutil
 
 
 def main():
@@ -97,7 +98,7 @@ def main():
         "DGD model parameters and files containing " \
         "the trained model. If it is a name without " \
         "extension, it is assumed to be the name of a " \
-        f"configuration file in '{dgd.CONFIG_MODEL_DIR}'."
+        f"configuration file in '{defaults.CONFIG_MODEL_DIR}'."
     parser.add_argument("-cm", "--config-file-model",
                         type = str,
                         required = True,
@@ -207,7 +208,7 @@ def main():
     # Try to load the configuration
     try:
 
-        config_model = misc.get_config_model(config_file_model)
+        config_model = ioutil.load_config_model(config_file_model)
 
     # If something went wrong
     except Exception as e:
@@ -232,23 +233,20 @@ def main():
     # Try to load the data
     try:
 
-        df_rep, df_other_data = \
-            dgd.load_representations(csv_file = input_csv)
+        df_rep  = \
+            ioutil.load_representations(csv_file = input_csv,
+                                        sep = ",",
+                                        split = False)
 
     # If something went wrong
     except Exception as e:
 
         # Warn the user and exit
         errstr = \
-            "It was not possible to load the data from " \
+            "It was not possible to load the representations from " \
             f"'{input_csv}'. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
-
-    # Get the number of samples and the dimensionality
-    # of the latent space from the dimensions of the
-    # input data frame
-    n_samples, dim_latent = df_rep.shape
 
     # Inform the user that the data were successfully loaded
     infostr = \
@@ -256,44 +254,25 @@ def main():
     logger.info(infostr)
 
 
-    #-------------------- Gaussian mixture model ---------------------#
+    #------------------------ Load the model -------------------------#
 
 
-    # If the dimensionality of the latent space provided in the
-    # configuration file does not match the one found in the
-    # input file
-    if dim_latent != config_model["gmm"]["options"]["dim"]:
-
-        # Warn the user and exit
-        errstr = \
-            "The representations found in the input file " \
-            f"'{input_csv_rep}' have {dim_latent} dimensions, " \
-            "while the configuration file defines a Gaussian " \
-            f"mixture model with {config_model['dim_latent']} " \
-            "dimensions."
-        logger.error(errstr)
-        sys.exit(errstr)
-
-    # Get the configuration for the GMM
-    config_gmm = config_model["gmm"]
-
-    # Try to get the GMN
+    # Try to get the GMM
     try:
         
-        gmm = dgd.get_gmm(config = config_gmm)
+        dgd_model = model.DGDModel(**config_model)
 
     # If something went wrong
     except Exception as e:
 
         # Warn the user and exit
         errstr = \
-            "It was not possible to get the Gaussian mixture " \
-            f"model. Error: {e}"
+            f"It was not possible to set the DGD model. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the GMM was successfully set
-    infostr = "The Gaussian mixture model was successfully set."
+    # Inform the user that the model was successfully set
+    infostr = "The DGD model was successfully set."
     logger.info(infostr)
 
 
@@ -301,8 +280,7 @@ def main():
 
 
     df_prob_rep, df_prob_comp = \
-        dgd.get_probability_density(gmm = gmm,
-                                    df_rep = df_rep)
+        dgd_model.get_probability_density(df_rep = df_rep)
 
 
     #------------- Output - p.d. for all representations --------------#

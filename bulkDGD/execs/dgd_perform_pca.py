@@ -39,8 +39,8 @@ import sys
 # Third-party packages
 import pandas as pd
 # bulkDGD
-from bulkDGD.utils import dgd, misc, plotting
-
+from bulkDGD import defaults, ioutil, plotting
+from bulkDGD.analysis import reduction
 
 
 def main():
@@ -84,10 +84,10 @@ def main():
         "The YAML configuration file specifying the aesthetics " \
         "of the plot and the plot's output format. If not " \
         "provided, the default configuration " \
-        f"file ('{plotting.CONFIG_PLOT_PCA}') will be used."
+        f"file ('{defaults.CONFIG_PLOT_PCA}') will be used."
     parser.add_argument("-cp", "--config-file-plot",
                         type = str,
-                        default = plotting.CONFIG_PLOT_PCA,
+                        default = defaults.CONFIG_PLOT_PCA,
                         help = cp_help)
 
     gc_help = \
@@ -210,7 +210,7 @@ def main():
     # Try to load the configuration
     try:
 
-        config_plot = misc.get_config_plot(config_file_plot)
+        config_plot = ioutil.load_config_plot(config_file_plot)
 
     # If something went wrong
     except Exception as e:
@@ -236,7 +236,9 @@ def main():
     try:
 
         df_rep_data, df_other_data = \
-            dgd.load_representations(csv_file = input_csv)
+            ioutil.load_representations(csv_file = input_csv,
+                                        sep = ",",
+                                        split = True)
 
     # If something went wrong
     except Exception as e:
@@ -262,8 +264,9 @@ def main():
     # Try to perform the pca
     try:
 
-        df_pca = dgd.perform_2d_pca(df_rep = df_rep_data,
-                                    pc_columns = ["PC1", "PC2"])
+        df_pca = \
+            reduction.perform_2d_pca(df_rep = df_rep_data,
+                                     pc_columns = ["PC1", "PC2"])
 
     # If something went wrong
     except Exception as e:

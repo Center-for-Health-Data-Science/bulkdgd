@@ -3,15 +3,11 @@
 
 #    dataclasses.py
 #
-#    Module containing the classses defining the structure of the
-#    datasets to be used in the DGD model.
-#
 #    The code was originally developed by Viktoria Schuster,
-#    Inigo Prada Luengo, Yuhu Liang, and Anders Krogh.
+#    Inigo Prada Luengo, and Anders Krogh.
 #    
-#    Valentina Sora rearranged it for the purposes of this package.
-#    Therefore, only functions/methods needed for the purposes
-#    of this package were retained in the code.
+#    Valentina Sora modified and complemented it for the purposes
+#    of this package.
 #
 #    Copyright (C) 2023 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
@@ -19,8 +15,6 @@
 #                       <viktoria.schuster@sund.ku.dk>
 #                       Inigo Prada Luengo
 #                       <inlu@diku.dk>
-#                       Yuhu Liang
-#                       <yuhu.liang@di.ku.dk>
 #                       Anders Krogh
 #                       <akrogh@di.ku.dk>
 #
@@ -41,21 +35,28 @@
 
 # Description of the module
 __doc__ = \
-    "Module containing the classses defining the structure of " \
+    "This module contains the classses defining the structure of " \
     "the datasets to be used in the DGD model."
 
 
+# Standard library
+import logging as log
 # Third-party packages
 import numpy as np
 import torch
+
+
+# Get the module's logger
+logger = log.getLogger(__name__)
 
 
 class GeneExpressionDataset(object):
 
     """
     Class implementing a dataset containing gene expression data
-    for multiple samples, so that one can take advantage of the
-    ``torch.utils.data.DataLoader`` utility for a map-style dataset.
+    for multiple samples. This class is design so that it so
+    that it can be used with the``torch.utils.data.DataLoader``
+    utility, if needed.
 
     The class needs to implement a ``__getitem__`` and a ``__len__``
     method.
@@ -83,72 +84,66 @@ class GeneExpressionDataset(object):
                sample_3,978,9467,563,23
         """
 
-        # Get the data frame
-        self._df = df
-
         # Get the samples' names
         self._samples = df.index
 
         # Get the genes' names
         self._genes = df.columns
 
-        # Get the number of samples
-        self._n_samples = df.shape[0]
-
-        # Get the number of genes
-        self._n_genes = df.shape[1]
-
-        # Get the mean gene expression for each sample
-        self._mean_exp = self._get_mean_exp(df = self.df)
+        # Get the expression data for all samples and the
+        # mean gene expression for each sample 
+        self._data_exp, self._mean_exp = self._get_exp(df = df)
 
 
     #-------------------- Initialization methods ---------------------#
 
 
-    def _get_mean_exp(self,
-                      df):
-        """Return the mean gene expression for each sample.
+    def _get_exp(self,
+                 df):
+        """Return the gene expression for all samples and the
+        mean gene expression for each sample.
 
         Parameters
         ----------
         df : ``pandas.DataFrame``
-            A data frame containing the gene espression data.
+            A data frame containing the gene expression data.
 
         Returns
         -------
-        ``pandas.Series``
-            A column containing the mean gene expression for each
-            sample.
+        data_exp : ``torch.Tensor``
+            The gene expression for all samples.
+
+            This is a 2D tensor where:
+
+            * The first dimension has a length equal to the number of
+              samples in the dataset.
+
+            * The second dimension has a length equal to the number of
+              genes whose expression is reported in the dataset.
+
+        mean_exp : ``torch.Tensor``
+            The mean gene expression for each sample.
+            
+            This is a 1D tensor whose length is equal to the
+            number of samples in the dataset.
         """
 
-        return torch.mean(\
-                torch.Tensor(self.df.iloc[:, 0:self.n_genes].values),
-                dim = 1).unsqueeze(1)
+        # Get the gene expression for all samples
+        data_exp = \
+            torch.Tensor(\
+                np.array(df.loc[self.samples, self.genes].values,
+                         dtype = "float64"))
+
+        # Get the mean gene expression for each sample
+        mean_exp = \
+            torch.mean(data_exp,
+                       dim = 1).unsqueeze(1)
+
+        # Return the two tensors
+        return data_exp, mean_exp
 
 
     #-------------------------- Properties ---------------------------#
-
-
-    @property
-    def df(self):
-        """The original data frame from which the dataset is
-        constructed.
-        """
-        
-        return self._df
-
-
-    @df.setter
-    def df(self,
-           value):
-        """Raise an error if the user tries to modify
-        the value of ``df`` after initialization.
-        """
-        
-        errstr = \
-            "The value of 'df' cannot be changed " \
-            "after initialization."
-        raise ValueError(errstr)
 
 
     @property
@@ -192,50 +187,35 @@ class GeneExpressionDataset(object):
 
 
     @property
-    def n_samples(self):
-        """The number of samples in the dataset.
-        """
-        
-        return self._n_samples
+    def data_exp(self):
+        """A 2D ``torch.Tensor`` where:
 
+        * The first dimension has a length equal to the
+          number of samples in the dataset.
 
-    @n_samples.setter
-    def n_samples(self,
-                  value):
-        """Raise an error if the user tries to modify
-        the value of ``n_samples`` after initialization.
+        * The second dimension has a length equal to the
+          number of genes whose expression is reported in the
+          dataset.
         """
-        
+        return self._data_exp
+    
+
+    @data_exp.setter
+    def data_exp(self,
+                 value):
+        """Raise an error if the user tries to modify the
+        values of ``data_exp`` after initialization.
+        """
+
         errstr = \
-            "The value of 'n_samples' cannot be changed " \
+            "The value of 'data_exp' cannot be changed " \
             "after initialization."
-        raise ValueError(errstr)
-
-
-    @property
-    def n_genes(self):
-        """The number of genes in the data frame.
-        """
-        
-        return self._n_genes
-
-
-    @n_genes.setter
-    def n_genes(self,
-                value):
-        """Raise an error if the user tries to modify
-        the value of ``n_genes`` after initialization.
-        """
-        
-        errstr = \
-            "The value of 'n_genes' cannot be changed " \
-            "after initialization."
-        raise ValueError(errstr)
+        raise ValueError(errstr)   
 
 
     @property
     def mean_exp(self):
-        """A one-dimensional ``torch.Tensor`` with length equal
+        """A 1D ``torch.Tensor`` with length equal
         to the number of samples in the dataset containing the
         mean gene expression for each sample.
         """
@@ -293,26 +273,20 @@ class GeneExpressionDataset(object):
 
             # Convert it to a list
             idx = idx.tolist()
-        
-        # Get the data of interest from the data frame
-        # as a numpy array
-        data = \
-            np.array(self.df.iloc[idx, 0:self.n_genes].values,
-                     dtype = "float64")
 
         # Return the data for the sample(s) of interest,
         # its (their) mean gene expression, and its (their)
         # index(es)
-        return (data, self.mean_exp[idx], idx)
+        return (self.data_exp[idx], self.mean_exp[idx], idx)
 
 
     def __len__(self):
-        """Get the length of the dataset from the lenght of the
-        associated data frame.
+        """Get the length of the dataset, which corresponds to the
+        number of samples.
         """
 
-        # Return the length of the associated data frame
-        return len(self.df)
+        # Return the number of samples
+        return len(self._samples)
 
 
     #------------------------ Public methods -------------------------#

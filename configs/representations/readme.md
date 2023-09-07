@@ -1,42 +1,67 @@
 # `configs/representations`
 
-Last updated: 27/07/2023
+Last updated: 18/08/2023
 
-## `config_rep.yaml`
+## `one_opt.yaml`
 
-Example of a YAML configuration file used for `dgd_get_representations` (`-cr`, `--config-file-rep` option).
+Example of a YAML configuration file used for `dgd_get_representations` (`-cr`, `--config-file-rep` option) to get the representations using only one round of optimization.
 
 The configuration file has the following structure (`int`, `str`, `float`, `bool`, etc., represent the data type expected for each field):
 
 ```yaml
-# Section containing the options for loading the gene expression data
-data:
-  
-  # The data will be loaded in batches of 'batch_size' size
-  batch_size: int
-  
-  # Whether to shuffle the data when loading them
-  shuffle: bool
+# How many representations to initialize per component of
+# the Gaussian mixture model per sample
+n_rep_per_comp: int
 
-
-# Section containing the options for the different
-# rounds of optimization used when finding the
-# best representations for new samples
+# Section containing the options for the optimization
 optimization:
 
-  # Section containing the options for the initial
-  # round of optimization
+  # Number of epochs
+  epochs: int
+
+  # Name of the optimizer (e.g., "adam")
+  optimizer_name: str
+
+  # Section containing the options for the optimizer
+  # (they vary according to the type of optimizer)
+  optimizer_options:
+
+    # Learning rate
+    lr: float
+
+    # Weight decay
+    weight_decay: float
+
+    # Betas
+    betas: [float, float]
+```
+
+## `two_opt.yaml`
+
+Example of a YAML configuration file used for `dgd_get_representations` (`-cr`, `--config-file-rep` option) to get the representations using two rounds of optimization.
+
+The configuration file has the following structure (`int`, `str`, `float`, `bool`, etc., represent the data type expected for each field):
+
+```yaml
+# How many representations to initialize per component of
+# the Gaussian mixture model per sample
+n_rep_per_comp: int
+
+# Section containing the options for the optimization
+optimization:
+
+  # First optimization round
   opt1:
 
     # Number of epochs
     epochs: int
 
-    # Type of optimizer (e.g., "adam")
-    type: str
+    # Name of the optimizer (e.g., "adam")
+    optimizer_name: str
 
     # Section containing the options for the optimizer
     # (they vary according to the type of optimizer)
-    options:
+    optimizer_options:
 
       # Learning rate
       lr: float
@@ -45,21 +70,20 @@ optimization:
       weight_decay: float
 
       # Betas
-      betas: list of two floats
+      betas: [float, float]
 
-  # Section containing the options for further
-  # optimization
+  # Second optimization round
   opt2:
 
     # Number of epochs
     epochs: int
 
-    # Type of optimizer (e.g., "adam")
-    type: str
+    # Name of the optimizer (e.g., "adam")
+    optimizer_name: str
 
     # Section containing the options for the optimizer
     # (they vary according to the type of optimizer)
-    options:
+    optimizer_options:
 
       # Learning rate
       lr: float
@@ -68,7 +92,5 @@ optimization:
       weight_decay: float
 
       # Betas
-      betas: list of two floats
+      betas: [float, float]
 ```
-
-

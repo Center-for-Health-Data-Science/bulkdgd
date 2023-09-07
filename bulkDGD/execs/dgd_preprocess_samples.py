@@ -3,8 +3,6 @@
 
 #    dgd_preprocess_samples.py
 #
-#    Preprocess new samples to use them with the DGD model.
-#
 #    Copyright (C) 2023 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
@@ -27,15 +25,15 @@
 __doc__ = \
     "Preprocess new samples to use them with the DGD model."
 
+
 # Standard library
 import argparse
 import logging as log
 import os
 import sys
-# Third-party packages
-import pandas as pd
 # bulkDGD
-from bulkDGD.utils import dgd
+from bulkDGD import ioutil
+
 
 def main():
 
@@ -196,14 +194,12 @@ def main():
     # Try to load the input samples
     try:
 
-        df_expr_data, df_other_data = \
-            dgd.load_samples(csv_file = input_csv,
-                             sep = ",",
-                             keep_samples_names = True)
+        df_samples = \
+            ioutil.load_samples(csv_file = input_csv,
+                                sep = ",",
+                                keep_samples_names = True,
+                                split = False)
 
-        df_samples = pd.concat([df_expr_data, df_other_data],
-                               axis = 1)
-        print(df_samples)
     # If something went wrong
     except Exception as e:
 
@@ -221,8 +217,8 @@ def main():
     # Try to preprocess the samples
     try:
 
-        preproc_df, genes_excluded, genes_missing = \
-            dgd.preprocess_samples(df_samples = df_samples)
+        df_preproc, genes_excluded, genes_missing = \
+            ioutil.preprocess_samples(df_samples = df_samples)
 
     # If something went wrong
     except Exception as e:
@@ -244,9 +240,9 @@ def main():
     # Try to write out the preprocessed samples
     try:
 
-        dgd.save_samples(df = preproc_df,
-                         csv_file = output_csv_samples_path,
-                         sep = ",")
+        ioutil.save_samples(df = df_preproc,
+                            csv_file = output_csv_samples_path,
+                            sep = ",")
 
     # If something went wrong
     except Exception as e:
@@ -289,7 +285,7 @@ def main():
             errstr = \
                 "It was not possible to write the list of genes " \
                 "that are present in the input samples but are " \
-                "not among the genes used to train the DGD model " \
+                "not among the genes included in the DGD model " \
                 f"to '{output_txt_genes_excluded_path}'. Error: {e}"
             logger.exception(errstr)
             sys.exit(errstr)
@@ -298,7 +294,7 @@ def main():
         # to the output file
         infostr = \
             "The list of genes that are present in the input " \
-            "samples but are not among the genes used to train " \
+            "samples but are not among the genes included in " \
             "the DGD model was successfully written in " \
             f"'{output_txt_genes_excluded_path}'."
         logger.info(infostr)
@@ -326,7 +322,7 @@ def main():
             # Warn the user and exit
             errstr = \
                 "It was not possible to write the list of genes " \
-                "that were used to train the DGD model but are " \
+                "that are included in the DGD model but are " \
                 "not present in the input samples to " \
                 f"'{output_txt_genes_missing_path}'."
             logger.exception(errstr)
@@ -335,7 +331,7 @@ def main():
         # Inform the user that the genes were successfully written in the
         # output file
         infostr = \
-            "The list of genes that were used to train the DGD " \
+            "The list of genes that are included in the DGD model " \
             "model but are not present in the input samples " \
             "was successfully written in " \
             f"'{output_txt_genes_missing_path}'."

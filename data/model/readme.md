@@ -1,6 +1,6 @@
 # `data/model`
 
-Last updated: 15/03/2023
+Last updated: 31/08/2023
 
 ## `dec.pth`
 
@@ -10,9 +10,9 @@ A PyTorch file containing the state of the trained decoder. Since it is too larg
 
 A PyTorch file containing the state of the trained Gaussian mixture model.
 
-## `training_genes.txt`
+## `genes.txt`
 
-A plain text file containing the list of genes (represented by their Ensembl IDs) used to train the DGD model.
+A plain text file containing the list of genes (represented by their Ensembl IDs) included in the DGD model.
 
 Example:
 

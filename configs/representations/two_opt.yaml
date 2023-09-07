@@ -1,0 +1,50 @@
+# How many representations to initialize per component of
+# the Gaussian mixture model per sample
+n_rep_per_comp: 1
+
+# Section containing the options for the optimization
+optimization:
+
+  # First optimization round
+  opt1:
+
+    # Number of epochs
+    epochs: 10
+
+    # Name of the optimizer (e.g., "adam")
+    optimizer_name: adam
+
+    # Section containing the options for the optimizer
+    # (they vary according to the type of optimizer)
+    optimizer_options:
+
+      # Learning rate
+      lr: 0.01
+
+      # Weight decay
+      weight_decay: 0
+
+      # Betas
+      betas: [0.5, 0.9]
+
+  # Second optimization round
+  opt2:
+
+    # Number of epochs
+    epochs: 50
+
+    # Name of the optimizer (e.g., "adam")
+    optimizer_name: adam
+
+    # Section containing the options for the optimizer
+    # (they vary according to the type of optimizer)
+    optimizer_options:
+
+      # Learning rate
+      lr: 0.01
+
+      # Weight decay
+      weight_decay: 0
+
+      # Betas
+      betas: [0.5, 0.9]

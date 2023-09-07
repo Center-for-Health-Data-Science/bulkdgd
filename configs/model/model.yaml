@@ -1,0 +1,89 @@
+
+
+#---------------------- Gaussian mixture model -----------------------#
+
+
+# PyTorch file containing the parameters of the trained GMM.
+# Make sure that the file contains a GMM whose parameters
+# fit the architecture specified in the 'options' section.
+gmm_pth_file: default
+
+# Dimensionality of the Gaussian mixture model
+dim: 50
+
+# Number of components in the mixture
+n_comp: 45
+
+# Type of covariance matrix. Choices are 'diagonal',
+# 'fixed', and 'isotropic'
+cm_type: diagonal
+
+# Name of the prior over the means of the components
+# of the Gaussian mixture model
+means_prior_name: softball
+
+# Options to set up the prior (they vary according to
+# the type of prior)
+means_prior_options:
+
+  # Radius of the soft ball
+  radius: 7
+
+  # Sharpness of the soft boundary of the ball
+  sharpness: 10
+
+# Name of the prior over the weights of the components
+# of the Gaussian mixture model
+weights_prior_name: dirichlet
+
+# Options to set up the prior (they vary according to
+# the type of prior)
+weights_prior_options:
+
+  # Alpha of the Dirichlet distribution determining
+  # the uniformity of the weights of the components
+  # in the mixture
+  alpha: 5
+
+# Name of the prior over the log-variances of the components
+# of the Gaussian mixture model
+log_var_prior_name: gaussian
+
+# Options to set up the prior (they vary according to
+# the type of prior)
+log_var_prior_options:
+
+  # Mean of the Gaussian distribution calculated
+  # as 2 * log(mean)
+  mean : 0.1
+
+  # Standard deviation of the Gaussian distribution
+  stddev: 1
+
+
+#------------------------------ Decoder ------------------------------#
+
+
+# PyTorch file containing the parameters of the trained decoder.
+# Make sure that the file contains a decoder whose parameters
+# fit the architecture specified in the 'options' section
+dec_pth_file: default
+    
+# Number of units in the hidden layers
+n_units_hidden_layers: [500, 8000]
+
+# Initial "number of successes" (r) for the negative
+# binomial distributions modeling the output layer
+r_init: 2
+
+# Name of the activation function to be used in the
+# output layer
+activation_output: softplus
+
+
+#------------------------------- Genes -------------------------------#
+
+
+# Plain text file containing the list of genes included in the model
+genes_txt_file: default
+    

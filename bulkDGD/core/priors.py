@@ -3,14 +3,11 @@
 
 #    priors.py
 #
-#    Module containing the classes defining the priors.
-#
 #    The code was originally developed by Viktoria Schuster,
-#    Inigo Prada Luengo, Yuhu Liang, and Anders Krogh.
+#    Inigo Prada Luengo, and Anders Krogh.
 #    
-#    Valentina Sora rearranged it for the purposes of this package.
-#    Therefore, only functions/methods needed for the purposes
-#    of this package were retained in the code.
+#    Valentina Sora modified and complemented it for the purposes
+#    of this package.
 #
 #    Copyright (C) 2023 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
@@ -18,8 +15,6 @@
 #                       <viktoria.schuster@sund.ku.dk>
 #                       Inigo Prada Luengo
 #                       <inlu@diku.dk>
-#                       Yuhu Liang
-#                       <yuhu.liang@di.ku.dk>
 #                       Anders Krogh
 #                       <akrogh@di.ku.dk>
 #
@@ -40,19 +35,30 @@
 
 # Description of the module
 __doc__ = \
-    "Module containing the classes defining the priors."
+    "This module contains the classes implementing some of the " \
+    "prior distributions used in the DGD model. The 'softball' " \
+    "distribution (:class:`core.priors.SoftballPrior``) is used " \
+    "as a prior over the means of the components of the " \
+    "Gaussian mixture, while a Gaussian distribution " \
+    "(:class:`core.priors.GaussianPrior`) is used as a prior " \
+    "over the log-variance of the Gaussian mixture."
 
 
 # Standard library
+import logging as log
 import math
 # Third-party packages
 import torch
 
 
-class SoftballPrior():
+# Get the module's logger
+logger = log.getLogger(__name__)
+
+
+class SoftballPrior:
     
     """
-    Class implementing a "softball" prior.
+    Class implementing a "softball" prior distribution.
 
     It is an almost uniform prior for an m-dimensional ball, with
     the logistic function making a soft (differentiable) boundary.
@@ -62,18 +68,19 @@ class SoftballPrior():
                  dim,
                  radius,
                  sharpness):
-        """Initialize an instance of the "softball" distribution.
+        """Initialize an instance of the softball prior
+        distribution.
 
         Parameters
         ----------
         dim : ``int``
-            The dimensionality of the prior.
+            The dimensionality of the distribution.
 
         radius : ``float``
-            The radius of the ball.
+            The radius of the soft ball.
 
         sharpness : ``int``
-            The sharpness of the "soft" boundary.
+            The sharpness of the soft boundary of the ball.
         """
         
         # Set the dimensionality of the prior
@@ -91,7 +98,7 @@ class SoftballPrior():
 
     @property
     def dim(self):
-        """The dimensionality of the softball prior.
+        """The dimensionality of the softball distribution.
         """
 
         return self._dim
@@ -112,7 +119,7 @@ class SoftballPrior():
 
     @property
     def radius(self):
-        """The radius of the ball.
+        """The radius of the soft ball.
         """
 
         return self._radius
@@ -133,7 +140,7 @@ class SoftballPrior():
 
     @property
     def sharpness(self):
-        """The sharpness of the "soft" boundary of the ball.
+        """The sharpness of the soft boundary of the ball.
         """
 
         return self._sharpness
@@ -156,20 +163,20 @@ class SoftballPrior():
     
 
     def sample(self,
-               n):
+               n_samples):
         """Get ``n`` random samples from the softball distribution.
         The sampling is uniform from the ``dim``-dimensional ball,
         and approximate.
         
         Parameters
         ----------
-        n : ``int``
-            The number of random samples.
+        n_samples : ``int``
+            The number of samples to be drawn.
 
         Returns
         -------
-        ``torch.Tensor``
-            The points samples from the softball distribution.
+        samples : ``torch.Tensor``
+            The samples drawn from the softball distribution.
         """
 
         # Disable gradient calculation
@@ -179,41 +186,43 @@ class SoftballPrior():
             # normal distribution with mean of 0 and a standard
             # deviation of 1 - 'sample' is a tensor with dimensions
             # [n_samples, dim]
-            sample = torch.randn((n, self.dim))
+            samples = torch.randn((n_samples, self.dim))
             
             # Get the norm of the tensor calculated on the last
             # dimension of the tensor. Retain 'dim' in the output
             # tensor. Divide the first element of the norm by
             # the second element of the norm.
             # In brief, get 'n' random directions.
-            sample.div_(sample.norm(dim = -1,
-                                    keepdim = True))
+            samples.div_(samples.norm(dim = -1,
+                                      keepdim = True))
             
             # Get 'n' random lengths
             local_len = \
                 self.radius * \
-                torch.pow(torch.rand((n, 1)), 1.0 / self.dim)
+                torch.pow(torch.rand((n_samples, 1)), 1.0 / self.dim)
             
             # ???
-            sample.mul_(local_len.expand(-1, self.dim))
+            samples.mul_(local_len.expand(-1, self.dim))
         
-        # Return the new sample
-        return sample
+        # Return the new samples
+        return samples
     
 
     def log_prob(self,
-                 z):
-        """Return the log-probabilities of the elements of a tensor.
+                 x):
+        """Return the log of the probability density function
+        evaluated at ``x``.
 
         Parameters
         ----------
-        z : ``torch.Tensor``
+        x : ``torch.Tensor``
             The input tensor.
 
         Returns
         -------
-        ``torch.Tensor``
-            The log-probabilities of the input tensor.
+        log_prob : ``torch.Tensor``
+            The log of the probability density function evaluated
+            at ``x``.
         """
 
         # Compute the norm
@@ -222,19 +231,18 @@ class SoftballPrior():
             self.dim * (math.log(self.radius) + \
             0.5 * math.log(math.pi))
         
-        # Return the log probabilities
+        # Return the log of the probability density function
         return (norm - \
                 torch.log(1 + \
                           torch.exp(\
-                            self.sharpness * (z.norm(dim = -1) / \
+                            self.sharpness * (x.norm(dim = -1) / \
                             self.radius-1))))
 
 
-class GaussianPrior():
+class GaussianPrior:
     
     """
-    Class implementing a Gaussian prior used to initialize
-    the Gaussian mixture model's means.
+    Class implementing a Gaussian prior distribution.
     """
 
     def __init__(self,
@@ -246,7 +254,7 @@ class GaussianPrior():
         Parameters
         ----------
         dim : ``int``
-            The dimensionality of the prior.
+            The dimensionality of the distribution.
         
         mean : ``float``
             The mean of the Gaussian distribution.
@@ -276,7 +284,7 @@ class GaussianPrior():
 
     @property
     def dim(self):
-        """The dimensionality of the Gaussian prior.
+        """The dimensionality of the Gaussian distribution.
         """
 
         return self._dim
@@ -337,28 +345,6 @@ class GaussianPrior():
         raise ValueError(errstr)
 
 
-    @property
-    def dist(self):
-        """The distribution associated with the prior.
-        """
-
-        return self._dist
-
-
-    @dist.setter
-    def dist(self,
-             value):
-        """Raise an exception if the user tries to modify
-        the value of ``stddev`` after initialization.
-        """
-        
-        errstr = \
-            "The value of 'dist' is automatically determined " \
-            "from 'mean' and 'stddev' during initialization " \
-            "and it cannot be changed."
-        raise ValueError(errstr)
-
-
     #------------------------ Public methods -------------------------#
 
 
@@ -369,20 +355,21 @@ class GaussianPrior():
         Parameters
         ----------
         n_samples : ``int``
-            The number of samples.
+            The number of samples to be drawn.
 
         Returns
         -------
         ``torch.Tensor``
-            The points sampled from the Gaussian distribution.
+            The samples drawn from the Gaussian distribution.
         """
         
-        return self.dist.sample((n_samples, self.dim))
+        return self._dist.sample((n_samples, self.dim))
 
     
     def log_prob(self,
                  x):
-        """Return the log probabilities of a tensor.
+        """Return the log of the probability density function
+        evaluated at ``x``.
 
         Parameters
         ----------
@@ -391,8 +378,9 @@ class GaussianPrior():
 
         Returns
         -------
-        ``torch.Tensor``
-            The log probabilities of the input tensor.
+        log_prob : ``torch.Tensor``
+            The log of the probability density function evaluated
+            at ``x``.
         """
         
-        return self.dist.log_prob(x)
+        return self._dist.log_prob(x)
