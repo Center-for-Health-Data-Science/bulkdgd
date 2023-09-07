@@ -436,7 +436,7 @@ def _set_axis(ax,
         ticks = plot_ticks()[0]
 
     # If there are any ticks on the axis
-    if ticks != []:      
+    if len(ticks) > 0:      
         
         # Set the axis boundaries
         ax.spines[spine].set_bounds(ticks[0],
