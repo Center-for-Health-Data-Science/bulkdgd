@@ -3,13 +3,6 @@ core.decoder
 
 .. automodule:: core.decoder
 
-   .. rubric:: Classes
-
-   .. autosummary::
-   
-      Decoder
-      NBLayer
-
    .. autoclass:: core.decoder.Decoder
       :members: __init__, forward
 

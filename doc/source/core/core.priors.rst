@@ -3,13 +3,6 @@
 
 .. automodule:: core.priors
 
-   .. rubric:: Classes
-
-   .. autosummary::
-   
-      GaussianPrior
-      SoftballPrior
-
    .. autoclass:: core.priors.SoftballPrior
       :members: __init__, dim, radius, sharpness, sample, log_prob
 
