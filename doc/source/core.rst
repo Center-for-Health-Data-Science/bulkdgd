@@ -1,4 +1,4 @@
-The ``core`` subpackage
+``core`` - the DGD model
 ========================
 
 .. autosummary::

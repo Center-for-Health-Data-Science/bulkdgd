@@ -1,4 +1,4 @@
-﻿``ioutil`` - Utilities for I/O operations
+﻿``ioutil`` - utilities for I/O operations
 =========================================
 
 .. automodule:: ioutil.__init__
