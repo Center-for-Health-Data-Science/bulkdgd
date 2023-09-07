@@ -44,7 +44,7 @@ import pandas as pd
 import torch
 # bulkDGD
 from bulkDGD.core import model
-from bulkDGD import defaults, ioutil
+from bulkDGD import ioutil
 
 
 def main():
@@ -98,7 +98,7 @@ def main():
         "DGD model parameters and files containing " \
         "the trained model. If it is a name without " \
         "extension, it is assumed to be the name of a " \
-        f"configuration file in '{defaults.CONFIG_MODEL_DIR}'."
+        f"configuration file in '{ioutil.CONFIG_MODEL_DIR}'."
     parser.add_argument("-cm", "--config-file-model",
                         type = str,
                         required = True,

@@ -37,7 +37,7 @@ import tempfile
 import pandas as pd
 import requests as rq
 # bulkDGD
-from .. import defaults
+from . import defaults
 
 
 # Get the module's logger

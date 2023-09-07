@@ -39,7 +39,7 @@ import sys
 # Third-party packages
 import pandas as pd
 # bulkDGD
-from bulkDGD import defaults, ioutil, plotting
+from bulkDGD import ioutil, plotting
 from bulkDGD.analysis import reduction
 
 
@@ -84,10 +84,10 @@ def main():
         "The YAML configuration file specifying the aesthetics " \
         "of the plot and the plot's output format. If not " \
         "provided, the default configuration " \
-        f"file ('{defaults.CONFIG_PLOT_PCA}') will be used."
+        f"file ('{ioutil.CONFIG_PLOT_PCA}') will be used."
     parser.add_argument("-cp", "--config-file-plot",
                         type = str,
-                        default = defaults.CONFIG_PLOT_PCA,
+                        default = ioutil.CONFIG_PLOT_PCA,
                         help = cp_help)
 
     gc_help = \

@@ -23,6 +23,7 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
+from .defaults import *
 from .configio import *
 from .decoutio import *
 from .repio import *

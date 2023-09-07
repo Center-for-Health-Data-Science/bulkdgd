@@ -27,7 +27,7 @@ import re
 # Third-party packages
 import pandas as pd
 # bulkDGD
-from .. import defaults
+from . import defaults
 
 # Get the module's logger
 logger = log.getLogger(__name__)

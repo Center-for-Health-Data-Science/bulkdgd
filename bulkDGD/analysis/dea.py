@@ -36,12 +36,237 @@ import pandas as pd
 from scipy.stats import nbinom
 from statsmodels.stats.multitest import multipletests
 import torch
-# bulkDGD
-from ..core import decoder
 
 
 # Get the module's logger
 logger = log.getLogger(__name__)
+
+
+#------------------------- Private functions -------------------------#
+
+
+def _log_prob_mass(k,
+                   m,
+                   r):
+    """Compute the logarithm of the probability mass
+    for a set of negative binomial distribution.
+
+    Thr formula used to compute the logarithm of the
+    probability mass is:
+
+    .. math::
+
+       logPDF_{NB(k,m,r)} &=
+       log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\ 
+       &+ k \\cdot log(m \\cdot c + \\epsilon) +
+       r \\cdot log(r \\cdot c)
+
+    Where :math:`\\epsilon` is a small value to prevent
+    underflow/overflow, and :math:`c` is equal to
+    :math:`\\frac{1}{r+m+\\epsilon}`.
+
+    The derivation of this formula from the non-logarithmic
+    formulation of the probability mass function of the
+    negative binomial distribution can be found below.
+
+    Parameters
+    ----------
+    k : ``torch.Tensor``
+        "Number of successes" seen before
+        stopping the trials (each value in the
+        tensor corresponds to the number of successes
+        of a different negative binomial).
+
+    m : ``torch.Tensor``
+        Means of the negative binomials (each value in
+        the tensor corresponds to the mean of a
+        different negative binomial).
+
+    r : ``torch.Tensor``
+        "Number of failures" after which the trials
+        end (each value in the tensor corresponds to
+        the number of failures of a different negative
+        binomial).
+
+    Returns
+    -------
+    x : ``torch.Tensor``
+        The log-probability mass of the negative binomials.
+        This is a 1D tensor whose length corresponds to the
+        number of negative binomials distributions considered,
+        and each value in the tensor corresponds to the
+        log-probability mass of a different negative binomial.
+
+    Notes
+    -----
+    Here, we show how we derived the formula for the logarithm
+    of the probability mass of the negative binomial
+    distribution.
+
+    We start from the non-logarithmic version of the
+    probability mass for the negative binomial, which is:
+
+    .. math::
+
+       PDF_{NB(k,m,r)} = \
+       \\binom{k+r-1}{k} (1-p)^{k} p^{r}
+
+    However, since:
+
+    * :math:`1-p` is equal to :math:`\\frac{m}{r+m}`
+    * :math:`p` is equal to :math:`\\frac{r}{r+m}`
+    * :math:`k+r-1` can be rewritten in terms of the
+      gamma function as :math:`\\Gamma(k+r)`
+    * :math:`k` can also be rewritten as
+      :math:`\\Gamma(r) \\cdot k!`
+
+    The formula becomes:
+
+    .. math::
+
+       PDF_{NB(k,m,r)} = \
+       \\binom{\\Gamma(k+r)}{\\Gamma(r) \\cdot k!}
+       \\left( \\frac{m}{r+m} \\right)^k
+       \\left( \\frac{r}{r+m} \\right)^r
+
+    However, :math:`k!` can be also be rewritten as
+    :math:`\\Gamma(k+1)`, resulting in:
+
+    .. math::
+
+       PDF_{NB(k,m,r)} = \
+       \\binom{\\Gamma(k+r)}{\\Gamma(r) \\cdot 
+       \\Gamma(k+1)}
+       \\left( \\frac{m}{r+m} \\right)^k
+       \\left( \\frac{r}{r+m} \\right)^r
+
+    Then, we get the natural logarithm:
+    
+    .. math::
+
+       logPDF_{NB(k,m,r)} &= \
+       log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\
+       &+ k \\cdot log \\left( \\frac{m}{r+m} \\right) +
+       r \\cdot log \\left( \\frac{r}{r+m} \\right)
+    
+    Here, we are adding a small value :math:`\\epsilon` to
+    prevent underflow/overflow:
+
+    .. math::
+
+       logPDF_{NB(k,m,r)} &= \
+       log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\
+       &+ k \\cdot
+       log \\left( m \\cdot \\frac{1}{r+m+\\epsilon} 
+       + \\epsilon \\right) +
+       r \\cdot
+       log \\left( r \\cdot \\frac{1}{r+m+\\epsilon}
+       \\right)
+
+    Finally, we substitute :math:`\\frac{1}{r+m+\\epsilon}`
+    with :math:`c` and we obtain:
+
+    .. math::
+
+       logPDF_{NB(k,m,r)} &= \
+       log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\
+       &+ k \\cdot
+       log \\left( m \\cdot c + \\epsilon \\right) +
+       r \\cdot
+       log \\left( r \\cdot c \\right)
+    """
+
+    # Convert the "number of successes" to a double-precision
+    # floating point number
+    k = k.double()
+    
+    # Set a small value used to prevent underflow and
+    # overflow
+    eps = 1.e-10
+    
+    # Set a constant used later in the equation defining
+    # the log-probability mass
+    c = 1.0 / (r + m + eps)
+    
+    # Get the log-probability mass of the negative binomials.
+    #
+    # The non-log version would be:
+    #
+    # NB(k,m,r) = \
+    #   gamma(k+r) / (gamma(r) * k!) *
+    #   (m/(r+m))^k *
+    #   (r/(r+m))^r
+    #
+    # Since k! can be rewritten as gamma(k+1):
+    #
+    # NB(k,m,r) = \
+    #   gamma(k+r) / (gamma(r) * gamma(k+1)) *
+    #   (m/(r+m))^k *
+    #   (r/(r+m))^r
+    #
+    # Getting the natural logarithm:
+    #
+    # log(NB(k,m,r)) = \
+    #   lgamma(k+r) - lgamma(r) - lgamma(k+1) +
+    #   k * log(m * 1/(r+m)) +
+    #   r * log(r * 1/(r+m))
+    #
+    # Here, we are adding the small ``eps`` to
+    # prevent underflow/overflow:
+    #
+    # log(NB(k,m,r)) = \
+    #   lgamma(k+r) - lgamma(r) - lgamma(k+1) +
+    #   k * log(m * 1/(r+m+eps) + eps) +
+    #   r * log(r * 1/(r+m+eps))
+    #
+    # Substituting 1/(r+m+eps) with c:
+    #
+    # log(NB(k,m,r)) = \
+    #   lgamma(k+r) - lgamma(r) - lgamma(k+1) +
+    #   k * log(m * c + eps) +
+    #   r * log(r * c)
+    x = \
+        torch.lgamma(k+r) - torch.lgamma(r) - \
+        torch.lgamma(k+1) + k*torch.log(m*c+eps) + \
+        r*torch.log(r*c)
+    
+    # Return the log-probability mass
+    return x
+
+
+def _rescale(means,
+             scaling_factors):
+    """Rescale the means of the negative binomial
+    distributions.
+
+    Parameters
+    ----------
+    means : ``torch.Tensor``
+        A 1D tensor containing the means of the negative
+        binomials o be rescaled.
+
+        In the tensor, each value represents the 
+        mean of a different negative binomial.
+
+    scaling_factors : ``torch.Tensor``
+        The scaling factors.
+
+        This is a 1D tensor whose length is equal to the
+        number of scaling factors to be used to rescale
+        the means.
+
+    Returns
+    -------
+    ``torch.Tensor``
+        The rescaled means.
+
+        This is a 1D tensor whose length is equal to the number
+        of negative binomials whose means were rescaled.
+    """
+    
+    # Return the rescaled values by multiplying the means
+    # by the scaling factors
+    return means * scaling_factors
 
 
 def get_p_values(obs_counts,
@@ -179,9 +404,8 @@ def get_p_values(obs_counts,
     #
     # - 1st dimension: the dimensionality of the output (= gene)
     #                  space
-    pred_means = \
-        decoder.NBLayer.rescale(pred_means,
-                                obs_counts_mean_sum)
+    pred_means = _rescale(pred_means,
+                          obs_counts_mean_sum)
 
     # Create an empty list to store the p-valued computed per gene
     # in the current sample, the value of the probability mass
@@ -260,7 +484,7 @@ def get_p_values(obs_counts,
         # The output is a 1D tensor whose length is equal to
         # the length of 'k'
         pmf = \
-            decoder.NBLayer.log_prob_mass(\
+            _log_prob_mass(\
                 k = k,
                 m = pred_mean_gene_i,
                 r = r_value_i).to(torch.float64)
@@ -273,7 +497,7 @@ def get_p_values(obs_counts,
         # actual value of the count for gene 'i', 'obs_count_gene_i'.
         # This is a single value
         prob_obs_count_gene_i = \
-            decoder.NBLayer.log_prob_mass(\
+            _log_prob_mass(\
                 k = obs_count_gene_i,
                 m = pred_mean_gene_i,
                 r = r_value_i).to(torch.float64)
