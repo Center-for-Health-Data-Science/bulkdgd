@@ -37,7 +37,7 @@ from scipy.stats import nbinom
 from statsmodels.stats.multitest import multipletests
 import torch
 # bulkDGD
-from bulkDGD.core import decoder
+from ..core import decoder
 
 
 # Get the module's logger

@@ -29,7 +29,7 @@ import os
 import matplotlib.font_manager as fm
 import yaml
 # bulkDGD
-from bulkDGD import defaults
+from .. import defaults
 from . import _util
 
 
