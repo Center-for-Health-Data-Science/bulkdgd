@@ -1,5 +1,3 @@
-Welcome to bulkDGD!
-===================
 
 .. toctree::
    :maxdepth: 1
@@ -11,6 +9,9 @@ Welcome to bulkDGD!
    command_line_interface
    tutorials
 
+
+Welcome to bulkDGD!
+===================
 
 .. grid:: 3
    :gutter: 4
@@ -122,12 +123,3 @@ Welcome to bulkDGD!
          :click-parent:
 
          To the Tutorials
-
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`

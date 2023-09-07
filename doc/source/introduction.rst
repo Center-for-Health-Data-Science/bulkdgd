@@ -1,13 +1,3 @@
-.. toctree::
-   :maxdepth: 1
-   :hidden:
-
-   installation
-   api_reference
-   command_line_interface
-   tutorials
-
-
 Getting started
 ===============
 
