@@ -3,8 +3,6 @@
 
 #    dea.py
 #
-#    Utilities to perform differential expression analysis (DEA).
-#
 #    Copyright (C) 2023 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
@@ -396,8 +394,7 @@ def get_p_values(obs_counts,
 
     # Get the mean gene counts for the sample. The output is
     # a single value
-    obs_counts_mean_sum = \
-        torch.mean(obs_counts).unsqueeze(-1)
+    obs_counts_mean = torch.mean(obs_counts).unsqueeze(-1)
 
     # Get the rescaled predicted means of the negative binomials
     # (one for each gene). This is a 1D tensor with:
@@ -405,15 +402,15 @@ def get_p_values(obs_counts,
     # - 1st dimension: the dimensionality of the output (= gene)
     #                  space
     pred_means = _rescale(pred_means,
-                          obs_counts_mean_sum)
+                          obs_counts_mean)
 
     # Create an empty list to store the p-valued computed per gene
     # in the current sample, the value of the probability mass
     # function, and the 'k'
-    results_sample = []
+    results = []
 
-    # For each gene's (rescaled) predicted mean counts, observed
-    # counts, and r-value
+    # For each gene's (rescaled) predicted mean count, observed
+    # count, and r-value
     for pred_mean_gene_i, obs_count_gene_i, r_value_i \
         in zip(pred_means, obs_counts, r_values):
 
@@ -522,13 +519,13 @@ def get_p_values(obs_counts,
 
         # Save the p-value found for the current gene, the value of
         # the probability mass function, and the k
-        results_sample.append((p_val.item(),
-                               k.detach().numpy(),
-                               pmf.detach().numpy()))
+        results.append((p_val.item(),
+                       k.detach().numpy(),
+                       pmf.detach().numpy()))
 
     # Create three lists containing all p-values, all PMFs, and
     # all 'k' values
-    p_values, ks, pmfs = list(zip(*results_sample))
+    p_values, ks, pmfs = list(zip(*results))
 
     #------------------------ p-values series ------------------------#
 

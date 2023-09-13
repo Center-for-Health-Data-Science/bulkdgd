@@ -3,8 +3,6 @@
 
 #    reduction.py
 #
-#    Utilities to perform dimensionality reduction.
-#
 #    Copyright (C) 2023 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
