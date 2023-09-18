@@ -232,41 +232,6 @@ def _log_prob_mass(k,
     return x
 
 
-def _rescale(means,
-             scaling_factors):
-    """Rescale the means of the negative binomial
-    distributions.
-
-    Parameters
-    ----------
-    means : ``torch.Tensor``
-        A 1D tensor containing the means of the negative
-        binomials o be rescaled.
-
-        In the tensor, each value represents the 
-        mean of a different negative binomial.
-
-    scaling_factors : ``torch.Tensor``
-        The scaling factors.
-
-        This is a 1D tensor whose length is equal to the
-        number of scaling factors to be used to rescale
-        the means.
-
-    Returns
-    -------
-    ``torch.Tensor``
-        The rescaled means.
-
-        This is a 1D tensor whose length is equal to the number
-        of negative binomials whose means were rescaled.
-    """
-    
-    # Return the rescaled values by multiplying the means
-    # by the scaling factors
-    return means * scaling_factors
-
-
 #------------------------- Public functions --------------------------#
 
 
@@ -404,8 +369,7 @@ def get_p_values(obs_counts,
     #
     # - 1st dimension: the dimensionality of the output (= gene)
     #                  space
-    pred_means = _rescale(pred_means,
-                          obs_counts_mean)
+    pred_means = pred_means * obs_counts_mean
 
     # Create an empty list to store the p-valued computed per gene
     # in the current sample, the value of the probability mass
