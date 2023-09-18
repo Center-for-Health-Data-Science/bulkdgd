@@ -267,6 +267,9 @@ def _rescale(means,
     return means * scaling_factors
 
 
+#------------------------- Public functions --------------------------#
+
+
 def get_p_values(obs_counts,
                  pred_means,
                  r_values,
@@ -530,7 +533,7 @@ def get_p_values(obs_counts,
     #------------------------ p-values series ------------------------#
 
 
-    # Convert the p-values into a pandas Series
+    # Convert the p-values into a pandas' series
     series_p_values = pd.Series(np.array(p_values))
 
     # Set the index of the series equal to the genes' names
@@ -767,9 +770,6 @@ def perform_dea(obs_counts,
         the identification of the sample when running the analysis
         in parallel for multiple samples (i.e., launching the
         function in parallel on multiple samples).
-
-        There is no need to pass it if we are running the
-        analysis for one sample at a time.
 
     statistics : ``list``,
                  {``["p_values", "q_values", "log2_fold_changes"]``}
