@@ -27,7 +27,7 @@
 pkg_name = "bulkDGD"
 
 # Standard library
-from pkg_resources import resource_filename, Requirement
+from pkg_resources import resource_filename
 
 
 #------------------------- Public constants --------------------------#
@@ -37,33 +37,33 @@ from pkg_resources import resource_filename, Requirement
 # DGD model's parameters and the files containing the trained
 # model
 CONFIG_MODEL_DIR = \
-    resource_filename(Requirement(pkg_name),
+    resource_filename(pkg_name,
                       "configs/model")
 
 # The directory containing the configuration files specifying the
 # options for data loading and optimization when finding the
 # best representations
 CONFIG_REP_DIR = \
-    resource_filename(Requirement(pkg_name),
+    resource_filename(pkg_name,
                       "configs/representations")
 
 # The default configuration file for plotting the results of the PCA
 CONFIG_PLOT_PCA = \
-    resource_filename(Requirement(pkg_name),
+    resource_filename(pkg_name,
                       "configs/plot/pca_scatter.yaml")
 
 # Default PyTorch file containing the trained Gaussian mixture model
 GMM_FILE = \
-    resource_filename(Requirement(pkg_name),
+    resource_filename(pkg_name,
                       "data/model/gmm.pth")
 
 # Default PyTorch file containing the trained decoder
 DEC_FILE = \
-    resource_filename(Requirement(pkg_name),
+    resource_filename(pkg_name,
                       "data/model/dec.pth")
 
 # File containing the Ensembl IDs of the genes included in the DGD
 # model
 GENES_FILE = \
-    resource_filename(Requirement(pkg_name),
+    resource_filename(pkg_name,
                       "data/model/genes.txt")
