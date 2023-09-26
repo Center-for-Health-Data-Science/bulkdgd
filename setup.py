@@ -52,7 +52,13 @@ description = \
 package_dir = {name : name}
 
 # Which packages are included
-packages = [name]
+packages = \
+    ["analysis",
+     "core",
+     "execs",
+     "ioutil",
+     "plotting",
+     "recount3"]
 
 # Which package data to include
 package_data = \
