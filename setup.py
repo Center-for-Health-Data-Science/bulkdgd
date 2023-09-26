@@ -51,15 +51,6 @@ description = \
 # The directory of the project
 package_dir = {name : name}
 
-# Which packages are included
-packages = \
-    ["analysis",
-     "core",
-     "execs",
-     "ioutil",
-     "plotting",
-     "recount3"]
-
 # Which package data to include
 package_data = \
     {name : ["analysis/*"
@@ -110,6 +101,5 @@ setup(name = name,
       include_package_data = True,
       package_data = package_data,
       package_dir = package_dir,
-      packages = packages,
       entry_points = entry_points,
       install_requires = install_requires)
