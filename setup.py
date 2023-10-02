@@ -53,7 +53,8 @@ package_dir = {name : name}
 
 # Which packages are included
 packages = \
-    ["bulkDGD.analysis",
+    ["bulkDGD",
+     "bulkDGD.analysis",
      "bulkDGD.core",
      "bulkDGD.ioutil",
      "bulkDGD.plotting",
@@ -61,9 +62,9 @@ packages = \
 
 # Which package data to include
 package_data = \
-    {"ioutil" : ["ioutil/configs/*",
-                 "ioutil/data/*"],
-     "recount3" : ["recount3/data/*"]}
+    {"bulkDGD.ioutil" : ["ioutil/configs/*",
+                          "ioutil/data/*"],
+     "bulkDGD.recount3" : ["recount3/data/*"]}
 
 # Command-line executables
 entry_points = \
