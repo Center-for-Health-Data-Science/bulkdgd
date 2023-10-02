@@ -1,14 +1,16 @@
 # `configs/model`
 
-Last updated: 07/09/2023
+Last updated: 02/10/2023
 
 ## `model.yaml`
 
-Example of a YAML configuration file used for `dgd_get_representations` and `dgd_get_probability_desity` (`-cm`, `--config-file-model` option).
+Example of a YAML configuration file used for `dgd_get_representations`, `dgd_perform_dea`, and `dgd_get_probability_desity` (`-cm`, `--config-file-model` option).
 
-The provided configuration file is compatible with the parameters used in the trained deep generative decoder (not uploaded on GitHub because of its size, it can be found [here](https://drive.google.com/file/d/1SZaoazkvqZ6DBF-adMQ3KRcy4Itxsz77/view?usp=sharing)) and the Gaussian mixture model (`bulkDGD/data/model/gmm.pth`). 
+The provided configuration file is compatible with the parameters used in the trained deep generative decoder (not uploaded on GitHub because of its size, it can be found [here](https://drive.google.com/file/d/1SZaoazkvqZ6DBF-adMQ3KRcy4Itxsz77/view?usp=sharing)) and the Gaussian mixture model (`bulkDGD/ioutil/data/gmm.pth`). 
 
 Suppose you want to change the model components' architectures. In that case, you need to re-train the different components of the model, provide the corresponding PyTorch files, and update the given configuration file accordingly.
+
+The configuration can be loaded using the `bulkDGD.ioutil.load_config_model` function.
 
 The configuration file has the following structure (`int`, `str`, `float`, `bool`, etc., represent the data type expected for each field):
 

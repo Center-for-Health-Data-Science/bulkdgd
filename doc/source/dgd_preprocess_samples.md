@@ -1,10 +1,10 @@
 # `dgd_preprocess_samples`
 
-This executable allows users to preprocess new samples to use within the DGD model.
+This executable allows users to preprocess new samples to use with the DGD model.
 
 It expects as input a CSV file containing a data frame with the gene expression data for the new samples.
 
-Each row must represent a sample, while each column must represent a gene identified by its Ensembl ID or additional information about the samples. The first column is expected to contain the unique names, IDs, or indexes of the samples.
+Each row must represent a sample, while each column must represent a gene identified by its Ensembl ID or additional information about the samples. The first column is expected to contain the samples' unique names, IDs, or indexes.
 
 During preprocessing, Ensembl IDs indicating [pseudoautosomal regions](http://www.ensembl.org/info/genome/genebuild/human_PARS.html) are treated as different genes.
 
@@ -12,13 +12,13 @@ In detail, sample preprocessing consists of the following steps:
 
 1. Removing duplicated samples.
 2. Removing samples containing missing values for the expression of some genes.
-3. Excluding all data for genes that are not included in the DGD model. A plain text file containing the list of the genes used in the model is available in `bulkDGD/data/model/training_genes.txt`.
-4. Adding a count of 0 for all genes that are not found in the input samples but are part of the set of genes used to train the DGD model.
+3. Excluding all data for genes that are not included in the DGD model. A plain text file containing the list of the genes used in the model is available in `bulkDGD/ioutil/data/genes.txt`.
+4. Adding a count of 0 for all genes not found in the input samples but part of the set of genes used to train the DGD model.
 5. Sorting the genes in the order expected by the DGD model.
 
 The program will exit with an error if it finds duplicated genes.
 
-Preprocessing new samples is a critical step before trying to find the samples' best representations in latent space using the DGD model (using, for instance, the [`dgd_get_representations`](#dgd_get_representations) executable).
+Preprocessing new samples is a critical step before finding the samples' best representations in latent space using the DGD model (using, for instance, the [`dgd_get_representations`](#dgd_get_representations) executable).
 
 The main output of `dgd_preprocess_samples` is a CSV file containing the preprocessed samples.
 

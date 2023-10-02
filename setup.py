@@ -51,14 +51,19 @@ description = \
 # The directory of the project
 package_dir = {name : name}
 
+# Which packages are included
+packages = \
+    ["bulkDGD.analysis",
+     "bulkDGD.core",
+     "bulkDGD.ioutil",
+     "bulkDGD.plotting",
+     "bulkDGD.recount3"]
+
 # Which package data to include
 package_data = \
-    {name : ["analysis/*"
-             "core/*"
-             "execs/*",
-             "ioutil/*",
-             "plotting/*",
-             "recount3/*"]}
+    {"ioutil" : ["ioutil/configs/*",
+                 "ioutil/data/*"],
+     "recount3" : ["recount3/data/*"]}
 
 # Command-line executables
 entry_points = \
@@ -101,5 +106,6 @@ setup(name = name,
       include_package_data = True,
       package_data = package_data,
       package_dir = package_dir,
+      packages = packages,
       entry_points = entry_points,
       install_requires = install_requires)

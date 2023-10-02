@@ -1,10 +1,12 @@
 # `configs/representations`
 
-Last updated: 18/08/2023
+Last updated: 02/10/2023
 
 ## `one_opt.yaml`
 
 Example of a YAML configuration file used for `dgd_get_representations` (`-cr`, `--config-file-rep` option) to get the representations using only one round of optimization.
+
+The configuration can be loaded using the `bulkDGD.ioutil.load_config_rep` function.
 
 The configuration file has the following structure (`int`, `str`, `float`, `bool`, etc., represent the data type expected for each field):
 
@@ -39,6 +41,8 @@ optimization:
 ## `two_opt.yaml`
 
 Example of a YAML configuration file used for `dgd_get_representations` (`-cr`, `--config-file-rep` option) to get the representations using two rounds of optimization.
+
+The configuration can be loaded using the `bulkDGD.ioutil.load_config_rep` function.
 
 The configuration file has the following structure (`int`, `str`, `float`, `bool`, etc., represent the data type expected for each field):
 

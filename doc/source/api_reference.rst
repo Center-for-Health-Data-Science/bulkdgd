@@ -11,7 +11,7 @@ API reference
    plotting
    recount3
 
-bulkDGD consists of several modules:
+bulkDGD consists of several packages:
 
 * :doc:`analysis <analysis>`, containing utilities to analyze the data produced by the DGD model.
 

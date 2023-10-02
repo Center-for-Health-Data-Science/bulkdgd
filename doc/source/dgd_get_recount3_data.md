@@ -1,10 +1,10 @@
 # `dgd_get_recount3_data`
 
-This executable is devoted to retrieving RNA-seq data (and associated metadata) from the [Recount3 platform](https://rna.recount.bio/).
+This executable retrieves RNA-seq data (and associated metadata) from the [Recount3 platform](https://rna.recount.bio/).
 
-So far, the program supports the retrieval of data for samples belonging to the [GTEx](https://gtexportal.org/home/) and [TCGA](https://www.cancer.gov/ccg/research/genome-sequencing/tcga) projects.
+So far, the program supports retrieving data for samples belonging to the [GTEx](https://gtexportal.org/home/) and [TCGA](https://www.cancer.gov/ccg/research/genome-sequencing/tcga) projects.
 
-The executable allows selecting samples for a single tissue (for GTEx data) or cancer type (for TCGA) and filtering the samples according to the associated metadata. The filtering is performed using a query string in the format supported by the [`pandas.DataFrame.query()`](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.query.html) method, which can be passed from the command line as a string or as a plain text file containing the string. Metadata fields on which it is possible to filter the samples differ between GTEx and TCGA samples. A list of the available fields is available in `bulkDGD/data/recount3/gtex_metadata_fields.txt` for GTEx samples and in `bulkDGD/data/recount3/tcga_metadata_fields.txt` for TCGA samples.
+The executable allows selecting samples for a single tissue (for GTEx data) or cancer type (for TCGA) and filtering the samples according to the associated metadata. The filtering is performed using a query string in the format supported by the [`pandas.DataFrame.query()`](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.query.html) method, which can be passed from the command line as a string or as a plain text file containing the string. Metadata fields on which it is possible to filter the samples differ between GTEx and TCGA samples. A list of the available fields is available in `bulkDGD/recount3/data/gtex_metadata_fields.txt` for GTEx samples and in `bulkDGD/recount3/data/tcga_metadata_fields.txt` for TCGA samples.
 
 The main output of `dgd_get_recount3_data` is a CSV file containing the RNA-seq data retrieved from Recount3 for the samples of interest. The rows represent the samples, while the columns contain the genes, which are identified by their Ensembl IDs.
 

@@ -4,7 +4,7 @@ Installing with ``conda``
 Step 1 - Install ``conda``
 --------------------------
 
-Go `here <https://docs.conda.io/en/latest/miniconda.html>` for detailed instructions on how to install ``conda``.
+Go `here <https://docs.conda.io/en/latest/miniconda.html>_` for detailed instructions on how to install ``conda``.
 
 Installing ``miniconda`` rather than the full ``anaconda`` package is advised.
 
@@ -12,7 +12,18 @@ We have provided an ``environment.yaml`` file that can be used together with ``c
 
 Once ``conda`` is installed on your system, you can create a virtual environment.
 
-Step 2 - Create the ``conda`` environment
+Step 2 - Get bulkDGD
+------------------------
+
+Clone the bulkDGD source code from its GitHub repository within a directory of your choice and enter the local copy of the repository.
+
+.. code-block:: shell
+
+    git clone https://github.com/Center-for-Health-Data-Science/bulkDGD.git
+
+If the ``git`` command is unavailable, you can download the repository content as a ZIP file from the bulkDGD GitHub repository web page and uzip it.
+
+Step 3 - Create the ``conda`` environment
 -----------------------------------------
 
 You can create your ``conda`` environment from the provided environment file:
@@ -31,10 +42,10 @@ In that case, select another directory with more space available in which conda 
     
     conda config --add pkgs_dirs /my/other/directory/conda/pkgs
 
-Step 3 - Activate the environment
+Step 4 - Activate the environment
 ---------------------------------
 
-You can activate the `conda` environment by running the command line that ``conda`` suggests at the end of the previous step.
+You can activate the ``conda`` environment by running the command line that ``conda`` suggests at the end of the previous step.
 
 It is usually something like this:
 
@@ -42,25 +53,14 @@ It is usually something like this:
     
     conda activate ./bulkDGD-env
 
-Step 4 - Get bulkDGD
-------------------------
-
-Clone the bulkDGD source code from its GitHub repository within a directory of your choice and enter the local copy of the repository.
-
-.. code-block:: shell
-
-    git clone https://github.com/Center-for-Health-Data-Science/bulkDGD.git
-    cd bulkDGD
-
-If the ``git`` command is unavailable, you can download the repository content as a ZIP file from the bulkDGD GitHub repository web page, unzip it, and enter it.
-
 Step 5 - Install bulkDGD
 ----------------------------
 
-You can now install bulkDGD:
+You can now install bulkDGD. First, enter the bulkDGD directory. Then, run the installation command.
 
 .. code-block:: shell
-
+    
+    cd bulkDGD
     python setup.py install
 
 bulkDGD should now be installed.

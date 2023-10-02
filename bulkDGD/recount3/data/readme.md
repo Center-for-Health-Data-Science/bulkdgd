@@ -1,6 +1,6 @@
-# `data/recount3`
+# `data`
 
-Last updated: 14/07/2023
+Last updated: 02/10/2023
 
 ## `gtex_tissues.txt`
 

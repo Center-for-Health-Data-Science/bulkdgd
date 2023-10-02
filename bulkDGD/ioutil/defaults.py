@@ -24,7 +24,7 @@
 
 
 # Package name
-pkg_name = "bulkDGD"
+pkg_name = "bulkDGD.ioutil"
 
 # Standard library
 from pkg_resources import resource_filename
@@ -55,15 +55,15 @@ CONFIG_PLOT_PCA = \
 # Default PyTorch file containing the trained Gaussian mixture model
 GMM_FILE = \
     resource_filename(pkg_name,
-                      "data/model/gmm.pth")
+                      "data/gmm.pth")
 
 # Default PyTorch file containing the trained decoder
 DEC_FILE = \
     resource_filename(pkg_name,
-                      "data/model/dec.pth")
+                      "data/dec.pth")
 
 # File containing the Ensembl IDs of the genes included in the DGD
 # model
 GENES_FILE = \
     resource_filename(pkg_name,
-                      "data/model/genes.txt")
+                      "data/genes.txt")

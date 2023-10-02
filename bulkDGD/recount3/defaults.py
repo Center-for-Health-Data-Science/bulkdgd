@@ -24,28 +24,28 @@
 
 
 # Package name
-pkg_name = "bulkDGD"
+pkg_name = "bulkDGD.recount3"
 
 # Standard library
-from pkg_resources import resource_filename, Requirement
+from pkg_resources import resource_filename
 
 
 # File containing the supported sample types (cancer types/tissues)
 RECOUNT3_SUPPORTED_CATEGORIES_FILE = \
-    {"gtex" : resource_filename(Requirement(pkg_name),
-                                "data/recount3/gtex_tissues.txt"),
-     "tcga" : resource_filename(Requirement(pkg_name),
-                                "data/recount3/tcga_cancer_types.txt")}
+    {"gtex" : resource_filename(pkg_name,
+                                "data/gtex_tissues.txt"),
+     "tcga" : resource_filename(pkg_name,
+                                "data/tcga_cancer_types.txt")}
     
 
 # File containing the list of fields found in the metadata
 RECOUNT3_METADATA_FIELDS_FILE = \
     {"gtex" : \
-        resource_filename(Requirement(pkg_name),
-                          "data/recount3/gtex_metadata_fields.txt"),
+        resource_filename(pkg_name,
+                          "data/gtex_metadata_fields.txt"),
      "tcga" : \
-        resource_filename(Requirement(pkg_name),
-                          "data/recount3/tcga_metadata_fields.txt")}
+        resource_filename(pkg_name,
+                          "data/tcga_metadata_fields.txt")}
     
 # URL pointing to where the RNA-seq data for the samples
 # are stored on the Recount3 platform
