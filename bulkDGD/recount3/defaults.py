@@ -24,7 +24,7 @@
 
 
 # Package name
-pkg_name = "bulkDGD.recount3"
+pkg_name = "recount3"
 
 # Standard library
 from pkg_resources import resource_filename

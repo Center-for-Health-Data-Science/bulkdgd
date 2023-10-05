@@ -24,7 +24,7 @@
 
 
 # Package name
-pkg_name = "bulkDGD.ioutil"
+pkg_name = "ioutil"
 
 # Standard library
 from pkg_resources import resource_filename
