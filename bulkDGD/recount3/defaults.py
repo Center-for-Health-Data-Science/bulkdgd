@@ -24,7 +24,7 @@
 
 
 # Package name
-pkg_name = "recount3"
+pkg_name = __name__
 
 # Standard library
 from pkg_resources import resource_filename
