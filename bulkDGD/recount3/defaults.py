@@ -23,29 +23,24 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Package name
-pkg_name = __name__
-
 # Standard library
-from pkg_resources import resource_filename
+import os
 
 
 # File containing the supported sample types (cancer types/tissues)
 RECOUNT3_SUPPORTED_CATEGORIES_FILE = \
-    {"gtex" : resource_filename(pkg_name,
-                                "data/gtex_tissues.txt"),
-     "tcga" : resource_filename(pkg_name,
-                                "data/tcga_cancer_types.txt")}
+    {"gtex" : os.path.join(os.path.dirname(__file__), 
+                           "data/gtex_tissues.txt"),
+     "tcga" : os.path.join(os.path.dirname(__file__),
+                           "data/tcga_cancer_types.txt")}
     
 
 # File containing the list of fields found in the metadata
 RECOUNT3_METADATA_FIELDS_FILE = \
-    {"gtex" : \
-        resource_filename(pkg_name,
-                          "data/gtex_metadata_fields.txt"),
-     "tcga" : \
-        resource_filename(pkg_name,
-                          "data/tcga_metadata_fields.txt")}
+    {"gtex" : os.path.join(os.path.dirname(__file__),
+                           "data/gtex_metadata_fields.txt"),
+     "tcga" : os.path.join(os.path.dirname(__file__),
+                           "data/tcga_metadata_fields.txt")}
     
 # URL pointing to where the RNA-seq data for the samples
 # are stored on the Recount3 platform

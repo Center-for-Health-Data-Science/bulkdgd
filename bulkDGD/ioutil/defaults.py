@@ -23,11 +23,8 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Package name
-pkg_name = __name__
-
 # Standard library
-from pkg_resources import resource_filename
+import os
 
 
 #------------------------- Public constants --------------------------#
@@ -37,33 +34,33 @@ from pkg_resources import resource_filename
 # DGD model's parameters and the files containing the trained
 # model
 CONFIG_MODEL_DIR = \
-    resource_filename(pkg_name,
-                      "configs/model")
+    os.path.join(os.path.dirname(__file__),
+                 "configs/model")
 
 # The directory containing the configuration files specifying the
 # options for data loading and optimization when finding the
 # best representations
 CONFIG_REP_DIR = \
-    resource_filename(pkg_name,
-                      "configs/representations")
+    os.path.join(os.path.dirname(__file__),
+                 "configs/representations")
 
 # The default configuration file for plotting the results of the PCA
 CONFIG_PLOT_PCA = \
-    resource_filename(pkg_name,
-                      "configs/plot/pca_scatter.yaml")
+    os.path.join(os.path.dirname(__file__),
+                 "configs/plot/pca_scatter.yaml")
 
 # Default PyTorch file containing the trained Gaussian mixture model
 GMM_FILE = \
-    resource_filename(pkg_name,
-                      "data/gmm.pth")
+    os.path.join(os.path.dirname(__file__),
+                 "data/gmm.pth")
 
 # Default PyTorch file containing the trained decoder
 DEC_FILE = \
-    resource_filename(pkg_name,
-                      "data/dec.pth")
+    os.path.join(os.path.dirname(__file__),
+                 "data/dec.pth")
 
 # File containing the Ensembl IDs of the genes included in the DGD
 # model
 GENES_FILE = \
-    resource_filename(pkg_name,
-                      "data/genes.txt")
+    os.path.join(os.path.dirname(__file__),
+                 "data/genes.txt")

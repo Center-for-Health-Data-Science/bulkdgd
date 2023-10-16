@@ -48,9 +48,6 @@ description = \
     "A generative model for human gene expression from bulk " \
     "RNA-Seq data."
 
-# The directory of the project
-package_dir = {name : name}
-
 # Which packages are included
 packages = \
     ["bulkDGD",
@@ -62,9 +59,12 @@ packages = \
 
 # Which package data to include
 package_data = \
-    {"bulkDGD.ioutil" : ["ioutil/configs/*",
-                          "ioutil/data/*"],
-     "bulkDGD.recount3" : ["recount3/data/*"]}
+    {"bulkDGD.ioutil" : ["configs/model/*.yaml",
+                         "configs/plot/*.yaml",
+                         "configs/representations/*.yaml",
+                         "data/*.pth",
+                         "data/*.txt"],
+     "bulkDGD.recount3" : ["data/*.txt"]}
 
 # Command-line executables
 entry_points = \
@@ -104,9 +104,7 @@ setup(name = name,
       author = author,
       version = version,
       description = description,
-      include_package_data = True,
-      package_data = package_data,
-      package_dir = package_dir,
       packages = packages,
+      package_data = package_data,
       entry_points = entry_points,
       install_requires = install_requires)
