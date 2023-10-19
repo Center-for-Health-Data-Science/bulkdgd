@@ -10,6 +10,10 @@ The first application of the model to bulk RNA-Seq data is presented in the work
 * **Documentation**: bulkDGD's documentation can be found [here](https://bulkdgd.readthedocs.io/en/latest/).
 * **Bug reports**: please report any bugs or problems you encounter with bulkDGD in the dedicated [issues](https://github.com/Center-for-Health-Data-Science/bulkDGD/issues) section on GitHub.
 
+**License**
+
+bulkDGD is freely available under the terms of the GNU General Public License (Version 3, 29 June 2007).
+
 **References**
 
 (Schuster and Krogh, arXiv) Schuster, Viktoria, and Anders Krogh. "The Deep Generative Decoder: MAP estimation of representations improves modeling of single-cell RNA data." *arXiv preprint arXiv:2110.06672* (2021).
