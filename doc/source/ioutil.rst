@@ -24,6 +24,8 @@
    .. autofunction:: ioutil.save_decoder_outputs
 
    .. autofunction:: ioutil.save_time
+
+   .. autofunction:: ioutil.preprocess_samples
    
 
    
