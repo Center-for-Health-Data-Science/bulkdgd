@@ -53,7 +53,14 @@ It is usually something like this:
     
     conda activate ./bulkDGD-env
 
-Step 5 - Install bulkDGD
+Step 5 - Get the ``dec.pth`` file
+---------------------------------
+
+You must download the ``dec.pth`` file containing the trained decoder's parameters before installing bulkDGD, so that the file is copied to the installation directory. The file cannot be shipped together with the GitHub package because of its size, but can be downloaded `here <https://drive.google.com/file/d/1SZaoazkvqZ6DBF-adMQ3KRcy4Itxsz77/view?usp=sharing>`_.
+
+Once downloaded, place the file into the ``bulkDGD/ioutil/data`` folder before starting the installation.
+
+Step 6 - Install bulkDGD
 ----------------------------
 
 You can now install bulkDGD. First, enter the bulkDGD directory. Then, run the installation command.
@@ -65,4 +72,4 @@ You can now install bulkDGD. First, enter the bulkDGD directory. Then, run the i
 
 bulkDGD should now be installed.
 
-Every time you need to run bulkDGD after opening a new shell, just run step 3 beforehand.
+Every time you need to run bulkDGD after opening a new shell, just run step 4 beforehand.
