@@ -4,10 +4,11 @@
 
 # Import the 'logging' module
 import logging as log
-# Import the 'model' module
+# Import the 'core.model' module
 from bulkDGD.core import model
-# Import the 'dea' and 'ioutil' modules
+# Import the 'analysis.dea' module
 from bulkDGD.analysis import dea
+# Import the 'ioutil' package
 from bulkDGD import ioutil
 
 
