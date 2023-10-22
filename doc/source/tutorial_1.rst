@@ -20,9 +20,9 @@ The file has the following structure:
    555,60662,381897,90671,24486,...,breast_mammary_tissue
    ...
 
-As we can see, each row contains the expression data for a specific sample. The first column contains the samples' unique names, IDs, or indexes, while the rest of the columns contain either the expression data for a specific gene (identified by its Ensembl ID) or additional information about the samples. In our case, for example, the last column, named `tissue`, identifies the tissue from which each sample comes.
+As we can see, each row contains the expression data for a specific sample. The first column contains the samples' unique names, IDs, or indexes, while the rest of the columns contain either the expression data for a specific gene (identified by its Ensembl ID) or additional information about the samples. In our case, for example, the last column, named ``tissue``, identifies the tissue from which each sample comes.
 
-Before finding the representations for these samples in latent space, we want to make sure that the genes whose expression data are reported in the CSV file correspond to the genes used to train the DGD model and that these genes are reported in the correct order in the file. Furthermore, we would like to know whether we have duplicate samples, duplicate genes, and genes with missing expression values. We can do all this using the :func:`ioutil.preprocess_samples` function.
+Before finding the representations for these samples in latent space, we want to make sure that the genes whose expression data are reported in the CSV file correspond to the genes included in the DGD model and that these genes are reported in the correct order in the file. Furthermore, we would like to know whether we have duplicate samples, duplicate genes, and genes with missing expression values. We can do all this using the :func:`ioutil.preprocess_samples` function.
 
 First, we set the logging so that every message above and including the ``INFO`` level gets reported to have a better idea of what the program is doing. By default, only messages associated with a ``WARNING`` level or above get reported.
 
@@ -67,26 +67,26 @@ Then, we can preprocess the samples.
    df_preproc, genes_excluded, genes_missing = \
        ioutil.preprocess_samples(df_samples = df_samples)
 
-The functions looks for duplicated samples, duplicated genes, and missing values in the columns containing gene expression data. If the function finds duplicated samples or genes with missing expression values, it raises a warning but keeps the samples where the duplication or missing values were found. However, the function will throw an error if it finds duplicated genes since the DGD model assumes the input samples report expression data for unique genes. That is, isoforms should be ignored.
+The functions looks for duplicated samples, duplicated genes, and missing values in the columns containing gene expression data. If the function finds duplicated samples or genes with missing expression values, it raises a warning but keeps the samples where the duplication or missing values were found. However, the function will throw an error if it finds duplicated genes since the DGD model assumes the input samples report expression data for unique genes.
 
 Then, the function re-orders the columns containing gene expression data according to the list of genes included in the DGD model and places all the columns containing additional information about the samples (in our case, the ``tissue`` column) as the last columns of the output data frame.
 
-Finally, the function checks that all genes in the input samples are among those used to train the DGD model, and that all genes used in the DGD model are found in the input samples.
+Finally, the function checks that all genes in the input samples are among those included in the DGD model, and that all genes used in the DGD model are found in the input samples.
 
 The function returns three objects:
 
 * ``df_preproc`` is a data frame containing the preprocessed samples.
 
-* ``genes_excluded`` is a list containing the Ensembl IDs of the genes that were found in the input samples but are not part of the set of genes used to train the DGD model. These genes are absent from ``df_preproc``. In our case, no genes were excluded.
+* ``genes_excluded`` is a list containing the Ensembl IDs of the genes that were found in the input samples but are not part of the set of genes included in the DGD model. These genes are absent from ``df_preproc``. In our case, no genes were excluded.
 
-* ``genes_missing`` is a list containing the Ensembl IDs of the genes that are part of the set of genes used to train the DGD model but were not found in the input samples. These genes are added to ``df_preproc`` with a count of 0 for all samples. In our case, no genes were missing.
+* ``genes_missing`` is a list containing the Ensembl IDs of the genes that are part of the set of genes included in the the DGD model but were not found in the input samples. These genes are added to ``df_preproc`` with a count of 0 for all samples. In our case, no genes were missing.
 
 Step 2 - Get the trained DGD model
 ----------------------------------
 
 In order to set up the DGD model and load its trained parameters, we need a configuration file specifying the options to initialize it and the path to the files containing the trained model.
 
-In this case, we will use the ``bulkDGD/configs/model/model.yaml`` file. We assume this file was copied to the current working directory.
+In this case, we will use the ``bulkDGD/ioutil/configs/model/model.yaml`` file. We assume this file was copied to the current working directory.
 
 We can load the configuration using the :func:`ioutil.load_config_model` function.
 
@@ -113,18 +113,18 @@ Step 3 - Get the optimization scheme
 
 Before finding the representations, we need to define the scheme that will be used to optimize the representations in latent space.
 
-The schema is contained in a YAML configuration file similar to that containing the DGD model's configuration.
+The scheme is contained in a YAML configuration file similar to that containing the DGD model's configuration.
 
-In this case, we will use the ``bulkDGD/configs/representations/two_opt.yaml`` file. We assume this file was copied to the current working directory.
+In this case, we will use the ``bulkDGD/ioutil/configs/representations/two_opt.yaml`` file. We assume this file was copied to the current working directory.
 
-We can load the configuration using the :func:`ioutil.load_config_rep` function. Here, we use the ``two_opt.yaml`` file, which contains the options to run two optimization rounds to optimize the representations.
+We can load the configuration using the :func:`ioutil.load_config_rep` function. Here, we use the ``two_opt.yaml`` file, which contains the options to run two optimization rounds.
 
 You can find more information about the supported optimization schemes and corresponding options :doc:`here <rep_config_options>`.
 
 .. code-block:: python
    
    # Load the configuration
-   config_rep = io.get_config_rep("two_opt.yaml")
+   config_rep = ioutil.load_config_rep("two_opt.yaml")
 
 Once loaded, the configuration consists of a dictionary of options.
 
@@ -160,7 +160,7 @@ The method returns three objects:
 Step 5 - Save the outputs
 -------------------------
 
-We can save the preprocessed samples, the representations, the decoder outputs, and the information about the optimization time to CSV files using the :func:`ioutil.save_samples`, :func:`ioutil.save_representations`, :func:`save_decoder_outputs`, and :func:`save_time` functions.
+We can save the preprocessed samples, the representations, the decoder outputs, and the information about the optimization time to CSV files using the :func:`ioutil.save_samples`, :func:`ioutil.save_representations`, :func:`ioutil.save_decoder_outputs`, and :func:`ioutil.save_time` functions.
 
 .. code-block:: python
    
