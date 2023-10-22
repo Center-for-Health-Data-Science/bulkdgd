@@ -27,12 +27,15 @@
 import os
 
 
-# File containing the supported sample types (cancer types/tissues)
+# File containing the supported sample types
+# (cancer types/tissues/codes)
 RECOUNT3_SUPPORTED_CATEGORIES_FILE = \
     {"gtex" : os.path.join(os.path.dirname(__file__), 
                            "data/gtex_tissues.txt"),
      "tcga" : os.path.join(os.path.dirname(__file__),
-                           "data/tcga_cancer_types.txt")}
+                           "data/tcga_cancer_types.txt"),
+     "sra" : os.path.join(os.path.dirname(__file__),
+                           "data/sra_codes.txt")}
     
 
 # File containing the list of fields found in the metadata
@@ -40,7 +43,9 @@ RECOUNT3_METADATA_FIELDS_FILE = \
     {"gtex" : os.path.join(os.path.dirname(__file__),
                            "data/gtex_metadata_fields.txt"),
      "tcga" : os.path.join(os.path.dirname(__file__),
-                           "data/tcga_metadata_fields.txt")}
+                           "data/tcga_metadata_fields.txt"),
+     "sra" : os.path.join(os.path.dirname(__file__),
+                          "data/sra_metadata_fields.txt")}
     
 # URL pointing to where the RNA-seq data for the samples
 # are stored on the Recount3 platform

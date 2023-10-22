@@ -282,12 +282,13 @@ def get_gene_sums(samples_category,
                 f"in {f_gene_sums_path}."
             logger.info(infostr)
 
-            # Read the file content into a data frame and transpose
-            # it so that the samples represent the rows
-            df_gene_sums = pd.read_csv(f_gene_sums_path,
-                                       sep = "\t",
-                                       skiprows = 2,
-                                       index_col = 0).T
+        # Read the file content into a data frame and transpose
+        # it so that the samples represent the rows
+        df_gene_sums = pd.read_csv(f_gene_sums_path,
+                                   sep = "\t",
+                                   skiprows = 2,
+                                   index_col = 0,
+                                   compression = "gzip").T
 
 
     #--------------- Do not save the RNA-seq data file ---------------#
@@ -428,10 +429,11 @@ def get_metadata(samples_category,
                 f"written in {f_metadata_path}."
             logger.info(infostr)
 
-            # Read the file content into a data frame
-            df_metadata = pd.read_csv(f_metadata_path,
-                                      sep = "\t",
-                                      index_col = "external_id")
+        # Read the file content into a data frame
+        df_metadata = pd.read_csv(f_metadata_path,
+                                  sep = "\t",
+                                  index_col = "external_id",
+                                  compression = "gzip")
 
 
     #----------------- Do not save the metadata file -----------------#

@@ -46,7 +46,7 @@ def main():
     parser = argparse.ArgumentParser(description = __doc__)
 
     # Add the arguments
-    ip_choices = ["gtex", "tcga"]
+    ip_choices = ["gtex", "tcga", "sra"]
     ip_choices_str = ", ".join(f"'{choice}'" for choice in ip_choices)
     ip_help = \
         "The name of the Recount3 project for which samples will " \
@@ -62,7 +62,8 @@ def main():
         "retrieved. For GTEx data, this is the name of the tissue " \
         "the samples belong to. " \
         "For TCGA data, this is the type of cancer the samples are " \
-        "associated with."
+        "associated with." \
+        "For SRA data, this is the code associated to the project."
     parser.add_argument("-is", "--input-samples-category",
                         type = str,
                         required = True,

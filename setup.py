@@ -60,11 +60,16 @@ packages = \
 # Which package data to include
 package_data = \
     {"bulkDGD.ioutil" : ["configs/model/*.yaml",
+                         "configs/model/*.md",
                          "configs/plot/*.yaml",
+                         "configs/plot/*.md",
                          "configs/representations/*.yaml",
+                         "configs/representations/*.md",
                          "data/*.pth",
-                         "data/*.txt"],
-     "bulkDGD.recount3" : ["data/*.txt"]}
+                         "data/*.txt",
+                         "data/*.md",],
+     "bulkDGD.recount3" : ["data/*.txt",
+                           "data/*.md"]}
 
 # Command-line executables
 entry_points = \
