@@ -5,7 +5,9 @@ In this tutorial, we will use the DGD model to perform differential gene express
 
 The code and input/output data regarding this tutorial can be found in the ``bulkDGD/tutorials/tutorial_2`` directory.
 
-In this tutorial, we will walk you through how to integrate differential expression analysis with bulkDGD in a Python script. However, if you need to perform DEA on a large set of samples, we recommend using the :doc:`dgd_perform_dea <dgd_perform_dea>` executable, which parallelizes the calculations.
+In this tutorial, we will walk you through how to integrate differential expression analysis with bulkDGD in a Python script. 
+
+However, if you need to perform DEA on a large set of samples, we recommend using the :doc:`dgd_perform_dea <dgd_perform_dea>` executable, which parallelizes the calculations.
 
 Step 1 - Get the samples' representations in latent space and corresponding decoder outputs
 -------------------------------------------------------------------------------------------
@@ -77,14 +79,14 @@ Step 2 - Get the trained DGD model
 
 In order to set up the DGD model and load its trained parameters, we need a configuration file specifying the options to initialize it and the path to the files containing the trained model.
 
-In this case, we will use the ``bulkDGD/configs/model/model.yaml`` file. We assume this file was copied to the current working directory.
+In this case, we will use the ``bulkDGD/ioutil/configs/model/model.yaml`` file. We assume this file was copied to the current working directory.
 
 We can load the configuration using the :func:`ioutil.load_config_model` function.
 
 .. code-block:: python
    
    # Load the configuration
-   config_model = ioutil.get_config_model("model.yaml")
+   config_model = ioutil.load_config_model("model.yaml")
 
 Once loaded, the configuration consists of a dictionary of options, which maps to the arguments required by the :class:`core.model.DGDModel` constructor.
 
@@ -109,12 +111,12 @@ Since the raw decoder outputs are scaled by the r-valuse of the negative binomia
     # Get the r-values
     r_values = dgd_model.r_values
 
-Then, we can perform differential expression analysis for each sample with the :func:`dea.perform_dea` function, and save the results to CSV files (one per sample).
+Then, we can perform differential expression analysis for each sample with the :func:`analysis.dea.perform_dea` function, and save the results to CSV files (one per sample).
 
 .. code-block:: python
 
    # Import the 'dea' module
-   from bulkDGD import dea
+   from bulkDGD.analysis import dea
 
    # For each sample
    for sample in df_samples.index:
