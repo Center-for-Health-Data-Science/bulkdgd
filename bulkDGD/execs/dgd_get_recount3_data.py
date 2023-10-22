@@ -63,7 +63,7 @@ def main():
         "the samples belong to. " \
         "For TCGA data, this is the type of cancer the samples are " \
         "associated with." \
-        "For SRA data, this is the code associated to the project."
+        "For SRA data, this is the code associated with the project."
     parser.add_argument("-is", "--input-samples-category",
                         type = str,
                         required = True,
