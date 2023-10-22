@@ -83,6 +83,15 @@ df_rep, df_dec_out, df_time_opt = \
 #------------------------- Save the outputs --------------------------#
 
 
+# Save the preprocessed samples
+ioutil.save_samples(\
+   # The data frame containing the samples
+   df = df_preproc,
+   # The output CSV file
+   csv_file = "samples_preprocessed.csv",
+   # The field separator in the output CSV file
+   sep = ",")
+
 # Save the representations
 ioutil.save_representations(\
     # The data frame containing the representations
