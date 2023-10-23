@@ -53,6 +53,7 @@ packages = \
     ["bulkDGD",
      "bulkDGD.analysis",
      "bulkDGD.core",
+     "bulkDGD.execs",
      "bulkDGD.ioutil",
      "bulkDGD.plotting",
      "bulkDGD.recount3"]
