@@ -31,6 +31,7 @@ __doc__ = \
 # Standard library
 import logging as log
 import os
+import sys
 import re
 import tempfile
 # Third-party packages
@@ -133,17 +134,27 @@ def get_query_string(query_string):
                 # multiple lines
                 content += line.replace("\n", " ")
 
+            # Let the user see the query string.
+            infostr = \
+                f"Query file found: \n" \
+                f"{content}.\n\n"
+            logger.info(infostr)
             # Return the content
             return content
 
     # If the user has passed a sting
     else:
+        # Let the user see the query string.
+        infostr = \
+            f"\n\nQuery string found: \n" \
+            f"{query_string}.\n\n"
+        logger.info(infostr)
 
         # Just return the string
         return query_string
 
 
-def get_metadata_fields(project_name):
+def get_metadata_fields(project_name, project_specific = False):
     """Get the fields of the metadata for the samples from a
     plain text file.
 
@@ -159,9 +170,16 @@ def get_metadata_fields(project_name):
         of the project of interest.
     """
 
+    # If project_specific is True, use project specific file for metadata fields
+    if project_specific:
+        path_metadata_fields = defaults.RECOUNT3_METADATA_FIELDS_FILE__PROJECT_SPECIFIC[\
+                project_name]
+    else:
+        path_metadata_fields = defaults.RECOUNT3_METADATA_FIELDS_FILE[\
+                project_name]
+
     # Open the file
-    with open(defaults.RECOUNT3_METADATA_FIELDS_FILE[\
-                project_name], "r") as f:
+    with open(path_metadata_fields, "r") as f:
 
         # Return the fields (ignore empty lines
         # and comment lines)
@@ -318,6 +336,7 @@ def get_gene_sums(samples_category,
     return df_gene_sums
 
 
+
 def get_metadata(samples_category,
                  project_name,
                  save_metadata,
@@ -458,6 +477,176 @@ def get_metadata(samples_category,
     return df_metadata
 
 
+
+#--------------- Update metadata fields ---------------#
+
+def update_metadata_fields(test_attributes, project_name):
+    """Get the fields of the metadata for the samples from a
+    plain text file. If new fields are available from the 
+    input attributes, then append these fields to the file.
+
+    Parameters
+    ----------
+    test_attributes : `'pandas.DataFrame.columns'`
+        From sra sample_attributes, holding potential new 
+        metadata fields as columns.
+
+    project_name : ``str``, {``"gtex"``, ``"tcga"``}
+        The name of the project of interest.
+
+    Returns
+    -------
+    ``file``
+        Updated file of supported metadata fields for the 
+        samples of the project of interest.
+    """
+
+    # Copy metadata_fields file to project specific version
+
+
+    # Open the file
+    with open(defaults.RECOUNT3_METADATA_FIELDS_FILE[\
+                project_name], "r") as f:
+
+        # Retrieve the fields as a list of strings 
+        # (ignore empty lines and comment lines)
+        metadata_fields = \
+             [l.rstrip("\n") for l in f \
+                if not (re.match(r"^\s*$", l) \
+                        or l.startswith("#"))]
+
+    
+    # Check for new fields in test_attributes, which are not found in metadata_fields
+    new_fields = [field for field in test_attributes if field not in metadata_fields]
+    
+    # If new fields, add these together with the standard SRA metadata fields to project specific metadata fields
+    if new_fields: 
+        # Let the user know which fields will be added.
+        new_fields_report_string = ", ".join(new_fields)
+        infostr = \
+            f"New fields will be added to metadata fields file: \n" \
+            f"{new_fields_report_string}.\n\n"
+        logger.info(infostr)
+
+        # Save fields to project specific metadata fields file
+        with open(defaults.RECOUNT3_METADATA_FIELDS_FILE__PROJECT_SPECIFIC[project_name], "w") as f:  # open in write mode
+            f.write("# Fields found in the SRA metadata files downloaded from the Recount3 platform." + "\n")
+            f.write(" " + "\n")
+            for field in metadata_fields:
+                f.write(field + "\n")
+            f.write("\n")
+            f.write("# Fields found in the sample_attributes column in the project speciic metadata." + "\n")
+            f.write(" " + "\n")
+            for field in new_fields:
+                f.write(field + "\n")
+
+
+
+#--------------- Function for parsing attributes ---------------#
+
+def parse_sample_attributes(attr_str):
+    return dict(item.split(';;') for item in attr_str.split('|'))
+
+
+#--------------- Parse attributes, add to columns, update metadata fields ---------------#
+
+def add_sample_attributes_to_metadata(df, save_metadata, project_name, samples_category, wd):
+    # Parse sample_attributes
+    df_attr = df['sample_attributes'] \
+        .apply(parse_sample_attributes) \
+        .apply(pd.Series)
+    
+    # Report the columns and levels of the attributes column
+    attribute_report_string = "\n".join([f"{col} \n Levels: {df_attr[col].unique()}\n\n" for col in df_attr.columns])
+    infostr = \
+        f"\n\nAttributes found: \n\n" \
+        f"{attribute_report_string}\n"
+    logger.info(infostr)
+
+
+    # Update metadata fields
+    update_metadata_fields(test_attributes = df_attr.columns, project_name = project_name)
+
+
+    # Drop any attributes that are allready found in metadata
+    attr_drop_bool = [col_name in df.columns for col_name in df_attr.columns]
+    attr_to_drop = df_attr.columns[attr_drop_bool]
+    if not attr_to_drop.empty:
+            # Inform the user
+            warnstr = \
+                f"Attributes \n{attr_to_drop} \n" \
+                f"were previously added to metadata. " \
+                "These will not be added again."
+            logger.warning(warnstr)
+
+            df_attr = df_attr.drop(attr_to_drop, axis = 1)
+    
+    # If no attributes will be added, return original metadata
+    if df_attr.empty:
+            warnstr = \
+                f"No attributes will be added to metadata.\n"
+            logger.warning(warnstr)
+            return(df)
+
+    # Join to metadata columns
+    df = \
+        df.join(
+            df_attr
+        )
+
+    
+    #-------------------- Save the metadata file ---------------------#
+
+
+    # If the user provided a path to a CSV file where
+    # to save the metadata
+    if save_metadata:
+            
+        # Try writing the content to the file
+        try:
+            
+            # Set the name of the file that will contain the metadata
+            f_metadata_name = \
+                defaults.RECOUNT3_METADATA_FILE.format(project_name, samples_category)
+
+
+            # Set the path to the file
+            f_metadata_path = os.path.join(wd, f_metadata_name)
+
+            # If the file already exists in the working directory
+            if os.path.exists(f_metadata_path):
+
+                # Warn the user that the file will be overwritten
+                infostr = \
+                    f"The metadata file '{f_metadata_name}' will be overwritten in '{wd}'. " \
+                    f"Metadata with attributes added to columns will replace the file."
+                logger.info(infostr)
+
+            # Write data frame to file
+            df.to_csv(
+                f_metadata_path,
+                sep = "\t",
+                compression = "gzip")
+
+            # Inform the user that the file was written
+            infostr = \
+                f"The metadata were successfully " \
+                f"written in {f_metadata_path}."
+            logger.info(infostr)
+        except Exception as e:
+            # Warn the user and exit
+            errstr = \
+                "It was not possible to write the metadata to disc for " \
+                f"'{samples_category}' samples from the Recount3 " \
+                f"platform. Error: {e}"
+            logger.exception(errstr)
+            sys.exit(errstr)
+    
+    # Return the updated metadata
+    return(df)
+
+
+
 def merge_gene_sums_and_metadata(df_gene_sums,
                                  df_metadata,
                                  project_name):
@@ -486,16 +675,17 @@ def merge_gene_sums_and_metadata(df_gene_sums,
 
     # Get the supported metadata fields
     metadata_fields = \
-        get_metadata_fields(project_name = project_name)
+        get_metadata_fields(project_name = project_name, project_specific=True)
 
     # If the fields in the metadata file do not correspond
     # to the ones saved
-    if set(df_metadata.columns.tolist() + ["external_id"]) \
-        != set(metadata_fields):
+    if len(set(df_metadata.columns.tolist() + \
+                    ["external_id"]).difference( \
+                    set(metadata_fields))) > 0:
 
-        # Get the default metadata fields' file
+        # Get the project specific metadata fields' file
         fields_file = \
-            defaults.RECOUNT3_METADATA_FIELDS_FILE[project_name]
+            defaults.RECOUNT3_METADATA_FIELDS_FILE__PROJECT_SPECIFIC[project_name]
 
         # Warn the user about the inconsistency and raise
         # an exception
@@ -512,6 +702,7 @@ def merge_gene_sums_and_metadata(df_gene_sums,
 
     # Return the data frame
     return df_final
+
 
 
 def filter_by_metadata(df,
@@ -543,7 +734,7 @@ def filter_by_metadata(df,
 
     # Get the supported metadata fields
     metadata_fields = \
-        get_metadata_fields(project_name = project_name)
+        get_metadata_fields(project_name = project_name, project_specific = True)
 
     # Remove the metadata columns, apart from the index
     # column

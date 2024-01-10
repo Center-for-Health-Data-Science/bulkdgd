@@ -46,6 +46,11 @@ RECOUNT3_METADATA_FIELDS_FILE = \
                            "data/tcga_metadata_fields.txt"),
      "sra" : os.path.join(os.path.dirname(__file__),
                           "data/sra_metadata_fields.txt")}
+
+# File containing the list of fields found in the metadata
+RECOUNT3_METADATA_FIELDS_FILE__PROJECT_SPECIFIC = \
+    {"sra" : os.path.join(os.path.dirname(__file__),
+                          "data/sra_metadata_fields__project_specific.txt")}
     
 # URL pointing to where the RNA-seq data for the samples
 # are stored on the Recount3 platform
