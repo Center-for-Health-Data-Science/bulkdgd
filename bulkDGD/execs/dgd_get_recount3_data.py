@@ -286,6 +286,33 @@ def main():
         sys.exit(errstr)
 
 
+
+    #-------------- Parse sample_attributes to metadata ---------------#
+
+
+    # Try to parse sample_attributes and add the data to columns
+    if input_project_name == 'sra':
+        try:
+            df_metadata = \
+                recount3.add_sample_attributes_to_metadata(
+                    df_metadata,
+                    save_metadata = save_metadata,
+                    project_name = input_project_name,
+                    samples_category = input_samples_category,
+                    wd = wd)
+
+        # If something went wrong
+        except Exception as e:
+
+            # Warn the user and exit
+            errstr = \
+                "It was not possible to parse the sample_attribute data for the " \
+                f"'{input_samples_category}' samples from the Recount3 " \
+                f"platform. Error: {e}"
+            logger.exception(errstr)
+            sys.exit(errstr)
+
+
     #---------------------- Filter by metadata -----------------------#
 
     
