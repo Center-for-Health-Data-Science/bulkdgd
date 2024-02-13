@@ -15,7 +15,7 @@ To speed up performing DEA on a set of samples, `dgd_perform_dea` uses the [Dask
 ## Command line
 
 ```
-[-h] -is INPUT_CSV_SAMPLES -id INPUT_CSV_DEC [-op OUTPUT_CSV_PREFIX] -cm CONFIG_FILE_MODEL [-pr P_VALUES_RESOLUTION] [-qa Q_VALUES_ALPHA] [-qm Q_VALUES_METHOD] [-d WORK_DIR] [-n N_PROC] [-lf LOG_FILE] [-lc] [-v] [-vv]
+dgd_perform_dea [-h] -is INPUT_CSV_SAMPLES -id INPUT_CSV_DEC [-op OUTPUT_CSV_PREFIX] -cm CONFIG_FILE_MODEL [-pr P_VALUES_RESOLUTION] [-qa Q_VALUES_ALPHA] [-qm Q_VALUES_METHOD] [-d WORK_DIR] [-n N_PROC] [-lf LOG_FILE] [-lc] [-v] [-vv]
 ```
 
 ## Options

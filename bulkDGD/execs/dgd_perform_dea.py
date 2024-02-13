@@ -354,7 +354,7 @@ def main():
     try:
 
         # Get the r-values of the negative binomials
-        r_values = dgd_model.get_r_values()
+        r_values = dgd_model.r_values
 
     # If something went wrong
     except Exception as e:
@@ -410,8 +410,8 @@ def main():
         # Submit the calculation to the cluster
         futures.append(\
             client.submit(dea.perform_dea,
-                          obs_counts_sample = obs_counts_sample,
-                          pred_means_sample = pred_means_sample,
+                          obs_counts = obs_counts_sample,
+                          pred_means = pred_means_sample,
                           sample_name = sample_name,
                           statistics = statistics,
                           genes_names = obs_counts_genes,
