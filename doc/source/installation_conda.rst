@@ -30,7 +30,9 @@ You can create your ``conda`` environment from the provided environment file:
 
 .. code-block:: shell
     
-    conda env create --file bulkDGD/environment.yaml --prefix ./bulkDGD-env
+    conda env create --file bulkDGD/environment.yaml --prefix ./bulkDGD-env python=3.11
+
+We tell ``conda`` to use the Python 3.11 interpreter for the environment.
 
 In this case, we ask ``conda`` to create the environment locally (``--prefix``), which is optional.
 
@@ -58,17 +60,16 @@ Step 5 - Get the ``dec.pth`` file
 
 You must download the ``dec.pth`` file containing the trained decoder's parameters before installing bulkDGD, so that the file is copied to the installation directory. The file cannot be shipped together with the GitHub package because of its size, but can be downloaded `here <https://drive.google.com/file/d/1SZaoazkvqZ6DBF-adMQ3KRcy4Itxsz77/view?usp=sharing>`_.
 
-Once downloaded, place the file into the ``bulkDGD/ioutil/data`` folder before starting the installation.
+Once downloaded, place the file into the ``bulkDGD/ioutil/data`` folder before performing the installation.
 
 Step 6 - Install bulkDGD
 ----------------------------
 
-You can now install bulkDGD. First, enter the bulkDGD directory. Then, run the installation command.
+You can now install bulkDGD using ``pip``.
 
 .. code-block:: shell
     
-    cd bulkDGD
-    python setup.py install
+    pip install ./bulkDGD
 
 bulkDGD should now be installed.
 

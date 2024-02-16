@@ -12,13 +12,7 @@ First, check if the ``virtualenv`` Python package is installed in your system. T
 
 It is usually available as a package in your distribution if you need to install it. For instance, on Debian-based systems (such as Debian or Ubuntu), it is sufficient to install the ``python-virtualenv`` package.
 
-If you want to install ``virtualenv`` system-wide, run the following command:
-
-.. code-block:: shell
-
-    sudo apt install python-virtualenv
-
-If this is not possible for you, you may still install the ``virtualenv`` package for just your local user using ``pip``:
+We recommend installing the ``virtualenv`` package for your local user using ``pip``:
 
 .. code-block:: shell
 
@@ -72,16 +66,17 @@ Step 6 - Get the ``dec.pth`` file
 
 You must download the ``dec.pth`` file containing the trained decoder's parameters before installing bulkDGD, so that the file is copied to the installation directory. The file cannot be shipped together with the GitHub package because of its size, but can be downloaded `here <https://drive.google.com/file/d/1SZaoazkvqZ6DBF-adMQ3KRcy4Itxsz77/view?usp=sharing>`_.
 
-Once downloaded, place the file into the ``bulkDGD/ioutil/data`` folder before starting the installation.
+Once downloaded, place the file into the ``bulkDGD/ioutil/data`` folder before performing the installation.
 
 Step 7 - Install bulkDGD
 ----------------------------
 
-You can now install bulkDGD:
+You can now install bulkDGD using ``pip``.
 
 .. code-block:: shell
-
-    python setup.py install
+    
+    cd ..
+    pip install ./bulkDGD
 
 bulkDGD should now be installed.
 
