@@ -41,7 +41,7 @@ author = \
     "Inigo Prada-Luengo, Anders Krogh"
 
 # The project's version
-version = "0.0.2"
+version = "0.0.3"
 
 # A brief description of the project
 description = \
