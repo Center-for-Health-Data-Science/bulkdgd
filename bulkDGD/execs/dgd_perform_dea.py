@@ -287,9 +287,6 @@ def main():
                 keep_samples_names = True,
                 split = False)
 
-        # Get the sample's names
-        obs_counts_names = obs_counts.index.tolist()
-
     # If something went wrong
     except Exception as e:
 
@@ -299,6 +296,12 @@ def main():
             f"'{input_csv_samples}'. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
+
+    # Get the sample's names
+    obs_counts_names = obs_counts.index.tolist()
+
+    # Get the gene's names
+    obs_counts_genes = obs_counts.columns.tolist()
 
 
     #-------------------- Input - decoder outputs --------------------#

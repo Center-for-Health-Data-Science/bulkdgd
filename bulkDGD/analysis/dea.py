@@ -239,9 +239,9 @@ def get_p_values(obs_counts,
                  pred_means,
                  r_values,
                  resolution = None):
-    """Calculate the p-value associated to the predicted mean
-    of each negative binomial by comparing it to the actual
-    gene count for a single sample.
+    """For a single sample, calculate the p-value associated to
+    the predicted mean of each negative binomial (= predicted gene
+    count) by comparing it to the actual gene count.
 
     Parameters
     ----------
@@ -262,7 +262,7 @@ def get_p_values(obs_counts,
 
     r_values : ``pandas.Series``
         A series containing one r-value for each negative binomial
-        (= one r-value for each gene).
+        (= one r-value per gene).
 
     resolution : ``int``, optional
         How accurate the calculation of the p-values should be.
@@ -283,34 +283,31 @@ def get_p_values(obs_counts,
         A 1D array containing one p-value per gene.
     
     ks : ``numpy.ndarray``
-        A 2D array containing the count values at 
+        A 2D array containing the gene count values at 
         which the probability mass function was evaluated
         to compute the p-values.
 
-        The array has as many
-        rows as the number of genes and as many columns as
-        the number of count values.
+        The array has as many rows as the number of genes and as
+        many columns as the number of times the probability mass
+        function was evaluated.
     
     pmfs : ``numpy.ndarray``
-        A 2D array containing the value of the
-        probability mass function for each count value
-        at which it was evaluated. The array has as many
-        rows as the number of genes and as many columns as
-        the number of count values.
+        A 2D array containing the value of the probability mass
+        function for each count value at which it was evaluated.
+
+        The array has as many rows as the number of genes and as
+        many columns as the number of times the probability mass
+        function was evaluated.
     """
 
-
-    #------------------------ Check the genes ------------------------#
-
-
     # Get the names of the cells containing gene expression
-    # data from the original series for the observed gene counts
+    # data from the series for the observed gene counts
     genes_obs = \
         [col for col in obs_counts.index \
          if col.startswith("ENSG")]
 
     # Get the names of the cells containing gene expression
-    # data from the original series for the predicted means
+    # data from the series for the predicted means
     genes_pred = \
         [col for col in pred_means.index \
          if col.startswith("ENSG")]
@@ -328,18 +325,15 @@ def get_p_values(obs_counts,
             "and 'r_values' must be the same."
         raise ValueError(errstr)
 
-
-    #------------------ Preproces the samples' data ------------------#
-
+    #-----------------------------------------------------------------#
 
     # Create a tensor with only those columns containing gene
-    # expression data for the observed gene counts
+    # expression data for the observed gene counts - the 'loc' should
+    # return the selected columns in the correct order
     obs_counts = \
         torch.Tensor(pd.to_numeric(obs_counts.loc[genes_obs]).values)
 
-
-    #---------------- Preprocess the decoder outputs -----------------#
-
+    #-----------------------------------------------------------------#
 
     # Create a tensor with only those columns containing gene
     # expression data for the predicted means - the 'loc' should
@@ -347,18 +341,14 @@ def get_p_values(obs_counts,
     pred_means = \
         torch.Tensor(pd.to_numeric(pred_means.loc[genes_obs]).values)
 
-
-    #-------------------- Preprocess the r-values --------------------#
-
+    #-----------------------------------------------------------------#
 
     # Sort the r-values so be sure they are in the same order
-    # that the genes in the observed counts/predicted genes
+    # of the genes in the observed counts/predicted genes
     r_values = \
         torch.Tensor(r_values.reindex(index = genes_obs).values)
 
-
-    #----------------------- Get the p-values ------------------------#
-
+    #-----------------------------------------------------------------#
 
     # Get the mean gene counts for the sample. The output is
     # a single value
@@ -371,9 +361,9 @@ def get_p_values(obs_counts,
     #                  space
     pred_means = pred_means * obs_counts_mean
 
-    # Create an empty list to store the p-valued computed per gene
+    # Create an empty list to store the p-values computed per gene
     # in the current sample, the value of the probability mass
-    # function, and the 'k'
+    # function, and the 'k' values
     results = []
 
     # For each gene's (rescaled) predicted mean count, observed
@@ -381,9 +371,7 @@ def get_p_values(obs_counts,
     for pred_mean_gene_i, obs_count_gene_i, r_value_i \
         in zip(pred_means, obs_counts, r_values):
 
-
-        #----------------------- Calculate 'p' -----------------------#
-
+        #-------------------------------------------------------------#
 
         # Calculate the probability of "success" from the r-value
         # (number of successes till the experiment is stopped) and
@@ -398,9 +386,7 @@ def get_p_values(obs_counts,
         p_i = pred_mean_gene_i.item() / \
               (pred_mean_gene_i.item() + r_value_i.item())
 
-
-        #-------------- Get the tail value for the sum ---------------#
-
+        #-------------------------------------------------------------#
         
         # Get the count value at which the value of the percent
         # point function (the inverse of the cumulative mass
@@ -409,23 +395,21 @@ def get_p_values(obs_counts,
         # 0.00001 of the mass. This is a single value.
         #
         # Since SciPy's negative binomial function is implemented
-        # as function of the number of failures, their 'p' is
+        # as a function of the number of failures, their 'p' is
         # equivalent to our '1-p' and their 'n' is our 'r'
         tail = nbinom.ppf(q = 0.99999,
                           n = r_value_i.item(),
                           p = 1 - p_i).item()
         
-
-        #---------------- Get the probability masses -----------------#
-
+        #-------------------------------------------------------------#
 
         # If no resolution was passed
         if resolution is None:
             
             # We are going to sum with steps of lenght 1.
-            # This is a 1D tensor with length is equal to 'tail',
+            # This is a 1D tensor with length equal to 'tail',
             # since we are taking steps of size 1 starting
-            # from 0 and ending in 'tail'
+            # from 0 and ending with 'tail'
             k = torch.arange(\
                     start = 0,
                     end = tail,
@@ -436,7 +420,7 @@ def get_p_values(obs_counts,
             
             # We are going to integrate with steps of length
             # 'resolution'. This is a 1D tensor whose length
-            # is euqal to the number of 'resolution'-sized
+            # is equal to the number of 'resolution'-sized
             # steps between 0 and 'tail'
             k = torch.linspace(\
                     start = 0,
@@ -453,13 +437,11 @@ def get_p_values(obs_counts,
                 m = pred_mean_gene_i,
                 r = r_value_i).to(torch.float64)
 
-
-        #---------------------- Get the p-value ----------------------#
-
-
+        #-------------------------------------------------------------#
+        
         # Find the value of the probability mass function for the
-        # actual value of the count for gene 'i', 'obs_count_gene_i'.
-        # This is a single value
+        # gene count for 'i', 'obs_count_gene_i'. This is a single
+        # value
         prob_obs_count_gene_i = \
             _log_prob_mass(\
                 k = obs_count_gene_i,
@@ -468,10 +450,10 @@ def get_p_values(obs_counts,
 
         # Find the probability that a point falls lower than the
         # observed count (= sum over all values of 'k' lower than
-        # the value of the probability mass function at the actual
-        # count value. Exponentiate it since for now we dealt with
-        # log-probability masses, and we want the actual probability.
-        # The output is a single value
+        # the value of the probability mass function at the count
+        # value. Exponentiate it since for now we dealt with
+        # log-probability masses, but now we want the actual
+        # probability. The output is a single value
         lower_probs = \
             pmf[pmf <= prob_obs_count_gene_i].exp().sum()
 
@@ -481,7 +463,8 @@ def get_p_values(obs_counts,
         
         # Calculate the p-value as the ratio between the probability
         # mass associated to the event where a point falls lower
-        # than the observed count and the total probability mass
+        # than the observed count and the total probability mass.
+        # This is our p-value
         p_val = lower_probs / norm_const
 
         # Save the p-value found for the current gene, the value of
@@ -494,8 +477,7 @@ def get_p_values(obs_counts,
     # all 'k' values
     p_values, ks, pmfs = list(zip(*results))
 
-    #------------------------ p-values series ------------------------#
-
+    #-----------------------------------------------------------------#
 
     # Convert the p-values into a pandas' series
     series_p_values = pd.Series(np.array(p_values))
@@ -506,9 +488,7 @@ def get_p_values(obs_counts,
     # Set the series' name
     series_p_values.name = "p_value"
 
-
-    #--------------------- 'k' values data frame ---------------------#
-
+    #-----------------------------------------------------------------#
 
     # Convert the 'k' values into a data frame
     df_ks = pd.DataFrame(np.stack(ks))
@@ -516,9 +496,7 @@ def get_p_values(obs_counts,
     # Set the index of the data frame equal to the genes' names
     df_ks.index = genes_obs
 
-
-    #--------------------- PMF values data frame ---------------------#
-
+    #-----------------------------------------------------------------#
 
     # Convert the PMF values into a data frame
     df_pmfs = pd.DataFrame(np.stack(pmfs))
@@ -526,9 +504,7 @@ def get_p_values(obs_counts,
     # Set the index of the data frame equal to the genes' names
     df_pmfs.index = genes_obs
 
-
-    #-------------------- Return the data frames ---------------------#
-
+    #-----------------------------------------------------------------#
     
     # Return the series/data frames
     return series_p_values, df_ks, df_pmfs
@@ -549,7 +525,7 @@ def get_q_values(p_values,
         The family-wise error rate for the calculation of the
         q-values.
 
-    method : ``str``, ``fdr_bh``
+    method : ``str``, ``"fdr_bh"``
         The method used to adjust the p-values. The available
         methods are listed in the documentation for
         ``statsmodels.stats.multitest.multipletests``.
@@ -568,34 +544,44 @@ def get_q_values(p_values,
         not (``False``).
 
         The index of the series is equal to the index of
-        the p-values' series.
+        the ``p-values`` series.
     """
 
     # Get the genes' names from the p-values' index
     genes = p_values.index.tolist()
+
+    #-----------------------------------------------------------------#
 
     # Adjust the p-values
     rejected, q_values, _, _ = multipletests(pvals = p_values.values,
                                              alpha = alpha,
                                              method = method)
 
+    #-----------------------------------------------------------------#
+
     # Create a Series for the q-values
     series_q_values = pd.Series(q_values)
 
-    # Set the index of the series
+    # Set the index of the series - it will be the same as the
+    # input p-values' series
     series_q_values.index = genes
 
     # Set the series' name
     series_q_values.name = "q_value"
 
+    #-----------------------------------------------------------------#
+
     # Create a Series for the boolean list
     series_rejected = pd.Series(rejected)
 
-    # Set the index of the series
+    # Set the index of the series - it will be the same as the
+    # input p-values' series
     series_rejected.index = genes
 
     # Set the series' name
     series_rejected.name = "is_p_value_rejected"
+
+    #-----------------------------------------------------------------#
 
     # Return the q-values and the rejected p-values
     return series_q_values, series_rejected
@@ -603,24 +589,24 @@ def get_q_values(p_values,
 
 def get_log2_fold_changes(obs_counts,
                           pred_means):
-    """Get the log2-fold change of the gene expression.
+    """Get the log2-fold change of the expression of a set of genes.
 
     Parameters
     ----------
     obs_counts : ``pandas.Series``
         The observed gene counts in a single sample.
 
-        This is a series whose index contains
-        either the genes' Ensembl IDs or names of fields 
-        containing additional information about the sample.
+        This is a series whose index contains either the genes'
+        Ensembl IDs or names of fields  containing additional
+        information about the sample.
 
     pred_means : ``pandas.Series``
         The (rescaled) predicted means of the negative binomials
         modeling the gene counts for a single sample.
 
-        This is a series whose index contains
-        either the genes' Ensembl IDs or names of fields 
-        containing additional information about the sample.
+        This is a series whose index contains either the genes'
+        Ensembl IDs or names of fields  containing additional
+        information about the sample.
     
     Returns
     -------
@@ -631,9 +617,6 @@ def get_log2_fold_changes(obs_counts,
         This is a series whose index correspond to the one of
         ``obs_counts`` and ``pred_means``.
     """
-
-
-    #------------------------ Check the genes ------------------------#
 
 
     # Get the names of the cells containing gene expression
@@ -657,18 +640,15 @@ def get_log2_fold_changes(obs_counts,
             "must be the same."
         raise ValueError(errstr)
 
-
-    #------------------ Preproces the samples' data ------------------#
-
+    #-----------------------------------------------------------------#
 
     # Create a tensor with only those columns containing gene
-    # expression data for the observed gene counts
+    # expression data for the observed gene counts - the 'loc' should
+    # return the selected columns in the correct order
     obs_counts = \
         torch.Tensor(obs_counts.loc[genes_obs].astype("int").values)
 
-
-    #---------------- Preprocess the decoder outputs -----------------#
-
+    #-----------------------------------------------------------------#
 
     # Create a tensor with only those columns containing gene
     # expression data for the predicted means - the 'loc' should
@@ -676,15 +656,15 @@ def get_log2_fold_changes(obs_counts,
     pred_means = \
         torch.Tensor(pred_means.loc[genes_obs].astype("int").values)
 
-
-    #--------------------- Get log2-fold changes ---------------------#
-    
+    #-----------------------------------------------------------------#
 
     # Get the log-fold change for each gene by dividing the
     # predicted mean count by the observed count. A small value
     # (1e-6) is added to ensure we do not divide by zero.
     log2_fold_changes = \
-        torch.log2((pred_means + 1e-6) / (obs_counts + 1e-6))
+        torch.log2((obs_counts + 1e-6) / (pred_means + 1e-6))
+
+    #-----------------------------------------------------------------#
 
     # Convert the tensor into a series
     series_log2_fold_changes = pd.Series(log2_fold_changes)
@@ -694,6 +674,8 @@ def get_log2_fold_changes(obs_counts,
 
     # Set the series' name
     series_log2_fold_changes.name = "log2_fold_change"
+
+    #-----------------------------------------------------------------#
 
     # Return the series
     return series_log2_fold_changes
@@ -716,35 +698,40 @@ def perform_dea(obs_counts,
     obs_counts : ``pandas.Series``
         The observed gene counts in a single sample.
 
-        This is a series whose index contains
-        either the genes' Ensembl IDs or names of fields 
-        containing additional information about the sample.
+        This is a series whose index contains either the genes'
+        Ensembl IDs or names of fields  containing additional
+        information about the sample.
 
     pred_means : ``pandas.Series``
         The (rescaled) predicted means of the negative binomials
         modeling the gene counts for a single sample.
 
-        This is a series whose index contains
-        either the genes' Ensembl IDs or names of fields 
-        containing additional information about the sample.
+        This is a series whose index contains either the genes'
+        Ensembl IDs or names of fields  containing additional
+        information about the sample.
 
     sample_name : ``str``, optional
-        The name of the sample under consideration. It is returned
-        together with the results of the analysis to facilitate
-        the identification of the sample when running the analysis
-        in parallel for multiple samples (i.e., launching the
-        function in parallel on multiple samples).
+        The name of the sample under consideration.
 
-    statistics : ``list``,
-                 {``["p_values", "q_values", "log2_fold_changes"]``}
+        It is returned together with the results of the analysis
+        to facilitate the identification of the sample when running
+        the analysis in parallel for multiple samples (i.e., launching
+        the function in parallel on multiple samples).
+
+    statistics : ``list``, \
+            {``["p_values", "q_values", "log2_fold_changes"]``}
         The statistics to be computed. By default, all of them
-        will be computed (``"p_values"``, ``"q_values"``,
+        will be computed (``"p_values"``, ``"q_values"``, and
         ``"log2_fold_changes"``).
 
     genes_names : ``list``, optional
-        The names of the genes on which DEA is performed. If provided,
-        the genes will be the names of the rows of the output data
-        frame. If not, the rows will be indexed starting from 0.
+        The names of the genes on which DEA is performed.
+
+        If provided, the genes will be the names of the rows of
+        the output data frame.
+
+        If not provided, the rows of the output data frame will
+        be indexed starting from 0.
 
     r_values : ``torch.Tensor``
         A tensor containing one r-value for each negative binomial
@@ -770,7 +757,7 @@ def perform_dea(obs_counts,
         The family-wise error rate for the calculation of the
         q-values.
 
-    method : ``str``, ``fdr_bh``
+    method : ``str``, ``"fdr_bh"``
         The method used to calculate the q-values (in other
         words, to adjust the p-values). The available
         methods are listed in the documentation for
@@ -778,22 +765,21 @@ def perform_dea(obs_counts,
 
     Returns
     -------
-    ``pandas.DataFrame``
+    df_results : ``pandas.DataFrame``
         A data frame whose rows represent the genes on which
         DEA was performed, and whose columns contain the statistics
         computed (p-values, q_values, log2-fold changes). If not
         all statistics were computed, the columns corresponding
         to the missing ones will be empty.
+
+    sample_name : ``str`` or ``None``
+        The name of the sample under consideration. It is
+        ``None`` if no ``sample_name`` was provided.
     """
 
     # Set a list of the available statistics
     AVAILABLE_STATISTICS = \
         ["p_values", "q_values", "log2_fold_changes"]
-    
-    # Initialize all the statistics to None
-    p_values = None
-    q_values = None
-    log2_fold_changes = None
 
     # If no statistics were selected
     if not statistics:
@@ -809,9 +795,14 @@ def perform_dea(obs_counts,
             f"{available_stats_str}."
         raise ValueError(errstr)
 
+    #-----------------------------------------------------------------#
+    
+    # Initialize all the statistics to None
+    p_values = None
+    q_values = None
+    log2_fold_changes = None
 
-    #--------------------------- p-values ----------------------------#
-
+    #-----------------------------------------------------------------#
 
     # If the user requested the calculation of p-values
     if "p_values" in statistics:
@@ -821,8 +812,7 @@ def perform_dea(obs_counts,
 
             # Raise an error
             errstr = \
-                f"'r-values' are needed to compute the " \
-                f"p-values."
+                "'r-values' are needed to compute the p-values."
             raise RuntimeError(errstr)
 
         # Calculate the p-values
@@ -832,10 +822,8 @@ def perform_dea(obs_counts,
                          r_values = r_values,
                          resolution = resolution)
 
-
-    #--------------------------- q-values ----------------------------#
-
-
+    #-----------------------------------------------------------------#
+    
     # If the user requested the calculation of q-values
     if "q_values" in statistics:
 
@@ -844,20 +832,18 @@ def perform_dea(obs_counts,
 
             # Raise an error
             errstr = \
-                f"The calculation of p-values is needed to " \
-                f"compute the q-values. This can be done " \
-                f"by adding 'p_values' to 'stats'."
+                "The calculation of p-values is needed to " \
+                "compute the q-values. This can be done " \
+                "by adding 'p_values' to the 'statistics' list."
             raise RuntimeError(errstr)
 
         # Calculate the q-values
         q_values, rejected = \
             get_q_values(p_values = p_values)
 
-
-    #----------------------- log2-fold changes -----------------------#
-
-
-    # If the user requested the calculation of fold changes
+    #-----------------------------------------------------------------#
+    
+    # If the user requested the calculation of log2 fold changes
     if "log2_fold_changes" in statistics:
 
         # Calculate the fold changes
@@ -865,18 +851,20 @@ def perform_dea(obs_counts,
             get_log2_fold_changes(obs_counts = obs_counts,
                                   pred_means = pred_means)
 
+    #-----------------------------------------------------------------#
+
     # Get the results for the statistics that were computed
     stats_results = \
         [stat if stat is not None else pd.Series()
          for stat in (p_values, q_values, log2_fold_changes)]
 
 
-    #----------------------- Output data frame -----------------------#
-
-
     # Create a data frame from the statistics computed
     df_stats = pd.concat(stats_results,
                          axis = 1)
 
-    # Return the data frame
+    #-----------------------------------------------------------------#
+
+    # Return the data frame and the name of the sample under
+    # consideration
     return df_stats, sample_name

@@ -27,9 +27,6 @@
 import os
 
 
-#------------------------- Public constants --------------------------#
-
-
 # The directory containing the configuration files specifying the
 # DGD model's parameters and the files containing the trained
 # model
@@ -38,16 +35,20 @@ CONFIG_MODEL_DIR = \
                  "configs/model")
 
 # The directory containing the configuration files specifying the
-# options for data loading and optimization when finding the
-# best representations
+# options for the optimization round(s) when finding the best
+# representations
 CONFIG_REP_DIR = \
     os.path.join(os.path.dirname(__file__),
                  "configs/representations")
+
+#---------------------------------------------------------------------#
 
 # The default configuration file for plotting the results of the PCA
 CONFIG_PLOT_PCA = \
     os.path.join(os.path.dirname(__file__),
                  "configs/plot/pca_scatter.yaml")
+
+#---------------------------------------------------------------------#
 
 # Default PyTorch file containing the trained Gaussian mixture model
 GMM_FILE = \

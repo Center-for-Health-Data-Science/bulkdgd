@@ -32,17 +32,17 @@ logger = log.getLogger(__name__)
 
 def _check_config_against_template(config,
                                    template):
-    """Check the configuration against the configuration's
+    """Check a configuration against the configuration's
     template.
 
     Parameters
     ----------
     config : ``dict``
-        Configuration loaded from the file provided by the
+        The configuration loaded from the file provided by the
         user.
 
     template : ``dict``
-        Template of how the configuration should be structures.
+        A template of how the configuration should be structured.
 
     Returns
     -------
@@ -62,10 +62,13 @@ def _check_config_against_template(config,
         {"means_prior_options", "weights_prior_options",
          "log_var_prior_options"}
 
-    # The recursive step
-    def recursive_step(config,
-                       template,
-                       key):
+    #-----------------------------------------------------------------#
+
+    # The recursion to be performed through the configuration to
+    # check it
+    def recursion(config,
+                  template,
+                  key):
 
         # If both the current configuration dictionary and the
         # template dictionary are dictionaries (they are
@@ -81,12 +84,16 @@ def _check_config_against_template(config,
             template_fields = set(template.keys())
             
             # Get the fields (= keys) unique to the configuration
+            # (= not found in the template)
             unique_config_fields = \
                 config_fields - template_fields
 
             # Get the fields (= keys) unique to the template
+            # (= not found in the user-provided configuration)
             unique_template_fields = \
                 template_fields - config_fields
+
+            #---------------------------------------------------------#
 
             # If any unique field was found in the configuration
             if len(unique_config_fields) != 0:
@@ -100,6 +107,8 @@ def _check_config_against_template(config,
                     f"{fields}."
                 logger.error(errstr)
                 raise KeyError(errstr)
+
+            #---------------------------------------------------------#
 
             # If any field was found in the template but not
             # in the configuration
@@ -120,6 +129,8 @@ def _check_config_against_template(config,
                     logger.error(errstr)
                     raise KeyError(errstr)
 
+            #---------------------------------------------------------#
+
             # For each key, value pair in the configuration
             for k, val_config in config.items():
 
@@ -138,11 +149,13 @@ def _check_config_against_template(config,
                 val_template = template[k]
 
                 # Recursively check the values
-                recursive_step(config = val_config,
-                               template = val_template,
-                               key = k)
+                recursion(config = val_config,
+                          template = val_template,
+                          key = k)
 
-        # If the configuration is a dictionary, but the
+        #-------------------------------------------------------------#
+
+        # If the user-supplied configuration is a dictionary, but the
         # template is not
         elif (isinstance(config, dict) \
         and not isinstance(template, dict)):
@@ -155,7 +168,9 @@ def _check_config_against_template(config,
             logger.error(errstr)
             raise TypeError(errstr)
 
-        # If the template is a dictionary, but the
+        #-------------------------------------------------------------#
+
+        # If the template is a dictionary, but the user-provided
         # configuration is not
         elif (not isinstance(config, dict) \
         and isinstance(template, dict)):
@@ -168,9 +183,11 @@ def _check_config_against_template(config,
                 f"sub-fields: {str(template)}."
             raise TypeError(errstr)
 
-        # If both the configuration and the template are
-        # not dictionaries (we are in a "leaf" value, not
-        # a key of a nested dictionary)
+        #-------------------------------------------------------------#
+
+        # If both the user-supplied configuration and the template
+        # are not dictionaries (we are in a "leaf" value, not a
+        # key of a nested dictionary)
         elif (not isinstance(config, dict) \
         and not isinstance(template, dict)):
 
@@ -180,27 +197,29 @@ def _check_config_against_template(config,
 
                 # Warn the user and raise an exception
                 errstr = \
-                    f"'{key}' must be an instance of " \
-                    f"{str(template)}, not {str(type(config))} " \
-                    f"('{config}')."
+                    f"'{key}' must be of type '{str(template)}', "\
+                    f"not {str(type(config))} ('{config}')."
                 raise TypeError(errstr)
+
+        #-------------------------------------------------------------#
 
         # Return the dictionary
         return config
 
-    # Call the recursive step and return the result
-    return recursive_step(config = config,
-                          template = template,
-                          key = None)
+    #-----------------------------------------------------------------#
+
+    # Recurse through the configuration and return the result
+    return recursion(config = config,
+                     template = template,
+                     key = None)
 
 
 def _recursive_map_dict(d,
                        func,
                        keys = None):
     """Recursively traverse a dictionary mapping a function to the
-    dictionary's leaf values (= substituting the values
-    which the return value of the function applied to those
-    values).
+    dictionary's leaf values (= substituting the values with the
+    return value of the function applied to those values).
 
     Parameters
     ----------
@@ -213,11 +232,13 @@ def _recursive_map_dict(d,
         place.
 
     keys : ``list``, ``set``, optional
-        A List of specific keys on whose items the mapping
-        should be performed. This means that all values associated
-        with keys different from those in the list will not be
-        affected. If ``None``, all keys and associated values
-        will be considered.
+        A list of specific keys on whose items the mapping
+        should be performed.
+
+        This means that all values associated with keys different
+        from those in the list will not be affected.
+
+        If ``None``, all keys and associated values will be considered.
     
     Returns
     -------
@@ -225,17 +246,17 @@ def _recursive_map_dict(d,
         The new dictionary.
     """
 
-    # Define the recursive step
-    def recursive_step(d,
-                       func,
-                       keys):
+    # Define the recursion
+    def recursion(d,
+                  func,
+                  keys):
 
         # If the current object is a dictionary
         if isinstance(d, dict):
             
-            # Get the keys of items on which the maping will be
-            # performed. If no keys are passed, all keys
-            # in the dictionary will be considered.
+            # Get the keys of the items on which the mapping will be
+            # performed. If no keys are passed, all keys in the
+            # dictionary will be considered.
             sel_keys = keys if keys else d.keys()
 
             # For each key, value pair in the dictionary
@@ -256,18 +277,23 @@ def _recursive_map_dict(d,
 
                         # Recursively check the sub-dictionaries
                         # of the current dictionary
-                        recursive_step(d = v,
+                        recursion(d = v,
                                        func = func,
                                        keys = sel_keys)
+
+    #-----------------------------------------------------------------#
 
     # Create a copy of the input dictionary
     new_d = copy.deepcopy(d)
 
-    # Add the "key path" and its value to either the
-    # input dictionary or the new dictionary
-    recursive_step(d = new_d,
-                   func = func,
-                   keys = keys)
+    #-----------------------------------------------------------------#
 
-    # Return the new dictionary
+    # Recursively modify the copy of the dictionary
+    recursion(d = new_d,
+              func = func,
+              keys = keys)
+
+    #-----------------------------------------------------------------#
+
+    # Return the modified copy of the dictionary
     return new_d

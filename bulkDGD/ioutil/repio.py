@@ -82,19 +82,13 @@ def load_representations(csv_file,
         If ``split`` is ``False``, only ``df_data`` is returned.
     """
 
-
-    #---------------------- Load the data frame ----------------------#
-
-
     # Load the data frame with the representations
     df = pd.read_csv(csv_file,
                      sep = sep,
                      index_col = 0,
                      header = 0)
 
-
-    #--------------------- Split the data frame ----------------------#
-
+    #-----------------------------------------------------------------#
 
     # If the user requested splitting the data frame
     if split:
@@ -126,9 +120,7 @@ def load_representations(csv_file,
         # another with the extra information
         return df[latent_dims_columns], df[other_columns]
 
-
-    #------------------ Do not split the data frame ------------------#
-
+    #-----------------------------------------------------------------#
 
     # Otherwise
     else:
@@ -145,7 +137,8 @@ def save_representations(df,
     Parameters
     ----------
     df : ``pandas.DataFrame``
-        A data frame containing the representations.
+        A data frame containing the representations, and, possibly,
+        additional information about the representations.
 
     csv_file : ``str``
         The output CSV file.

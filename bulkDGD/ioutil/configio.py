@@ -69,8 +69,8 @@ _CONFIG_MODEL_TEMPLATE = \
 
 def load_config_model(config_file):
     """Load the configuration specifying the DGD model's parameters
-    and, possibly, the files containing the trained model from a
-    YAML file.
+    and, possibly, the path to the files containing the trained model
+    from a YAML file.
 
     Parameters
     ----------
@@ -82,10 +82,6 @@ def load_config_model(config_file):
     config : ``dict``
         A dictionary containing the configuration.
     """
-
-
-    #-------------------- Load the configuration ---------------------#
-
 
     # Get the name of the configuration file
     config_file_name = os.path.basename(config_file).rstrip(".yaml")
@@ -111,21 +107,17 @@ def load_config_model(config_file):
     # the file name) and its 'tail' (the file name)
     path_head, path_tail = os.path.split(config_file)
 
-
-    #------------------ Check against the template -------------------#
-
+    #-----------------------------------------------------------------#
 
     # Check the configuration against the template
     config = _util._check_config_against_template(\
                 config = config,
                 template = _CONFIG_MODEL_TEMPLATE)
 
+    #-----------------------------------------------------------------#
 
-    #--------------- Get the file with the trained GMM ---------------#
-
-
-    # Get the PyTorch file containing the trained Gaussian
-    # mixture model
+    # Get the PyTorch file containing the trained Gaussian mixture
+    # model
     gmm_pth_file = config["gmm_pth_file"]
 
     # If the default file should be used
@@ -140,12 +132,9 @@ def load_config_model(config_file):
 
         # Get the path to the file
         config["gmm_pth_file"] = \
-            os.path.normpath(os.path.join(path_head,
-                                          gmm_pth_file))
+            os.path.normpath(os.path.join(path_head, gmm_pth_file))
 
-
-    #------------- Get the file with the trained decoder -------------#
-
+    #-----------------------------------------------------------------#
 
     # Get the PyTorch file containing the trained decoder
     dec_pth_file = config["dec_pth_file"]
@@ -162,14 +151,11 @@ def load_config_model(config_file):
 
         # Get the path to the file
         config["dec_pth_file"] = \
-            os.path.normpath(os.path.join(path_head,
-                                          dec_pth_file))
+            os.path.normpath(os.path.join(path_head, dec_pth_file))
 
+    #-----------------------------------------------------------------#
 
-    #------------------ Get the file with the genes ------------------#
-
-
-    # Get the .txt file containing the genes
+    # Get the .txt file containing the genes' names
     genes_txt_file = config["genes_txt_file"]
 
     # If the default file should be used
@@ -184,16 +170,18 @@ def load_config_model(config_file):
 
         # Get the path to the file
         config["genes_txt_file"] = \
-            os.path.normpath(os.path.join(path_head,
-                                          genes_txt_file))
+            os.path.normpath(os.path.join(path_head, genes_txt_file))
+
+    #-----------------------------------------------------------------#
 
     # Return the configuration
     return config
 
 
 def load_config_rep(config_file):
-    """Load the configuration containing the options for data
-    loading and optimization to find the best representations.
+    """Load the configuration containing the options for the
+    optimization round(s) to find the best representations for a
+    set of samples from a YAML file.
 
     Parameters
     ----------
@@ -208,6 +196,8 @@ def load_config_rep(config_file):
 
     # Get the name of the configuration file
     config_file_name = os.path.basename(config_file).rstrip(".yaml")
+
+    #-----------------------------------------------------------------#
 
     # If the configuration file is a name without extension
     if config_file == config_file_name:
@@ -230,12 +220,14 @@ def load_config_rep(config_file):
     # the file name) and its 'tail' (the file name)
     path_head, path_tail = os.path.split(config_file)
 
+    #-----------------------------------------------------------------#
+
     # Return the configuration
     return config
 
 
 def load_config_plot(config_file):
-    """Load a configuration for a plot.
+    """Load a configuration for a plot from a YAML file.
 
     Parameters
     ----------
@@ -271,6 +263,8 @@ def load_config_plot(config_file):
     # Split the path into its 'head' (path to the file without
     # the file name) and its 'tail' (the file name)
     path_head, path_tail = os.path.split(config_file)
+
+    #-----------------------------------------------------------------#
     
     # Substitute the font properties definitions
     # with the corresponding FontProperties instances
@@ -278,6 +272,8 @@ def load_config_plot(config_file):
         d = config,
         func = fm.FontProperties,
         keys = {"fontproperties", "prop", "title_fontproperties"})
+
+    #-----------------------------------------------------------------#
 
     # Return the new configuration
     return new_config

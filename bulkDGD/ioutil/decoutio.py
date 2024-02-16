@@ -42,9 +42,11 @@ def load_decoder_outputs(csv_file,
         A CSV file containing a data frame with the decoder outputs.
 
         Each row should represent the decoder output for a given
-        representation, while each columns should contain either the
-        values of the decoder output or additional information
-        about the decoder outputs.
+        representation, while each column should contain either the
+        values of the decoder output for a gene or additional
+        information about the decoder outputs (for instance,
+        the tissues from which the original samples
+        came from).
 
     sep : ``str``, ``","``
         The column separator in the input CSV file.
@@ -52,8 +54,9 @@ def load_decoder_outputs(csv_file,
     split : ``bool``, ``True``
         Whether to split the input data frame into two data frames,
         one with only the columns containing the decoder outputs
-        and the other containing only the columns with additional
-        information about the decoder outputs, if any were found.
+        for the genes and the other containing only the columns
+        with additional information about the decoder outputs,
+        if any were found.
 
     Returns
     -------    
@@ -83,18 +86,13 @@ def load_decoder_outputs(csv_file,
     """
 
 
-    #---------------------- Load the data frame ----------------------#
-
-
     # Load the data frame with the decoder outputs
     df = pd.read_csv(csv_file,
                      sep = sep,
                      index_col = 0,
                      header = 0)
 
-
-    #--------------------- Split the data frame ----------------------#
-
+    #-----------------------------------------------------------------#
 
     # If the user requested splitting the data frame
     if split:
@@ -125,9 +123,7 @@ def load_decoder_outputs(csv_file,
         # another with the extra information
         return df[dec_out_columns], df[other_columns]
 
-
-    #------------------ Do not split the data frame ------------------#
-
+    #-----------------------------------------------------------------#
 
     # Otherwise
     else:
@@ -144,7 +140,8 @@ def save_decoder_outputs(df,
     Parameters
     ----------
     df : ``pandas.DataFrame``
-        A data frame containing the decoder outputs.
+        A data frame containing the decoder outputs and, possibly,
+        additional information about the decoder outputs.
 
     csv_file : ``str``
         The output CSV file.
