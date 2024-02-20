@@ -48,6 +48,120 @@ logger = log.getLogger(__name__)
 #----------------------------- Functions -----------------------------#
 
 
+def get_recount3_data_input_file(data, project_id_subset=None):
+    """The function takes a path for a csv file or a DataFrame as input.
+    Columns should contain 
+    [str:<input_project_name>; str:<input_samples_category>; str:<tissue>; str:<query_string>].
+    Returns a DataFrame with columns forced to type and sorted according to <tissue>.
+
+    Parameters
+    ----------
+    data : ``str``|``pandas.DataFrame``
+        Inut is either a path to a csv file or a pandas.DataFrame.
+
+    project_id_subset : ``list``: [``str``]
+        A list of strings denoting the subset of project id's to be handled.
+    """
+    # Check that input type belongs to either string or DataFrame
+    if isinstance(data, pd.DataFrame):
+        df=data
+        print("Input detected as DataFrame.")
+
+    elif isinstance(data, str):
+        df = pd.read_csv(
+            data, 
+            sep=",", 
+            header=0, 
+            index_col="input_samples_category", 
+            comment='#'
+            )
+    else:
+        # Warn the user and exit
+        errstr = \
+            "Input type was neither detected as string or DataFrame " 
+        # logger.exception(errstr)
+        sys.exit(errstr)
+
+    # Check that each relevant columns exists
+    def check_column_exists(df, column_name):
+        """Check if a column exists in a DataFrame.
+        If it does not exist, check if the index holds the column,
+        and if this is true, the reset_index is performed to turn the 
+        index into a column.
+
+        Parameters
+        ----------
+        df : ``pandas.DataFrame``
+            The DataFrame to be checked.
+
+        column_name : ``str``
+            The name of the column of interest.
+        """
+        try:
+            _ = df[column_name]
+            return df
+        except KeyError:
+            try:
+                df.reset_index(inplace=True)
+                _ = df[column_name]
+                return df
+            except Exception as e:
+                # Warn the user and exit
+                errstr = \
+                    "It was not possible to validate the provided " \
+                    f"column '{column_name}' for the " \
+                    f"input DataFrame. Error: {e}"
+                # logger.exception(errstr)
+                sys.exit(errstr)
+
+    df = check_column_exists(df, 'input_samples_category')
+    df = check_column_exists(df, 'input_project_name')
+    df = check_column_exists(df, 'query_string')
+    df = check_column_exists(df, 'tissue')
+
+    # Force types for each relevant column
+    try:
+        df = df.astype({
+            'input_samples_category':'string',
+            'input_project_name':'string',
+            'query_string': 'string',
+            'tissue':'string'
+            })
+    except Exception as e:
+        print(f"Error: {e}")
+    
+    # Trim the DataFrame to contain only relevant columns
+    try:
+        df = df.loc[:,
+            [
+                'input_samples_category',
+                'input_project_name',
+                'tissue',
+                'query_string'
+            ]
+            ]
+    except Exception as e:
+        print(f"Error: {e}")
+
+    # Sort the values according to tissue
+    try:
+        df.sort_values(
+            ['tissue'], 
+            inplace=True
+            )
+    except Exception as e:
+        print(f"Error: {e}")
+    
+    # Use only a subset of the projects if the user has defined such a subset
+    if project_id_subset is not None:
+        try:
+            df = df[df['input_samples_category'].isin(project_id_subset)]
+        except Exception as e:
+            print(f"Error: {e}")            
+
+    return(df)
+
+
 def check_samples_category(samples_category,
                            project_name):
     """Check that the category of samples requested by the user (cancer
