@@ -21,5 +21,5 @@ We will show the installation using Python 3.11, but the same steps remain valid
 
 Here, we provide instructions for installing bulkDGD in:
 
-*  A simple :doc:`Python virtual environment <installation_venv>`.
+*  A simple :doc:`"virtualenv" environment <installation_venv>`.
 *  An :doc:`Anaconda ("conda") environment <installation_conda>` .

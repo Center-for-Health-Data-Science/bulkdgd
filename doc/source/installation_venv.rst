@@ -1,5 +1,5 @@
-Installing in a Python virtual environment
-==========================================
+Installing with ``virtualenv``
+==============================
 
 This section guides you in installing the bulkDGD package in a virtual environment, meaning an instance of Python that is isolated from your system.
 
@@ -23,11 +23,11 @@ If the installation is successful, the ``virtualenv`` command will be available.
 Step 2 - Create the virtual environment
 ---------------------------------------
 
-Create your virtual environment in a directory of your choice (in this case, it will be ``./bulkDGD-env``):
+Create your virtual environment in a directory of your choice (in this case, it will be ``./bulkdgd-env``):
 
 .. code-block:: shell
 
-    virtualenv -p /usr/bin/python3.11 bulkDGD-env
+    virtualenv -p /usr/bin/python3.11 bulkdgd-env
 
 You should replace the argument of option ``-p`` according to the location of the Python interpreter you want to use inside the virtual environment.
 
@@ -38,10 +38,10 @@ Activate the environment:
 
 .. code-block:: shell
 
-    source bulkDGD-env/bin/activate
+    source bulkdgd-env/bin/activate
 
 Step 4 - Get bulkDGD
-------------------------
+--------------------
 
 Clone the bulkDGD source code from its GitHub repository within a directory of your choice and enter the local copy of the repository.
 

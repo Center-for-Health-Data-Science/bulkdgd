@@ -4,7 +4,7 @@ Installing with ``conda``
 Step 1 - Install ``conda``
 --------------------------
 
-Go `here <https://docs.conda.io/en/latest/miniconda.html>_` for detailed instructions on how to install ``conda``.
+Go `here <https://docs.conda.io/en/latest/miniconda.html>`_ for detailed instructions on how to install ``conda``.
 
 Installing ``miniconda`` rather than the full ``anaconda`` package is advised.
 
@@ -13,7 +13,7 @@ We have provided an ``environment.yaml`` file that can be used together with ``c
 Once ``conda`` is installed on your system, you can create a virtual environment.
 
 Step 2 - Get bulkDGD
-------------------------
+--------------------
 
 Clone the bulkDGD source code from its GitHub repository within a directory of your choice and enter the local copy of the repository.
 
@@ -30,9 +30,7 @@ You can create your ``conda`` environment from the provided environment file:
 
 .. code-block:: shell
     
-    conda env create --file bulkDGD/environment.yaml --prefix ./bulkDGD-env python=3.11
-
-We tell ``conda`` to use the Python 3.11 interpreter for the environment.
+    conda env create --file bulkDGD/environment.yaml --prefix ./bulkdgd-env
 
 In this case, we ask ``conda`` to create the environment locally (``--prefix``), which is optional.
 
@@ -53,7 +51,7 @@ It is usually something like this:
 
 .. code-block:: shell
     
-    conda activate ./bulkDGD-env
+    conda activate ./bulkdgd-env
 
 Step 5 - Get the ``dec.pth`` file
 ---------------------------------
@@ -63,7 +61,7 @@ You must download the ``dec.pth`` file containing the trained decoder's paramete
 Once downloaded, place the file into the ``bulkDGD/ioutil/data`` folder before performing the installation.
 
 Step 6 - Install bulkDGD
-----------------------------
+------------------------
 
 You can now install bulkDGD using ``pip``.
 
