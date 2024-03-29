@@ -1,28 +1,6 @@
 # `data`
 
-Last updated: 02/10/2023
-
-## `gtex_tissues.txt`
-
-A plain text file containing the list of GTEx tissues. `dgd_get_recount3_data` uses it to check whether the user-provided tissue is valid.
-
-Example:
-
-```
-# GTEx tissue types - STUDY_NA is not included
-
-# Adipose tissue
-ADIPOSE_TISSUE
-
-# Adrenal gland
-ADRENAL_GLAND
-
-# Blood
-BLOOD
-
-# Blood vessel
-BLOOD_VESSEL
-```
+Last updated: 29/03/2024
 
 ## `gtex_metadata_fileds`
 
@@ -43,6 +21,61 @@ SUBJID
 SEX
 AGE
 DTHHRDY
+```
+
+## `gtex_tissues.txt`
+
+A plain text file containing the list of available GTEx tissues. `dgd_get_recount3_data` uses it to check whether the user-provided tissue is valid.
+
+Example:
+
+```
+# GTEx tissue types - STUDY_NA is not included
+
+# Adipose tissue
+ADIPOSE_TISSUE
+
+# Adrenal gland
+ADRENAL_GLAND
+
+# Blood
+BLOOD
+
+# Blood vessel
+BLOOD_VESSEL
+```
+
+## `sra_codes.txt`
+
+A plain text file containing the list of available SRA codes. `dgd_get_recount3_data` uses it to check whether the user-provided SRA code is valid.
+
+Example:
+
+``` 
+# SRA codes
+
+SRP107565
+SRP149665
+SRP017465
+SRP119165
+```
+
+## `sra_metadata_fields.txt`
+
+A plain text file containing the fields (= columns) found in the files describing the metadata associated with SRA samples downloaded from the Recount3 platform. 
+
+The file is used by the `dgd_get_recount3_data` executable when filtering the SRA samples through a query string.
+
+Example:
+
+```
+# Fields found in the SRA metadata files downloaded from the Recount3 platform.
+
+rail_id
+external_id
+study
+sample_acc
+experiment_acc
 ```
 
 ## `tcga_cancer_types.txt`

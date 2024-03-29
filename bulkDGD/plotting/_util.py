@@ -32,9 +32,9 @@ import numpy as np
 logger = log.getLogger(__name__)
 
 
-def _get_ticks_positions(values,
-                         item,
-                         config):
+def get_ticks_positions(values,
+                        item,
+                        config):
     """Generate the positions that the ticks
     will have on a plot axis/colorbar/etc.
 
@@ -78,6 +78,8 @@ def _get_ticks_positions(values,
             f"No 'interval' section was found in the " \
             f"configuration for the {item}."
         raise KeyError(errstr)
+
+    #-----------------------------------------------------------------#
     
     # Get the configurations
     int_type = config.get("type")
@@ -93,9 +95,7 @@ def _get_ticks_positions(values,
         f"Now setting the interval for the plot's {item}'s ticks..."
     logger.info(infostr)
 
-
-    #--------------------------- Rounding ---------------------------#
-
+    #-----------------------------------------------------------------#
 
     # If no rounding was specified
     if rtn is None:
@@ -130,9 +130,7 @@ def _get_ticks_positions(values,
             f"('round_to_nearest' = {rtn})."
         logger.info(infostr)
 
-
-    #--------------------------- Top value ---------------------------#
-
+    #-----------------------------------------------------------------#
 
     # If the maximum of the ticks interval was not specified
     if top is None:
@@ -178,9 +176,7 @@ def _get_ticks_positions(values,
             f"('top' = {top})."
         logger.info(infostr)
 
-
-    #------------------------- Bottom value --------------------------#
-
+    #-----------------------------------------------------------------#
 
     # If the minimum of the ticks interval was not specified
     if bottom is None:
@@ -226,6 +222,7 @@ def _get_ticks_positions(values,
             f"('bottom' = {bottom})."
         logger.info(infostr)
 
+    #-----------------------------------------------------------------#
 
     # If the two extremes of the interval coincide
     if top == bottom:
@@ -233,9 +230,7 @@ def _get_ticks_positions(values,
         # Return only one value
         return np.array([bottom])
 
-
-    #----------------------------- Steps -----------------------------# 
-
+    #-----------------------------------------------------------------#
 
     # If the number of steps the interval should have
     # was not specified
@@ -259,9 +254,7 @@ def _get_ticks_positions(values,
             f"should have to {steps} ('steps' = {steps})."
         logger.info(infostr)
 
-
-    #---------------------------- Spacing ----------------------------#
-
+    #-----------------------------------------------------------------#
 
     # If the interval spacing was not specified
     if spacing is None:
@@ -311,9 +304,7 @@ def _get_ticks_positions(values,
                 f"number of steps ({spacing})."
             logger.info(infostr)
 
-
-    #------------------------ Center in zero -------------------------#
-
+    #-----------------------------------------------------------------#
 
     # If the interval should be centered in zero
     if ciz:
@@ -342,6 +333,8 @@ def _get_ticks_positions(values,
         # Return the interval
         return interval
 
+    #-----------------------------------------------------------------#
+
     # Get the interval
     interval = np.arange(bottom, top + spacing, spacing)
 
@@ -352,15 +345,17 @@ def _get_ticks_positions(values,
         f"{', '.join([str(i) for i in interval.tolist()])}."
     logger.info(infostr)
 
+    #-----------------------------------------------------------------#
+
     # Return the interval
     return interval
 
 
-def _set_axis(ax,
-              axis,
-              config,
-              ticks = None,
-              tick_labels = None):
+def set_axis(ax,
+             axis,
+             config,
+             ticks = None,
+             tick_labels = None):
     """Set up the x- or y-axis after generating a plot.
 
     Parameters
@@ -389,10 +384,6 @@ def _set_axis(ax,
         An Axes instance. 
     """
 
-
-    #----------------------------- Axes ------------------------------#
-
-
     # If the axis to be set is the x-axis
     if axis == "x":
 
@@ -419,21 +410,23 @@ def _set_axis(ax,
         # Get the corresponding spine
         spine = "left"
 
+    #-----------------------------------------------------------------#
+
     # If there is an axis label's configuration
     if config.get("label"):
         
         # Set the axis label
         set_label(**config["label"])        
 
-
-    #----------------------------- Ticks -----------------------------#
-
+    #-----------------------------------------------------------------#
     
     # If no ticks' positions were passed
     if ticks is None:
 
         # Default to the tick locations already present
         ticks = plot_ticks()[0]
+
+    #-----------------------------------------------------------------#
 
     # If there are any ticks on the axis
     if len(ticks) > 0:      
@@ -442,6 +435,8 @@ def _set_axis(ax,
         ax.spines[spine].set_bounds(ticks[0],
                                     ticks[-1])
 
+    #-----------------------------------------------------------------#
+
     # If a configuration for the tick parameters was provided
     if config.get("tick_params"):
         
@@ -449,12 +444,12 @@ def _set_axis(ax,
         ax.tick_params(axis = axis,
                        **config["tick_params"])
 
+    #-----------------------------------------------------------------#
+
     # Set the ticks
     set_ticks(ticks = ticks)
 
-
-    #------------------------- Ticks' labels -------------------------#
-
+    #-----------------------------------------------------------------#
     
     # If no ticks' labels were passed
     if tick_labels is None:
@@ -470,12 +465,14 @@ def _set_axis(ax,
     set_ticklabels(labels = tick_labels,
                    **tick_labels_config)
 
+    #-----------------------------------------------------------------#
+
     # Return the axis
     return ax
 
 
-def _set_legend(ax,
-                config):
+def set_legend(ax,
+               config):
     """Set a legend for the current plot.
 
     Parameters
@@ -491,12 +488,19 @@ def _set_legend(ax,
 
     # Get the legend's handles and labels
     handles, labels = ax.get_legend_handles_labels()
+
+    #-----------------------------------------------------------------#
     
-    # Draw the legend
-    ax.legend(handles = handles,
-              labels = labels,
-              bbox_transform = plt.gcf().transFigure,
-              **config)
+    # If there are handles
+    if handles:
+
+        # Draw the legend
+        ax.legend(handles = handles,
+                  labels = labels,
+                  bbox_transform = plt.gcf().transFigure,
+                  **config)
+
+    #-----------------------------------------------------------------#
 
     # Retutn the ax
     return ax

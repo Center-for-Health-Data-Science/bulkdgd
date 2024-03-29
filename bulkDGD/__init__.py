@@ -21,3 +21,10 @@
 #    You should have received a copy of the GNU General Public
 #    License along with this program. 
 #    If not, see <http://www.gnu.org/licenses/>.
+
+
+# Import everything from the 'defaults' module
+from .defaults import *
+
+# Import everything from the 'util' module
+from .util import *

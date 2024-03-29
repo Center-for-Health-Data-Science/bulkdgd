@@ -3,8 +3,6 @@
 
 #    defaults.py
 #
-#    Default values.
-#
 #    Copyright (C) 2023 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
@@ -23,9 +21,15 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
+# Description of the module
+__doc__ = "Default directories/files for I/O operations."
+
+
 # Standard library
 import os
 
+
+#---------------------------------------------------------------------#
 
 # The directory containing the configuration files specifying the
 # DGD model's parameters and the files containing the trained
@@ -33,6 +37,8 @@ import os
 CONFIG_MODEL_DIR = \
     os.path.join(os.path.dirname(__file__),
                  "configs/model")
+
+#---------------------------------------------------------------------#
 
 # The directory containing the configuration files specifying the
 # options for the optimization round(s) when finding the best
@@ -55,10 +61,14 @@ GMM_FILE = \
     os.path.join(os.path.dirname(__file__),
                  "data/gmm.pth")
 
+#---------------------------------------------------------------------#
+
 # Default PyTorch file containing the trained decoder
 DEC_FILE = \
     os.path.join(os.path.dirname(__file__),
                  "data/dec.pth")
+
+#---------------------------------------------------------------------#
 
 # File containing the Ensembl IDs of the genes included in the DGD
 # model

@@ -3,7 +3,7 @@
 
 #    dgd_perform_pca.py
 #
-#    Do a two-dimensional principal component analysis on a set of
+#    Perform a two-dimensional principal component analysis on a set of
 #    input representations.
 #
 #    Copyright (C) 2023 Valentina Sora 
@@ -27,8 +27,8 @@
 
 # Description of the module
 __doc__ = \
-    "Do a two-dimensional principal component analysis on a set of " \
-    "input representations."
+    "Perform a two-dimensional principal component analysis on a " \
+    "a set of input representations."
 
 
 # Standard library
@@ -39,26 +39,27 @@ import sys
 # Third-party packages
 import pandas as pd
 # bulkDGD
-from bulkDGD import ioutil, plotting
+from bulkDGD import defaults, ioutil, plotting, util
 from bulkDGD.analysis import reduction
 
 
 def main():
 
 
-    #-------------------- Command-line arguments ---------------------#
-
-
     # Create the argument parser
     parser = argparse.ArgumentParser(description = __doc__)
 
+    #-----------------------------------------------------------------#
+
     i_help = \
-        "The input CSV file containing the data frame " \
-        "with the representations."
+        "The input CSV file containing the data frame with the " \
+        "representations."
     parser.add_argument("-i", "--input-csv",
                         type = str,
                         required = True,
                         help = i_help)
+
+    #-----------------------------------------------------------------#
 
     oc_default = "pca.csv"
     oc_help = \
@@ -70,6 +71,8 @@ def main():
                         default = oc_default,
                         help = oc_help)
 
+    #-----------------------------------------------------------------#
+
     op_default = "pca.pdf"
     op_help = \
         "The name of the output file containing the plot displaying " \
@@ -80,26 +83,31 @@ def main():
                         default = op_default,
                         help = op_help)
 
+    #-----------------------------------------------------------------#
+
     cp_help = \
-        "The YAML configuration file specifying the aesthetics " \
-        "of the plot and the plot's output format. If not " \
-        "provided, the default configuration " \
-        f"file ('{ioutil.CONFIG_PLOT_PCA}') will be used."
+        "The YAML configuration file specifying the plot's " \
+        "aesthetics and output format. If not provided, the " \
+        f"default configuration file ('{ioutil.CONFIG_PLOT_PCA}') " \
+        "will be used."
     parser.add_argument("-cp", "--config-file-plot",
                         type = str,
                         default = ioutil.CONFIG_PLOT_PCA,
                         help = cp_help)
 
+    #-----------------------------------------------------------------#
+
     gc_help = \
         "The name/index of the column in the input data frame " \
         "containing the groups by which the samples will be " \
-        "colored in the output plot. " \
-        "By default, the program assumes that no such column is " \
-        "present."
+        "colored in the output plot. By default, the program " \
+        "assumes that no such column is present."
     parser.add_argument("-gc", "--groups-column",
                         type = str,
                         default = None,
                         help = gc_help)
+
+    #-----------------------------------------------------------------#
 
     d_help = \
         "The working directory. The default is the current " \
@@ -108,6 +116,8 @@ def main():
                         type = str,
                         default = os.getcwd(),
                         help = d_help)
+
+    #-----------------------------------------------------------------#
 
     lf_default = "dgd_perform_pca.log"
     lf_help = \
@@ -119,15 +129,21 @@ def main():
                         default = lf_default,
                         help = lf_help)
 
+    #-----------------------------------------------------------------#
+
     lc_help = "Show log messages also on the console."
     parser.add_argument("-lc", "--log-console",
                         action = "store_true",
                         help = lc_help)
 
+    #-----------------------------------------------------------------#
+
     v_help = "Enable verbose logging (INFO level)."
     parser.add_argument("-v", "--log-verbose",
                         action = "store_true",
                         help = v_help)
+
+    #-----------------------------------------------------------------#
 
     vv_help = \
         "Enable maximally verbose logging for debugging " \
@@ -135,6 +151,8 @@ def main():
     parser.add_argument("-vv", "--log-debug",
                         action = "store_true",
                         help = vv_help)
+
+    #-----------------------------------------------------------------#
 
     # Parse the arguments
     args = parser.parse_args()
@@ -153,59 +171,46 @@ def main():
     v = args.log_verbose
     vv = args.log_debug
 
-
-    #---------------------------- Logging ----------------------------#
-
-
-    # Get the module's logger
-    logger = log.getLogger(__name__)
+    #-----------------------------------------------------------------#
 
     # Set WARNING logging level by default
-    level = log.WARNING
+    log_level = log.WARNING
 
     # If the user requested verbose logging
     if v:
 
         # The minimal logging level will be INFO
-        level = log.INFO
+        log_level = log.INFO
 
     # If the user requested logging for debug purposes
     # (-vv overrides -v if both are provided)
     if vv:
 
         # The minimal logging level will be DEBUG
-        level = log.DEBUG
+        log_level = log.DEBUG
 
-    # Initialize the logging handlers to a list containing only
-    # the FileHandler (to log to the log file)
-    handlers = [log.FileHandler(# The log file
-                                filename = log_file,
-                                # How to open the log file ('w' means
-                                # re-create it every time the
-                                # executable is called)
-                                mode = "w")]
+    # Configure the logging (for non-Dask operations)
+    handlers = \
+        util.get_handlers(\
+            log_console = log_console,
+            log_file_class = log.FileHandler,
+            log_file_options = {"filename" : log_file,
+                                "mode" : "w"},
+            log_level = log_level)
 
-    # If the user requested logging to the console, too
-    if log_console:
-
-        # Append a StreamHandler to the list
-        handlers.append(log.StreamHandler())
-
-    # Set the logging level
+    # Set the logging configuration
     log.basicConfig(# The level below which log messages are silenced
-                    level = level,
+                    level = log_level,
                     # The format of the log strings
-                    format = "{asctime}:{levelname}:{name}:{message}",
+                    format = defaults.LOG_FMT,
                     # The format for dates/time
-                    datefmt="%Y-%m-%d,%H:%M",
+                    datefmt = defaults.LOG_DATEFMT,
                     # The format style
-                    style = "{",
+                    style = defaults.LOG_STYLE,
                     # The handlers
                     handlers = handlers)
 
-
-    #--------------------- Configuration - plot ----------------------#
-
+    #-----------------------------------------------------------------#
 
     # Try to load the configuration
     try:
@@ -219,18 +224,16 @@ def main():
         errstr = \
             "It was not possible to load the configuration from " \
             f"'{config_file_plot}'. Error: {e}"
-        logger.exception(errstr)
+        log.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the configuration was successfully loaded
     infostr = \
         "The configuration was successfully loaded from " \
         f"'{config_file_plot}'."
-    logger.info(infostr)
+    log.info(infostr)
 
-
-    #------------------- Load the representations --------------------#
-
+    #-----------------------------------------------------------------#
 
     # Try to load the representations
     try:
@@ -247,7 +250,7 @@ def main():
         errstr = \
             "It was not possible to load the representations from " \
             f"'{input_csv}'. Error: {e}"
-        logger.exception(errstr)
+        log.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the representations were successfully
@@ -255,11 +258,9 @@ def main():
     infostr = \
         "The representations were successfully loaded from " \
         f"'{input_csv}'."
-    logger.info(infostr)
+    log.info(infostr)
 
-
-    #-------------------------- Do the PCA ---------------------------#
-
+    #-----------------------------------------------------------------#
 
     # Try to perform the pca
     try:
@@ -274,16 +275,14 @@ def main():
         # Warn the user and exit
         errstr = \
             f"It was not possible to perform the PCA. Error: {e}"
-        logger.exception(errstr)
+        log.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the PCA was successfully performed
-    infostr = "The PCA was performed successfully."
-    logger.info(infostr)
+    infostr = "The PCA was successfully performed."
+    log.info(infostr)
 
-
-    #--------------------- Save the PCA results ----------------------#
-
+    #-----------------------------------------------------------------#
 
     # Set the path to the output file
     output_csv_pca_path = os.path.join(wd, output_csv_pca)
@@ -301,9 +300,9 @@ def main():
 
         # Warn the user and exit
         errstr = \
-            "It was not possible to save the results of the PCA " \
+            "It was not possible to write the results of the PCA " \
             f"in '{output_csv_pca_path}'. Error: {e}"
-        logger.exception(errstr)
+        log.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the results of the PCA were successfully
@@ -311,11 +310,9 @@ def main():
     infostr = \
         "The results of the PCA were successfully written in " \
         f"'{output_csv_pca_path}'."
-    logger.info(infostr)
+    log.info(infostr)
 
-
-    #--------------------- Plot the PCA results ----------------------#
-
+    #-----------------------------------------------------------------#
 
     # Merge the data frame containing the PCA results with the
     # one containing the extra information about the
@@ -343,12 +340,12 @@ def main():
             "It was not possible to plot the results of the " \
             f"PCA and save them in '{output_plot_pca_path}'. " \
             f"Error: {e}"
-        logger.exception(errstr)
+        log.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the results of the PCA were successfully
     # plotted and saved
     infostr = \
         "The results of the PCA were successfully plotted and " \
-        f"the plot saved to '{output_plot_pca_path}'."
-    logger.info(infostr)
+        f"the plot saved in '{output_plot_pca_path}'."
+    log.info(infostr)

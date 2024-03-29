@@ -21,6 +21,10 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
+# Description of the module
+__doc__ = "Utilities to load and save the samples."
+
+
 # Standard library
 import logging as log
 import re
@@ -71,7 +75,7 @@ def load_samples(csv_file,
     Parameters
     ----------
     csv_file : `str``
-        A CSV file containing the samples' data.
+        A CSV file containing a data frame with the samples' data.
 
         The rows of the data frame should represent the samples,
         while the columns should represent the genes and any
@@ -87,8 +91,8 @@ def load_samples(csv_file,
         Whether to keep the names/IDs/indexes assigned to the
         samples in the input data frame.
 
-        If ``True``, the names/IDs/indexes are assumed to be in
-        the first column of the input data frame.
+        If ``True``, the samples' names/IDs/indexes are assumed
+        to be in the first column of the input data frame.
 
     split : ``bool``, ``True``
         Whether to split the input data frame into two data frames,
@@ -103,7 +107,8 @@ def load_samples(csv_file,
         A data frame containing the gene expression data.
 
         Here, the rows represent the samples and the columns
-        represent the genes.
+        represent the genes. Therefore, each cell contains
+        the expression of a gene in a specific sample.
 
         If ``split`` is ``False``, this data frame will
         also contain the columns containing additional
@@ -215,7 +220,7 @@ def save_samples(df,
         The column separator in the output CSV file.
     """
 
-    # Save the representations
+    # Save the samples
     df.to_csv(csv_file,
               sep = sep,
               index = True,
@@ -234,8 +239,8 @@ def preprocess_samples(df_samples):
         while the columns should represent the genes and any
         additional information about the samples.
 
-        Each column containing gene expression data must be named
-        after the gene's Ensembl ID.
+        If not provided, the default one
+        (``bulkDGD/ioutil/data/genes.txt``) will be used.
 
     Returns
     -------
@@ -244,14 +249,14 @@ def preprocess_samples(df_samples):
 
     genes_excluded : ``list``
         The list of genes found in the input data frame but not
-        belonging to the gene set included in the DGD model.
+        included in the DGD model.
 
-        These genes are dropped from the ``df_preproc``
-        data frame.
+        These genes are dropped from the ``df_preproc`` data
+        frame.
 
     genes_missing : ``list``
-        The list of genes present in the gene set included in
-        the DGD model but not found in the input data frame.
+        A list of genes included in the DGD model but not found
+        in the input data frame.
 
         These genes are added with a count of 0 for all samples
         in the ``df_preproc`` data frame.
@@ -287,8 +292,8 @@ def preprocess_samples(df_samples):
             # Get the gene ID and the version
             gene, version = gene_id
 
-            # Try to split the version (it may contain the indication of
-            # a pseudoautosomal region, like PAR_Y)
+            # Try to split the version (it may contain the indication
+            # of a pseudoautosomal region, like PAR_Y)
             pseudoatom_region = version.split("_")
 
             # If there is an indication of a pseudoatosomal region
@@ -320,8 +325,9 @@ def preprocess_samples(df_samples):
         # Inform the user of the other columns found
         infostr = \
             f"{len(other_columns)} column(s) containing additional " \
-            "information (not gene expression data) was (were) found " \
-            f"in the input data frame: {', '.join(other_columns)}."
+            "information (not gene expression data) was (were) " \
+            "in the input data frame: " \
+            f"{', '.join(other_columns)}."
         logger.info(infostr)
 
     #-----------------------------------------------------------------#
@@ -422,6 +428,12 @@ def preprocess_samples(df_samples):
 
     #-----------------------------------------------------------------#
 
+    # If the user did not pass a file with the list of genes
+    if genes_txt_file is None:
+
+        # Use the default one
+        genes_txt_file = defaults.GENES_FILE
+
     # Load the list of genes
     genes_list_dgd = _load_list(list_file = defaults.GENES_FILE)
 
@@ -430,7 +442,7 @@ def preprocess_samples(df_samples):
         "In the data frame containing the pre-processed samples, " \
         "the columns containing gene expression data will be " \
         "ordered according to the list of genes included in " \
-        f"the DGD model (taken from '{defaults.GENES_FILE}')."
+        f"the DGD model (taken from '{genes_txt_file}')."
     logger.info(infostr)
 
     # Warn the user that the other columns were rearranged
@@ -468,9 +480,9 @@ def preprocess_samples(df_samples):
         # Warn the user
         warnstr = \
             f"{len(genes_excluded)} gene(s) found in the input " \
-            "samples is (are) not part of the set of genes used to " \
-            "train the DGD model. It (they) will be removed from " \
-            "the data frame of preprocessed samples."
+            "samples is (are) not part of the set of genes " \
+            "included in the DGD model. It (they) will be removed " \
+            "from the data frame of preprocessed samples."
         logger.warning(warnstr)
 
     # Otherwise
@@ -479,7 +491,7 @@ def preprocess_samples(df_samples):
         # Inform the user that no genes to be excluded were found
         infostr = \
             "All genes found in the input samples are part of the " \
-            "set of genes used to train the DGD model."
+            "set of genes included in the DGD model."
         logger.info(infostr)
 
     #-----------------------------------------------------------------#
@@ -496,10 +508,10 @@ def preprocess_samples(df_samples):
 
         # Warn the user
         warnstr = \
-            f"{len(genes_missing)} gene(s) in the set of genes used " \
-            "to train the DGD model was (were) not found in the " \
-            "input samples. A default count of 0 will be assigned to " \
-            "it (them) in all preprocessed samples."
+            f"{len(genes_missing)} gene(s) in the set of genes " \
+            "included in the DGD model was (were) not found in the " \
+            "input samples. A default count of 0 will be assigned " \
+            "to it (them) in all preprocessed samples."
         logger.warning(warnstr)
 
     # Otherwise
@@ -508,8 +520,8 @@ def preprocess_samples(df_samples):
         # Inform the user that no genes with missing counts were
         # found
         infostr = \
-            "All genes used to train the DGD model were found " \
-            "in the input samples."
+            "All genes included in the DGD model were found in the " \
+            "input samples."
         logger.info(infostr)
 
     #-----------------------------------------------------------------#

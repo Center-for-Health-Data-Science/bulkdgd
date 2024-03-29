@@ -21,6 +21,10 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
+# Description of the module
+__doc__ = "Utilities to load and save the time data."
+
+
 # Standard library
 import logging as log
 # Third-party packages

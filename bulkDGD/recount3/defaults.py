@@ -3,8 +3,6 @@
 
 #    defaults.py
 #
-#    Default values.
-#
 #    Copyright (C) 2023 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
@@ -23,9 +21,16 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
+# Description of the module
+__doc__ = \
+    "Default URLs/files for interacting with the Recount3 platform " \
+    "and downloading data from it."
+
+
 # Standard library
 import os
 
+#---------------------------------------------------------------------#
 
 # File containing the supported sample types
 # (cancer types/tissues/codes)
@@ -36,7 +41,8 @@ RECOUNT3_SUPPORTED_CATEGORIES_FILE = \
                            "data/tcga_cancer_types.txt"),
      "sra" : os.path.join(os.path.dirname(__file__),
                            "data/sra_codes.txt")}
-    
+
+#---------------------------------------------------------------------#
 
 # File containing the list of fields found in the metadata
 RECOUNT3_METADATA_FIELDS_FILE = \
@@ -46,6 +52,8 @@ RECOUNT3_METADATA_FIELDS_FILE = \
                            "data/tcga_metadata_fields.txt"),
      "sra" : os.path.join(os.path.dirname(__file__),
                           "data/sra_metadata_fields.txt")}
+
+#---------------------------------------------------------------------#
     
 # URL pointing to where the RNA-seq data for the samples
 # are stored on the Recount3 platform
@@ -53,16 +61,29 @@ RECOUNT3_GENE_SUMS_URL = \
     "http://duffel.rail.bio/recount3/human/data_sources/{:s}/" \
     "gene_sums/{:s}/{:s}/{:s}.gene_sums.{:s}.G026.gz"
 
+#---------------------------------------------------------------------#
+
 # URL pointing to where the metadata for the samples are stored
 # on the Recount3 platform
 RECOUNT3_METADATA_URL = \
     "http://duffel.rail.bio/recount3/human/data_sources/{:s}/" \
     "metadata/{:s}/{:s}/{:s}.{:s}.MD.gz"
 
-# Path to the output GZ file containing the samples' gene
+#---------------------------------------------------------------------#
+
+# Name of the output GZ file containing the samples' gene
 # expression data, if the user decided to save it
 RECOUNT3_GENE_SUMS_FILE = "{:s}_{:s}_gene_sums.gz"
 
-# Path to the output CSV file containing the samples'
+#---------------------------------------------------------------------#
+
+# Name of the output CSV file containing the samples'
 # metadata, if the user decided to save it
 RECOUNT3_METADATA_FILE = "{:s}_{:s}_metadata.gz"
+
+#---------------------------------------------------------------------#
+
+# Name of the output CSV file containing the samples'
+# updated metadata, if the user decided to save it
+RECOUNT3_METADATA_UPDATED_FILE = "{:s}_{:s}_metadata_updated.gz"
+

@@ -3,11 +3,11 @@
 
 .. automodule:: recount3.util
 
+   .. autofunction:: recount3.load_samples_batches
+
    .. autofunction:: recount3.check_samples_category
 
    .. autofunction:: recount3.get_query_string
-
-   .. autofunction:: recount3.get_metadata_fields
 
    .. autofunction:: recount3.get_gene_sums
 

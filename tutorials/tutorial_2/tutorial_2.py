@@ -108,7 +108,7 @@ for sample in df_samples.index:
                         # (the higher, the more accurate the
                         # calculation; set to 'None' for an exact
                         # calculation)
-                        resolution = 1e5,
+                        resolution = 1e4,
                         # The family-wise error rate for the
                         # calculation of the q-values
                         alpha = 0.05,

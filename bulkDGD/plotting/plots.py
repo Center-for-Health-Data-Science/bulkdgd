@@ -28,7 +28,7 @@ import logging as log
 import matplotlib.pyplot as plt
 import seaborn as sns
 # bulkDGD
-from ._util import _get_ticks_positions, _set_axis, _set_legend
+from . import _util
 
 
 # Get the module's logger
@@ -56,26 +56,28 @@ def plot_r_values_hist(r_values,
     # Close any figure that may be open
     plt.close()
 
-    # Take all r-values
-    r_values = r_values.numpy().flatten()
+    #-----------------------------------------------------------------#
 
     # Get the configuration for the histogram
     config_hist = config["plot"]["histogram"]
 
+    #-----------------------------------------------------------------#
 
-    #----------------------- Generate the plot -----------------------#
+    # Take all r-values
+    r_values = r_values.numpy().flatten()
 
+    #-----------------------------------------------------------------#
 
     # Generate the figure and axes
     fig, ax = plt.subplots()
+
+    #-----------------------------------------------------------------#
 
     # Generate the histogram
     n, bins, patches = ax.hist(x = r_values,
                                **config_hist)
 
-
-    #------------------------ Set the spines -------------------------#
-
+    #-----------------------------------------------------------------#
 
     # Hide the top and right spine
     for spine in ["top", "right"]:
@@ -85,45 +87,41 @@ def plot_r_values_hist(r_values,
     for spine in ["bottom", "left"]:
         ax.spines[spine].set_position(("outward", 5))
 
-
-    #------------------------ Set the x-axis -------------------------#
-
+    #-----------------------------------------------------------------#
 
     # Get the configuration of the axis
     config_x_axis = config["plot"]["xaxis"]
     
     # Get the positions of the ticks on the axis
-    x_ticks = _get_ticks_positions(values = bins,
-                                   item = "x-axis",
-                                   config = config_x_axis)
+    x_ticks = \
+        _util.get_ticks_positions(values = bins,
+                                  item = "x-axis",
+                                  config = config_x_axis)
 
     # Set the axis
-    _set_axis(ax = ax,
-              axis = "x",
-              config = config_x_axis,
-              ticks = x_ticks)
+    _util.set_axis(ax = ax,
+                   axis = "x",
+                   config = config_x_axis,
+                   ticks = x_ticks)
 
-
-    #------------------------ Set the y-axis -------------------------#
-
+    #-----------------------------------------------------------------#
 
     # Get the configuration of the axis
     config_y_axis = config["plot"]["yaxis"]
     
     # Get the positions of the ticks on the axis
-    y_ticks = _get_ticks_positions(values = n,
-                                   item = "y-axis",
-                                   config = config_y_axis)
+    y_ticks = \
+        _util.get_ticks_positions(values = n,
+                                  item = "y-axis",
+                                  config = config_y_axis)
 
     # Set the axis
-    _set_axis(ax = ax,
-              axis = "y",
-              config = config_y_axis,
-              ticks = y_ticks)
+    _util.set_axis(ax = ax,
+                   axis = "y",
+                   config = config_y_axis,
+                   ticks = y_ticks)
 
-    
-    #------------------------- Save the plot -------------------------#
-
+    #-----------------------------------------------------------------#
 
     # Write the plot in the output file
     plt.savefig(fname = output_file,
@@ -134,7 +132,8 @@ def plot_get_representations_time(df_time,
                                   output_file,
                                   config):
     """Plot the CPU/wall clock time spent in each epoch of each
-    round of optimization (both for the full epoch and for the
+    round of optimization when finding the representations for a
+    set of samples (both for the full epoch and for the
     backward step performed in each epoch).
 
     Parameters
@@ -155,6 +154,8 @@ def plot_get_representations_time(df_time,
     # Close any figure that may be open
     plt.close()
 
+    #-----------------------------------------------------------------#
+
     # Create a copy of the original data frame to modify before
     # generating the plot
     df_to_plot = copy.deepcopy(df_time)
@@ -167,21 +168,23 @@ def plot_get_representations_time(df_time,
                          var_name = "Time (CPU/Wall clock)",
                          value_name = "Time (s)")
 
+    #-----------------------------------------------------------------#
+
     # Get the optimizations round run
     opt_rounds = df_to_plot["opt_round"].unique()
 
     # Get all the time values reported in the data frame
     time_values = df_to_plot["Time (s)"].values
 
-
-    #----------------------- Generate the plot -----------------------#
-
+    #-----------------------------------------------------------------#
 
     # Generate the figure and axes. The plots will be arranged into
     # one row and as many columns as the number of optimization rounds
     # run when finding the representations
     fig, axes = plt.subplots(nrows = 1,
                              ncols = len(opt_rounds))
+
+    #-----------------------------------------------------------------#
 
     # For each optimization round and the axis where the corresponding
     # data will be plotted
@@ -193,8 +196,12 @@ def plot_get_representations_time(df_time,
             df_to_plot.loc[\
                 (df_to_plot["opt_round"] == opt_round)]
 
+        #-------------------------------------------------------------#
+
         # Get the number of epochs in the current optimization round
         epochs = sub_df["epoch"].values
+
+        #-------------------------------------------------------------#
 
         # Generate the plot
         sns.lineplot(data = sub_df,
@@ -204,9 +211,7 @@ def plot_get_representations_time(df_time,
                      ax = ax,
                      **config["plot"]["lineplot"])
 
-
-        #----------------------- Set the title -----------------------#
-
+        #-------------------------------------------------------------#
 
         # Create a copy of the title's configuration
         config_title = copy.deepcopy(config["plot"]["title"])
@@ -227,9 +232,7 @@ def plot_get_representations_time(df_time,
         ax.set_title(label = label,
                      **config_title)
 
-
-        #---------------------- Set the spines -----------------------#
-
+        #-------------------------------------------------------------#
 
         # Hide the top and right spine
         for spine in ["top", "right"]:
@@ -239,56 +242,50 @@ def plot_get_representations_time(df_time,
         for spine in ["bottom", "left"]:
             ax.spines[spine].set_position(("outward", 5))
 
-
-        #---------------------- Set the x-axis -----------------------#
-
+        #-------------------------------------------------------------#
 
         # Get the configuration of the axis
         config_x_axis = config["plot"]["xaxis"]
         
         # Get the positions of the ticks on the axis
-        x_ticks = _get_ticks_positions(values = epochs,
-                                       item = "x-axis",
-                                       config = config_x_axis)
+        x_ticks = \
+            _util.get_ticks_positions(values = epochs,
+                                      item = "x-axis",
+                                      config = config_x_axis)
 
         # Set the axis
-        _set_axis(ax = ax,
-                  axis = "x",
-                  config = config_x_axis,
-                  ticks = x_ticks)
+        _util.set_axis(ax = ax,
+                       axis = "x",
+                       config = config_x_axis,
+                       ticks = x_ticks)
 
-
-        #---------------------- Set the y-axis -----------------------#
-
+        #-------------------------------------------------------------#
 
         # Get the configuration of the axis
         config_y_axis = config["plot"]["yaxis"]
         
         # Get the positions of the ticks on the axis
-        y_ticks = _get_ticks_positions(values = time_values,
-                                       item = "y-axis",
-                                       config = config_y_axis)
+        y_ticks = \
+            _util.get_ticks_positions(values = time_values,
+                                      item = "y-axis",
+                                      config = config_y_axis)
 
         # Set the axis
-        _set_axis(ax = ax,
-                  axis = "y",
-                  config = config_y_axis,
-                  ticks = y_ticks)
+        _util.set_axis(ax = ax,
+                       axis = "y",
+                       config = config_y_axis,
+                       ticks = y_ticks)
 
-
-        #---------------------- Set the legend -----------------------#
-
+        #-------------------------------------------------------------#
 
         # Get the configuration for the legend
         config_legend = config["plot"]["legend"]
 
         # Set the legend
-        _set_legend(ax = ax,
-                    config = config_legend)
+        _util.set_legend(ax = ax,
+                         config = config_legend)
 
-
-    #------------------------- Save the plot -------------------------#
-
+    #-----------------------------------------------------------------#
 
     # Write the plot in the output file
     plt.savefig(fname = output_file,
@@ -332,20 +329,24 @@ def plot_2d_pca(df_pca,
     # Close any figure that may be open
     plt.close()
 
+    #-----------------------------------------------------------------#
+
     # Get the names of the columns containg the values of the
     # projections along the first and second principal
     # component
     pc1_col, pc2_col = pc_columns
 
-
-    #----------------------- Generate the plot -----------------------#
-
+    #-----------------------------------------------------------------#
 
     # Generate the figure and axes
     fig, ax = plt.subplots()
 
+    #-----------------------------------------------------------------#
+
     # Get the configuration for the scatterplot
     config_hist = config["plot"]["scatterplot"]
+
+    #-----------------------------------------------------------------#
 
     # Generate the scatterplot
     sns.scatterplot(x = pc1_col,
@@ -354,9 +355,7 @@ def plot_2d_pca(df_pca,
                     ax = ax,
                     hue = groups_column)
 
-
-    #------------------------ Set the spines -------------------------#
-
+    #-----------------------------------------------------------------#
 
     # Hide the top and right spine
     for spine in ["top", "right"]:
@@ -366,56 +365,50 @@ def plot_2d_pca(df_pca,
     for spine in ["bottom", "left"]:
         ax.spines[spine].set_position(("outward", 5))
 
-
-    #------------------------ Set the x-axis -------------------------#
-
+    #-----------------------------------------------------------------#
 
     # Get the configuration of the axis
     config_x_axis = config["plot"]["xaxis"]
     
     # Get the positions of the ticks on the axis
-    x_ticks = _get_ticks_positions(values = df_pca[pc1_col],
-                                   item = "x-axis",
-                                   config = config_x_axis)
+    x_ticks = \
+        _util.get_ticks_positions(values = df_pca[pc1_col],
+                                  item = "x-axis",
+                                  config = config_x_axis)
 
     # Set the axis
-    _set_axis(ax = ax,
-              axis = "x",
-              config = config_x_axis,
-              ticks = x_ticks)
+    _util.set_axis(ax = ax,
+                   axis = "x",
+                   config = config_x_axis,
+                   ticks = x_ticks)
 
-
-    #------------------------ Set the y-axis -------------------------#
-
+    #-----------------------------------------------------------------#
 
     # Get the configuration of the axis
     config_y_axis = config["plot"]["yaxis"]
     
     # Get the positions of the ticks on the axis
-    y_ticks = _get_ticks_positions(values = df_pca[pc2_col],
-                                   item = "y-axis",
-                                   config = config_y_axis)
+    y_ticks = \
+        _util.get_ticks_positions(values = df_pca[pc2_col],
+                                  item = "y-axis",
+                                  config = config_y_axis)
 
     # Set the axis
-    _set_axis(ax = ax,
-              axis = "y",
-              config = config_y_axis,
-              ticks = y_ticks)
+    _util.set_axis(ax = ax,
+                   axis = "y",
+                   config = config_y_axis,
+                   ticks = y_ticks)
 
-
-    #------------------------ Set the legend -------------------------#
-
+    #-----------------------------------------------------------------#
 
     # Get the configuration for the legend
     config_legend = config["plot"]["legend"]
 
     # Set the legend
-    _set_legend(ax = ax,
-                config = config_legend)
+    _util.set_legend(ax = ax,
+                     config = config_legend)
 
-
-    #------------------------- Save the plot -------------------------#
-
+    #-----------------------------------------------------------------#
 
     # Write the plot in the output file
     plt.savefig(fname = output_file,
