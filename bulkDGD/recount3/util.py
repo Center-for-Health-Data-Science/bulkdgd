@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- Mode: python; tab-width: 4; indent-tabs-mode:nil; coding:utf-8 -*-
 
-#    utils.py
+#    util.py
 #
 #    Copyright (C) 2023 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
@@ -23,9 +23,8 @@
 
 # Description of the module
 __doc__ = \
-    "This module contains utilities to interact with the " \
-    "`Recount3 platform <https://rna.recount.bio/>`_ and " \
-    "manipulate the data downloaded from it."
+    "Utilities to interact with the Recount3 platform and " \
+    "manipulate the data retrieved from it."
 
 
 # Standard library
@@ -39,141 +38,192 @@ import pandas as pd
 import requests as rq
 # bulkDGD
 from . import defaults
+from bulkDGD import util
 
 
 # Get the module's logger
 logger = log.getLogger(__name__)
 
 
-#----------------------------- Functions -----------------------------#
+#------------------------- Private functions -------------------------#
 
 
-def get_recount3_data_input_file(data, project_id_subset=None):
-    """The function takes a path for a csv file or a DataFrame as input.
-    Columns should contain 
-    [str:<input_project_name>; str:<input_samples_category>; str:<tissue>; str:<query_string>].
-    Returns a DataFrame with columns forced to type and sorted according to <tissue>.
+def _get_metadata_fields(project_name,
+                         df = None):
+    """Get the metadata fields for the samples and check
+    whether they are valid.
 
     Parameters
     ----------
-    data : ``str``|``pandas.DataFrame``
-        Inut is either a path to a csv file or a pandas.DataFrame.
+    project_name : ``str``, {``"gtex"``, ``"tcga"``, ``"sra"``}
+        The name of the project of interest.
 
-    project_id_subset : ``list``: [``str``]
-        A list of strings denoting the subset of project id's to be handled.
+    df : ``pandas.DataFrame``, optional
+        The data frame containing the samples.
+
+    Returns
+    -------
+    metadata_fields : ``list``
+        The list of metadata fields.
     """
-    # Check that input type belongs to either string or DataFrame
-    if isinstance(data, pd.DataFrame):
-        df=data
-        print("Input detected as DataFrame.")
 
-    elif isinstance(data, str):
-        df = pd.read_csv(
-            data, 
-            sep=",", 
-            header=0, 
-            index_col="input_samples_category", 
-            comment='#'
-            )
-    else:
-        # Warn the user and exit
-        errstr = \
-            "Input type was neither detected as string or DataFrame " 
-        # logger.exception(errstr)
-        sys.exit(errstr)
+    # Get the file containing the valid metadata fields for
+    # the project of interest
+    metadata_fields_file = \
+        defaults.RECOUNT3_METADATA_FIELDS_FILE[project_name]
 
-    # Check that each relevant columns exists
-    def check_column_exists(df, column_name):
-        """Check if a column exists in a DataFrame.
-        If it does not exist, check if the index holds the column,
-        and if this is true, the reset_index is performed to turn the 
-        index into a column.
+    #-----------------------------------------------------------------#
 
-        Parameters
-        ----------
-        df : ``pandas.DataFrame``
-            The DataFrame to be checked.
+    # Open the file
+    with open(metadata_fields_file, "r") as f:
 
-        column_name : ``str``
-            The name of the column of interest.
-        """
-        try:
-            _ = df[column_name]
-            return df
-        except KeyError:
-            try:
-                df.reset_index(inplace=True)
-                _ = df[column_name]
-                return df
-            except Exception as e:
-                # Warn the user and exit
-                errstr = \
-                    "It was not possible to validate the provided " \
-                    f"column '{column_name}' for the " \
-                    f"input DataFrame. Error: {e}"
-                # logger.exception(errstr)
-                sys.exit(errstr)
+        # Get the fields (ignore empty lines and comment lines)
+        metadata_fields = \
+            [l.rstrip("\n") for l in f \
+             if not (re.match(r"^\s*$", l) or l.startswith("#"))]
 
-    df = check_column_exists(df, 'input_samples_category')
-    df = check_column_exists(df, 'input_project_name')
-    df = check_column_exists(df, 'query_string')
-    df = check_column_exists(df, 'tissue')
+        #-------------------------------------------------------------#
 
-    # Force types for each relevant column
-    try:
-        df = df.astype({
-            'input_samples_category':'string',
-            'input_project_name':'string',
-            'query_string': 'string',
-            'tissue':'string'
-            })
-    except Exception as e:
-        print(f"Error: {e}")
-    
-    # Trim the DataFrame to contain only relevant columns
-    try:
-        df = df.loc[:,
-            [
-                'input_samples_category',
-                'input_project_name',
-                'tissue',
-                'query_string'
-            ]
-            ]
-    except Exception as e:
-        print(f"Error: {e}")
+        # Initialize an empty set to store each samples' attributes
+        samples_attributes = set()
 
-    # Sort the values according to tissue
-    try:
-        df.sort_values(
-            ['tissue'], 
-            inplace=True
-            )
-    except Exception as e:
-        print(f"Error: {e}")
-    
-    # Use only a subset of the projects if the user has defined such a subset
-    if project_id_subset is not None:
-        try:
-            df = df[df['input_samples_category'].isin(project_id_subset)]
-        except Exception as e:
-            print(f"Error: {e}")            
+        # If:
+        # - The project is 'sra'
+        # - A data frame was passe
+        # - There is a 'sample_attributes' column in the data frame
+        if project_name == "sra" \
+        and df is not None \
+        and "sample_attributes" in df.columns:
 
-    return(df)
+            # Add the names of the samples' attributes to the set
+            samples_attributes.add(\
+                [item.split(";;")[0].replace(" ", "_") for item \
+                 in df["sample_attributes"].split("|")])
+
+        #-------------------------------------------------------------#
+
+        # Return all the metadata fields found
+        return metadata_fields + sorted(samples_attributes)
+
+
+#------------------------- Public functions --------------------------#
+
+
+def load_samples_batches(csv_file):
+    """Load a comma-separated CSV file containing a data frame
+    with information about the batches of samples to be downloaded
+    from Recount3.
+
+    The data frame is expected to have at least two columns:
+
+    * ``"input_project_name"``, containing the name of the project
+      the samples belong to.
+    * ``"input_samples_category"``, containing the name of the
+      category the samples belong to.
+
+    A third column, ``"query_string"``, may be present. This should
+    contain the query string used to filter each batch of samples
+    by their metadata.
+
+    Parameters
+    ----------
+    csv_file : ``str``
+        The CSV file.
+
+    Returns
+    -------
+    df : ``pandas.DataFrame``
+        The data frame parsed from the CSV file.
+    """
+
+    # Set the columns taken into consideration in the data frame
+    supported_columns = \
+        ["input_project_name",
+         "input_samples_category",
+         "query_string"]
+
+    #-----------------------------------------------------------------#
+
+    # Load the data frame
+    df = pd.read_csv(csv_file,
+                     sep = ",",
+                     header = 0,
+                     comment = "#",
+                     index_col = False)
+
+    #-----------------------------------------------------------------#
+
+    # For each required column
+    for col in ["input_project_name", "input_samples_category"]:
+
+        # If it does not exist
+        if col not in df.columns:
+
+            # Raise an error
+            errstr = \
+                f"The column '{col}' was not found in the input " \
+                f"CSV file '{csv_file}'."
+            raise ValueError(errstr)
+
+    #-----------------------------------------------------------------#
+
+    # For each project found in the data frame
+    for project_name in df["input_project_name"].unique():
+
+        # Get the unique samples' categories found for that project
+        # in the data frame
+        unique_samples_categories = \
+            df.loc[df["input_project_name"] == project_name][\
+                "input_samples_category"].unique()
+
+        # For each samples' category
+        for samples_category in unique_samples_categories:
+
+            # Check whether it's valid
+            check_samples_category(\
+                samples_category = samples_category,
+                project_name = project_name)
+
+    #-----------------------------------------------------------------#
+
+    # If there are extra columns
+    if set(df.columns) != set(supported_columns):
+
+        # Get the extra columns
+        extra_columns = set(df.columns) - set(supported_columns)
+
+        # Drop the extra columns
+        df = df.drop(extra_columns)
+
+        # Get the string representing the extra columns (for logging
+        # purposes)
+        extra_columns_str = \
+            ", ".join([f"'{col}'" for col in extra_columns])
+
+        # Warn the user that the columns were dropped
+        warnstr = \
+            "These extra columns were found in the input CSV file " \
+            f"'{csv_file}': {extra_columns_str}. They will be " \
+            "ignored."
+        logger.warning(warnstr)
+
+    #-----------------------------------------------------------------#
+
+    # Return the data frame
+    return df
 
 
 def check_samples_category(samples_category,
                            project_name):
-    """Check that the category of samples requested by the user (cancer
-    type or tissue is present for the project of choice (GTEX, TCGA,
-    etc.).
+    """Check that the category of samples requested by the user is
+    present for the project of choice.
 
     Parameters
     ----------
     samples_category : ``str``
         The category of samples requested.
 
-    project_name : ``str``, {``"gtex"``, ``"tcga"``}
+    project_name : ``str``, {``"gtex"``, ``"tcga"``, ``"sra"``}
         The name of the project of interest.
     """
 
@@ -186,16 +236,22 @@ def check_samples_category(samples_category,
                 project_name], "r") \
          if (not l.startswith("#") and not re.match(r"^\s*$", l))]
 
-    # If the category provided by the user is not among the
-    # accepted categories
+    #-----------------------------------------------------------------#
+
+    # If the category provided by the user is not among the supported
+    # categories
     if not samples_category in supported_categories:
+
+        # Format the string representing the supported categories
+        supported_categories_str = \
+            ", ".join([f"'{cat}'" for cat in supported_categories])
 
         # Raise an error
         errstr = \
             f"The category '{samples_category}' is not a " \
             f"supported category for '{project_name}'. The " \
             f"supported categories for '{project_name}' are " \
-            f"{', '.join(supported_categories)}."
+            f"{supported_categories_str}."
         raise ValueError(errstr)
 
 
@@ -207,8 +263,8 @@ def get_query_string(query_string):
     ----------
     query_str : ``str``
         The query string that will be used to filter the samples
-        according to their associated metadata, or the path to a
-        plain text file containing the query string.
+        according to their metadata, or the path to a plain
+        text file containing the query string.
 
     Returns
     -------
@@ -216,14 +272,14 @@ def get_query_string(query_string):
         The query string.
     """
 
-    # If the user has passed a plain text file
+    # If the user passed a plain text file
     if query_string.endswith(".txt"):
 
         # Open the file
         with open(query_string, "r") as f:
 
             # Initialize an empty string to store
-            # the file content
+            # the file's content
             content = ""
 
             # For each line in the file
@@ -248,100 +304,84 @@ def get_query_string(query_string):
                 # multiple lines
                 content += line.replace("\n", " ")
 
-            # Let the user see the query string.
+            # Let the user see the query string
             infostr = \
-                f"Query file found: \n" \
-                f"{content}.\n\n"
+                f"The query string was loaded from " \
+                f"'{query_string}': '{content}'."
             logger.info(infostr)
-            # Return the content
+            
+            # Return the content of the file (= the query string)
             return content
+
+    #-----------------------------------------------------------------#
 
     # If the user has passed a sting
     else:
-        # Let the user see the query string.
-        infostr = \
-            f"\n\nQuery string found: \n" \
-            f"{query_string}.\n\n"
+        
+        # Let the user see the query string
+        infostr = f"Query string found: '{query_string}'."
         logger.info(infostr)
 
-        # Just return the string
+        # Return the string
         return query_string
 
 
-def get_metadata_fields(project_name, project_specific = False):
-    """Get the fields of the metadata for the samples from a
-    plain text file.
+def get_gene_sums(project_name,
+                  samples_category,
+                  save_gene_sums = True,
+                  wd = None):
+    """Get RNA-seq counts for samples deposited in the Recount3
+    platform.
 
     Parameters
     ----------
-    project_name : ``str``, {``"gtex"``, ``"tcga"``}
+    project_name : ``str``, {``"gtex"``, ``"tcga"``, ``"sra"``}
         The name of the project of interest.
 
-    Returns
-    -------
-    ``list``
-        List of supported metadata fields for the samples
-        of the project of interest.
-    """
-
-    # If project_specific is True, use project specific file for metadata fields
-    if project_specific:
-        path_metadata_fields = defaults.RECOUNT3_METADATA_FIELDS_FILE__PROJECT_SPECIFIC[\
-                project_name]
-    else:
-        path_metadata_fields = defaults.RECOUNT3_METADATA_FIELDS_FILE[\
-                project_name]
-
-    # Open the file
-    with open(path_metadata_fields, "r") as f:
-
-        # Return the fields (ignore empty lines
-        # and comment lines)
-        return [l.rstrip("\n") for l in f \
-                if not (re.match(r"^\s*$", l) \
-                        or l.startswith("#"))]
-
-
-def get_gene_sums(samples_category,
-                  project_name,
-                  save_gene_sums,
-                  wd):
-    """Get RNA-seq data for the samples deposited
-    in the Recount3 platform.
-
-    Parameters
-    ----------
     samples_category : ``str``
         The category of samples requested.
 
-    project_name : ``str``, {``"gtex"``, ``"tcga"``}
-        The name of the project of interest.
-
-    save_gene_sums : ``bool``
+    save_gene_sums : ``bool``, ``True``
         If ``True``, save the original RNA-seq data
         file in the working directory.
 
-    wd : ``str``
-        Working directory.
+        The file name will be 
+        ``"{project_name}_{samples_category}_gene_sums.gz"``.
+
+    wd : ``str``, optional
+        The working directory where the original RNA-seq data
+        file will be saved, if ``save_gene_sums = True``.
+
+        If not specified, it will be the current working
+        directory.
 
     Returns
     -------
     ``pandas.DataFrame``
-        Data frame containing the RNA-seq counts for
+        A data frame containing the RNA-seq counts for
         the samples associated with the given category.
     """
-
-
-    #------------- Check if the RNA-seq data file exists -------------#
-
 
     # Set the name of the file that will contain the RNA-seq data
     f_gene_sums_name = \
         defaults.RECOUNT3_GENE_SUMS_FILE.format(project_name,
                                                 samples_category)
 
+    #-----------------------------------------------------------------#
+
+    # If no working directory was specified
+    if wd is None:
+
+        # The working directory will be the current working
+        # directory
+        wd = os.getcwd()
+
+    #-----------------------------------------------------------------#
+
     # Set the path to the file
     f_gene_sums_path = os.path.join(wd, f_gene_sums_name)
+
+    #-----------------------------------------------------------------#
 
     # If the file already exists in the working directory
     if os.path.exists(f_gene_sums_path):
@@ -358,14 +398,13 @@ def get_gene_sums(samples_category,
                                    sep = "\t",
                                    skiprows = 2,
                                    index_col = 0,
-                                   compression = "gzip").T
+                                   compression = "gzip",
+                                   low_memory = False).T
 
         # Return the data frame
         return df_gene_sums
 
-
-    #------------------- Download the RNA-seq data -------------------#
-
+    #-----------------------------------------------------------------#
 
     # Get the URL where to find the RNA-seq data
     gene_sums_url = \
@@ -376,8 +415,12 @@ def get_gene_sums(samples_category,
             project_name,
             samples_category)
 
+    #-----------------------------------------------------------------#
+
     # Get the RNA-seq data
     gene_sums = rq.get(gene_sums_url)
+
+    #-----------------------------------------------------------------#
 
     # If there was a problem retrieving the RNA-seq data
     if not gene_sums.ok:
@@ -395,9 +438,7 @@ def get_gene_sums(samples_category,
         f"the Recount3 platform."
     logger.info(infostr)
 
-
-    #------------------ Save the RNA-seq data file -------------------#
-
+    #-----------------------------------------------------------------#
 
     # If the user wants to save the gene sums file
     if save_gene_sums:
@@ -408,10 +449,10 @@ def get_gene_sums(samples_category,
             # Write the content to the file
             f.write(gene_sums.content)
 
-            # Inform the user that the file was written
+            # Inform the user that the data were written
             infostr = \
                 f"The RNA-seq data were successfully written " \
-                f"in {f_gene_sums_path}."
+                f"in '{f_gene_sums_path}'."
             logger.info(infostr)
 
         # Read the file content into a data frame and transpose
@@ -420,11 +461,10 @@ def get_gene_sums(samples_category,
                                    sep = "\t",
                                    skiprows = 2,
                                    index_col = 0,
-                                   compression = "gzip").T
+                                   compression = "gzip",
+                                   low_memory = False).T
 
-
-    #--------------- Do not save the RNA-seq data file ---------------#
-
+    #-----------------------------------------------------------------#
 
     # Otherwise
     else:
@@ -444,52 +484,68 @@ def get_gene_sums(samples_category,
                                        sep = "\t",
                                        skiprows = 2,
                                        index_col = 0,
-                                       compression = "gzip").T
+                                       compression = "gzip",
+                                       low_memory = False).T
+
+    #-----------------------------------------------------------------#
 
     # Return the data frame
     return df_gene_sums
 
 
 
-def get_metadata(samples_category,
-                 project_name,
-                 save_metadata,
-                 wd):
-    """Get the samples' metadata from the Recount3 platform.
+def get_metadata(project_name,
+                 samples_category,
+                 save_metadata = True,
+                 wd = None):
+    """Get samples' metadata from the Recount3 platform.
 
     Parameters
     ----------
+    project_name : ``str``, {``"gtex"``, ``"tcga"``, ``"sra"``}
+        The name of the project of interest.
+
     samples_category : ``str``
         The category of samples requested.
 
-    project_name : ``str``, {``"gtex"``, ``"tcga"``}
-        The name of the project of interest.
-
-    save_metadata : ``bool``
+    save_metadata : ``bool``, ``True``
         If ``True``, save the original metadata file in
         the working directory.
 
-    wd : ``str``
-        Working directory.
+    wd : ``str``, optional
+        The working directory where the original metadata
+        file will be saved, if ``save_metadata = True``.
+
+        If not specified, it will be the current working
+        directory.
 
     Returns
     -------
     ``pandas.DataFrame``
-        Data frame containing the metadata for the samples
+        A data frame containing the metadata for the samples
         associated with the given category.
     """
-
-
-    #--------------- Check if the metadata file exists ---------------#
-
 
     # Set the name of the file that will contain the metadata
     f_metadata_name = \
         defaults.RECOUNT3_METADATA_FILE.format(project_name,
                                                samples_category)
 
+    #-----------------------------------------------------------------#
+
+    # If no working directory was specified
+    if wd is None:
+
+        # The working directory will be the current working
+        # directory
+        wd = os.getcwd()
+
+    #-----------------------------------------------------------------#
+
     # Set the path to the file
     f_metadata_path = os.path.join(wd, f_metadata_name)
+
+    #-----------------------------------------------------------------#
 
     # If the file already exists in the working directory
     if os.path.exists(f_metadata_path):
@@ -504,14 +560,13 @@ def get_metadata(samples_category,
         df_metadata = pd.read_csv(f_metadata_path,
                                   sep = "\t",
                                   index_col = "external_id",
-                                  compression = "gzip")
+                                  compression = "gzip",
+                                  low_memory = False)
 
         # Return the data frame
         return df_metadata
 
-
-    #--------------------- Download the metadata ---------------------#
-
+    #-----------------------------------------------------------------#
 
     # Get the URL where to find the metadata
     metadata_url = \
@@ -522,8 +577,12 @@ def get_metadata(samples_category,
             f"{project_name}.{project_name}",
             samples_category)
 
+    #-----------------------------------------------------------------#
+
     # Get the metadata
     metadata = rq.get(metadata_url)
+
+    #-----------------------------------------------------------------#
 
     # If there was a problem retrieving the metadata
     if not metadata.ok:
@@ -542,12 +601,9 @@ def get_metadata(samples_category,
         f"from the Recount3 platform."
     logger.info(infostr)
 
+    #-----------------------------------------------------------------#
 
-    #-------------------- Save the metadata file ---------------------#
-
-
-    # If the user provided a path to a CSV file where
-    # to save the metadata
+    # If the user wants to save the metadata
     if save_metadata:
             
         # Open a new file
@@ -558,20 +614,19 @@ def get_metadata(samples_category,
 
             # Inform the user that the file was written
             infostr = \
-                f"The metadata were successfully " \
-                f"written in {f_metadata_path}."
+                f"The metadata were successfully written in " \
+                f"'{f_metadata_path}'."
             logger.info(infostr)
 
         # Read the file content into a data frame
         df_metadata = pd.read_csv(f_metadata_path,
                                   sep = "\t",
                                   index_col = "external_id",
-                                  compression = "gzip")
+                                  compression = "gzip",
+                                  low_memory = False)
 
-
-    #----------------- Do not save the metadata file -----------------#
-
-
+    #-----------------------------------------------------------------#
+    
     # Otherwise
     else:
 
@@ -585,180 +640,118 @@ def get_metadata(samples_category,
             df_metadata = pd.read_csv(f.name,
                                       sep = "\t",
                                       index_col = "external_id",
-                                      compression = "gzip")
+                                      compression = "gzip",
+                                      low_memory = False)
 
-    # Return the data frame
-    return df_metadata
+    #-----------------------------------------------------------------#
 
+    # If there is no 'sample_attributes' column in the data frame
+    if "sample_attributes" not in df_metadata.columns:
 
+        # Simply return the data frame as it is
+        return df_metadata
 
-#--------------- Update metadata fields ---------------#
-
-def update_metadata_fields(test_attributes, project_name):
-    """Get the fields of the metadata for the samples from a
-    plain text file. If new fields are available from the 
-    input attributes, then append these fields to the file.
-
-    Parameters
-    ----------
-    test_attributes : `'pandas.DataFrame.columns'`
-        From sra sample_attributes, holding potential new 
-        metadata fields as columns.
-
-    project_name : ``str``, {``"gtex"``, ``"tcga"``}
-        The name of the project of interest.
-
-    Returns
-    -------
-    ``file``
-        Updated file of supported metadata fields for the 
-        samples of the project of interest.
-    """
-
-    # Copy metadata_fields file to project specific version
-
-
-    # Open the file
-    with open(defaults.RECOUNT3_METADATA_FIELDS_FILE[\
-                project_name], "r") as f:
-
-        # Retrieve the fields as a list of strings 
-        # (ignore empty lines and comment lines)
-        metadata_fields = \
-             [l.rstrip("\n") for l in f \
-                if not (re.match(r"^\s*$", l) \
-                        or l.startswith("#"))]
-
+    #-----------------------------------------------------------------#
     
-    # Check for new fields in test_attributes, which are not found in metadata_fields
-    new_fields = [field for field in test_attributes if field not in metadata_fields]
-    
-    # If new fields, add these together with the standard SRA metadata fields to project specific metadata fields
-    if new_fields: 
-        # Let the user know which fields will be added.
-        new_fields_report_string = ", ".join(new_fields)
-        infostr = \
-            f"New fields will be added to metadata fields file: \n" \
-            f"{new_fields_report_string}.\n\n"
-        logger.info(infostr)
-
-        # Save fields to project specific metadata fields file
-        with open(defaults.RECOUNT3_METADATA_FIELDS_FILE__PROJECT_SPECIFIC[project_name], "w") as f:  # open in write mode
-            f.write("# Fields found in the SRA metadata files downloaded from the Recount3 platform." + "\n")
-            f.write(" " + "\n")
-            for field in metadata_fields:
-                f.write(field + "\n")
-            f.write("\n")
-            f.write("# Fields found in the sample_attributes column in the project speciic metadata." + "\n")
-            f.write(" " + "\n")
-            for field in new_fields:
-                f.write(field + "\n")
-
-
-
-#--------------- Function for parsing attributes ---------------#
-
-def parse_sample_attributes(attr_str):
-    return dict(item.split(';;') for item in attr_str.split('|'))
-
-
-#--------------- Parse attributes, add to columns, update metadata fields ---------------#
-
-def add_sample_attributes_to_metadata(df, save_metadata, project_name, samples_category, wd):
-    # Parse sample_attributes
-    df_attr = df['sample_attributes'] \
-        .apply(parse_sample_attributes) \
-        .apply(pd.Series)
-    
-    # Report the columns and levels of the attributes column
-    attribute_report_string = "\n".join([f"{col} \n Levels: {df_attr[col].unique()}\n\n" for col in df_attr.columns])
+    # Inform the string that samples' attributes were found
     infostr = \
-        f"\n\nAttributes found: \n\n" \
-        f"{attribute_report_string}\n"
+        f"Samples' attributes were found in the metadata (see below)."
     logger.info(infostr)
 
+    # Define a function to parse the 'sample_attribute' column in the
+    # metadata
+    parse_sample_attributes = \
+        lambda attr_str: dict(\
+            (item.split(";;")[0].replace(" ", "_"), 
+             item.split(";;")[1]) \
+            for item in attr_str.split("|"))
 
-    # Update metadata fields
-    update_metadata_fields(test_attributes = df_attr.columns, project_name = project_name)
+    # Parse the samples' attributes from the data frame and covert
+    # them into a DataFrame
+    df_sample_attrs = \
+        df_metadata["sample_attributes"].apply(\
+            parse_sample_attributes).apply(pd.Series)
 
+    # For each attribute
+    for col in df_sample_attrs.columns:
 
-    # Drop any attributes that are allready found in metadata
-    attr_drop_bool = [col_name in df.columns for col_name in df_attr.columns]
-    attr_to_drop = df_attr.columns[attr_drop_bool]
-    if not attr_to_drop.empty:
-            # Inform the user
-            warnstr = \
-                f"Attributes \n{attr_to_drop} \n" \
-                f"were previously added to metadata. " \
-                "These will not be added again."
-            logger.warning(warnstr)
+        # Get a string representing the unique values found in
+        # the column
+        unique_values_str = \
+            ", ".join([f"'{val}'" \
+                       for val in df_sample_attrs[col].unique()])
 
-            df_attr = df_attr.drop(attr_to_drop, axis = 1)
-    
-    # If no attributes will be added, return original metadata
-    if df_attr.empty:
-            warnstr = \
-                f"No attributes will be added to metadata.\n"
-            logger.warning(warnstr)
-            return(df)
+        # Log the attribute and its unique values
+        infostr = \
+            f"Sample attribute '{col}' found. Unique values: " \
+            f"{unique_values_str}."
+        logger.info(infostr)
 
-    # Join to metadata columns
-    df = \
-        df.join(
-            df_attr
-        )
+    #-----------------------------------------------------------------#
 
-    
-    #-------------------- Save the metadata file ---------------------#
+    # Get the standard metadata fields
+    metadata_fields = \
+        _get_metadata_fields(project_name = project_name)
 
+    # Get any attributes that are already found in metadata
+    attrs_to_drop = \
+        df_sample_attrs.columns[\
+            [col_name in df_metadata.columns \
+             for col_name in df_sample_attrs.columns]]
 
-    # If the user provided a path to a CSV file where
-    # to save the metadata
+    # Drop them from the data frame of attributes
+    df_sample_attrs = df_sample_attrs.drop(attrs_to_drop,
+                                           axis = 1)
+
+    # Add the metadata columns to the data frame of metadata
+    df_metadata = df_metadata.join(df_sample_attrs)
+
+    #-----------------------------------------------------------------#
+
+    # If the user wants to save the metadata
     if save_metadata:
+
+        # Inform the user that the updated metadata will be saved
+        # in a separate file
+        infostr = \
+            "The metadata with the 'sample_attributes' split into " \
+            "different columns will be saved in a separate file."
+        logger.info(infostr)
             
-        # Try writing the content to the file
-        try:
-            
-            # Set the name of the file that will contain the metadata
-            f_metadata_name = \
-                defaults.RECOUNT3_METADATA_FILE.format(project_name, samples_category)
+        # Set the name of the file that will contain the metadata
+        f_metadata_name = \
+            defaults.RECOUNT3_METADATA_UPDATED_FILE.format(\
+                project_name,
+                samples_category)
 
+        # Set the path to the file
+        f_metadata_path = os.path.join(wd, f_metadata_name)
 
-            # Set the path to the file
-            f_metadata_path = os.path.join(wd, f_metadata_name)
+        # If the file already exists in the working directory
+        if os.path.exists(f_metadata_path):
 
-            # If the file already exists in the working directory
-            if os.path.exists(f_metadata_path):
-
-                # Warn the user that the file will be overwritten
-                infostr = \
-                    f"The metadata file '{f_metadata_name}' will be overwritten in '{wd}'. " \
-                    f"Metadata with attributes added to columns will replace the file."
-                logger.info(infostr)
-
-            # Write data frame to file
-            df.to_csv(
-                f_metadata_path,
-                sep = "\t",
-                compression = "gzip")
-
-            # Inform the user that the file was written
+            # Warn the user that the file will be overwritten
             infostr = \
-                f"The metadata were successfully " \
-                f"written in {f_metadata_path}."
+                f"The metadata file '{f_metadata_name}' will " \
+                f"be overwritten in '{wd}'."
             logger.info(infostr)
-        except Exception as e:
-            # Warn the user and exit
-            errstr = \
-                "It was not possible to write the metadata to disc for " \
-                f"'{samples_category}' samples from the Recount3 " \
-                f"platform. Error: {e}"
-            logger.exception(errstr)
-            sys.exit(errstr)
-    
-    # Return the updated metadata
-    return(df)
 
+        # Write the data frame to the output file
+        df_metadata.to_csv(f_metadata_path,
+                           sep = "\t",
+                           compression = "gzip")
+
+        # Inform the user that the file was written
+        infostr = \
+            "The metadata with the 'sample_attributes' column " \
+            "split into different columns were successfully " \
+            f"written in '{f_metadata_path}'."
+        logger.info(infostr)
+
+    #-----------------------------------------------------------------#
+        
+    # Return the data frame containing the updated metadata
+    return df_metadata
 
 
 def merge_gene_sums_and_metadata(df_gene_sums,
@@ -770,53 +763,29 @@ def merge_gene_sums_and_metadata(df_gene_sums,
     Parameters
     ----------
     df_gene_sums : ``pandas.DataFrame``
-        Data frame containing the RNA-seq data
-        for the samples.
+        The data frame containing the RNA-seq counts for the samples.
 
     df_metadata : ``pandas.DataFrame``
-        Data frame containing the metadata for the
-        samples.
+        The data frame containing the metadata for the samples.
 
-    project_name : ``str``, {``"gtex"``, ``"tcga"``}
+    project_name : ``str``, {``"gtex"``, ``"tcga"``, ``"sra"``}
         The name of the project of interest.
 
     Returns
     -------
     ``pandas.DataFrame``
-        Data frame containing both RNA-seq counts
-        and metadata for the samples.
+        The data frame containing both RNA-seq counts and metadata
+        for the samples.
     """
-
-    # Get the supported metadata fields
-    metadata_fields = \
-        get_metadata_fields(project_name = project_name, project_specific=True)
-
-    # If the fields in the metadata file do not correspond
-    # to the ones saved
-    if len(set(df_metadata.columns.tolist() + \
-                    ["external_id"]).difference( \
-                    set(metadata_fields))) > 0:
-
-        # Get the project specific metadata fields' file
-        fields_file = \
-            defaults.RECOUNT3_METADATA_FIELDS_FILE__PROJECT_SPECIFIC[project_name]
-
-        # Warn the user about the inconsistency and raise
-        # an exception
-        errstr = \
-            "The fields found in the metadata downloaded " \
-            "from Recount3 do not correspond to the ones " \
-            f"in the '{fields_file}' file. Please update " \
-            "the file and rerun."
-        raise ValueError(errstr)
 
     # Add the metadata to the original data frame
     df_final =  pd.concat(objs = [df_gene_sums, df_metadata],
                           axis = 1)
 
+    #-----------------------------------------------------------------#
+
     # Return the data frame
     return df_final
-
 
 
 def filter_by_metadata(df,
@@ -827,34 +796,40 @@ def filter_by_metadata(df,
     Parameters
     ----------
     df : ``pandas.DataFrame``
-        Data frame containing both RNA-seq data
+        A data frame containing both RNA-seq counts
         and metadata for a set of samples.
 
     query_string : ``str``
-        String to query the data frame with.
+        A string to query the data frame with.
 
-    project_name : ``str``, {``"gtex"``, ``"tcga"``}
+    project_name : ``str``, {``"gtex"``, ``"tcga"``, ``"sra"``}
         The name of the project of interest.
 
     Returns
     -------
     ``pandas.DataFrame``
-        Filtered data frame. This data frame will only
-        contain the RNA-seq counts.
+        The filtered data frame. This data frame will only
+        contain the RNA-seq counts (no metadata).
     """
 
     # Filter the data frame based on the query string
     df = df.query(query_string)
 
-    # Get the supported metadata fields
-    metadata_fields = \
-        get_metadata_fields(project_name = project_name, project_specific = True)
+    #-----------------------------------------------------------------#
 
-    # Remove the metadata columns, apart from the index
-    # column
+    # Get the metadata fields
+    metadata_fields = \
+        [col for col in df.columns \
+         if not col.startswith("ENSG")]
+
+    # Remove the index column from the metadata fields
     metadata_fields.remove("external_id")
+
+    # Drop the metadata columns from the data frame
     df = df.drop(metadata_fields,
                  axis = 1)
+
+    #-----------------------------------------------------------------#
 
     # Return the data frame
     return df

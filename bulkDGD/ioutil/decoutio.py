@@ -21,6 +21,10 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
+# Description of the module
+__doc__ = "Utilities to load and save the decoder's outputs."
+
+
 # Standard library
 import logging as log
 # Third-party packages
@@ -34,73 +38,64 @@ logger = log.getLogger(__name__)
 def load_decoder_outputs(csv_file,
                          sep = ",",
                          split = True):
-    """Load the decoder outputs from a CSV file.
+    """Load the decoder's outputs from a CSV file.
 
     Parameters
     ----------
     csv_file : ``str``
-        A CSV file containing a data frame with the decoder outputs.
+        A CSV file containing a data frame with the decoder's
+        outputs.
 
-        Each row should represent the decoder output for a given
+        Each row should represent the decoder's output for a given
         representation, while each columns should contain either the
-        values of the decoder output or additional information
-        about the decoder outputs.
+        values of the output or additional information about it.
 
     sep : ``str``, ``","``
         The column separator in the input CSV file.
 
     split : ``bool``, ``True``
         Whether to split the input data frame into two data frames,
-        one with only the columns containing the decoder outputs
+        one with only the columns containing the decoder's outputs
         and the other containing only the columns with additional
-        information about the decoder outputs, if any were found.
+        information, if any were found.
 
     Returns
     -------    
     df_data : ``pandas.DataFrame``
-        A data frame containing the decoder outputs.
+        A data frame containing the decoder's outputs.
 
-        Here, each row contains the decoder output for a given
+        Here, each row represents the decoder's output for a given
         representation. and the columns contain the values
-        of the decoder output.
+        of the output.
 
         If ``split`` is ``False``, this data frame will
         also contain the columns containing additional
-        information about the decoder outputs, if any were found.
+        information, if any were found.
 
     df_other_data : ``pandas.DataFrame``
         A data frame containing additional information about
-        the decoder outputs found in the input data frame (for
-        instance, the tissues from which the original samples
-        came from).
+        the decoder's outputs found in the input data frame.
 
-        Here, each row contains the decoder output for a given
+        Here, each row represents the decoder's output for a given
         representations and the columns contain additional
-        information about the decoder outputs provided in the
-        input data frame.
+        information provided in the input data frame.
 
         If ``split`` is ``False``, only ``df_data`` is returned.
     """
 
-
-    #---------------------- Load the data frame ----------------------#
-
-
-    # Load the data frame with the decoder outputs
+    # Load the data frame with the decoder's outputs
     df = pd.read_csv(csv_file,
                      sep = sep,
                      index_col = 0,
                      header = 0)
 
-
-    #--------------------- Split the data frame ----------------------#
-
+    #-----------------------------------------------------------------#
 
     # If the user requested splitting the data frame
     if split:
 
-        # Get the names of the columns containing the decoder outputs
-        # for the genes
+        # Get the names of the columns containing the decoder's
+        # outputs for the genes
         dec_out_columns = \
             [col for col in df.columns \
              if col.startswith("ENSG")]
@@ -116,19 +111,16 @@ def load_decoder_outputs(csv_file,
             # Inform the user of the other columns found
             infostr = \
                 f"{len(other_columns)} column(s) containing " \
-                "additional information (not the decoder outputs " \
-                "for each gene) was (were) found in the input data " \
-                f"frame : {', '.join(other_columns)}."
+                "additional information was (were) found in the " \
+                f"input data frame : {', '.join(other_columns)}."
             logger.info(infostr)
 
-        # Return a data frame with the decoder outputs and
+        # Return a data frame with the decoder's outputs and
         # another with the extra information
         return df[dec_out_columns], df[other_columns]
 
-
-    #------------------ Do not split the data frame ------------------#
-
-
+    #-----------------------------------------------------------------#
+    
     # Otherwise
     else:
 
@@ -139,12 +131,12 @@ def load_decoder_outputs(csv_file,
 def save_decoder_outputs(df,
                          csv_file,
                          sep = ","):
-    """Save the decoder outputs to a CSV file.
+    """Save the decoder's outputs to a CSV file.
 
     Parameters
     ----------
     df : ``pandas.DataFrame``
-        A data frame containing the decoder outputs.
+        A data frame containing the decoder's outputs.
 
     csv_file : ``str``
         The output CSV file.
@@ -153,7 +145,7 @@ def save_decoder_outputs(df,
         The column separator in the output CSV file.
     """
 
-    # Save the decoder outputs
+    # Save the decoder's outputs
     df.to_csv(csv_file,
               sep = sep,
               index = True,

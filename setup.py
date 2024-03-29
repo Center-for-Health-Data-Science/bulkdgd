@@ -38,10 +38,11 @@ url = \
 # The project's author(s)
 author = \
     "Valentina Sora, Viktoria Schuster, " \
-    "Inigo Prada-Luengo, Anders Krogh"
+    "Inigo Prada-Luengo, Anders Lykkebo-Valløe, " \
+    "Anders Krogh"
 
 # The project's version
-version = "0.0.2"
+version = "0.0.3"
 
 # A brief description of the project
 description = \
@@ -75,7 +76,8 @@ package_data = \
 # Command-line executables
 entry_points = \
     {"console_scripts" : \
-        ["dgd_get_recount3_data = " \
+        [# Public executables
+         "dgd_get_recount3_data = " \
          f"{name}.execs.dgd_get_recount3_data:main",
          "dgd_preprocess_samples = " \
          f"{name}.execs.dgd_preprocess_samples:main",
@@ -87,7 +89,10 @@ entry_points = \
          f"{name}.execs.dgd_perform_pca:main",
          "dgd_get_probability_density = " \
          f"{name}.execs.dgd_get_probability_density:main",
-        ],
+        # "Private executable" - not intended to be called
+        # directly by end users
+        "_dgd_get_recount3_data_single_batch = " \
+         f"{name}.execs._dgd_get_recount3_data_single_batch:main",],
     }
 
 # Any required dependencies

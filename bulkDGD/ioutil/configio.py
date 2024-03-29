@@ -21,6 +21,10 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
+# Description of the module
+__doc__ = "Utilities to load and save configurations."
+
+
 # Standard library
 import copy
 import logging as log
@@ -83,18 +87,16 @@ def load_config_model(config_file):
         A dictionary containing the configuration.
     """
 
-
-    #-------------------- Load the configuration ---------------------#
-
-
     # Get the name of the configuration file
     config_file_name = os.path.basename(config_file).rstrip(".yaml")
+
+    #-----------------------------------------------------------------#
 
     # If the configuration file is a name without extension
     if config_file == config_file_name:
         
         # Assume it is a configuration file in the directory
-        # storing configuration files for running protocols
+        # storing configuration files for the model
         config_file = os.path.join(defaults.CONFIG_MODEL_DIR,
                                    config_file_name + ".yaml")
 
@@ -104,28 +106,28 @@ def load_config_model(config_file):
         # Assume it is a file name/file path
         config_file = os.path.abspath(config_file)
 
+    #-----------------------------------------------------------------#
+
     # Load the configuration from the file
     config = yaml.safe_load(open(config_file, "r"))
+
+    #-----------------------------------------------------------------#
 
     # Split the path into its 'head' (path to the file without
     # the file name) and its 'tail' (the file name)
     path_head, path_tail = os.path.split(config_file)
 
-
-    #------------------ Check against the template -------------------#
-
+    #-----------------------------------------------------------------#
 
     # Check the configuration against the template
-    config = _util._check_config_against_template(\
+    config = _util.check_config_against_template(\
                 config = config,
                 template = _CONFIG_MODEL_TEMPLATE)
 
+    #-----------------------------------------------------------------#
 
-    #--------------- Get the file with the trained GMM ---------------#
-
-
-    # Get the PyTorch file containing the trained Gaussian
-    # mixture model
+    # Get the PyTorch file containing the trained Gaussian mixture
+    # model
     gmm_pth_file = config["gmm_pth_file"]
 
     # If the default file should be used
@@ -143,9 +145,7 @@ def load_config_model(config_file):
             os.path.normpath(os.path.join(path_head,
                                           gmm_pth_file))
 
-
-    #------------- Get the file with the trained decoder -------------#
-
+    #-----------------------------------------------------------------#
 
     # Get the PyTorch file containing the trained decoder
     dec_pth_file = config["dec_pth_file"]
@@ -165,9 +165,7 @@ def load_config_model(config_file):
             os.path.normpath(os.path.join(path_head,
                                           dec_pth_file))
 
-
-    #------------------ Get the file with the genes ------------------#
-
+    #-----------------------------------------------------------------#
 
     # Get the .txt file containing the genes
     genes_txt_file = config["genes_txt_file"]
@@ -186,6 +184,8 @@ def load_config_model(config_file):
         config["genes_txt_file"] = \
             os.path.normpath(os.path.join(path_head,
                                           genes_txt_file))
+
+    #-----------------------------------------------------------------#
 
     # Return the configuration
     return config
@@ -209,6 +209,8 @@ def load_config_rep(config_file):
     # Get the name of the configuration file
     config_file_name = os.path.basename(config_file).rstrip(".yaml")
 
+    #-----------------------------------------------------------------#
+
     # If the configuration file is a name without extension
     if config_file == config_file_name:
         
@@ -223,12 +225,18 @@ def load_config_rep(config_file):
         # Assume it is a file name/file path
         config_file = os.path.abspath(config_file)
 
+    #-----------------------------------------------------------------#
+
     # Load the configuration from the file
     config = yaml.safe_load(open(config_file, "r"))
+
+    #-----------------------------------------------------------------#
 
     # Split the path into its 'head' (path to the file without
     # the file name) and its 'tail' (the file name)
     path_head, path_tail = os.path.split(config_file)
+
+    #-----------------------------------------------------------------#
 
     # Return the configuration
     return config
@@ -251,6 +259,8 @@ def load_config_plot(config_file):
     # Get the name of the configuration file
     config_file_name = os.path.basename(config_file).rstrip(".yaml")
 
+    #-----------------------------------------------------------------#
+
     # If the configuration file is a name without extension
     if config_file == config_file_name:
         
@@ -265,19 +275,27 @@ def load_config_plot(config_file):
         # Assume it is a file name/file path
         config_file = os.path.abspath(config_file)
 
+    #-----------------------------------------------------------------#
+
     # Load the configuration from the file
     config = yaml.safe_load(open(config_file, "r"))
+
+    #-----------------------------------------------------------------#
 
     # Split the path into its 'head' (path to the file without
     # the file name) and its 'tail' (the file name)
     path_head, path_tail = os.path.split(config_file)
+
+    #-----------------------------------------------------------------#
     
     # Substitute the font properties definitions
     # with the corresponding FontProperties instances
-    new_config = _util._recursive_map_dict(\
+    new_config = _util.recursive_map_dict(\
         d = config,
         func = fm.FontProperties,
         keys = {"fontproperties", "prop", "title_fontproperties"})
+
+    #-----------------------------------------------------------------#
 
     # Return the new configuration
     return new_config

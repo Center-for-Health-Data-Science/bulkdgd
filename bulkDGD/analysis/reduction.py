@@ -80,6 +80,8 @@ def perform_2d_pca(df_rep,
     # Get the representations' names/Ds
     rep_names = df_rep.index.tolist()
 
+    #-----------------------------------------------------------------#
+
     # If a fitted PCA model was not provided
     if pca is None:
 
@@ -100,6 +102,8 @@ def perform_2d_pca(df_rep,
                 "The provided PCA model must have 2 components, " \
                 f"but {pca.components_.shape[0]} were found."
             raise ValueError(errstr)
+
+    #-----------------------------------------------------------------#
     
     # Fit the model and apply the dimensionality reduction
     projected = pca.fit_transform(rep_values)
@@ -108,6 +112,8 @@ def perform_2d_pca(df_rep,
     df_projected = pd.DataFrame(projected,
                                 columns = pc_columns,
                                 index = rep_names)
+
+    #-----------------------------------------------------------------#
 
     # Return the data frame
     return df_projected
