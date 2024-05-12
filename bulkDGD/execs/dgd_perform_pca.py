@@ -6,7 +6,7 @@
 #    Perform a two-dimensional principal component analysis on a set of
 #    input representations.
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -24,33 +24,42 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
+#######################################################################
 
-# Description of the module
+
+# Set the module's description.
 __doc__ = \
     "Perform a two-dimensional principal component analysis on a " \
     "a set of input representations."
 
 
-# Standard library
+#######################################################################
+
+
+# Import from the standard library.
 import argparse
 import logging as log
 import os
 import sys
-# Third-party packages
+# Import from third-party packages.
 import pandas as pd
-# bulkDGD
+# Import from 'bulkDGD'.
 from bulkDGD import defaults, ioutil, plotting, util
 from bulkDGD.analysis import reduction
+
+
+#######################################################################
 
 
 def main():
 
 
-    # Create the argument parser
+    # Create the argument parser.
     parser = argparse.ArgumentParser(description = __doc__)
 
     #-----------------------------------------------------------------#
 
+    # Add the arguments.
     i_help = \
         "The input CSV file containing the data frame with the " \
         "representations."
@@ -154,7 +163,7 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Parse the arguments
+    # Parse the arguments.
     args = parser.parse_args()
     input_csv = args.input_csv
     output_csv_pca = args.output_csv_pca
@@ -165,31 +174,31 @@ def main():
         if args.groups_column is None \
         or not args.groups_column.isdigit() \
         else int(args.groups_column)
-    wd = args.work_dir
-    log_file = args.log_file
+    wd = os.path.abspath(args.work_dir)
+    log_file = os.path.join(wd, args.log_file)
     log_console = args.log_console
     v = args.log_verbose
     vv = args.log_debug
 
     #-----------------------------------------------------------------#
 
-    # Set WARNING logging level by default
+    # Set WARNING logging level by default.
     log_level = log.WARNING
 
     # If the user requested verbose logging
     if v:
 
-        # The minimal logging level will be INFO
+        # The minimal logging level will be INFO.
         log_level = log.INFO
 
     # If the user requested logging for debug purposes
     # (-vv overrides -v if both are provided)
     if vv:
 
-        # The minimal logging level will be DEBUG
+        # The minimal logging level will be DEBUG.
         log_level = log.DEBUG
 
-    # Configure the logging (for non-Dask operations)
+    # Configure the logging.
     handlers = \
         util.get_handlers(\
             log_console = log_console,
@@ -198,21 +207,16 @@ def main():
                                 "mode" : "w"},
             log_level = log_level)
 
-    # Set the logging configuration
-    log.basicConfig(# The level below which log messages are silenced
-                    level = log_level,
-                    # The format of the log strings
+    # Set the logging configuration.
+    log.basicConfig(level = log_level,
                     format = defaults.LOG_FMT,
-                    # The format for dates/time
                     datefmt = defaults.LOG_DATEFMT,
-                    # The format style
                     style = defaults.LOG_STYLE,
-                    # The handlers
                     handlers = handlers)
 
     #-----------------------------------------------------------------#
 
-    # Try to load the configuration
+    # Try to load the configuration.
     try:
 
         config_plot = ioutil.load_config_plot(config_file_plot)
@@ -220,14 +224,14 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to load the configuration from " \
             f"'{config_file_plot}'. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the configuration was successfully loaded
+    # Inform the user that the configuration was successfully loaded.
     infostr = \
         "The configuration was successfully loaded from " \
         f"'{config_file_plot}'."
@@ -235,7 +239,7 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Try to load the representations
+    # Try to load the representations.
     try:
 
         df_rep_data, df_other_data = \
@@ -246,7 +250,7 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to load the representations from " \
             f"'{input_csv}'. Error: {e}"
@@ -254,7 +258,7 @@ def main():
         sys.exit(errstr)
 
     # Inform the user that the representations were successfully
-    # loaded
+    # loaded.
     infostr = \
         "The representations were successfully loaded from " \
         f"'{input_csv}'."
@@ -262,7 +266,7 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Try to perform the pca
+    # Try to perform the PCA.
     try:
 
         df_pca = \
@@ -272,22 +276,22 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             f"It was not possible to perform the PCA. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the PCA was successfully performed
+    # Inform the user that the PCA was successfully performed.
     infostr = "The PCA was successfully performed."
     log.info(infostr)
 
     #-----------------------------------------------------------------#
 
-    # Set the path to the output file
+    # Set the path to the output file.
     output_csv_pca_path = os.path.join(wd, output_csv_pca)
 
-    # Try to save the results of the PCA
+    # Try to save the results of the PCA.
     try:
 
         df_pca.to_csv(output_csv_pca_path,
@@ -298,7 +302,7 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to write the results of the PCA " \
             f"in '{output_csv_pca_path}'. Error: {e}"
@@ -306,7 +310,7 @@ def main():
         sys.exit(errstr)
 
     # Inform the user that the results of the PCA were successfully
-    # written to the output file
+    # written to the output file.
     infostr = \
         "The results of the PCA were successfully written in " \
         f"'{output_csv_pca_path}'."
@@ -316,16 +320,15 @@ def main():
 
     # Merge the data frame containing the PCA results with the
     # one containing the extra information about the
-    # representations
+    # representations.
     df_pca = df_pca.join(df_other_data)
 
-    # Set the path to the output file
+    # Set the path to the output file.
     output_plot_pca_path = os.path.join(wd, output_plot_pca)
     
-    # Try to plot the results of the PCA and save them
+    # Try to plot the results of the PCA and save them.
     try:
 
-        # Plot the PCA results
         plotting.plot_2d_pca(df_pca = df_pca,
                              output_file = output_plot_pca_path,
                              config = config_plot,
@@ -335,7 +338,7 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to plot the results of the " \
             f"PCA and save them in '{output_plot_pca_path}'. " \
@@ -344,8 +347,8 @@ def main():
         sys.exit(errstr)
 
     # Inform the user that the results of the PCA were successfully
-    # plotted and saved
+    # plotted and saved.
     infostr = \
-        "The results of the PCA were successfully plotted and " \
-        f"the plot saved in '{output_plot_pca_path}'."
+        "The results of the PCA were successfully plotted, and " \
+        f"the plot was saved in '{output_plot_pca_path}'."
     log.info(infostr)

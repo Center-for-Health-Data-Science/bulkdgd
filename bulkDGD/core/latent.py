@@ -3,13 +3,19 @@
 
 #    latent.py
 #
+#    This module contains the classes implementing the components of
+#    the DGD model's latent space, namely the Gaussian mixture model
+#    (:class:`core.latent.GaussianMixtureModel`) and the representation
+#    layer (:class:`core.latent.RepresentationLayer`), which feeds
+#    "the (:class:`core.decoder.Decoder`).
+#
 #    The code was originally developed by Viktoria Schuster,
 #    Inigo Prada Luengo, and Anders Krogh.
 #    
 #    Valentina Sora modified and complemented it for the purposes
 #    of this package.
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #                       Viktoria Schuster
 #                       <viktoria.schuster@sund.ku.dk>
@@ -33,7 +39,10 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Description of the module
+#######################################################################
+
+
+# Set the module's description.
 __doc__ = \
     "This module contains the classes implementing the components " \
     "of the DGD model's latent space, namely the Gaussian " \
@@ -43,19 +52,28 @@ __doc__ = \
     "the (:class:`core.decoder.Decoder`)."
 
 
-# Standard library
+#######################################################################
+
+
+# Import from the standard library.
 import logging as log
 import math
-# Third-party packages
+# Import from third-party packages.
 import torch
 import torch.distributions
 import torch.nn as nn
-# bulkDGD
+# Import from 'bulkDGD'.
 from . import priors
 
 
-# Get the module's logger
+#######################################################################
+
+
+# Get the module's logger.
 logger = log.getLogger(__name__)
+
+
+#######################################################################
 
 
 class GaussianMixtureModel(nn.Module):
@@ -65,16 +83,16 @@ class GaussianMixtureModel(nn.Module):
     (Gaussian mixture model or GMM).
     """
 
-    # Supported priors over the means of the components
-    # of the Gaussian mixture model
+    # Set the supported priors over the means of the components of
+    # the Gaussian mixture model.
     MEANS_PRIORS = ["softball"]
 
-    # Supported priors over the weights of the components
-    # of the Gaussian mixture model
+    # Set the supported priors over the weights of the components
+    # of the Gaussian mixture model.
     WEIGHTS_PRIORS = ["dirichlet"]
 
-    # Supported priors over the negative log-variance of the
-    # components of the Gaussian mixture model
+    # Set the supported priors over the negative log-variance of the
+    # components of the Gaussian mixture model.
     LOG_VAR_PRIORS = ["gaussian"]
 
 
@@ -111,9 +129,9 @@ class GaussianMixtureModel(nn.Module):
             components of the Gaussian mixture.
 
         means_prior_options : ``dict``
-            A dictionary containing the options needed to set
-            up the prior over the means of the components of the
-            Gaussian mixture model.
+            A dictionary containing the options needed to set up the
+            prior over the means of the components of the Gaussian
+            mixture model.
 
             It varies according to the selected prior.
 
@@ -127,22 +145,22 @@ class GaussianMixtureModel(nn.Module):
               soft boundary of the ball.
 
         weights_prior_options : ``dict``
-            A dictionary containing the options needed to set
-            up the prior over the weights of the components of
-            the Gaussian mixture model.
+            A dictionary containing the options needed to set up the
+            prior over the weights of the components of the Gaussian
+            mixture model.
 
             It varies according to the selected prior.
 
-            If ``weights_prior_name`` is ``"dirichlet"``, the
-            options that must be provided are:
+            If ``weights_prior_name`` is ``"dirichlet"``, the options
+            that must be provided are:
 
             * ``"alpha"``, namely the alpha of the Dirichlet
               distribution.
 
         log_var_prior_options : ``dict``
-            A dictionary containing the options needed to set
-            up the prior over the negative log-variance of the
-            Gaussian mixture model.
+            A dictionary containing the options needed to set up the
+            prior over the negative log-variance of the Gaussian
+            mixture model.
 
             It varies according to the selected prior.
 
@@ -156,57 +174,57 @@ class GaussianMixtureModel(nn.Module):
               Gaussian distribution.
 
         cm_type : ``str``, {``"fixed"``, ``"isotropic"``, \
-        ``"diagonal"``}, ``"diagonal"``
+            ``"diagonal"``}, ``"diagonal"``
             The shape of the covariance matrix.
         """
 
-        # Initialize the class
+        # Initialize an instance of 'nn.Module'.
         super().__init__()
         
-        # Set the dimensionality of the space
+        # Set the dimensionality of the Gaussian mixture model.
         self._dim = dim
 
-        # Set the number of components in the mixture
+        # Set the number of components in the mixture.
         self._n_comp = n_comp
 
-        # Set the type of the covariance matrix
+        # Set the type of the covariance matrix.
         self._cm_type = cm_type
 
-        #--------------------------- Means ---------------------------#
+        #-------------------------------------------------------------#
 
-        # Set the prior over the means of the components
+        # Set the prior over the means of the components.
         self._means_prior = \
             self._get_means_prior(\
                 means_prior_name = means_prior_name,
                 means_prior_options = means_prior_options)
 
-        # Set the means
+        # Set the means.
         self._means = self._get_means()
 
-        #-------------------------- Weights --------------------------#
+        #-------------------------------------------------------------#
 
-        # Set the prior over the weights of the components
+        # Set the prior over the weights of the components.
         self._weights_prior = \
             self._get_weights_prior(\
                 weights_prior_name = weights_prior_name,
                 weights_prior_options = weights_prior_options)
 
-        # Set the weights
+        # Set the weights.
         self._weights = self._get_weights()
 
-        #----------------------- Log-variance ------------------------#
+        #-------------------------------------------------------------#
 
-        # Set the prior over the log-variance of the components
+        # Set the prior over the log-variance of the components.
         self._log_var_prior = \
             self._get_log_var_prior(\
                 log_var_prior_name = log_var_prior_name,
                 log_var_prior_options = log_var_prior_options)
 
-        # Get the log-variance
+        # Get the log-variance.
         self._log_var = self._get_log_var()
 
 
-    #-------------------- Initialization methods ---------------------#
+    ######################### INITIALIZATION ##########################
 
 
     def _get_means_prior(self,
@@ -226,34 +244,32 @@ class GaussianMixtureModel(nn.Module):
         Returns
         -------
         means_prior_dict : ``dict``
-            A dictionary containing the name of the prior and
-            the options and distribution associated with it.
+            A dictionary containing the name of the prior and the
+            options and distribution associated with it.
         """
-
-        #---------------------- Softball prior -----------------------#
 
         # If the prior is the softball distribution
         if means_prior_name == "softball":
 
-            # Get the distribution
+            # Get the distribution.
             dist = \
                 priors.SoftballPrior(dim = self.dim,
                                      **means_prior_options)
 
-            # Return the dictionary with the name of the prior
-            # and associated options and distribution
+            # Return the dictionary with the name of the prior and
+            # associated options and distribution.
             return {"name" : means_prior_name,
                     "options" : \
                         {"dim" : self.dim,
                          **means_prior_options},
                     "dist" : dist}
 
-        #--------------------- Unsupported prior ---------------------#
+        #-------------------------------------------------------------#
 
         # Otherwise
         else:
 
-            # Raise an error
+            # Raise an error.
             errstr = \
                 f"Unrecognized prior '{means_prior_name}' passed " \
                 "to 'means_prior_name'. Supported priors are: " \
@@ -261,33 +277,34 @@ class GaussianMixtureModel(nn.Module):
 
 
     def _get_means(self):
-        """Return the prior on the means of the Gaussians
-        and the the means themselves.
+        """Return the prior on the means of the Gaussians and the means
+        themselves.
 
         Returns
         -------
         means : ``torch.Tensor``
-            The means of the Gaussian mixture components
-            sampled from the prior.
+            The means of the Gaussian mixture components sampled from
+            the prior.
 
             This is a 2D tensor where:
             
-            * The first dimension has a length equal to the
-              number of components in the Gaussian mixture.
+            * The first dimension has a length equal to the number of
+              components in the Gaussian mixture.
 
             * The second dimension has a length equal to the
               dimensionality of the Gaussian mixture model.
         """
 
-        # Get the distribution representing the prior
+        # Get the distribution representing the prior.
         dist_prior = self.means_prior["dist"]
 
-        # Means with shape: n_comp, dim
+        # Get the means of the mixture. This is a two dimensional
+        # entity with dimensionality 'n_comp', 'dim'.
         means = \
             nn.Parameter(dist_prior.sample(n_samples = self.n_comp),
                          requires_grad = True)
 
-        # Return the means sampled from the prior
+        # Return the means sampled from the prior.
         return means
 
 
@@ -308,35 +325,44 @@ class GaussianMixtureModel(nn.Module):
         Returns
         -------
         weights_prior_dict : ``dict``
-            A dictionary containing the name of the prior and
-            the options associated with it.
+            A dictionary containing the name of the prior and the
+            options associated with it.
         """
-
-        #---------------------- Dirichlet prior ----------------------#
 
         # If the prior is the Dirichlet distribution
         if weights_prior_name == "dirichlet":
 
-            # Get the alpha
-            alpha = weights_prior_options["alpha"]
+            # Get the alpha.
+            alpha = weights_prior_options.get("alpha")
 
-            # Calculate the Dirichlet constant
+            # If the 'alpha' was not provided
+            if alpha is None:
+
+                # Raise an error.
+                errstr = \
+                    "If 'weights_prior_name' is 'dirichlet', " \
+                    "'weights_prior_options' must contain " \
+                    "the alpha of the Dirichlet distribution " \
+                    "('alpha')."
+                raise KeyError(errstr)
+
+            # Calculate the Dirichlet constant.
             constant = math.lgamma(self.n_comp * alpha) - \
                                    self.n_comp * math.lgamma(alpha)
 
-            # Return the dictionary with the name of the prior
-            # and associated options
+            # Return the dictionary with the name of the prior and
+            # associated options.
             return {"name" : weights_prior_name,
                     "options" : \
                         {"alpha" : alpha,
                          "constant" : constant}}
 
-        #--------------------- Unsupported prior ---------------------#
+        #-------------------------------------------------------------#
 
         # Otherwise
         else:
 
-            # Raise an error
+            # Raise an error.
             errstr = \
                 f"Unrecognized prior '{weights_prior_name}' passed " \
                 "to 'weights_prior_name'. Supported priors are: " \
@@ -356,15 +382,16 @@ class GaussianMixtureModel(nn.Module):
             of components in the Gaussian mixture model.
         """
 
+        # Return the weights of the components.
         return nn.Parameter(torch.ones(self.n_comp),
                             requires_grad = True)
 
 
     def _get_log_var_prior(self,
-                               log_var_prior_name,
-                               log_var_prior_options):
-        """Get the prior over the log-variance of the components
-        of the Gaussian mixture model.
+                           log_var_prior_name,
+                           log_var_prior_options):
+        """Get the prior over the log-variance of the components of
+        the Gaussian mixture model.
 
         Parameters
         ----------
@@ -377,77 +404,100 @@ class GaussianMixtureModel(nn.Module):
         Returns
         -------
         log_var_prior_dict : ``dict``
-            A dictionary containing the name of the prior and
-            the options and distribution associated with it.
+            A dictionary containing the name of the prior and the
+            options and distribution associated with it.
         """
-
-        #---------------------- Gaussian prior -----------------------#
 
         # If the prior is the Gaussian distribution
         if log_var_prior_name == "gaussian":
 
-            # Get the mean of the Gaussian distribution
-            dist_mean = log_var_prior_options["mean"]
+            # Get the mean of the Gaussian distribution.
+            dist_mean = log_var_prior_options.get("mean")
 
-            # Get the standard deviation of the Gaussian
-            # distribution
-            dist_stddev = log_var_prior_options["stddev"]
+            # Get the standard deviation of the Gaussian distribution.
+            dist_stddev = log_var_prior_options.get("stddev")
 
-            #---------------- Fixed covariance matrix ----------------#
+            # If the mean of the Gaussian distribution was not provided
+            if dist_mean is None:
+
+                # Raise an error.
+                errstr = \
+                    "If 'log_var_prior_name' is 'gaussian', " \
+                    "'log_var_prior_options' must contain the " \
+                    "mean of the Gaussian distribution ('mean')."
+                raise KeyError(errstr)
+
+            # If the standard deviation of the Gaussian distribution
+            # was not provided
+            if dist_stddev is None:
+
+                # Raise an error.
+                errstr = \
+                    "If 'log_var_prior_name' is 'gaussian', " \
+                    "'log_var_prior_options' must contain the " \
+                    "standard deviation of the Gaussian " \
+                    "distribution ('stddev')."
+                raise KeyError(errstr)             
+
+            #---------------------------------------------------------#
 
             # If the covariance matrix is fixed
             if self.cm_type == "fixed":
 
                 # The log-variance factor will be half of the
-                # dimensionality of the space
+                # dimensionality of the space.
                 dist_factor = self.dim * 0.5
 
-                # The dimensionality of the log-variance factor
-                # will be 1
+                # The dimensionality of the log-variance factor will
+                # be 1.
                 dist_dim = 1
 
-                # Gradients will not be required
+                # Gradients will not be required.
                 requires_grad = False
 
-            #-------------- Isotropic covariance matrix --------------#
+            #---------------------------------------------------------#
 
             # If the covariance matrix is isotropic
             elif self.cm_type == "isotropic":
 
                 # The log-variance factor will be half of the
-                # dimensionality of the space
+                # dimensionality of the space.
                 dist_factor = self.dim * 0.5
 
-                # The dimensionality of the log-variance factor
-                # will be 1
+                # The dimensionality of the log-variance factor will
+                # be 1.
                 dist_dim = 1
 
-                # Gradients will be required
+                # Gradients will be required.
                 requires_grad = True
 
-            #-------------- Diagonal covariance matrix ---------------#
+            #---------------------------------------------------------#
         
             # If the covariance matrix is diagonal
             elif self.cm_type == "diagonal":
                 
-                # The log-variance factor will be 1/2
+                # The log-variance factor will be 1/2.
                 dist_factor = 0.5
 
-                # The dimensionality of the log-variance
-                # will be the dimensionality of the space
+                # The dimensionality of the log-variance will be the
+                # dimensionality of the space.
                 dist_dim = self.dim
 
-                # Gradients will be required
+                # Gradients will be required.
                 requires_grad = True
 
-            # Get the distribution
+            #---------------------------------------------------------#
+
+            # Get the distribution.
             dist = \
                 priors.GaussianPrior(dim = dist_dim,
                                      mean = -2 * math.log(dist_mean),
                                      stddev = dist_stddev)
 
-            # Return the dictionary with the name of the prior
-            # and associated options and distribution
+            #---------------------------------------------------------#
+
+            # Return the dictionary with the name of the prior and
+            # associated options and distribution.
             return {"name" : log_var_prior_name,
                     "options" : \
                         {"factor" : dist_factor,
@@ -457,7 +507,7 @@ class GaussianMixtureModel(nn.Module):
                          "stddev" : dist_stddev},
                      "dist" : dist}
 
-        #--------------------- Unsupported prior ---------------------#
+        #-------------------------------------------------------------#
 
         # Otherwise
         else:
@@ -470,13 +520,13 @@ class GaussianMixtureModel(nn.Module):
 
 
     def _get_log_var(self):
-        """Get the log-variance of the components of the
-        Gaussian mixture model.
+        """Get the log-variance of the components of the Gaussian
+        mixture model.
 
         Returns
         -------
         log_var : ``torch.Tensor``
-            The log-variance.
+            The log-variance of the components.
 
             It is a 2D tensor where:
 
@@ -487,53 +537,52 @@ class GaussianMixtureModel(nn.Module):
               dimensionality of the Gaussian mixture model.
         """
 
-        # Get the dimension of the log-variance
+        # Get the dimension of the log-variance of the components.
         log_var_dim = \
             self.log_var_prior["options"]["dim"]
         
-        # Get whether the log-variance requires gradient calculation
+        # Get whether the log-variance requires gradient calculation.
         requires_grad = \
             self.log_var_prior["options"]["requires_grad"]
 
-        # Get the log-variance
-        log_var = nn.Parameter(\
-                    torch.empty(self.n_comp,
-                                log_var_dim),
-                    requires_grad = requires_grad)
+        # Get the log-variance.
+        log_var = nn.Parameter(torch.empty(self.n_comp,
+                                           log_var_dim),
+                               requires_grad = requires_grad)
 
-        # Get the name of the prior
+        # Get the name of the prior.
         log_var_prior_mame = self.log_var_prior["name"]
 
-        #---------------------- Gaussian prior -----------------------#
+        #-------------------------------------------------------------#
 
         # If the prior is a Gaussian distribution
         if log_var_prior_mame == "gaussian":
 
-            # Get the mean of the Gaussian distribution
+            # Get the mean of the Gaussian distribution.
             dist_mean = self.log_var_prior["options"]["mean"]
 
-            # Disable gradient calculation
+            # Disable gradient calculation.
             with torch.no_grad():
 
-                # Populate the log-variance
+                # Populate the log-variance.
                 log_var.fill_(-2 * math.log(dist_mean))
 
-        #--------------------- Unsupported prior ---------------------#
+        #-------------------------------------------------------------#
 
         # Otherwise
         else:
 
-            # Raise an error
+            # Raise an error.
             errstr = \
                 f"Unrecognized prior '{log_var_prior_name}' " \
                 "passed to 'log_var_prior_name'. Supported " \
                 f"priors are: {', '.join(self.log_var_PRIORS)}."
 
-        # Return the log-variance
+        # Return the log-variance.
         return log_var
 
 
-    #-------------------------- Properties ---------------------------#
+    ########################### PROPERTIES ############################
 
 
     @property
@@ -547,13 +596,15 @@ class GaussianMixtureModel(nn.Module):
     @dim.setter
     def dim(self,
             value):
-        """Raise an exception if the user tries to modify
-        the value of ``dim`` after initialization.
+        """Raise an exception if the user tries to modify the value of
+        ``dim`` after initialization.
         """
         
         errstr = \
-            "The value of 'dim' cannot be changed " \
-            "after initialization."
+            "The value of 'dim' is set at initialization and cannot " \
+            "be changed. If you want to change the dimensionality " \
+            "of the Gaussian mixture model, initialize a new " \
+            f"instance of '{self.__class__.__name__}'."
         raise ValueError(errstr)
 
 
@@ -568,13 +619,15 @@ class GaussianMixtureModel(nn.Module):
     @n_comp.setter
     def n_comp(self,
                value):
-        """Raise an exception if the user tries to modify
-        the value of ``n_comp`` after initialization.
+        """Raise an exception if the user tries to modify the value of
+        ``n_comp`` after initialization.
         """
         
         errstr = \
-            "The value of 'n_comp' cannot be changed " \
-            "after initialization."
+            "The value of 'n_comp' is set at initialization and " \
+            "cannot be changed. If you want to change the number of " \
+            "components of the Gaussian mixture model, initialize " \
+            f"a new instance of '{self.__class__.__name__}'."
         raise ValueError(errstr)
 
 
@@ -589,21 +642,24 @@ class GaussianMixtureModel(nn.Module):
     @cm_type.setter
     def cm_type(self,
                 value):
-        """Raise an exception if the user tries to modify
-        the value of ``cm_type`` after initialization.
+        """Raise an exception if the user tries to modify the value of
+        ``cm_type`` after initialization.
         """
         
         errstr = \
-            "The value of 'cm_type' cannot be changed " \
-            "after initialization."
+            "The value of 'cm_type' is set at initialization and " \
+            "cannot be changed. If you want to change the type of " \
+            "covariance matrix used for the Gaussian mixture model, " \
+            "initialize a new instance of " \
+            f"'{self.__class__.__name__}'."
         raise ValueError(errstr)
 
 
     @property
     def means_prior(self):
-        """A dictionary containing the name of the prior over
-        the means of the components of the Gaussian mixture model
-        and the options used to set it up.
+        """A dictionary containing the name of the prior over the
+        means of the components of the Gaussian mixture model and the
+        options used to set it up.
         """
 
         return self._means_prior
@@ -612,20 +668,23 @@ class GaussianMixtureModel(nn.Module):
     @means_prior.setter
     def means_prior(self,
                     value):
-        """Raise an exception if the user tries to modify
-        the value of ``means_prior`` after initialization.
+        """Raise an exception if the user tries to modify the value of
+        ``means_prior`` after initialization.
         """
         
         errstr = \
-            "The value of 'means_prior' cannot be changed " \
-            "after initialization."
+            "The value of 'means_prior' is set at initialization " \
+            "and cannot be changed. If you want to change the prior " \
+            "over the means of the components of the Gaussian " \
+            "model, initialize a new instance of " \
+            f"'{self.__class__.__name__}' and change the " \
+            "'means_prior_name' and/or the 'means_prior_options'."
         raise ValueError(errstr)
 
 
     @property
     def means(self):
-        """The means of the components of the Gaussian
-        mixture model.
+        """The means of the components of the Gaussian mixture model.
         """
 
         return self._means
@@ -634,21 +693,24 @@ class GaussianMixtureModel(nn.Module):
     @means.setter
     def means(self,
               value):
-        """Raise an exception if the user tries to modify
-        the value of ``means`` after initialization.
+        """Raise an exception if the user tries to modify the value
+        of ``means`` after initialization.
         """
         
         errstr = \
-            "The value of 'means' cannot be changed " \
-            "after initialization."
+            "The value of 'means' is set at initialization and " \
+            "cannot be changed. The means of the components of the " \
+            "Gaussian mixture model are initialized according to " \
+            "the specified prior (defined by 'means_prior_name' " \
+            "and 'means_prior_options')."
         raise ValueError(errstr)
 
 
     @property
     def weights_prior(self):
-        """A dictionary containing the name of the prior
-        over the weights of the components of the Gaussian
-        mixture model and the options used to set it up.
+        """A dictionary containing the name of the prior over the
+        weights of the components of the Gaussian mixture model and
+        the options used to set it up.
         """
 
         return self._weights_prior
@@ -657,20 +719,23 @@ class GaussianMixtureModel(nn.Module):
     @weights_prior.setter
     def weights_prior(self,
                       value):
-        """Raise an exception if the user tries to modify
-        the value of ``weights_prior`` after initialization.
+        """Raise an exception if the user tries to modify the value of
+        ``weights_prior`` after initialization.
         """
         
         errstr = \
-            "The value of 'weights_prior' cannot be changed " \
-            "after initialization."
+            "The value of 'weights_prior' is set at initialization " \
+            "and cannot be changed. If you want to change the prior " \
+            "over the weights of the components of the Gaussian " \
+            "mixture model, initialize a new instance of " \
+            f"'{self.__class__.__name__}' and change the " \
+            "'weights_prior_name' and/or the 'weights_prior_options'."
         raise ValueError(errstr)  
     
 
     @property
     def weights(self):
-        """The weights of the components of the Gaussian
-        mixture model.
+        """The weights of the components of the Gaussian mixture model.
         """
 
         return self._weights
@@ -679,21 +744,24 @@ class GaussianMixtureModel(nn.Module):
     @weights.setter
     def weights(self,
                 value):
-        """Raise an exception if the user tries to modify
-        the value of ``weights`` after initialization.
+        """Raise an exception if the user tries to modify the value of
+        ``weights`` after initialization.
         """
         
         errstr = \
-            "The value of 'weights' cannot be changed " \
-            "after initialization."
+            "The value of 'weights' is set at initialization and " \
+            "cannot be changed. The weights of the components of " \
+            "the Gaussian mixture model are initialized according " \
+            "to the specified prior (defined by " \
+            "'weights_prior_name' and 'weights_prior_options')."
         raise ValueError(errstr)
 
 
     @property
     def log_var_prior(self):
-        """A dictionary containing the name of the prior over
-        the log-variance of the components of the Gaussian mixture
-        model and the options used to set it up.
+        """A dictionary containing the name of the prior over the
+        log-variance of the components of the Gaussian mixture model
+        and the options used to set it up.
         """
 
         return self._log_var_prior
@@ -702,20 +770,24 @@ class GaussianMixtureModel(nn.Module):
     @log_var_prior.setter
     def log_var_prior(self,
                       value):
-        """Raise an exception if the user tries to modify
-        the value of ``log_var_prior`` after initialization.
+        """Raise an exception if the user tries to modify the value of
+        ``log_var_prior`` after initialization.
         """
         
         errstr = \
-            "The value of 'log_var_prior' cannot be changed " \
-            "after initialization."
+            "The value of 'log_var_prior' is set at initialization " \
+            "and cannot be changed. If you want to change the prior " \
+            "over the log-variance of the components of the " \
+            "Gaussian mixture model, initialize a new instance of " \
+            f"'{self.__class__.__name__}' and change the " \
+            "'log_var_prior_name' and/or the 'log_var_prior_options'."
         raise ValueError(errstr)
 
 
     @property
     def log_var(self):
-        """The log-variance of the components of the
-        Gaussian mixture model.
+        """The log-variance of the components of the Gaussian mixture
+        model.
         """
 
         return self._log_var
@@ -724,17 +796,20 @@ class GaussianMixtureModel(nn.Module):
     @log_var.setter
     def log_var(self,
                 value):
-        """Raise an exception if the user tries to modify
-        the value of ``log_var`` after initialization.
+        """Raise an exception if the user tries to modify the value of
+        ``log_var`` after initialization.
         """
         
         errstr = \
-            "The value of 'log_var' cannot be changed " \
-            "after initialization."
+            "The value of 'log_var' is set at initialization and " \
+            "cannot be changed. The log-variance of the components " \
+            "of the Gaussian mixture model is initialized according " \
+            "to the specified prior (defined by " \
+            "'log_var_prior_name' and 'log_var_prior_options')."
         raise ValueError(errstr)
 
 
-    #------------------------ Private methods ------------------------#
+    ######################### PRIVATE METHODS #########################
 
 
     def _get_log_prob_comp(self,
@@ -755,7 +830,7 @@ class GaussianMixtureModel(nn.Module):
         Returns
         -------
         log_prob_comp : ``torch.Tensor``
-            The per-sample, per-component log-probbaility.
+            The per-sample, per-component log-probability.
 
             This is a 2D tensor where:
 
@@ -778,17 +853,17 @@ class GaussianMixtureModel(nn.Module):
         #            - log((2*pi)^(dim/2) * sqrt(var)) +
         #            - 0.5 * ((x - means)^2 / var))
         #
-        # Since the logarithm of 1 is zero and the logarithm of
-        # a product is equal to the sum of the logarithms of the
-        # terms, we can rewrite the formula as:
+        # Since the logarithm of 1 is zero and the logarithm of a
+        # product is equal to the sum of the logarithms of the terms,
+        # we can rewrite the formula as:
         #
         # log(p(x)) = - log((2*pi)^(dim/2)) +
         #             - log(sqrt(var)) +
         #             - 0.5 * ((x - means)^2 / var))
         #
-        # Since sqrt(var) can be rewritten as var^(1/2) and
-        # an exponent inside a logarithm can be brough out of
-        # the logarithm, we can rewrite as:
+        # Since sqrt(var) can be rewritten as var^(1/2) and an exponent
+        # inside a logarithm can be brough out of the logarithm, we
+        # can rewrite the equation as:
         #
         # log(p(x)) = - 0.5 * dim * log(2*pi) +
         #             - 0.5 * log(var) + 
@@ -801,44 +876,48 @@ class GaussianMixtureModel(nn.Module):
         #             - 0.5 * log(var) + 
         #             - ((x - means)^2 / 2 * var))
         #
-        # We can now compute each term separately and then
-        # add them together.
+        # We can now compute each term separately and then add them
+        # together.
         
         # First, we get the first term, which contains 'pi'.
         pi_term = - 0.5 * self.dim * math.log(2 * math.pi)
 
-        # Then, we get the second term, where 0.5 is replaced
-        # by dim * 0.5 if the covariance matrix is fixed or
-        # isotropic.
+        # Then, we get the second term, where 0.5 is replaced by
+        # 'dim * 0.5' if the covariance matrix is fixed or isotropic.
         cm_dependent_term = \
             - (self.log_var_prior["options"]["factor"] * \
                self.log_var.sum(-1))
 
-        # Then, we get the third term
+        # Then, we get the third term.
         mean_term = \
             - (x.unsqueeze(-2) - self.means).square().div(\
                 2 * torch.exp(self.log_var)).sum(-1)
 
-        # We can now get the log-probability density
+        # We can now get the log-probability density.
         log_prob = pi_term + cm_dependent_term + mean_term
 
-        # Add the log of the softmax of the weights of the
-        # components. The output tensor has dimensionality:
-        # (n_samples, n_comp)
+        # Add the log of the softmax of the weights of the components.
+        #
+        # The output tensor is a 2D tensor where:
+        #
+        # * The first dimension has a length equal to the number of
+        #   samples.
+        # * The second dimension has a length equal to the number of
+        #   components in the mixture.
         log_prob = \
             log_prob + torch.log_softmax(self.weights,
                                          dim = 0)
 
-        # Return the tensor
+        # Return the log-probability density.
         return log_prob
 
 
-    #------------------------ Public methods -------------------------#
+    ######################### PUBLIC METHODS ##########################
 
 
     def get_mixture_probs(self):
-        """Convert the weights into mixture probabilities using
-        the softmax function.
+        """Convert the weights into mixture probabilities using the
+        softmax function.
 
         Returns
         -------
@@ -849,42 +928,43 @@ class GaussianMixtureModel(nn.Module):
             components in the Gaussian mixture model.
         """
         
+        # Return the mixture probabilities.
         return torch.softmax(self.weights,
                              dim = -1)
 
 
     def get_prior_log_prob(self):
-        """Calculate the log probability of the prior on the means,
+        """Calculate the log-probability of the prior over the means,
         log-variance, and mixture coefficients.
 
         Returns
         -------
         p : ``float``
-            The probability of the prior.
+            The log-probability of the priors.
         """
 
-        # Initialize the probability to 0.0
+        # Initialize the probability to 0.0.
         p = 0.0
 
-        #---------------------- Weights' prior -----------------------#
+        #-------------------------------------------------------------#
 
         # Get the name of the prior over the weights of the
-        # components
+        # components.
         weights_prior_name = self.weights_prior["name"]
 
         # If the prior over the weights is the Dirichlet prior
         if weights_prior_name == "dirichlet":
 
-            # Get the alpha
+            # Get the alpha.
             alpha = self.weights_prior["options"]["alpha"]
 
-            # Get the Dirichlet constant
+            # Get the Dirichlet constant.
             p = self.weights_prior["options"]["constant"]
 
             # If the alpha is different from 1
             if alpha != 1:
 
-                # Add the log probability to the mixture coefficients
+                # Add the log-probability to the mixture coefficients.
                 p = p + \
                     (alpha - 1.0) * \
                     (self.get_mixture_probs().log().sum())
@@ -892,64 +972,65 @@ class GaussianMixtureModel(nn.Module):
         # Otherwise
         else:
 
-            # Raise an error
+            # Raise an error.
             errstr = \
                 f"Unsupported prior '{weights_prior_name}' for " \
                 "the weights of the components of the Gaussian " \
                 "mixture model. Supported priors are: " \
                 f"{', '.join(WEIGHTS_PRIORS)}."
 
-        #----------------------- Means' prior ------------------------#
+        #-------------------------------------------------------------#
 
         # Get the name of the prior over the means of the
-        # components
+        # components.
         means_prior_name = self.means_prior["name"]
 
         # If the prior over the means is the softball prior
         if means_prior_name == "softball":
 
-            # Get the prior distribution
+            # Get the prior distribution.
             dist_means_prior = self.means_prior["dist"]
             
-            # Add the log probability of the means
+            # Add the log probability of the means.
             p = p + dist_means_prior.log_prob(self.means).sum()
 
         # Otherwise
         else:
 
-            # Raise an error
+            # Raise an error.
             errstr = \
                 f"Unsupported prior '{means_prior_name}' for " \
                 "the means of the components of the Gaussian " \
                 "mixture model. Supported priors are: " \
                 f"{', '.join(MEANS_PRIOR)}."
 
-        #------------------- Log-variance's prior --------------------#
+        #-------------------------------------------------------------#
 
-        # Get the name of the prior over the log-variance
+        # Get the name of the prior over the log-variance of the
+        # components.
         log_var_prior_name = self.log_var_prior["name"]
 
         # If the prior over the log-variance is the gaussian prior
         if log_var_prior_name == "gaussian":
 
-            # Get the prior distribution
+            # Get the prior distribution.
             dist_log_var_prior = self.log_var_prior["dist"]
 
-            # Add the log-variance probability
+            # Add the log-probability of the log-variance.
             p =  p + \
                 dist_log_var_prior.log_prob(self.log_var).sum()
 
         # Otherwise
         else:
 
-            # Raise an error
+            # Raise an error.
             errstr = \
                 f"Unsupported prior '{log_var_prior_name}' for " \
-                "the negative log-variance of the Gaussian " \
-                "mixture model. Supported priors are: " \
+                "the log-variance of the Gaussian mixture model. " \
+                "Supported priors are: " \
                 f"{', '.join(log_var_PRIORS)}."
 
-        # Return the probability
+        # Return the probability.
         return p
 
           
@@ -963,8 +1044,8 @@ class GaussianMixtureModel(nn.Module):
         x : ``torch.Tensor``
             The input data points. This is a 2D tensor where:
 
-            * The first dimension has a length equal to the number
-              of data points.
+            * The first dimension has a length equal to the number of
+              data points.
 
             * The second dimension has a length equal to the
               dimensionality of the data points.
@@ -974,28 +1055,29 @@ class GaussianMixtureModel(nn.Module):
         y : ``torch.Tensor``
             The result of the forward pass.
 
-            This is a 1D tensor whose size is equal to the number
-            of input data points.
+            This is a 1D tensor whose size is equal to the number of
+            input data points.
 
             Each element of the tensor is the absolute log-probability
             density of a data point.
         """
 
-        # Get the per-sample, per-component log-probability
+        # Get the per-sample, per-component log-probability.
         y = self._get_log_prob_comp(x = x)
 
-        # Get the log of summed exponentials of each row
-        # of the tensor in the last dimension (the number
-        # of components in the Gaussian mixture). The output
-        # tensor has dimensionality:
-        # (n_samples)
+        # Get the log of summed exponentials of each row of the tensor
+        # in the last dimension (= the number of components in the
+        # mixture).
+        #
+        # The output is a 1D tensor whose length is equal to the number
+        # of samples.
         y = torch.logsumexp(y,
                             dim = -1)
         
-        # Add the log-probability of the prior
+        # Add the log-probability of the priors.
         y = y + self.get_prior_log_prob()
         
-        # Return the negative log-probability density
+        # Return the negative log-probability density.
         return -y
 
 
@@ -1031,17 +1113,17 @@ class GaussianMixtureModel(nn.Module):
             per-component probability density.
         """
 
-        # Get the per-sample, per-component log-probability
+        # Get the per-sample, per-component log-probability.
         y = self._get_log_prob_comp(x = x)
 
-        # Return the probability
+        # Return the probability density.
         return torch.exp(y)
 
 
     def log_prob(self,
                  x):
-        """Get the log-probability density of the samples
-        ``x`` being drawn from the GMM.
+        """Get the log-probability density of a set of samples drawn
+        from the Gaussian mixture model.
 
         Parameters
         ----------
@@ -1057,8 +1139,9 @@ class GaussianMixtureModel(nn.Module):
         Returns
         -------
         log_prob : ``torch.Tensor``
-            A 1D tensor storing the log-probability density
-            of each input data points to be drawn from the GMM.
+            A 1D tensor storing the log-probability density of each
+            input data point to be drawn from the Gaussian mixture
+            model.
 
             The tensor has a size equal to the number of data points
             passed.
@@ -1067,27 +1150,24 @@ class GaussianMixtureModel(nn.Module):
         return - self.forward(x)
 
 
-    #------------------------ New data points ------------------------#
-
-
     def sample_new_points(self,
                           n_points,
                           n_samples_per_comp = 1,
                           sampling_method = "mean"):
         """Draw samples for new data points from each component
-        of the Gaussian mixture model
+        of the Gaussian mixture model.
 
         Parameters
         ----------
         n_points : ``int``
-            Number of data points for which samples should be drawm.
+            The number of data points for which samples should be
+            drawn.
 
         n_samples_per_comp : ``int``, ``1``
-            Number of samples to draw per data point per component
+            The number of samples to draw per data point per component
             of the Gaussian mixture.
 
-        sampling_method : ``str``, {``"mean"``}, \
-                          ``"mean"``
+        sampling_method : ``str``, {``"mean"``}, ``"mean"``
             How to draw the samples for the given data points:
 
             * ``"mean"`` means taking the mean of each component as
@@ -1108,47 +1188,45 @@ class GaussianMixtureModel(nn.Module):
               dimensionality of the Gaussian mixture model.
         """
 
-        # Supported sampling methods
+        # Set the supported sampling methods.
         SAMPLING_METHODS = ["mean"]
 
-        # Get the total number of samples to be taken from the
-        # model
+        # Get the total number of samples to be taken from the Gaussian
+        # mixture model.
         n_samples = n_points * n_samples_per_comp
 
-        #------------------ Sampling from the means ------------------#
+        #-------------------------------------------------------------#
 
-        # If the user selected the option to take the mean
-        # of each component as initial representation for
-        # the data points
+        # If the user selected the option to take the mean of each
+        # component as initial representation for each data point.
         if sampling_method == "mean":
 
-            # Disable gradient calculation
+            # Disable gradient calculation.
             with torch.no_grad():
 
-                # Get the representations
+                # Get the representations.
                 out = \
                     torch.repeat_interleave(\
                         self.means.clone().cpu().detach().unsqueeze(0),
                         n_samples,
                         dim = 0)
 
-        #--------------------- Invalid sampling ----------------------#
+        #-------------------------------------------------------------#
 
         # Otherwise
         else:
 
-            # Warn the user that they have passed an invalid option,
-            # and raise an exception
+            # Raise an error.
             errstr = \
-                f"Please specify how to correctly initialize new " \
-                f"representations. The supported methods are: " \
+                "Please specify how to correctly initialize new " \
+                "representations. The supported methods are: " \
                 f"{', '.join(SAMPLING_METHODS)}."
             raise ValueError(errstr)
 
-        #-------------------- Reshape the output ---------------------#
+        #-------------------------------------------------------------#
         
-        # Return the representations for the new points as a 2D
-        # tensor with:
+        # Return the representations for the new points as a 2D tensor
+        # with:
         #
         # - 1st dimension: the number of data points times number of
         #                  samples drawn per component per data point
@@ -1171,13 +1249,20 @@ class GaussianMixtureModel(nn.Module):
 class RepresentationLayer(nn.Module):
     
     """
-    Class implementing a representation layer accumulating
-    ``PyTorch`` gradients.
+    Class implementing a representation layer accumulating gradients.
     """
 
-    # Available distributions to sample the representations
-    # from
+
+    ######################## PUBLIC ATTRIBUTE #########################
+
+
+    # Set the available distributions to sample the representations
+    # from.
     AVAILABLE_DISTS = ["normal"]
+
+
+    ######################### INITIALIZATION ##########################
+
     
     def __init__(self,
                  values = None,
@@ -1189,7 +1274,7 @@ class RepresentationLayer(nn.Module):
         ----------
         values : ``torch.Tensor``, optional
             A tensor used to initialize the representations in
-            the representation layer.
+            the layer.
 
             This is a 2D tensor where:
 
@@ -1212,8 +1297,8 @@ class RepresentationLayer(nn.Module):
 
         dist_options : ``dict``, optional
             A dictionary containing the parameters to sample the
-            representations from the distribution, if no
-            ``values`` are passed.
+            representations from the distribution, if no ``values``
+            are passed.
 
             For any distribution the following keys and associated
             parameters must be provided:
@@ -1234,55 +1319,51 @@ class RepresentationLayer(nn.Module):
               distribution used to generate the representations.
         """
         
-        # Initialize the class
+        # Initialize an instance of the 'nn.Module' class.
         super().__init__()
         
-        # Initialize the gradients with respect to the
-        # representations to None
+        # Initialize the gradients with respect to the representations
+        # None.
         self.dz = None
 
         # If a tensor of values was passed
         if values is not None:
 
-            # Set the options used to initialize the
-            # representations to an empty dictionary, since
-            # they have not been samples from a distribution
+            # Set the options used to initialize the representations
+            # to an empty dictionary, since they have not been 
+            # sampled from any distribution.
             self._options = {}
 
-            # Get the representations from the tensor
-            self._n_samples, self._dim, self._z = \
-                self._get_rep_from_values(\
-                    values = values)      
+            # Get the number of representations, the
+            # dimensionality of the representations, and the values
+            # of the representations from the tensor.
+            self._n_rep, self._dim, self._z = \
+                self._get_rep_from_values(values = values)      
         
         # Otherwise
         else:
 
-            # If the representations are to be sampled from a
-            # normal distribution
+            # If the representations are to be sampled from a normal
+            # distribution
             if dist == "normal":
 
                 # Sample the representations from a normal
-                # distribution
-                self._n_samples, self._dim, self._z, self._options = \
-                    self._get_rep_from_normal(\
-                        options = dist_options)
+                # distribution.
+                self._n_rep, self._dim, self._z, self._options = \
+                    self._get_rep_from_normal(options = dist_options)
 
             # Otherwise
             else:
 
-                # Raise an error since only the normal distribution
-                # is implemented so far
+                # Raise an error.
                 available_dists_str = \
                     ", ".join(f'{d}' for d in self.AVAILABLE_DISTS)
                 errstr = \
-                    f"An invalid distribution '{dist}' was passed. " \
-                    f"So far, the only distributions for which " \
-                    f"the sampling of the representations has been " \
-                    f"implemented are: {available_dists_str}."
+                    f"Unsupported distribution '{dist}'. The only " \
+                    "distributions from which it is possible to " \
+                    "sample the representations are: " \
+                    f"{available_dists_str}."
                 raise ValueError(errstr)
-
-    
-    #-------------------- Initialization methods ---------------------#
 
 
     def _get_rep_from_values(self,
@@ -1296,15 +1377,14 @@ class RepresentationLayer(nn.Module):
 
         Returns
         -------
-        n_samples : ``int``
-            The number of samples found in the input tensor (and,
-            therefore, the number of representations).
+        n_rep : ``int``
+            The number of representations found in the input tensor.
 
         dim : ``int``
             The dimensionality of the representations.
 
         rep : ``torch.Tensor``
-            The representations.
+            The values of the representations.
 
             This is a 2D tensor where:
 
@@ -1315,32 +1395,32 @@ class RepresentationLayer(nn.Module):
               dimensionality of the representations.
         """
 
-        # Get the number of samples from the first
-        # dimension of the tensor
-        n_samples = values.shape[0]
+        # Get the number of representations from the first dimension of
+        # the tensor.
+        n_rep = values.shape[0]
         
-        # Get the dimensionality of the representations
-        # from the last dimension of the tensor
+        # Get the dimensionality of the representations from the last
+        # dimension of the tensor.
         dim = values.shape[-1]
 
-        # Initialize a tensor with the representations
+        # Initialize a tensor with the representations.
         z = nn.Parameter(torch.zeros_like(values), 
                          requires_grad = True)
 
-        # Fill the tensor with the given values
+        # Fill the tensor with the given values.
         with torch.no_grad():
             z.copy_(values)
 
-        # Return the representations and the parameters used
-        # to generate them
-        return n_samples, \
+        # Return the number of representations, the dimensionality of
+        # the representations, and the values of the representations.
+        return n_rep, \
                dim, \
                z
 
 
     def _get_rep_from_normal(self,
                              options):
-        """Get representations by sampling from a normal
+        """Get the representations by sampling from a normal
         distribution.
 
         Parameters
@@ -1350,7 +1430,7 @@ class RepresentationLayer(nn.Module):
             representations from a normal distribution.
 
             The dictionary must contains the following keys,
-            associated to the corresponding parameters:
+            associated with the corresponding parameters:
 
             * ``"n_samples"`` : the number of samples to draw from
               the normal distribution.
@@ -1366,15 +1446,14 @@ class RepresentationLayer(nn.Module):
 
         Returns
         -------
-        n_samples : ``int``
-            The number of samples found in the input tensor (and,
-            therefore, the number of representations).
+        n_rep : ``int``
+            The number of representations found in the input tensor.
 
         dim : ``int``
             The dimensionality of the representations.
 
         rep : ``torch.Tensor``
-            The representations.
+            The values of the representations.
 
             This is a 2D tensor where:
 
@@ -1389,31 +1468,32 @@ class RepresentationLayer(nn.Module):
             the representations.
         """
 
-        # Get the desired number of samples
-        n_samples = options["n_samples"]
+        # Get the desired number of representations to be drawn.
+        n_rep = options["n_samples"]
 
-        # Get the dimensionality of the desired representations
+        # Get the dimensionality of the desired representations.
         dim = options["dim"]
 
-        # Get the mean of the normal distribution from which
-        # the representations should be sampled from
+        # Get the mean of the normal distribution from which the
+        # representations should be samples.
         mean = options["mean"]
 
         # Get the standard deviation of the normal distribution
-        # from which the representations should be sampled from
+        # from which the representations should be sampled.
         stddev = options["stddev"]
 
-        # Get the representations
+        # Get the values of the representations.
         z = \
             nn.Parameter(\
                 torch.normal(mean,
                              stddev,
-                             size = (n_samples, dim),
+                             size = (n_rep, dim),
                              requires_grad = True))
         
-        # Return the representations and the parameters used
-        # to generate them
-        return n_samples, \
+        # Return the number of representations, the dimensionality of
+        # the representations, the values of the representations,
+        # and the options used to generate them.
+        return n_rep, \
                dim, \
                z, \
                {"dist_name" : "normal",
@@ -1421,28 +1501,29 @@ class RepresentationLayer(nn.Module):
                 "stddev" : stddev}
 
 
-    #--------------------------- Properties --------------------------#
+    ########################### PROPERTIES ############################
 
 
     @property
-    def n_samples(self):
-        """The number of samples for which a representation must
-        be found.
+    def n_rep(self):
+        """The number of representations in the layer.
         """
 
-        return self._n_samples
+        return self._n_rep
 
 
-    @n_samples.setter
-    def n_samples(self,
-                  value):
-        """Raise an exception if the user tries to modify
-        the value of ``n_samples`` after initialization.
+    @n_rep.setter
+    def n_rep(self,
+              value):
+        """Raise an exception if the user tries to modify the value
+        of ``n_rep`` after initialization.
         """
         
         errstr = \
-            "The value of 'n_samples' cannot be changed " \
-            "after initialization."
+            "The value of 'n_samples' is set at initialization and " \
+            "cannot be changed. If you want to change the number " \
+            "of representations in the layer, initialize a new " \
+            f"instance of '{self.__class__.__name__}'."
         raise ValueError(errstr)
 
 
@@ -1457,21 +1538,23 @@ class RepresentationLayer(nn.Module):
     @dim.setter
     def dim(self,
             value):
-        """Raise an exception if the user tries to modify
-        the value of ``dim`` after initialization.
+        """Raise an exception if the user tries to modify the value of
+        ``dim`` after initialization.
         """
         
         errstr = \
-            "The value of 'dim' cannot be changed " \
-            "after initialization."
+            "The value of 'dim' is set at initialization and cannot " \
+            "be changed. If you want to change the dimensionality " \
+            "of the representations stored in the layer, initialize " \
+            f"a new instance of '{self.__class__.__name__}'."
         raise ValueError(errstr)
 
 
     @property
     def options(self):
-        """Dictionary ot options used to generate the
-        representations, if no values were passed at
-        initialization time.
+        """The dictionary ot options used to generate the
+        representations, if no values were passed when initializing
+        the layer.
         """
 
         return self._options
@@ -1480,19 +1563,21 @@ class RepresentationLayer(nn.Module):
     @options.setter
     def options(self,
                 value):
-        """Raise an exception if the user tries to modify
-        the value of ``options`` after initialization.
+        """Raise an exception if the user tries to modify the value of
+        ``options`` after initialization.
         """
         
         errstr = \
-            "The value of 'options' cannot be changed " \
-            "after initialization."
+            "The value of 'options' is set at initialization and " \
+            "cannot be changed. If you want to change the options " \
+            "used to generate the representations, initialize a " \
+            f"new instance of '{self.__class__.__name__}'."
         raise ValueError(errstr)
     
 
     @property
     def z(self):
-        """The representations.
+        """The values of the representations.
         """
 
         return self._z
@@ -1501,37 +1586,40 @@ class RepresentationLayer(nn.Module):
     @z.setter
     def z(self,
           value):
-        """Raise an exception if the user tries to modify
-        the value of ``z`` after initialization.
+        """Raise an exception if the user tries to modify the value of
+        ``z`` after initialization.
         """
         
         errstr = \
-            "The value of 'z' cannot be changed " \
-            "after initialization."
+            "The value of 'z' is set at initialization and cannot " \
+            "be changed. If you want to change the values of the " \
+            "representations stored in the layer, initialize a new " \
+            f"instance of '{self.__class__.__name__}'."
         raise ValueError(errstr)
 
 
-    #------------------------ Public methods -------------------------#
+    ######################### PUBLIC METHODS ##########################
 
 
     def forward(self,
                 ixs = None):
-        """Forward pass. It returns the representations. You can
-        select a subset of representations to be returned using
-        their numerical indexes (``ixs``).
+        """Forward pass - it returns the values of the representations.
+
+        You can select a subset of representations to be returned using
+        their numerical indexes.
 
         Parameters
         ----------
         ixs : ``list``, optional
             The indexes of the samples whose representations should
-            be returned. If not passed, all representations
-            will be returned.
+            be returned. If not passed, all representations will be
+            returned.
 
         Returns
         -------
-        ``torch.Tensor``
-            A tensor containing the representations for the samples
-            of interest.
+        reps : ``torch.Tensor``
+            A tensor containing the values of the representations for
+            the samples of interest.
 
             This is a 2D tensor where:
 
@@ -1545,38 +1633,39 @@ class RepresentationLayer(nn.Module):
         # If no indexes were provided
         if ixs is None:
             
-            # Return all representations
+            # Return the values for all representations.
             return self.z
         
         # Otherwise
         else:
 
-            # Return the representations of the
-            # samples corresponding to the
-            # given indexes
+            # Return the values for the representations of the
+            # samples corresponding to the given indexes.
             return self.z[ixs]
 
 
     def rescale(self):
-        """Rescale the representations by subtracting the mean
-        of all representations from each of them and dividing
-        them by the standard deviation of all representations.
+        """Rescale the representations by subtracting the mean of
+        the representations' values from each of them and dividing
+        each of them by the standard deviation of all representations.
 
         Given :math:`N` samples, we can indicate with :math:`z^{n}`
-        the representation of sample :math:`x^{n}`. The rescaled
-        representation :math:`z^{n}_{rescaled}` will be, therefore:
+        the value of the representation of sample :math:`x^{n}`.
+
+        Therefore, the rescaled value of the representation
+        :math:`z^{n}_{rescaled}` will be:
         
         .. math::
 
            z^{n}_{rescaled} = \\frac{z^{n} - \\bar{z}}{s}
 
-        Where :math:`\\bar{z}` is the mean of the representations
-        and :math:`s` is the standard deviation.
+        Where :math:`\\bar{z}` is the mean of the representations'
+        values and :math:`s` is the standard deviation.
 
         Returns
         -------
-        ``torch.Tensor``
-            The rescaled representations.
+        reps_rescaled : ``torch.Tensor``
+            The rescaled values of the representations.
 
             This is a 2D tensor where:
 
@@ -1587,19 +1676,20 @@ class RepresentationLayer(nn.Module):
               dimensionality of the representations.
         """
         
-        # Flatten the tensor with the representations
+        # Flatten the tensor containing the representations' values.
         z_flat = torch.flatten(self.z.cpu().detach())
         
         # Get the mean and the standard deviation of the
-        # representations
+        # representations.
         sd, m = torch.std_mean(z_flat)
         
-        # Disable the gradient calculation
+        # Disable the calculation of the gradients.
         with torch.no_grad():
 
-            # Subtract the mean from the representations
+            # Subtract the mean value of all representations' values
+            # from each of the representation's value.
             self.z -= m
 
-            # Divide the representations by the standard
-            # deviation
+            # Divide each representation's value by the standard
+            # deviation of all representations' values.
             self.z /= sd

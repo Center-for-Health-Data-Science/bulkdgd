@@ -20,20 +20,20 @@ First, we set the logging so that every message above and including the ``INFO``
 
 .. code-block:: python
 
-   # Import the logging module
+   # Import the 'logging' module.
    import logging as log
 
-   # Set the logging options
+   # Set the logging options.
    log.basicConfig(level = "INFO")
 
 We load the samples using the :func:`ioutil.load_samples` function.
 
 .. code-block:: python
 
-   # Import the 'dgd.ioutil' module
+   # Import the 'ioutil' module from 'bulkDGD'.
    from bulkDGD import ioutil
    
-   # Load the preprocessed samples into a data frame
+   # Load the preprocessed samples into a data frame.
    df_samples = \
        ioutil.load_samples(# The CSV file where the samples are stored
                            csv_file = "samples_preprocessed.csv",
@@ -49,14 +49,14 @@ We load the samples using the :func:`ioutil.load_samples` function.
                            # additional information about the samples
                            split = False)
  
-   # Get only the first ten rows
+   # Get only the first ten rows.
    df_samples = df_samples.iloc[:10,:]
 
 Then, we load the decoder outputs using the :func:`ioutil.load_decoder_outputs` function.
 
 .. code-block:: python
    
-   # Load the decoder outputs into a data frame
+   # Load the decoder outputs into a data frame.
    df_dec_out = \
       ioutil.load_decoder_outputs(# The CSV file where the decoder outputs
                                   # are stored
@@ -71,7 +71,7 @@ Then, we load the decoder outputs using the :func:`ioutil.load_decoder_outputs` 
                                   # about the original samples
                                   split = False)
    
-   # Get only the first ten rows
+   # Get only the first ten rows.
    df_dec_out = df_dec_out.iloc[:10,:]
 
 Step 2 - Get the trained DGD model
@@ -85,7 +85,7 @@ We can load the configuration using the :func:`ioutil.load_config_model` functio
 
 .. code-block:: python
    
-   # Load the configuration
+   # Load the configuration.
    config_model = ioutil.load_config_model("model.yaml")
 
 Once loaded, the configuration consists of a dictionary of options, which maps to the arguments required by the :class:`core.model.DGDModel` constructor.
@@ -94,11 +94,11 @@ Then, we can initialize the trained DGD model.
 
 .. code-block:: python
    
-   # Import the 'core.model' module
+   # Import the 'model' module from 'bulkDGD.core'.
    from bulkDGD.core import model
    
    # Get the trained DGD model (Gaussian mixture model
-   # and decoder)
+   # and decoder).
    dgd_model = model.DGDModel(**config_model)
 
 Step 3 - Perform differential expression analysis
@@ -108,20 +108,20 @@ Since the raw decoder outputs are scaled by the r-valuse of the negative binomia
 
 .. code-block:: python
 
-    # Get the r-values
+    # Get the r-values.
     r_values = dgd_model.r_values
 
 Then, we can perform differential expression analysis for each sample with the :func:`analysis.dea.perform_dea` function, and save the results to CSV files (one per sample).
 
 .. code-block:: python
 
-   # Import the 'dea' module
+   # Import the 'dea' module from 'bulkDGD.analysis'.
    from bulkDGD.analysis import dea
 
    # For each sample
    for sample in df_samples.index:
 
-       # Perform differential expression analysis
+       # Perform differential expression analysis.
        dea_results, _ = \
            dea.perform_dea(# The observed gene counts for the current
                            # sample
@@ -147,7 +147,7 @@ Then, we can perform differential expression analysis for each sample with the :
                            # The method used to calculate the q-values
                            method = "fdr_bh")
 
-       # Save the results
+       # Save the results.
        dea_results.to_csv(# The CSV file where to save the results
                           # for the current sample
                           f"dea_sample_{sample}.csv",

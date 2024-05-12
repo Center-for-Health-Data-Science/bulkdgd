@@ -3,7 +3,9 @@
 
 #    configio.py
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Utilities to load and save configurations.
+#
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -21,32 +23,41 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Description of the module
+#######################################################################
+
+
+# Set the module's description.
 __doc__ = "Utilities to load and save configurations."
 
 
-# Standard library
+#######################################################################
+
+
+# Import from the standard library.
 import copy
 import logging as log
 import os
-# Third-party packages
+# Import from third-party packages.
 import matplotlib.font_manager as fm
 import yaml
-# bulkDGD
+# Import from 'bulkDGD'.
 from . import defaults
 from . import _util
 
 
-# Get the module's logger
+#######################################################################
+
+
+# Get the module's logger.
 logger = log.getLogger(__name__)
 
 
-#------------------------- Private constants -------------------------#
+########################## PRIVATE CONSTANTS ##########################
 
 
-# Template to check the model's configuration file against
+# Set the template to check the model's configuration file against.
 _CONFIG_MODEL_TEMPLATE = \
-    {# Options for the Gaussian mixture model
+    {# Set the options for the Gaussian mixture model.
      "gmm_pth_file" : str,
      "dim" : int,
      "n_comp" : int,
@@ -58,17 +69,17 @@ _CONFIG_MODEL_TEMPLATE = \
      "log_var_prior_name" : str,
      "log_var_prior_options" : None,
 
-     # Options for the decoder
+     # Set the options for the decoder.
      "dec_pth_file" : str,
      "n_units_hidden_layers" : list,
      "r_init" : int,
      "activation_output" : str,
     
-    # Genes
+    # Set the file containing the genes included in the model.
     "genes_txt_file" : str}
 
 
-#------------------------- Public functions --------------------------#
+########################## PUBLIC FUNCTIONS ###########################
 
 
 def load_config_model(config_file):
@@ -87,7 +98,7 @@ def load_config_model(config_file):
         A dictionary containing the configuration.
     """
 
-    # Get the name of the configuration file
+    # Get the name of the configuration file.
     config_file_name = os.path.basename(config_file).rstrip(".yaml")
 
     #-----------------------------------------------------------------#
@@ -95,31 +106,31 @@ def load_config_model(config_file):
     # If the configuration file is a name without extension
     if config_file == config_file_name:
         
-        # Assume it is a configuration file in the directory
-        # storing configuration files for the model
+        # Assume it is a configuration file in the directory storing
+        # configuration files for the model.
         config_file = os.path.join(defaults.CONFIG_MODEL_DIR,
                                    config_file_name + ".yaml")
 
     # Otherwise
     else:
         
-        # Assume it is a file name/file path
+        # Assume it is a file name/file path.
         config_file = os.path.abspath(config_file)
 
     #-----------------------------------------------------------------#
 
-    # Load the configuration from the file
+    # Load the configuration from the file.
     config = yaml.safe_load(open(config_file, "r"))
 
     #-----------------------------------------------------------------#
 
-    # Split the path into its 'head' (path to the file without
-    # the file name) and its 'tail' (the file name)
+    # Split the path into its 'head' (path to the file without the
+    # file's name) and its 'tail' (the file's name).
     path_head, path_tail = os.path.split(config_file)
 
     #-----------------------------------------------------------------#
 
-    # Check the configuration against the template
+    # Check the configuration against the template.
     config = _util.check_config_against_template(\
                 config = config,
                 template = _CONFIG_MODEL_TEMPLATE)
@@ -127,68 +138,85 @@ def load_config_model(config_file):
     #-----------------------------------------------------------------#
 
     # Get the PyTorch file containing the trained Gaussian mixture
-    # model
-    gmm_pth_file = config["gmm_pth_file"]
+    # model.
+    gmm_pth_file = config.get("gmm_pth_file")
 
-    # If the default file should be used
-    if gmm_pth_file == "default":
+    # If the file is not None
+    if gmm_pth_file is not None:
 
-        # Get the path to the default file
-        config["gmm_pth_file"] = \
-            os.path.normpath(defaults.GMM_FILE)
+        # If the default file should be used
+        if gmm_pth_file == "default":
+
+            # Get the path to the default file.
+            config["gmm_pth_file"] = \
+                os.path.normpath(defaults.GMM_FILE)
+
+        # Otherwise
+        else:
+
+            # Get the path to the file.
+            config["gmm_pth_file"] = \
+                os.path.normpath(os.path.join(path_head,
+                                              gmm_pth_file))
+
+    #-----------------------------------------------------------------#
+
+    # Get the PyTorch file containing the trained decoder.
+    dec_pth_file = config.get("dec_pth_file")
+
+    # If the file is not None
+    if dec_pth_file is not None:
+
+        # If the default file should be used
+        if dec_pth_file == "default":
+
+            # Get the path to the default file.
+            config["dec_pth_file"] = \
+                os.path.normpath(defaults.DEC_FILE)
+
+        # Otherwise
+        else:
+
+            # Get the path to the file.
+            config["dec_pth_file"] = \
+                os.path.normpath(os.path.join(path_head,
+                                              dec_pth_file))
+
+    #-----------------------------------------------------------------#
+
+    # Get the plain text file containing the genes
+    genes_txt_file = config.get("genes_txt_file")
+
+    # If the file is not None
+    if genes_txt_file is not None:
+
+        # If the default file should be used
+        if genes_txt_file == "default":
+
+            # Get the path to the default file.
+            config["genes_txt_file"] = \
+                os.path.normpath(defaults.GENES_FILE)
+
+        # Otherwise
+        else:
+
+            # Get the path to the file.
+            config["genes_txt_file"] = \
+                os.path.normpath(os.path.join(path_head,
+                                              genes_txt_file))
 
     # Otherwise
     else:
 
-        # Get the path to the file
-        config["gmm_pth_file"] = \
-            os.path.normpath(os.path.join(path_head,
-                                          gmm_pth_file))
+        # Raise an exception.
+        errstr = \
+            "A 'genes_txt_file' must be specified in the " \
+            "model's configuration."
+        raise ValueError(errstr)
 
     #-----------------------------------------------------------------#
 
-    # Get the PyTorch file containing the trained decoder
-    dec_pth_file = config["dec_pth_file"]
-
-    # If the default file should be used
-    if dec_pth_file == "default":
-
-        # Get the path to the default file
-        config["dec_pth_file"] = \
-            os.path.normpath(defaults.DEC_FILE)
-
-    # Otherwise
-    else:
-
-        # Get the path to the file
-        config["dec_pth_file"] = \
-            os.path.normpath(os.path.join(path_head,
-                                          dec_pth_file))
-
-    #-----------------------------------------------------------------#
-
-    # Get the .txt file containing the genes
-    genes_txt_file = config["genes_txt_file"]
-
-    # If the default file should be used
-    if genes_txt_file == "default":
-
-        # Get the path to the default file
-        config["genes_txt_file"] = \
-            os.path.normpath(defaults.GENES_FILE)
-
-    # Otherwise
-    else:
-
-        # Get the path to the file
-        config["genes_txt_file"] = \
-            os.path.normpath(os.path.join(path_head, genes_txt_file))
-
-    #-----------------------------------------------------------------#
-
-    #-----------------------------------------------------------------#
-
-    # Return the configuration
+    # Return the configuration.
     return config
 
 
@@ -204,11 +232,11 @@ def load_config_rep(config_file):
 
     Returns
     -------
-    ``dict``
+    config : ``dict``
         A dictionary containing the configuration.
     """
 
-    # Get the name of the configuration file
+    # Get the name of the configuration file.
     config_file_name = os.path.basename(config_file).rstrip(".yaml")
 
     #-----------------------------------------------------------------#
@@ -216,31 +244,25 @@ def load_config_rep(config_file):
     # If the configuration file is a name without extension
     if config_file == config_file_name:
         
-        # Assume it is a configuration file in the directory
-        # storing configuration files for running protocols
+        # Assume it is a configuration file in the directory storing
+        # configuration files for the optimization rounds.
         config_file = os.path.join(defaults.CONFIG_REP_DIR,
                                    config_file_name + ".yaml")
 
     # Otherwise
     else:
         
-        # Assume it is a file name/file path
+        # Assume it is a file name/file path.
         config_file = os.path.abspath(config_file)
 
     #-----------------------------------------------------------------#
 
-    # Load the configuration from the file
+    # Load the configuration from the file.
     config = yaml.safe_load(open(config_file, "r"))
 
     #-----------------------------------------------------------------#
 
-    # Split the path into its 'head' (path to the file without
-    # the file name) and its 'tail' (the file name)
-    path_head, path_tail = os.path.split(config_file)
-
-    #-----------------------------------------------------------------#
-
-    # Return the configuration
+    # Return the configuration.
     return config
 
 
@@ -254,11 +276,11 @@ def load_config_plot(config_file):
 
     Returns
     -------
-    ``dict``
+    config : ``dict``
         A dictionary containing the configuration.
     """
 
-    # Get the name of the configuration file
+    # Get the name of the configuration file.
     config_file_name = os.path.basename(config_file).rstrip(".yaml")
 
     #-----------------------------------------------------------------#
@@ -266,32 +288,26 @@ def load_config_plot(config_file):
     # If the configuration file is a name without extension
     if config_file == config_file_name:
         
-        # Assume it is a configuration file in the directory
-        # storing configuration files for running protocols
+        # Assume it is a configuration file in the directory storing
+        # configuration files for plotting.
         config_file = os.path.join(defaults.CONFIG_PLOT_DIR,
                                    config_file_name + ".yaml")
 
     # Otherwise
     else:
         
-        # Assume it is a file name/file path
+        # Assume it is a file name/file path.
         config_file = os.path.abspath(config_file)
 
     #-----------------------------------------------------------------#
 
-    # Load the configuration from the file
+    # Load the configuration from the file.
     config = yaml.safe_load(open(config_file, "r"))
 
     #-----------------------------------------------------------------#
-
-    # Split the path into its 'head' (path to the file without
-    # the file name) and its 'tail' (the file name)
-    path_head, path_tail = os.path.split(config_file)
-
-    #-----------------------------------------------------------------#
     
-    # Substitute the font properties definitions
-    # with the corresponding FontProperties instances
+    # Substitute the font properties definitions with the corresponding
+    # 'FontProperties' instances.
     new_config = _util.recursive_map_dict(\
         d = config,
         func = fm.FontProperties,
@@ -299,5 +315,5 @@ def load_config_plot(config_file):
 
     #-----------------------------------------------------------------#
 
-    # Return the new configuration
+    # Return the new configuration.
     return new_config

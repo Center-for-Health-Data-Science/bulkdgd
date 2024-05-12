@@ -3,7 +3,9 @@
 
 #    reduction.py
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Utilities to perform dimensionality reduction.
+#
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -21,45 +23,53 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Description of the module
-__doc__ = \
-	"Utilities to perform dimensionality reduction."
+#######################################################################
 
 
-# Standard library
+# Set the module's description.
+__doc__ = "Utilities to perform dimensionality reduction."
+
+
+#######################################################################
+
+
+# Import from the standard library.
 import logging as log
-# Third-party packages
+# Import from third-party packages.
 import pandas as pd
 from sklearn.decomposition import PCA
 
 
-# Get the module's logger
+#######################################################################
+
+
+# Get the module's logger.
 logger = log.getLogger(__name__)
 
 
-#-------------------------------- PCA --------------------------------#
+#######################################################################
 
 
 def perform_2d_pca(df_rep,
                    pc_columns = ["PC1", "PC2"],
                    pca = None):
-    """Perform a 2D principal component analysis (PCA) on a set
-    of representations.
+    """Perform a 2D principal component analysis (PCA) on a set of
+    representations.
 
     Parameters
     ----------
     df_rep : ``pandas.DataFrame``
         A data frame containing the representations.
 
-        The rows of the data frame should represent the samples,
-        while the columns should represent the dimensions of the space
+        The rows of the data frame should represent the samples, while
+        the columns should represent the dimensions of the space
         where the representations live.
 
     pc_columns : ``list``, ``["PC1", "PC2"]``
         A list with the names of the two columns that will contain
         the values of the first two principal components.
 
-    pca : ``sklearn.decomposition.PCA``
+    pca : ``sklearn.decomposition.PCA``, optional
         An already fitted PCA model onto which the data contained
         in ``df_rep`` should be projected. 
 
@@ -70,15 +80,16 @@ def perform_2d_pca(df_rep,
 
     ``pandas.DataFrame``
         A data frame containing the results of the PCA.
-        The rows will contain the representations, while the
-        columns will contain the values of each representation's
-        projection along the principal components.
+
+        The rows will contain the representations, while the columns
+        will contain the values of each representation's projection
+        along the principal components.
     """
 
-    # Get the representations' values
+    # Get the representations' values.
     rep_values = df_rep.values
 
-    # Get the representations' names/IDs
+    # Get the representations' names/IDs.
     rep_names = df_rep.index.tolist()
 
     #-----------------------------------------------------------------#
@@ -86,10 +97,10 @@ def perform_2d_pca(df_rep,
     # If a fitted PCA model was not provided
     if pca is None:
 
-        # Set up the PCA
+        # Set up the PCA.
         pca = PCA(n_components = 2)
 
-        # Fit the model
+        # Fit the model.
         pca.fit(rep_values)
 
     # Otherwise
@@ -98,24 +109,24 @@ def perform_2d_pca(df_rep,
         # If the number of components is not 2
         if pca.components_.shape[0] != 2:
 
-            # Raise an error
+            # Raise an error.
             errstr = \
-                "The provided PCA model must have 2 components, " \
-                f"but {pca.components_.shape[0]} components " \
-                "were found."
+                "The provided PCA model ('pca') must have 2 " \
+                f"components, but {pca.components_.shape[0]} " \
+                "components were found."
             raise ValueError(errstr)
 
     #-----------------------------------------------------------------#
     
-    # Fit the model and apply the dimensionality reduction
+    # Fit the model and apply the dimensionality reduction.
     projected = pca.fit_transform(rep_values)
 
-    # Create a data frame containing the projected points
+    # Create a data frame containing the projected points.
     df_projected = pd.DataFrame(projected,
                                 columns = pc_columns,
                                 index = rep_names)
 
     #-----------------------------------------------------------------#
 
-    # Return the data frame
+    # Return the data frame.
     return df_projected

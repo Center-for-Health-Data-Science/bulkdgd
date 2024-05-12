@@ -28,22 +28,22 @@ First, we set the logging so that every message above and including the ``INFO``
 
 .. code-block:: python
 
-   # Import the logging module
+   # Import the 'logging' module.
    import logging as log
 
-   # Set the logging options
+   # Set the logging options.
    log.basicConfig(level = "INFO")
 
 Then, we load our CSV file as a data frame using the :func:`ioutil.load_samples` function.
 
 .. code-block:: python
 
-   # Import Pandas and the 'ioutil' module
+   # Import Pandas and the 'ioutil' module from 'bulkDGD'.
    import pandas as pd
    import bulkDGD
    from bulkDGD import ioutil
 
-   # Load the samples into a data frame
+   # Load the samples into a data frame.
    df_samples = \
       ioutil.load_samples(# The CSV file where the samples are stored
                           csv_file = input_csv,
@@ -63,7 +63,7 @@ Then, we can preprocess the samples.
 
 .. code-block:: python
 
-   # Preprocess the samples
+   # Preprocess the samples.
    df_preproc, genes_excluded, genes_missing = \
        ioutil.preprocess_samples(df_samples = df_samples)
 
@@ -92,7 +92,7 @@ We can load the configuration using the :func:`ioutil.load_config_model` functio
 
 .. code-block:: python
    
-   # Load the configuration
+   # Load the configuration.
    config_model = ioutil.get_config_model("model.yaml")
 
 Once loaded, the configuration consists of a dictionary of options, which maps to the arguments required by the :class:`core.model.DGDModel` constructor.
@@ -101,11 +101,11 @@ Then, we can initialize the trained DGD model.
 
 .. code-block:: python
    
-   # Import the 'core.model' module
-   from core import model
+   # Import the 'model' module from 'bulkDGD.core'.
+   from bulkDGD.core import model
    
    # Get the trained DGD model (Gaussian mixture model
-   # and decoder)
+   # and decoder).
    dgd_model = model.DGDModel(**config_model)
 
 Step 3 - Get the optimization scheme
@@ -123,7 +123,7 @@ You can find more information about the supported optimization schemes and corre
 
 .. code-block:: python
    
-   # Load the configuration
+   # Load the configuration.
    config_rep = ioutil.load_config_rep("two_opt.yaml")
 
 Once loaded, the configuration consists of a dictionary of options.
@@ -164,7 +164,7 @@ We can save the preprocessed samples, the representations, the decoder outputs, 
 
 .. code-block:: python
    
-   # Save the preprocessed samples
+   # Save the preprocessed samples.
    ioutil.save_samples(\
        # The data frame containing the samples
        df = df_preproc,
@@ -173,7 +173,7 @@ We can save the preprocessed samples, the representations, the decoder outputs, 
        # The field separator in the output CSV file
        sep = ",")
 
-   # Save the representations
+   # Save the representations.
    ioutil.save_representations(\
        # The data frame containing the representations
        df = df_rep,
@@ -182,7 +182,7 @@ We can save the preprocessed samples, the representations, the decoder outputs, 
        # The field separator in the output CSV file
        sep = ",")
 
-   # Save the decoder outputs
+   # Save the decoder outputs.
    ioutil.save_decoder_outputs(\
        # The data frame containing the decoder outputs
        df = df_dec_out,
@@ -191,7 +191,7 @@ We can save the preprocessed samples, the representations, the decoder outputs, 
        # The field separator in the output CSV file
        sep = ",")
 
-   # Save the time data
+   # Save the time data.
    ioutil.save_time(\
        # The data frame containing the time data
        df = df_time_opt,

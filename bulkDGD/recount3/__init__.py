@@ -5,7 +5,7 @@
 #
 #    Simple __init__.py file.
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -23,5 +23,6 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
+# Import everything from the 'defaults' and 'util' modules.
 from .defaults import *
 from .util import *

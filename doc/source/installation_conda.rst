@@ -8,8 +8,6 @@ Go `here <https://docs.conda.io/en/latest/miniconda.html>`_ for detailed instruc
 
 Installing ``miniconda`` rather than the full ``anaconda`` package is advised.
 
-We have provided an ``environment.yaml`` file that can be used together with ``conda`` to automatically create an environment containing all required Python packages.
-
 Once ``conda`` is installed on your system, you can create a virtual environment.
 
 Step 2 - Get bulkDGD
@@ -30,7 +28,7 @@ You can create your ``conda`` environment from the provided environment file:
 
 .. code-block:: shell
     
-    conda env create --file bulkDGD/environment.yaml --prefix ./bulkdgd-env
+    conda env create --prefix ./bulkdgd-env python=3.11
 
 In this case, we ask ``conda`` to create the environment locally (``--prefix``), which is optional.
 

@@ -7,7 +7,7 @@
 #    samples to their "closest normal" sample found in latent space
 #    by the DGD model.
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -25,38 +25,47 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Description of the module
+#######################################################################
+
+
+# Set the module's description.
 __doc__ = \
     "Perform a differential expression analysis comparing " \
     "experimental samples to their 'closest normal' samples " \
     "found in latent space by the DGD model."
 
 
-# Standard library
+#######################################################################
+
+
+# Import from the standard library.
 import argparse
 import logging as log
 import logging.handlers as loghandlers
 import os
 import sys
-# Third-party packages
+# Import from third-party packages.
 import dask
 import pandas as pd
 import torch
-# bulkDGD
+# Import from 'bulkDGD'.
 from bulkDGD.core import model
 from bulkDGD.analysis import dea
 from bulkDGD import defaults, ioutil, util
 
 
+#######################################################################
+
+
 def main():
 
 
-    # Create the argument parser
+    # Create the argument parser.
     parser = argparse.ArgumentParser(description = __doc__)
 
     #-----------------------------------------------------------------#
 
-    # Add the arguments
+    # Add the arguments.
     is_help = \
         "The input CSV file containing a data frame with " \
         "the gene expression data for the samples."
@@ -200,7 +209,7 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Parse the arguments
+    # Parse the arguments.
     args = parser.parse_args()
     input_csv_samples = args.input_csv_samples
     input_csv_dec = args.input_csv_dec
@@ -209,40 +218,40 @@ def main():
     p_values_resolution = args.p_values_resolution
     q_values_alpha = args.q_values_alpha
     q_values_method = args.q_values_method
-    wd = args.work_dir
+    wd = os.path.abspath(args.work_dir)
     n_proc = args.n_proc
-    log_file = args.log_file
+    log_file = os.path.join(wd, args.log_file)
     log_console = args.log_console
     v = args.log_verbose
     vv = args.log_debug
 
     #-----------------------------------------------------------------#
 
-    # Set WARNING logging level by default
+    # Set WARNING logging level by default.
     log_level = log.WARNING
 
     # If the user requested verbose logging
     if v:
 
-        # The minimal logging level will be INFO
+        # The minimal logging level will be INFO.
         log_level = log.INFO
 
     # If the user requested logging for debug purposes
     # (-vv overrides -v if both are provided)
     if vv:
 
-        # The minimal logging level will be DEBUG
+        # The minimal logging level will be DEBUG.
         log_level = log.DEBUG
 
-    # Get the logging configuration for Dask
+    # Get the logging configuration for Dask.
     dask_logging_config = \
         util.get_dask_logging_config(log_console = log_console,
                                      log_file = log_file)
     
-    # Set the configuration for Dask-specific logging
+    # Set the configuration for Dask-specific logging.
     dask.config.set({"distributed.logging" : dask_logging_config})
     
-    # Configure the logging (for non-Dask operations)
+    # Configure the logging (for non-Dask operations).
     handlers = \
         util.get_handlers(\
             log_console = log_console,
@@ -250,21 +259,16 @@ def main():
             log_file_options = {"filename" : log_file},
             log_level = log_level)
 
-    # Set the logging configuration
-    log.basicConfig(# The level below which log messages are silenced
-                    level = log_level,
-                    # The format of the log strings
+    # Set the logging configuration.
+    log.basicConfig(level = log_level,
                     format = defaults.LOG_FMT,
-                    # The format for dates/time
                     datefmt = defaults.LOG_DATEFMT,
-                    # The format style
                     style = defaults.LOG_STYLE,
-                    # The handlers
                     handlers = handlers)
 
     #-----------------------------------------------------------------#
 
-    # Try to load the configuration
+    # Try to load the configuration.
     try:
 
         config_model = ioutil.load_config_model(config_file_model)
@@ -272,14 +276,14 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to load the configuration from " \
             f"'{config_file_model}'. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the configuration was successfully loaded
+    # Inform the user that the configuration was successfully loaded.
     infostr = \
         "The configuration was successfully loaded from " \
         f"'{config_file_model}'."
@@ -287,10 +291,10 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Try to load the samples
+    # Try to load the samples.
     try:
 
-        # Get the samples (= observed gene counts)
+        # Get the samples (= observed gene counts).
         obs_counts = \
             ioutil.load_samples(\
                 csv_file = input_csv_samples,
@@ -298,23 +302,20 @@ def main():
                 keep_samples_names = True,
                 split = False)
 
-        # Get the sample's names
+        # Get the sample's names.
         obs_counts_names = obs_counts.index.tolist()
-
-        # Get the genes' names
-        obs_counts_genes = obs_counts.columns.tolist()
 
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to load the samples from " \
             f"'{input_csv_samples}'. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the samples were successfully loaded
+    # Inform the user that the samples were successfully loaded.
     infostr = \
         "The samples were successfully loaded from " \
         f"'{input_csv_samples}'."
@@ -322,10 +323,10 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Try to load the decoder outputs
+    # Try to load the decoder outputs.
     try:
 
-        # Get the decoder outputs (= predicted means)
+        # Get the decoder outputs (= predicted means).
         pred_means = \
             ioutil.load_decoder_outputs(\
                 csv_file = input_csv_dec,
@@ -335,14 +336,15 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to load the decoder outputs from " \
             f"'{input_csv_dec}'. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the decoder outputs were successfully loaded
+    # Inform the user that the decoder outputs were successfully
+    # loaded.
     infostr = \
         "The decoder outputs were successfully loaded from " \
         f"'{input_csv_dec}'."
@@ -350,7 +352,7 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Try to set the model
+    # Try to set the model.
     try:
         
         dgd_model = model.DGDModel(**config_model)
@@ -358,28 +360,28 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             f"It was not possible to set the DGD model. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the model was successfully set
+    # Inform the user that the model was successfully set.
     infostr = "The DGD model was successfully set."
     log.info(infostr)
 
     #-----------------------------------------------------------------#
 
-    # Get the r-values of the negative binomials
+    # Get the r-values of the negative binomials.
     r_values = dgd_model.r_values
 
     #-----------------------------------------------------------------#
 
     # Import 'distributed' only here because, otherwise, the logging
-    # configuration is not properly set    
+    # configuration is not properly set    .
     from distributed import LocalCluster, Client, as_completed
 
-    # Create the local cluster
+    # Create the local cluster.
     cluster = LocalCluster(# Number of workers
                            n_workers = n_proc,
                            # Below which level log messages will
@@ -392,34 +394,33 @@ def main():
                            # be used
                            threads_per_worker = 1)
 
-    # Open the client from the cluster
+    # Open the client from the cluster.
     client = Client(cluster)
 
     #-----------------------------------------------------------------#
 
-    # Set the statistics to be calculated
+    # Set the statistics to be calculated.
     statistics = ["p_values", "q_values", "log2_fold_changes"]
 
-    # Create a list to store the futures
+    # Create a list to store the futures.
     futures = []
     
     # For each sample
     for sample_name in obs_counts_names:
 
-        # Get the observed counts
+        # Get the observed counts.
         obs_counts_sample = obs_counts.loc[sample_name,:]
 
-        # Get the predicted means
+        # Get the predicted means.
         pred_means_sample = pred_means.loc[sample_name,:]
 
-        # Submit the calculation to the cluster
+        # Submit the calculation to the cluster.
         futures.append(\
             client.submit(dea.perform_dea,
                           obs_counts = obs_counts_sample,
                           pred_means = pred_means_sample,
                           sample_name = sample_name,
                           statistics = statistics,
-                          genes_names = obs_counts_genes,
                           r_values = r_values,
                           resolution = p_values_resolution,
                           alpha = q_values_alpha,
@@ -432,15 +433,15 @@ def main():
                                        with_results = True):
         
         # Get the data frame containing the DEA results for the
-        # current sample and the ame of the sample
+        # current sample and the name of the sample.
         df_stats, sample_name = result
 
-        # Set the path to the output file
+        # Set the path to the output file.
         output_csv_path = \
             os.path.join(wd,
                          f"{output_csv_prefix}{sample_name}.csv")
 
-        # Try to write the data frame to the output file
+        # Try to write the data frame in the output file.
         try:
 
             df_stats.to_csv(output_csv_path,
@@ -451,7 +452,7 @@ def main():
         # If something went wrong
         except Exception as e:
 
-            # Warn the user and exit
+            # Warn the user and exit.
             errstr = \
                 "It was not possible to write the DEA results " \
                 f"for sample '{sample_name}' in " \
@@ -459,7 +460,7 @@ def main():
             log.exception(errstr)
             sys.exit(errstr)
 
-        # Inform the user that the file was successfully written
+        # Inform the user that the file was successfully written.
         infostr = \
             f"The DEA results for sample '{sample_name}' were " \
             f"successfully written in '{output_csv_path}'."

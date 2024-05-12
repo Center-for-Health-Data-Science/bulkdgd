@@ -3,7 +3,10 @@
 
 #    model.py
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    This module contains the class implementing the full DGD model
+#    (:class:`core.model.DGDModel`).
+#
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -21,21 +24,27 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Description of the module
+#######################################################################
+
+
+# Set the module's description.
 __doc__ = \
     "This module contains the class implementing the full DGD model " \
     "(:class:`core.model.DGDModel`)."
 
 
-# Standard library
+#######################################################################
+
+
+# Import from the standard library.
 import logging as log
 import platform
 import re
 import time
-# Third-party packages
+# Import from third-party packages.
 import pandas as pd
 import torch
-# bulkDGD
+# Import from 'bulkDGD'.
 from . import (
     dataclasses,
     decoder,
@@ -44,11 +53,14 @@ from . import (
     )
 
 
-# Get the module's logger
+#######################################################################
+
+
+# Get the module's logger.
 logger = log.getLogger(__name__)
 
 
-#------------------------------ Classes ------------------------------#
+#######################################################################
 
 
 class DGDModel:
@@ -57,11 +69,15 @@ class DGDModel:
     Class implementing the full DGD model.
     """
 
-    # Supported optimizers to find the representations 
+
+    ######################## PUBLIC ATTRIBUTES ########################
+
+
+    # Set the supported optimizers to find the representations.
     OPTIMIZERS = ["adam"]
 
 
-    #------------------------ Initialization -------------------------#
+    ######################### INITIALIZATION ##########################
 
 
     def __init__(self,
@@ -93,7 +109,7 @@ class DGDModel:
             The number of components of the Gaussian mixture model.
 
         cm_type : ``str``, {``"fixed"``, ``"isotropic"``, \
-                 ``"diagonal"``}
+            ``"diagonal"``}
             The type of covariance matrix used by the Gaussian mixture
             model.
         
@@ -147,50 +163,47 @@ class DGDModel:
             If the prior is the ``"gaussian"`` distirbution, the
             follow options must be set:
 
-            * ``"mean"``, namely the mean of the Gaussian
-              distribution.
+            * ``"mean"``, namely the mean of the Gaussian distribution.
 
             * ``"stddev"``, namely the standard deviation of the
               Gaussian distribution.
 
         n_units_hidden_layers : ``list``
-            The number of units in each of the hidden layers. As
-            many hidden layers as the number of items in the list
-            will be created.
+            The number of units in each of the hidden layers. As manu
+            hidden layers as the number of items in the list will be
+            created.
 
         r_init : ``int``
-            The initial value for ``r``, representing the "number
-            of failures" after which the "trials" stop in the
-            ``NBLayer``.
+            The initial value for 'r', representing the "number of
+            failures" after which the "trials" stop in the negative
+            binomial distributions of the ``NBLayer``.
 
         activation_output : ``str``, {``"sigmoid"``, ``"softplus"``}
-            The name of the activation function to be used in
-            the output layer.
+            The name of the activation function to be used in the
+            decoder's output layer.
 
         gmm_pth_file : ``str``, optional
             A .pth file containing the GMM's trained parameters
             (means of the components, weights of the components,
-            and log-variance).
+            and log-variance of the components).
 
         dec_pth_file : ``str``, optional
-            A .pth file containing the decoder's trained
-            parameters (weights and biases).
+            A .pth file containing the decoder's trained parameters
+            (weights and biases).
 
         genes_txt_file : ``str``, optional
             A .txt file containing the Ensembl IDs of the genes
             included in the model.
         """
 
-        # Get the genes
+        # Get the genes included in the model.
         genes = \
             self.__class__._load_genes_list(\
                 genes_list_file = genes_txt_file)
 
+        #-------------------------------------------------------------#
 
-        #------------------ Gaussian mixture model -------------------#
-
-
-        # Initialize the Gaussian mixture model
+        # Initialize the Gaussian mixture model.
         self._gmm = \
             latent.GaussianMixtureModel(\
                  dim = dim,
@@ -207,19 +220,17 @@ class DGDModel:
         # parameters
         if gmm_pth_file is not None:
 
-            # Load the parameters
+            # Load the parameters.
             self.__class__._load_state(mod = self._gmm,
                                        pth_file = gmm_pth_file)
 
-        # Inform the user the GMM was set
+        # Inform the user that the GMM was set.
         infostr = "The Gaussian mixture model was successfully set."
         logger.info(infostr)
 
+        #-------------------------------------------------------------#
 
-        #-------------------------- Decoder --------------------------#
-
-
-        # Get the decoder
+        # Get the decoder.
         self._dec = \
             decoder.Decoder(\
                 n_units_input_layer = dim,
@@ -232,29 +243,24 @@ class DGDModel:
         # parameters
         if dec_pth_file is not None:
 
-            # Load the parameters
+            # Load the parameters.
             self.__class__._load_state(mod = self._dec,
                                        pth_file = dec_pth_file)
 
-        # Inform the user that the decoder was set
+        # Inform the user that the decoder was set.
         infostr = "The decoder was successfully set."
         logger.info(infostr)
 
+        #-------------------------------------------------------------#
 
-        #------------------------- r-values --------------------------#
-
-
-        # Get the r-values associated to the negative binomials
-        # modeling the different genes
+        # Get the r-values associated with the negative binomials
+        # modeling the different genes.
         r_values = torch.exp(self._dec.nb.log_r).squeeze().detach()
 
-        # Associate the r-values to the genes
+        # Associate the r-values with the genes.
         self._r_values = \
             pd.Series(r_values,
                       index = genes)
-
-
-    #-------------------- Initialization methods ---------------------#
 
 
     @staticmethod
@@ -279,24 +285,23 @@ class DGDModel:
         # If something went wrong
         except Exception as e:
 
-            # Raise an error
+            # Raise an error.
             errstr = \
                 f"It was not possible to load the parameters " \
                 f"from '{pth_file}'. Error: {e}"
             raise Exception(errstr)
 
-        # Inform the user that the parameters was successfully
-        # loaded
+        # Inform the user that the parameters was successfully loaded.
         infostr = \
-            f"The parameters were successfully loaded from " \
+            "The parameters were successfully loaded from " \
             f"'{pth_file}'."
         logger.info(infostr)
 
 
     @staticmethod
     def _load_genes_list(genes_list_file):
-        """Load a list of newline-separated genes from
-        a plain text file.
+        """Load a list of newline-separated genes from a plain text
+        file.
 
         Parameters
         ----------
@@ -310,13 +315,13 @@ class DGDModel:
         """
 
         # Return the list of genes from the file (exclude blank
-        # and comment lines)
+        # and comment lines).
         return \
             [l.rstrip("\n") for l in open(genes_list_file, "r") \
              if (not l.startswith("#") and not re.match(r"^\s*$", l))]
 
 
-    #--------------------------- Properties --------------------------#
+    ########################### PROPERTIES ############################
 
 
     @property
@@ -330,13 +335,16 @@ class DGDModel:
     @gmm.setter
     def gmm(self,
             value):
-        """Raise an exception if the user tries to modify
-        the value of ``gmm`` after initialization.
+        """Raise an exception if the user tries to modify the value
+        of ``gmm`` after initialization.
         """
         
         errstr = \
-            "The value of 'gmm' cannot be changed " \
-            "after initialization."
+            "The value of 'gmm' is set at initialization and  " \
+            "cannot be changed. If you want to change the " \
+            "Gaussian mixture model associated with the DGD model, " \
+            "initialize a new instance of " \
+            f"'{self.__class__.__name__}'."
         raise ValueError(errstr)
 
 
@@ -351,13 +359,15 @@ class DGDModel:
     @dec.setter
     def dec(self,
             value):
-        """Raise an exception if the user tries to modify
-        the value of ``dec`` after initialization.
+        """Raise an exception if the user tries to modify the value of
+        ``dec`` after initialization.
         """
         
         errstr = \
-            "The value of 'dec' cannot be changed " \
-            "after initialization."
+            "The value of 'dec' is set at initialization and " \
+            "cannot be changed. If you want to change the decoder " \
+            "associated with the DGD model, initialize a new " \
+            f"instance of '{self.__class__.__name__}'."
         raise ValueError(errstr)
 
 
@@ -373,17 +383,20 @@ class DGDModel:
     @r_values.setter
     def r_values(self,
                  value):
-        """Raise an exception if the user tries to modify
-        the value of ``r_values`` after initialization.
+        """Raise an exception if the user tries to modify the value of
+        ``r_values`` after initialization.
         """
         
         errstr = \
-            "The value of 'r_values' cannot be changed " \
-            "after initialization."
+            "The value of 'r_values' is set at initialization and " \
+            "cannot be changed. If you want to change the r-values " \
+            "of the negative binomials modeling the counts for the " \
+            "genes included in the model, initialize a new instance " \
+            f"of '{self.__class__.__name__}'."
         raise ValueError(errstr)
     
 
-    #------------------------ Private methods ------------------------#
+    ######################### PRIVATE METHODS #########################
 
 
     def _get_optimizer(self,
@@ -409,34 +422,29 @@ class DGDModel:
             The optimizer.
         """
 
-
-        #------------------- Unsupported optimizer -------------------#
-
-
         # If the optimizer is not supported
         if optimizer_name not in self.OPTIMIZERS:
 
-            # Inform the user that no other optimizer is
-            # available so far and raise an error
+            # Raise an error.
             errstr = \
                 f"The optimizer '{optimizer_name}' is not " \
-                f"supported so far. The supported optimizers are: " \
+                "supported. The supported optimizers are: " \
                 f"{', '.join(self.OPTIMIZERS)}."
             raise ValueError(errstr)
 
+        #-------------------------------------------------------------#
 
-        #---------------------- Adam optimizer -----------------------#
-
-
-        # If it is an Adam optimizer
+        # If it is the Adam optimizer
         if optimizer_name == "adam":
 
-            # Get the Adam optimizer
+            # Set up the optimizer.
             optimizer = \
                 torch.optim.Adam(optimizer_parameters,
                                  **optimizer_options)
 
-        # Return the optimizer
+        #-------------------------------------------------------------#
+
+        # Return the optimizer.
         return optimizer
 
 
@@ -465,33 +473,34 @@ class DGDModel:
             The number of samples.
 
         n_rep_per_comp : ``int``
-            The number of new representations to be taken
-            per component per sample.
+            The number of new representations to be taken per sample
+            per component of the Gaussian mixture model.
 
         data_exp : ``torch.Tensor``
-            The gene expression for all samples in tensor form.
+            The gene expression (counts) for all samples in tensor
+            form.
 
             This is a 2D tensor where:
             
-            * The first dimension has a length equal to the number
-              of samples.
+            * The first dimension has a length equal to the number of
+              samples.
 
-            * The second dimension has a length equal to the
-              number of genes.
+            * The second dimension has a length equal to the number of
+              genes.
 
         mean_exp : ``torch.Tensor``
-            The mean gene expression for each sample in tensor
+            The mean gene expression (counts) for each sample in tensor
             form.
 
-            This is a 1D tensor whose length is equal to the
-            number of samples.
+            This is a 1D tensor whose length is equal to the number of
+            samples.
 
         epochs : ``int``
             The number of epochs to run the optimization for.
 
         opt_num : ``int``
-            The number of the optimization round (useful
-            especially if multiple rounds are run).
+            The number of the optimization round (especially useful
+            if multiple rounds are run).
 
         Returns
         -------
@@ -504,7 +513,7 @@ class DGDModel:
               of samples.
 
             * The second dimension has a length equal to the
-              dimensionality of the latent space, where the
+              dimensionality of the latent space where the
               representations live.
 
         dec_out_opt : ``torch.Tensor``
@@ -527,24 +536,21 @@ class DGDModel:
             epoch.
         """
 
-        # Get the number of components of the Gaussian mixture
-        # model
+        # Get the number of components of the Gaussian mixture model.
         n_comp = self.gmm.n_comp
 
-        # Get the dimensionality of the latent space
+        # Get the dimensionality of the latent space.
         dim = self.gmm.dim
 
-        # Get the number of genes (dimensionality of the decoder
-        # output)
+        # Get the number of genes (= the dimensionality of the decoder
+        # output).
         n_genes = self.dec.main[-1].out_features
 
         # Create a list to store the CPU/wall clock time used in each
-        # epoch of the optimizations
+        # epoch of the optimization.
         time_opt = []
 
-
-        #------------------ Start the optimization -------------------#
-
+        #-------------------------------------------------------------#
 
         # Inform the user that the optimization is starting
         infostr = f"Starting optimization number {opt_num}..."
@@ -553,17 +559,19 @@ class DGDModel:
         # For each epoch
         for epoch in range(1, epochs+1):
 
-            # Mark the CPU start time of the epoch
+            # Mark the CPU start time of the epoch.
             time_start_epoch_cpu = time.process_time()
 
-            # Mark the wall clock start time of the epoch
+            # Mark the wall clock start time of the epoch.
             time_start_epoch_wall = time.time()
 
-            # Make the gradients zero
+            # Make the gradients zero.
             optimizer.zero_grad()
 
             # Get the representations' values from the representation
-            # layer. The representations are stored in a 2D tensor with:
+            # layer.
+            # 
+            # The representations are stored in a 2D tensor with:
             #
             # - 1st dimension: the number of samples in the current
             #                  batch times the number of components
@@ -579,12 +587,11 @@ class DGDModel:
             #                  'dim'
             z_all = rep_layer.z
 
+            #---------------------------------------------------------#
 
-            #------------ Initialize the representations -------------#
-
-
-            # Reshape the tensor containing the representations. The
-            # output is a 4D tensor with:
+            # Reshape the tensor containing the representations.
+            #
+            # The output is a 4D tensor with:
             #
             # - 1st dimension: the number of samples -> 'n_samples'
             # 
@@ -604,7 +611,9 @@ class DGDModel:
                               n_comp,
                               dim)
 
-            # Reshape it again. The output is a 2D tensor with:
+            # Reshape the tensor again.
+            #
+            # The output is a 2D tensor with:
             #
             # - 1st dimension: the number of samples times the number
             #                  of components in the Gaussian mixture
@@ -623,12 +632,12 @@ class DGDModel:
                             n_comp,
                           dim)
 
-            #-------------- Decode the representations ---------------#
-
+            #---------------------------------------------------------#
 
             # Get the outputs in gene space corresponding to the
-            # representations found in latent space through the
-            # decoder. The output is a 2D tensor with:
+            # representations found in latent space using the decoder.
+            #
+            # The output is a 2D tensor with:
             #
             # - 1st dimension: the number of samples times the number
             #                  of components in the Gaussian mixture
@@ -644,13 +653,13 @@ class DGDModel:
             #                  'n_genes'
             dec_out = self.dec(z)
 
+            #---------------------------------------------------------#
 
-            #------------ Compute the reconstruction loss ------------#
-
-
-            # Get the observed gene counts and "expand" it to match
-            # the shape required to compute the loss. The output is
-            # a 4D tensor with:
+            # Get the observed gene expression and "expand" the
+            # resulting tensor to match the shape required to compute
+            # the reconstruction loss.
+            #
+            # The output is a 4D tensor with:
             #
             # - 1st dimension: the number of samples -> 'n_samples'
             #
@@ -671,9 +680,11 @@ class DGDModel:
                     -1)
 
             # Get the scaling factors for the mean of each negative
-            # binomial and reshape it so that it matches the shape
-            # required to compute the loss. The output is a 4D
-            # tensor with:
+            # binomial modelling the expression of a gene and reshape
+            # it so that it matches the shape required to compute the
+            # reconstruction loss.
+            #
+            # The output is a 4D tensor with:
             #
             # - 1st dimension: the number of samples -> 'n_samples'
             #
@@ -687,7 +698,9 @@ class DGDModel:
                                                 4)
 
             # Reshape the decoded output to match the shape required
-            # to compute the loss. The output is a 4D tensor with:   
+            # to compute the loss.
+            #
+            # The output is a 4D tensor with:   
             #
             # - 1st dimension: the number of samples -> 'n_samples'
             #
@@ -705,8 +718,9 @@ class DGDModel:
                                       n_comp,
                                       n_genes)
 
-            # Get the reconstruction loss. The output is a 4D tensor
-            # with:
+            # Get the reconstruction loss.
+            #
+            # The output is a 4D tensor with:
             #
             # - 1st dimension: the number of samples -> 'n_samples'
             # 
@@ -726,19 +740,21 @@ class DGDModel:
                                  scaling_factors = scaling_factors,
                                  pred_means = pred_means)
 
-            # Get the total reconstruction loss by summing all
-            # values in the 'recon_loss' tensor. The output is
-            # a tensor containing a single value.
+            # Get the total reconstruction loss by summing all values
+            # in the 'recon_loss' tensor.
+            #
+            # The output is a tensor containing a single value.
             recon_loss_sum = recon_loss.sum().clone()
 
+            #---------------------------------------------------------#
 
-            #----------------- Compute the GMM loss ------------------#
-
-
-            # Get the GMM error. 'gmm(z)' computes the negative log
-            # density of the probability of the representations 'z'
-            # being drawn from the mixture model. The output is
-            # a 1D tensor with:
+            # Get the GMM error.
+            #
+            # 'gmm(z)' computes the negative log density of the
+            # probability of the representations 'z' being drawn from
+            # the Gaussian mixture model.
+            #
+            # The output is a 1D tensor with:
             #
             # - 1st dimension: the number of samples times the number
             #                  of components in the Gaussian mixture
@@ -751,82 +767,76 @@ class DGDModel:
             gmm_loss = self.gmm(z)
 
             # Get the total GMM loss by summing over all values in
-            # the 'gmm_loss' tensor. The output is a tensor containing
-            # a single value.
+            # the 'gmm_loss' tensor.
+            # 
+            # The output is a tensor containing a single value.
             gmm_loss_sum = gmm_loss.sum().clone()
 
+            #---------------------------------------------------------#
 
-            #---------------- Compute the total loss -----------------#
-
-
-            # Get the total loss - 'loss' is a tensor containing
-            # a single number 
+            # Get the total loss.
+            #
+            # The output is a tensor containing a single value.
             total_loss = recon_loss_sum + gmm_loss_sum
 
+            #---------------------------------------------------------#
 
-            #--------------- Propagate the total loss ----------------#
-
-
-            # Mark the CPU start time of the backward step
+            # Mark the CPU start time of the backward step.
             time_start_bw_cpu = time.process_time()
 
-            # Mark the wall clock start time of the backward step
+            # Mark the wall clock start time of the backward step.
             time_start_bw_wall = time.time()
 
-            # Propagate the loss backward
+            # Propagate the loss backward.
             total_loss.backward()
 
-            # Mark the end CPU time of the backward step
+            # Mark the end CPU time of the backward step.
             time_end_bw_cpu = time.process_time()
 
-            # Mark the wall clock end time of the backward step
+            # Mark the wall clock end time of the backward step.
             time_end_bw_wall = time.time()
 
-            # Get the total CPU time used by the backward step
+            # Get the total CPU time used by the backward step.
             time_tot_bw_cpu = time_end_bw_cpu - time_start_bw_cpu
 
-            # Get the total wall clock time used by the backward step
+            # Get the total wall clock time used by the backward step.
             time_tot_bw_wall = time_end_bw_wall - time_start_bw_wall
 
+            #---------------------------------------------------------#
 
-            #----------------- Get the average loss ------------------#
-
-
-            # Get the average loss for the current epoch
+            # Get the average loss for the current epoch.
             rep_avg_loss_epoch = \
                 total_loss.item() / (n_samples * n_genes * \
                                      n_comp * n_rep_per_comp)
 
+            #---------------------------------------------------------#
 
-            #---------------------- Take a step ----------------------#
-
-
-            # Take an optimization step
+            # Take an optimization step.
             optimizer.step()
 
-            # Mark the CPU end time of the epoch
+            # Mark the CPU end time of the epoch.
             time_end_epoch_cpu = time.process_time()
 
-            # Mark the wall clock end time of the epoch
+            # Mark the wall clock end time of the epoch.
             time_end_epoch_wall = time.time()
 
-            # Get the total CPU time used by the epoch
+            # Get the total CPU time used by the epoch.
             time_tot_epoch_cpu = \
                 time_end_epoch_cpu - time_start_epoch_cpu
 
-            # Get the total wall clock time used by the epoch
+            # Get the total wall clock time used by the epoch.
             time_tot_epoch_wall = \
                 time_end_epoch_wall - time_start_epoch_wall
 
             # Add all the total times to the list storing them for
-            # all epochs
+            # all epochs.
             time_opt.append(\
                 (opt_num, epoch,
                  time_tot_epoch_cpu, time_tot_bw_cpu,
                  time_tot_epoch_wall, time_tot_bw_wall))
 
             # Inform the user about the loss at the current epoch and
-            # the CPU time/wall clock time elapsed
+            # the CPU time/wall clock time elapsed.
             infostr = \
                 f"Epoch {epoch}: loss {rep_avg_loss_epoch:.3f}, " \
                 f"epoch CPU time {time_tot_epoch_cpu:.3f} s, " \
@@ -837,21 +847,19 @@ class DGDModel:
                 f"{time_tot_bw_wall:.3f} s."
             logger.info(infostr)
 
-
-            #-------------- Return the representations ---------------#
-
+            #---------------------------------------------------------#
 
             # If we reached the last epoch
             if epoch == epochs:
 
-                # Get the optimized representations
+                # Get the optimized representations.
                 rep_final = rep_layer.z
 
-                # Get the decoder outputs
+                # Get the decoder outputs.
                 dec_out_final = self.dec(rep_final)
 
                 # Return the representations, the decoder outputs,
-                # and the time data
+                # and the time data.
                 return rep_final, dec_out_final, time_opt
 
 
@@ -877,7 +885,8 @@ class DGDModel:
             per component per sample.
 
         data_exp : ``torch.Tensor``
-            The gene expression for all samples in tensor form.
+            The gene expression (counts) for all samples in tensor
+            form.
 
             This is a 2D tensor where:
             
@@ -888,11 +897,11 @@ class DGDModel:
               number of genes.
 
         mean_exp : ``torch.Tensor``
-            The mean gene expression for each sample in tensor
+            The mean gene expression (counts) for each sample in tensor
             form.
 
-            This is a 1D tensor whose length is equal to the
-            number of samples.
+            This is a 1D tensor whose length is equal to the number of
+            samples.
 
         Returns
         -------
@@ -909,19 +918,20 @@ class DGDModel:
               representations live.
         """
 
-        # Get the number of components of the Gaussian mixture
-        # model
+        # Get the number of components of the Gaussian mixture model.
         n_comp = self.gmm.n_comp
 
-        # Get the dimensionality of the latent space
+        # Get the dimensionality of the latent space.
         dim = self.gmm.dim
 
-        # Get the number of genes (dimensionality of the decoder
-        # output)
+        # Get the number of genes (= dimensionality of the decoder
+        # output).
         n_genes = self.dec.main[-1].out_features
 
         # Get the representations' values from the representation
-        # layer. The representations are stored in a 2D tensor with:
+        # layer.
+        # 
+        # The representations are stored in a 2D tensor with:
         #
         # - 1st dimension: the number of samples times the number
         #                  of components in the Gaussian mixture
@@ -937,8 +947,9 @@ class DGDModel:
         #                  'dim'
         z_all = rep_layer.z
 
-        # Reshape the tensor containing the representations. The
-        # output is a 4D tensor with:
+        # Reshape the tensor containing the representations.
+        #
+        # The output is a 4D tensor with:
         #
         # - 1st dimension: the number of samples -> 'n_samples'
         # 
@@ -959,7 +970,9 @@ class DGDModel:
                        n_comp,
                        dim)
 
-        # Reshape it again. The output is a 2D tensor with:
+        # Reshape the tensor again.
+        #
+        # The output is a 2D tensor with:
         #
         # - 1st dimension: the number of samples in the current
         #                  batch times the number of components
@@ -978,12 +991,13 @@ class DGDModel:
                         n_comp,
                       dim)
 
-        #---------------- Decode the representations -----------------#
-
+        #-------------------------------------------------------------#
 
         # Get the outputs in gene space corresponding to the
-        # representations found in latent space through the
-        # decoder. The output is a 2D tensor with:
+        # representations found in latent space using the
+        # decoder.
+        #
+        # The output is a 2D tensor with:
         #
         # - 1st dimension: the number of samples times the number
         #                  of components in the Gaussian mixture
@@ -999,13 +1013,13 @@ class DGDModel:
         #                  'n_genes'
         dec_out = self.dec(z)
 
-
-        #---------- Compute the overall reconstruction loss ----------#
-
+        #-------------------------------------------------------------#
 
         # Get the observed counts for the expression of each gene in
-        # each sample, and "expand" it to match the shape required
-        # to compute the loss. The output is a 4D tensor with:
+        # each sample, and "expand" the resulting tensor to match the
+        # shape required to compute the reconstruction loss.
+        #
+        # The output is a 4D tensor with:
         #
         # - 1st dimension: the number of samples -> 'n_samples'
         #
@@ -1026,9 +1040,11 @@ class DGDModel:
                 -1)
 
         # Get the scaling factors for the mean of each negative
-        # binomial and reshape it so that it matches the shape
-        # required to compute the loss. The output is a 4D
-        # tensor with:
+        # binomial used to model the expression of a gene and reshape
+        # it so that it matches the shape required to compute the
+        # reconstruction loss.
+        #
+        # The output is a 4D tensor with:
         #
         # - 1st dimension: the number of samples -> 'n_samples'
         #
@@ -1041,8 +1057,10 @@ class DGDModel:
             decoder.reshape_scaling_factors(mean_exp,
                                             4)
 
-        # Reshape the decoded output to match the shape required
-        # to compute the loss. The output is a 4D tensor with:   
+        # Reshape the decoded output to match the shape required to
+        # compute the reconstruction loss.
+        #
+        # The output is a 4D tensor with:   
         #
         # - 1st dimension: the number of samples -> 'n_samples'
         #
@@ -1062,6 +1080,7 @@ class DGDModel:
      
         # Get the reconstruction loss (rescale based on the mean
         # expression of the genes in the samples in the batch).
+        #
         # The output is a 4D tensor with:
         #
         # - 1st dimension: the number of samples -> 'n_samples'
@@ -1083,9 +1102,12 @@ class DGDModel:
                              pred_means = pred_means)
 
         # Get the total reconstruction loss by summing over the
-        # last dimension of the 'recon_loss' tensor. This means
-        # that the loss is not per-gene anymore, but summed over
-        # all genes. The output is a 3D tensor with:
+        # last dimension of the 'recon_loss' tensor.
+        #
+        # This means that the loss is not per-gene anymore, but it is
+        # summed over all genes.
+        #
+        # The output is a 3D tensor with:
         #
         # - 1st dimension: the number of samples -> 'n_samples'
         #
@@ -1098,10 +1120,13 @@ class DGDModel:
         #                  'n_comp'
         recon_loss_sum = recon_loss.sum(-1).clone()
 
-        # Reshape the reconstruction loss so that it can be
-        # summed to the GMM loss (calculated below). This means that
-        # all loss values in the 'recon_loss_sum' are now listed in
-        # a flat tensor. The output is, therefore, a 1D tensor with:
+        # Reshape the reconstruction loss so that it can be summed to
+        # the GMM loss (calculated below).
+        #
+        # This means that all loss values in the 'recon_loss_sum' are
+        # now listed in a flat tensor.
+        #
+        # The output is, therefore, a 1D tensor with:
         #
         # - 1st dimension: the number of samples times the number
         #                  of components in the Gaussian mixture
@@ -1116,15 +1141,18 @@ class DGDModel:
                                 n_rep_per_comp * \
                                 n_comp)
 
-        #--------------- Compute the overall GMM loss ----------------#
+        #-------------------------------------------------------------#
 
-
-        # Get the GMM error. 'gmm(z)' computes the negative log
-        # density of the probability of the representations 'z'
-        # being drawn from the mixture model. The shape of the loss
-        # is consistent with the shape of the reconstruction loss in
-        # 'recon_loss_sum_shaped'. The output is, therefore, a 
-        # a 1D tensor with:
+        # Get the GMM error. 
+        #
+        # 'gmm(z)' computes the negative log density of the probability
+        # of the representations 'z' being drawn from the Gaussian
+        # mixture model.
+        #
+        # The shape of the loss is consistent with the shape of the
+        # reconstruction loss in 'recon_loss_sum_shaped'.
+        #
+        # The output is, therefore, a 1D tensor with:
         #
         # - 1st dimension: the number of samples times the number
         #                  of components in the Gaussian mixture
@@ -1136,14 +1164,15 @@ class DGDModel:
         #                  'n_comp'
         gmm_loss = self.gmm(z).clone()
 
+        #-------------------------------------------------------------#
 
-        #-------------- Compute the overall total loss ---------------#
-
-
-        # Get the total loss. The loss has has many components as the
-        # total number of representations computed for the current
-        # batch ('n_rep_per_comp' * 'n_comp'
-        # representations for each sample in the batch).
+        # Get the total loss.
+        #
+        # The loss has has many components as the total number of
+        # representations computed for the current batch
+        # ('n_rep_per_comp' * 'n_comp' representations for each sample
+        # in the batch).
+        #
         # The output is a 1D tensor with:
         #
         # - 1st dimension: the number of samples times the number
@@ -1156,8 +1185,11 @@ class DGDModel:
         #                  'n_comp'
         total_loss = recon_loss_sum_reshaped + gmm_loss
 
-        # Reshape the tensor containing the total loss. The output
-        # is a 2D tensor with.
+        #-------------------------------------------------------------#
+
+        # Reshape the tensor containing the total loss.
+        #
+        # The output is a 2D tensor with:
         #
         # - 1st dimension: the number of samples  -> 'n_samples'
         #
@@ -1170,16 +1202,23 @@ class DGDModel:
             total_loss.view(n_samples,
                             n_rep_per_comp * n_comp)
 
+        #-------------------------------------------------------------#
+
         # Get the best representation for each sample in the
-        # current batch. The output is a 1D tensor with:
+        # current batch.
+        #
+        # The output is a 1D tensor with:
         #
         # - 1st dimension: the number of samples -> 'n_samples'
         best_rep_per_sample = torch.argmin(total_loss_reshaped,
                                            dim = 1).squeeze(-1)
 
+        #-------------------------------------------------------------#
+
         # Get the best representations for the samples in the batch
-        # from the 'n_rep_per_comp' * 'n_comp'
-        # representations taken for each sample.
+        # from the 'n_rep_per_comp' * 'n_comp' representations taken
+        # for each sample.
+        #
         # The output is a 2D tensor with:
         #
         # - 1st dimension: the number of samples -> 'n_samples'
@@ -1191,7 +1230,9 @@ class DGDModel:
                      n_rep_per_comp * n_comp,
                      dim)[range(n_samples), best_rep_per_sample]
 
-        # Return the representations
+        #-------------------------------------------------------------#
+
+        # Return the representations.
         return rep
 
 
@@ -1218,7 +1259,8 @@ class DGDModel:
             The number of samples.
 
         data_exp : ``torch.Tensor``
-            The gene expression for all samples in tensor form.
+            The gene expression (counts) for all samples in tensor
+            form.
 
             This is a 2D tensor where:
             
@@ -1229,7 +1271,7 @@ class DGDModel:
               number of genes.
 
         mean_exp : ``torch.Tensor``
-            The mean gene expression for each sample in tensor
+            The mean gene expression (counts) for each sample in tensor
             form.
 
             This is a 1D tensor whose length is equal to the
@@ -1239,8 +1281,8 @@ class DGDModel:
             The number of epochs to run the optimization for.
 
         opt_num : ``int``
-            The number of the optimization round (useful
-            especially if multiple rounds are run).
+            The number of the optimization round (useful especially if
+            multiple rounds are run).
 
         Returns
         -------
@@ -1276,43 +1318,42 @@ class DGDModel:
             epoch.
         """
 
-        # Get the number of components of the Gaussian mixture
-        # model
+        # Get the number of components of the Gaussian mixture model.
         n_comp = self.gmm.n_comp
 
-        # Get the dimensionality of the latent space
+        # Get the dimensionality of the latent space.
         dim = self.gmm.dim
 
         # Get the number of genes (dimensionality of the decoder
-        # output)
+        # output).
         n_genes = self.dec.main[-1].out_features
 
         # Create a list to store the CPU/wall clock time used in each
-        # epoch of the optimizations
+        # epoch of the optimizations.
         time_opt = []
 
+        #-------------------------------------------------------------#
 
-        #------------------ Start the optimization -------------------#
-
-
-        # Inform the user that the optimization is starting
+        # Inform the user that the optimization is starting.
         infostr = f"Starting optimization number {opt_num}..."
         logger.info(infostr)
         
         # For each epoch
         for epoch in range(1, epochs+1):
 
-            # Mark the CPU start time of the epoch
+            # Mark the CPU start time of the epoch.
             time_start_epoch_cpu = time.process_time()
 
-            # Mark the wall clock start time of the epoch
+            # Mark the wall clock start time of the epoch.
             time_start_epoch_wall = time.time()
 
-            # Make the gradients zero
+            # Make the gradients zero.
             optimizer.zero_grad()
 
             # Find the best representations corresponding to the
-            # samples in the batch. The output is a D tensor with:
+            # samples in the batch.
+            #
+            # The output is a 2D tensor with:
             #
             # - 1st dimension: the number of samples -> 'n_samples'
             #
@@ -1323,7 +1364,9 @@ class DGDModel:
 
             # Get the output in gene space corresponding to the
             # representation found in latent space through the
-            # decoder. The output is a 2D tensor with:
+            # decoder.
+            #
+            # The output is a 2D tensor with:
             #
             # - 1st dimension: the number of samples -> 'n_samples'
             #
@@ -1332,97 +1375,90 @@ class DGDModel:
             #                  'n_genes'
             dec_out = self.dec(z)
 
+            #---------------------------------------------------------#
 
-            #------- Compute the overall reconstruction loss ---------#
-
-
-            # Get the overall recon loss. The output is a tensor
-            # containing a single value
+            # Get the overall reconstruction loss.
+            # 
+            # The output is a tensor containing a single value.
             recon_loss = \
                 self.dec.nb.loss(obs_counts = data_exp,
                                  scaling_factors = mean_exp,
                                  pred_means = dec_out).sum().clone()
 
-            #------------- Compute the overall GMM loss --------------#
+            #---------------------------------------------------------#
 
-
-            # Get the GMM loss. 'gmm(z)' computes the negative log
-            # density of the probability of 'z' being drawn from the
-            # mixture model. The output is a tensor containing a
-            # single value
+            # Get the GMM loss.
+            #
+            # 'gmm(z)' computes the negative log-probability density
+            # of 'z' being drawn from the Gaussian mixture model.
+            #
+            # The output is a tensor containing a single value.
             gmm_loss = self.gmm(z).sum().clone()
 
+            #---------------------------------------------------------#
 
-            #------------ Compute the overall total loss -------------#
-
-
-            # Compute the total loss. The output is a tensor containing
-            # a single value
+            # Compute the total loss.
+            #
+            # The output is a tensor containing a single value.
             total_loss = recon_loss + gmm_loss
 
+            #---------------------------------------------------------#
 
-            #--------------- Propagate the total loss ----------------#
-
-
-            # Mark the CPU start time of the backward step
+            # Mark the CPU start time of the backward step.
             time_start_bw_cpu = time.process_time()
 
-            # Mark the wall clock start time of the backward step
+            # Mark the wall clock start time of the backward step.
             time_start_bw_wall = time.time()
 
-            # Propagate the loss backward
+            # Propagate the loss backward.
             total_loss.backward()
 
-            # Mark the end CPU time of the backward step
+            # Mark the end CPU time of the backward step.
             time_end_bw_cpu = time.process_time()
 
-            # Mark the wall clock end time of the backward step
+            # Mark the wall clock end time of the backward step.
             time_end_bw_wall = time.time()
 
-            # Get the total CPU time used by the backward step
+            # Get the total CPU time used by the backward step.
             time_tot_bw_cpu = time_end_bw_cpu - time_start_bw_cpu
 
-            # Get the total wall clock time used by the backward step
+            # Get the total wall clock time used by the backward step.
             time_tot_bw_wall = time_end_bw_wall - time_start_bw_wall
 
+            #---------------------------------------------------------#
 
-            #----------------- Get the average loss ------------------#
-
-
-            # Get the average loss for the current epoch
+            # Get the average loss for the current epoch.
             rep_avg_loss_epoch = \
                 total_loss.item() / (n_samples * n_genes)
 
+            #---------------------------------------------------------#
 
-            #---------------------- Take a step ----------------------#
-            
-
-            # Take an optimization step
+            # Take an optimization step.
             optimizer.step()
 
-            # Mark the CPU end time of the epoch
+            # Mark the CPU end time of the epoch.
             time_end_epoch_cpu = time.process_time()
 
-            # Mark the wall clock end time of the epoch
+            # Mark the wall clock end time of the epoch.
             time_end_epoch_wall = time.time()
 
-            # Get the total CPU time used by the epoch
+            # Get the total CPU time used by the epoch.
             time_tot_epoch_cpu = \
                 time_end_epoch_cpu - time_start_epoch_cpu
 
-            # Get the total wall clock time used by the epoch
+            # Get the total wall clock time used by the epoch.
             time_tot_epoch_wall = \
                 time_end_epoch_wall - time_start_epoch_wall
 
             # Add all the total times to the list storing them for
-            # all epochs
+            # all epochs.
             time_opt.append(\
                 (opt_num, epoch,
                  time_tot_epoch_cpu, time_tot_bw_cpu,
                  time_tot_epoch_wall, time_tot_bw_wall))
 
             # Inform the user about the loss at the current epoch and
-            # the CPU time/wall clock time elapsed
+            # the CPU time/wall clock time elapsed.
             infostr = \
                 f"Epoch {epoch}: loss {rep_avg_loss_epoch:.3f}, " \
                 f"epoch CPU time {time_tot_epoch_cpu:.3f} s, " \
@@ -1433,21 +1469,19 @@ class DGDModel:
                 f"{time_tot_bw_wall:.3f} s."
             logger.info(infostr)
 
-
-            #-------------- Return the representations ---------------#
-
+            #---------------------------------------------------------#
 
             # If we reached the last epoch
             if epoch == epochs:
 
-                # Get the optimized representations
+                # Get the optimized representations.
                 rep_final = rep_layer.z
 
-                # Get the decoder outputs
+                # Get the decoder outputs.
                 dec_out_final = self.dec(rep_final)
 
                 # Return the representations, the decoder outputs,
-                # and the time data
+                # and the time data.
                 return rep_final, dec_out_final, time_opt
 
 
@@ -1469,11 +1503,12 @@ class DGDModel:
             The number of samples.
 
         n_rep_per_comp : ``int``
-            The number of new representations to be taken
-            per component per sample.
+            The number of new representations to be taken for
+            component per sample.
 
         data_exp : ``torch.Tensor``
-            The gene expression for all samples in tensor form.
+            The gene expression (counts) for all samples in tensor
+            form.
 
             This is a 2D tensor where:
             
@@ -1484,11 +1519,11 @@ class DGDModel:
               number of genes.
 
         mean_exp : ``torch.Tensor``
-            The mean gene expression for each sample in tensor
+            The mean gene expression (counts) for each sample in tensor
             form.
 
-            This is a 1D tensor whose length is equal to the
-            number of samples.
+            This is a 1D tensor whose length is equal to the number of
+            samples.
     
         config : ``dict``
             A dictionary with the following keys:
@@ -1540,14 +1575,14 @@ class DGDModel:
             epoch.
         """
 
-        #-------------- Initialize the representations ---------------#
-
-
         # Get the initial values for the representations by sampling
-        # from the Gaussian mixture model. The representations will be
-        # the sampled from the means of the mixture components (since
-        # 'sampling_method' is set to '"mean"'). The output is a 2D
-        # tensor with:
+        # from the Gaussian mixture model.
+        # 
+        # The representations will be the sampled from the means of
+        # the mixture components (since 'sampling_method' is set to
+        # '"mean"').
+        #
+        # The output is a 2D tensor with:
         #
         # - 1st dimension: the total number of samples times the number
         #                  of components in the Gaussian mixture model
@@ -1567,17 +1602,15 @@ class DGDModel:
                 n_samples_per_comp = n_rep_per_comp)
 
         # Create a representation layer containing the initialized
-        # representations
+        # representations.
         rep_layer_init = \
             latent.RepresentationLayer(values = rep_init)
 
-
-        #--------------- Get the best representations ----------------#
-
+        #-------------------------------------------------------------#
 
         # Select the best representation for each sample among those
         # initialized (we initialized at least one per sample per
-        # component of the Gaussian mixture model)
+        # component of the Gaussian mixture model).
         rep_best = \
             self._select_best_rep(\
                 rep_layer = rep_layer_init,
@@ -1587,26 +1620,22 @@ class DGDModel:
                 mean_exp = mean_exp)
 
         # Create a representation layer containing the best
-        # representations found
+        # representations found.
         rep_layer_best = \
             latent.RepresentationLayer(values = rep_best)
 
+        #-------------------------------------------------------------#
 
-        #----------------- Set the optimizer/epochs ------------------#
-
-
-        # Get the optimizer for the optimization
+        # Get the optimizer for the optimization.
         optimizer = \
             self._get_optimizer(\
                 optimizer_name = config["optimizer_name"],
                 optimizer_options = config["optimizer_options"],
                 optimizer_parameters = rep_layer_init.parameters())
 
+        #-------------------------------------------------------------#
 
-        #------------------- Run the optimization --------------------#
-
-
-        # Get the optimized representations
+        # Get the optimized representations.
         rep_opt, dec_out_opt, time_opt = \
             self._optimize_one_rep_per_sample(\
                 rep_layer = rep_layer_best,
@@ -1617,15 +1646,15 @@ class DGDModel:
                 epochs = config["epochs"],
                 opt_num = 1)
 
-        # Make the gradients zero
+        #-------------------------------------------------------------#
+
+        # Make the gradients zero.
         optimizer.zero_grad()
 
-
-        #---------------- Return the representations -----------------#
-
+        #-------------------------------------------------------------#
 
         # Return the representations, the decoder outputs, and the
-        # time of the optimization
+        # time of the optimization.
         return rep_opt, dec_out_opt, time_opt
 
 
@@ -1647,31 +1676,30 @@ class DGDModel:
             The number of samples.
 
         n_rep_per_comp : ``int``
-            The number of new representations to be taken
-            per component per sample.
+            The number of new representations to be taken per component
+            per sample.
 
         data_exp : ``torch.Tensor``
-            The gene expression for all samples in tensor form.
+            The gene expression (counts) for all samples in tensor form.
 
             This is a 2D tensor where:
             
             * The first dimension has a length equal to the number
               of samples.
 
-            * The second dimension has a length equal to the
-              number of genes.
+            * The second dimension has a length equal to the numner of
+              genes.
 
         mean_exp : ``torch.Tensor``
-            The mean gene expression for each sample in tensor
+            The mean gene expression (counts) for each sample in tensor
             form.
 
-            This is a 1D tensor whose length is equal to the
-            number of samples.
+            This is a 1D tensor whose length is equal to the number of
+            samples.
     
         config : ``dict``
-            A dictionary with one key (``"optimization"``)
-            associated to a dictionary containing the following
-            keys:
+            A dictionary with one key (``"optimization"``) associated
+            with a dictionary containing the following keys:
 
             * ``"epochs"``, whose associated value should be the
               number of epochs the optimizations is run for.
@@ -1693,8 +1721,8 @@ class DGDModel:
 
             This is a 2D tensor where:
 
-            * The first dimension has a length equal to the number
-              of samples.
+            * The first dimension has a length equal to the number of
+              samples.
 
             * The second dimension has a length equal to the
               dimensionality of the latent space, where the
@@ -1720,15 +1748,14 @@ class DGDModel:
             epoch.
         """
 
-
-        #-------------- Initialize the representations ---------------#
-
-
         # Get the initial values for the representations by sampling
-        # from the Gaussian mixture model. The representations will be
-        # the sampled from the means of the mixture components (since
-        # 'sampling_method' is set to '"mean"'). The output is a 2D
-        # tensor with:
+        # from the Gaussian mixture model.
+        #
+        # The representations will be the sampled from the means of
+        # the mixture components (since 'sampling_method' is set to
+        # '"mean"').
+        #
+        # The output is a 2D tensor with:
         #
         # - 1st dimension: the total number of samples times the number
         #                  of components in the Gaussian mixture model
@@ -1747,15 +1774,15 @@ class DGDModel:
                 sampling_method = "mean",
                 n_samples_per_comp = n_rep_per_comp)
 
-        # Create the representation layer
+        #-------------------------------------------------------------#
+
+        # Create the representation layer.
         rep_layer_init = \
             latent.RepresentationLayer(values = rep_init)
 
+        #-------------------------------------------------------------#
 
-        #------------------ Get the first optimizer ------------------#
-
-
-        # Get the optimizer for the first optimization
+        # Get the optimizer for the first optimization.
         optimizer_opt1 = \
             self._get_optimizer(\
                 optimizer_name = \
@@ -1764,13 +1791,11 @@ class DGDModel:
                     config["opt2"]["optimizer_options"],
                 optimizer_parameters = rep_layer_init.parameters())
 
+        #-------------------------------------------------------------#
 
-        #-------------------- First optimization ---------------------#
-
-
-        # Get the optimized representations, the corresponding
-        # decoder outputs, and the time information about the
-        # optimization's epochs
+        # Get the optimized representations, the corresponding decoder
+        # outputs, and the time information about the optimization's
+        # epochs.
         rep_opt1, dec_out_opt1, time_opt1 = \
             self._optimize_multiple_rep_per_sample(\
                 rep_layer = rep_layer_init,
@@ -1782,20 +1807,22 @@ class DGDModel:
                 epochs = config["opt1"]["epochs"],
                 opt_num = 1)
 
-        # Create the representation layer
+        #-------------------------------------------------------------#
+
+        # Create the representation layer.
         rep_layer_opt1 = \
             latent.RepresentationLayer(values = rep_opt1)
 
-        # Make the gradients zero
+        #-------------------------------------------------------------#
+
+        # Make the gradients zero.
         optimizer_opt1.zero_grad()
 
-
-        #--------------- Get the best representations ----------------#
-
+        #-------------------------------------------------------------#
 
         # Select the best representation for each sample among those
         # initialized (at least one per sample per component of the
-        # Gaussian mixture model)
+        # Gaussian mixture model).
         rep_best = \
             self._select_best_rep(\
                 rep_layer = rep_layer_opt1,
@@ -1805,15 +1832,13 @@ class DGDModel:
                 mean_exp = mean_exp)
 
         # Create a representation layer containing the best
-        # representations found
+        # representations found.
         rep_layer_best = \
             latent.RepresentationLayer(values = rep_best)
 
+        #-------------------------------------------------------------#
 
-        #----------------- Get the second optimizer ------------------#
-
-
-        # Get the optimizer for the second optimization
+        # Get the optimizer for the second optimization.
         optimizer_opt2 = \
             self._get_optimizer(\
                 optimizer_name = \
@@ -1822,13 +1847,11 @@ class DGDModel:
                     config["opt2"]["optimizer_options"],
                 optimizer_parameters = rep_layer_best.parameters())
 
+        #-------------------------------------------------------------#
 
-        #-------------------- Second optimization --------------------#
-
-
-        # Get the optimized representations, the corresponding
-        # decoder outputs, and the time information about the
-        # optimization's epochs
+        # Get the optimized representations, the corresponding decoder
+        # outputs, and the time information about the optimization's
+        # epochs.
         rep_opt2, dec_out_opt2, time_opt2 = \
             self._optimize_one_rep_per_sample(\
                 rep_layer = rep_layer_best,
@@ -1839,19 +1862,21 @@ class DGDModel:
                 epochs = config["opt2"]["epochs"],
                 opt_num = 2)
 
-        # Make the gradients zero
+        #-------------------------------------------------------------#
+
+        # Make the gradients zero.
         optimizer_opt2.zero_grad()
 
+        #-------------------------------------------------------------#
 
-        #---------------- Return the representations -----------------#
-
-
-        # Concatenate the two lists storing the time data
-        # for both optimizations
+        # Concatenate the two lists storing the time data for both
+        # optimizations.
         time_opt = time_opt1 + time_opt2
 
+        #-------------------------------------------------------------#
+
         # Return the representations, the decoder outputs, and the
-        # time information for both optimizations' epochs
+        # time information for both optimizations' epochs.
         return rep_opt2, dec_out_opt2, time_opt
 
 
@@ -1910,103 +1935,94 @@ class DGDModel:
             A data frame containing the representations.
 
         df_dec_out : ``pandas.DataFrame``
-            A data frame containing the decoder outputs
-            corresponding to the representations.
+            A data frame containing the decoder outputs corresponding
+            to the representations.
 
         df_time_opt : ``pandas.DataFrame``
-            A data frame containing data about the optimization
-            time.
+            A data frame containing data about the optimization time.
         """
 
-        # Convert the tensor containing the representations
-        # into a list
+        # Convert the tensor containing the representations into a
+        # list.
         rep_list = rep.detach().numpy().tolist()
 
-        # Convert the tensor containing the decoder outputs
-        # into a list
+        # Convert the tensor containing the decoder outputs into a
+        # list.
         dec_out_list = dec_out.detach().numpy().tolist()
 
+        #-------------------------------------------------------------#
 
-        #-------------- Decoder outputs data frame ---------------#
-
-
-        # Get a data frame containing the decoder outputs
-        # for all samples
+        # Get a data frame containing the decoder outputs for all
+        # samples.
         df_dec_out = pd.DataFrame(dec_out_list)
 
         # Set the names of the rows of the data frame to be the
-        # names/IDs/indexes of the samples
+        # names/IDs/indexes of the samples.
         df_dec_out.index = samples_names
 
         # Set the names of the columns of the data frame to be the
-        # names of the genes
+        # names of the genes.
         df_dec_out.columns = genes_names
 
+        #-------------------------------------------------------------#
 
-        #-------------- Representations data frame ---------------#
-
-
-        # Create a data frame for the representations
+        # Create a data frame for the representations.
         df_rep = pd.DataFrame(rep_list)
 
         # Set the names of the rows of the data frame to be the
-        # names/IDs/indexes of the samples
+        # names/IDs/indexes of the samples.
         df_rep.index = samples_names
 
-        # Name the columns of the data frame as the dimensions
-        # of the latent space
+        # Name the columns of the data frame as the dimensions of the
+        # latent space.
         df_rep.columns = \
             [f"latent_dim_{i}" for i \
              in range(1, df_rep.shape[1]+1)]
 
+        #-------------------------------------------------------------#
 
-        #-------------------- Time data frame --------------------#
-
-
-        # Crate a data frame for the CPU/wall clock time
+        # Crate a data frame for the CPU/wall clock time.
         df_time = pd.DataFrame(time_opt)
 
-        # Get the platform on which we are running
+        # Get the platform on which we are running.
         curr_platform = platform.platform()
 
-        # Get the name of the processor
+        # Get the name of the processor.
         curr_processor = platform.processor()
 
-        # Get the number of threads used for running
+        # Get the number of threads used for running.
         num_threads = torch.get_num_threads()
 
-        # Add a column defining the platform to the data frame
+        # Add a column defining the platform to the data frame.
         df_time.insert(loc = 0,
                        column = "platform",
                        value = curr_platform)
 
-        # Add a column defining the processor to the data frame
+        # Add a column defining the processor to the data frame.
         df_time.insert(loc = 1,
                        column = "processor",
                        value = curr_processor)
 
-        # Add a column defining the number of threads that
-        # were used
+        # Add a column defining the number of threads that were used
+        # to the data frame.
         df_time.insert(loc = 2,
                        column = "num_threads",
                        value = num_threads)
 
-        # Name and order the columns
+        # Name and sort the columns.
         df_time.columns = \
             ["platform", "processor", "num_threads",
              "opt_round", "epoch",
              "time_tot_epoch_cpu", "time_tot_bw_cpu",
              "time_tot_epoch_wall", "time_tot_bw_wall"]
 
+        #-------------------------------------------------------------#
 
-        #---------------- Return the data frames -----------------#
-
-
-        # Return the data frames
+        # Return the data frames.
         return df_rep, df_dec_out, df_time
 
 
-    #------------------------ Public methods -------------------------#
+    ######################### PUBLIC METHODS #########################
 
 
     def get_representations(self,
@@ -2097,35 +2113,41 @@ class DGDModel:
         .. footbibliography
         """
 
-
-        #-------------------- Preprocess the data --------------------#
-
-
-        # Get the columns containing gene expression data
+        # Get the columns containing gene expression data.
         genes_columns = \
             [col for col in df_samples.columns \
              if col.startswith("ENSG")]
 
-        # Get the other columns
+        # Get a data frame with only the columns containing gene
+        # expression data.
+        df_expr_data = df_samples[genes_columns]
+
+        #-------------------------------------------------------------#
+
+        # Get the other columns.
         other_columns = \
             [col for col in df_samples.columns \
              if col not in genes_columns]
 
-        # Keep only the columns containing gene expression data
-        df_expr_data = df_samples[genes_columns]
-
         # Get a data frame with only the columns containing additional
-        # data
+        # data.
         df_other_data = df_samples[other_columns]
 
-        # Get the number of samples and genes in the dataset from
-        # the input data frame's shape
+        #-------------------------------------------------------------#
+
+        # Get the number of samples and genes in the dataset from the
+        # input data frame's shape.
         n_samples, n_genes = df_expr_data.shape
 
-        # Create the dataset
+        #-------------------------------------------------------------#
+
+        # Create the dataset.
         dataset = dataclasses.GeneExpressionDataset(df = df_expr_data)
 
+        #-------------------------------------------------------------#
+
         # Get the gene expression for all samples in tensor form.
+        #
         # This is a 2D tensor with:
         #
         # - 1st dimension: the number of samples -> 'n_samples'
@@ -2134,28 +2156,27 @@ class DGDModel:
         data_exp = dataset.data_exp
 
         # Get the mean gene expression for each sample in tensor form.
+        #
         # This is a 1D tensor with:
         #
         # - 1st dimension: the number of samples -> 'n_samples'
         mean_exp = dataset.mean_exp
 
         # Get the names/IDs/indexes of the samples from the data
-        # frame's rows' names
+        # frame's rows' names.
         samples_names = df_expr_data.index
 
         # Get the names of the genes from the expression data frame's
-        # columns' names
+        # columns' names.
         genes_names = df_expr_data.columns
 
-
-        #----------------- Find the representations ------------------#
-
+        #-------------------------------------------------------------#
 
         # If the user selected the one-optimization method
         if method == "one_opt":
 
             # Get the representations, the corresponding decoder
-            # outputs, and the time data
+            # outputs, and the time data.
             rep, dec_out, time_opt = \
                 self._get_representations_one_opt(\
                     n_samples = n_samples,
@@ -2168,7 +2189,7 @@ class DGDModel:
         elif method == "two_opt":
             
             # Get the representations, the corresponding decoder
-            # outputs, and the time data
+            # outputs, and the time data.
             rep, dec_out, time_opt = \
                 self._get_representations_two_opt(\
                     n_samples = n_samples,
@@ -2177,11 +2198,9 @@ class DGDModel:
                     mean_exp = mean_exp,
                     config = config_opt)
 
+        #-------------------------------------------------------------#
 
-        #----------------- Get the final data frames -----------------#
-
-
-        # Generate the final data frames
+        # Generate the final data frames.
         df_rep, df_dec_out, df_time = \
             self._get_final_dataframes(rep = rep,
                                        dec_out = dec_out,
@@ -2189,17 +2208,21 @@ class DGDModel:
                                        samples_names = samples_names,
                                        genes_names = genes_names)
 
+        #-------------------------------------------------------------#
+
         # Add the extra data found in the input data frame to the
-        # representations' data frame
+        # representations' data frame.
         df_rep = pd.concat([df_rep, df_other_data],
                            axis = 1)
 
         # Add the extra data found in the input data frame to the
-        # decoder outputs' data frame
+        # decoder outputs' data frame.
         df_dec_out = pd.concat([df_dec_out, df_other_data],
                                axis = 1)
 
-        # Return the data frames
+        #-------------------------------------------------------------#
+
+        # Return the data frames.
         return df_rep, df_dec_out, df_time
 
 
@@ -2230,54 +2253,62 @@ class DGDModel:
             for that(those) representation(s).
         """
 
-        # Set the name of the column that will contain the
-        # maximum probability density found per sample
+        # Set the name of the column that will contain the maximum
+        # probability density found per sample.
         MAX_PROB_COL = "max_prob_density"
 
         # Set the name of the column that will contain the component
         # for which the maximum proability density was found per
-        # sample
+        # sample.
         MAX_PROB_COMP_COL = "max_prob_density_comp"
 
         # Set the name of the column that will contain the unique
-        # index of the sample having the maximum probability
-        # for a component
+        # index of the sample having the maximum probability for a
+        # component.
         SAMPLE_IDX_COL = "sample_idx"
 
-        # Get the names of the columns containing the values of
-        # the representations along the latent space's dimensions
+        #-------------------------------------------------------------#
+
+        # Get the names of the columns containing the values of the
+        # representations along the latent space's dimensions.
         latent_dims_columns = \
             [col for col in df_rep.columns \
              if col.startswith("latent_dim_")]
 
-        # Get the names of the other columns
+        # Get the names of the other columns.
         other_columns = \
             [col for col in df_rep.columns \
              if col not in latent_dims_columns]
 
-        # Split the data frame in two
+        #-------------------------------------------------------------#
+
+        # Split the data frame in two.
         df_rep_data, df_other_data = \
             df_rep[latent_dims_columns], df_rep[other_columns]
+
+        #-------------------------------------------------------------#
         
-        # Get the probability densities of the representations
-        # for each component
+        # Get the probability densities of the representations for each
+        # component.
         probs_values = \
             self.gmm.sample_probs(x = torch.Tensor(df_rep_data.values))
 
-        # Convert the result into a data frame
+        #-------------------------------------------------------------#
+
+        # Convert the result into a data frame.
         df_prob_rep = pd.DataFrame(probs_values.detach().numpy())
 
-        # Add a column storing the highest probability density
-        # per representation
+        # Add a column storing the highest probability density per
+        # representation.
         df_prob_rep[MAX_PROB_COL] = df_prob_rep.max(axis = 1)
 
         # Add a column storing which component has the highest
-        # probability density per representation
+        # probability density per representation.
         df_prob_rep[MAX_PROB_COMP_COL] = df_prob_rep.idxmax(axis = 1)
 
         # Initialize an empty list to store the rows containing
         # the representations/samples that have the highest
-        # probability density for each component 
+        # probability density for each component .
         rows_with_max = []
 
         # For each component for which at least one representation
@@ -2285,27 +2316,26 @@ class DGDModel:
         for comp in df_prob_rep[MAX_PROB_COMP_COL].unique():
 
             # Get only those rows corresponding to the current
-            # component under consideration
+            # component under consideration.
             sub_df = \
                 df_prob_rep.loc[df_prob_rep[MAX_PROB_COMP_COL] == comp]
 
             # Get the sample with maximum probability for the
-            # component (using max() instead of idxmax() because
+            # component (we use 'max()' instead of 'idxmax()' because
             # it does not preserve numbers in scientific notation,
             # possibly because it returns a Series with a different
-            # data type)
+            # data type).
             max_for_comp = \
                 sub_df.loc[sub_df[MAX_PROB_COL] == \
                            sub_df[MAX_PROB_COL].max()].copy()
 
-            # If more than one representation/sample has the
-            # highest probability density
+            # If more than one representation/sample has the highest
+            # probability density
             if len(max_for_comp) > 1:
 
+                # Warn the user.
                 max_for_comp_rep = \
                     [str(i) for i in max_for_comp.index.tolist()]
-
-                # Warn the user so that they are aware of it
                 warnstr = \
                     f"Multiple representations have the highest " \
                     f"probability density for component {comp} " \
@@ -2313,20 +2343,24 @@ class DGDModel:
                     f"{', '.join(max_for_comp_rep)}."
                 logger.warning(warnstr)
             
-            # Add a column storing the representation/sample
-            # unique index
+            # Add a column storing the representation/sample unique
+            # index.
             max_for_comp[SAMPLE_IDX_COL] = max_for_comp.index
 
-            # The new index will be the component number
+            # The new index will be the component number.
             max_for_comp = max_for_comp.set_index(MAX_PROB_COMP_COL)
             
-            # Append the data frame to the list of data frames
+            # Append the data frame to the list of data frames.
             rows_with_max.append(max_for_comp)
 
-        # Concatenate the data frames
+        #-------------------------------------------------------------#
+
+        # Concatenate the data frames.
         df_prob_comp = pd.concat(rows_with_max, axis = 0)
 
-        # Return the two data frames
+        #-------------------------------------------------------------#
+
+        # Return the two data frames.
         return df_prob_rep, df_prob_comp
 
 
@@ -2360,34 +2394,42 @@ class DGDModel:
             decoder outputs are rescaled.
         """
 
-        # Get the r-values
+        # Get the r-values.
         r_values = self.r_values
 
+        #-------------------------------------------------------------#
+
         # Get the names of the columns containing gene expression
-        # data from the original data frame
+        # data from the original data frame.
         genes_columns = \
             [col for col in df.columns if col.startswith("ENSG")]
 
-        # Get the names of the other columns
+        # Create a data frame with only those columns containing gene
+        # expression data.
+        df_dec_data = df.loc[:,genes_columns]
+
+        # Rescale the decoder outputs.
+        df_dec_data = df_dec_data * self.r_values
+
+        #-------------------------------------------------------------#
+
+        # Get the names of the other columns.
         other_columns = \
             [col for col in df.columns if col not in genes_columns]
 
-        # Create a data frame with only those columns containing gene
-        # expression data    
-        df_dec_data = df.loc[:,genes_columns]
-
         # Create a data frame with only those columns containing
-        # additional information    
+        # additional information.
         df_other_data = df.loc[:,other_columns]
 
-        # Rescale the decoder outputs
-        df_dec_data = df_dec_data * self.r_values
+        #-------------------------------------------------------------#
 
-        # Make a new data frame with the rescaled outputs
+        # Make a new data frame with the rescaled outputs.
         df_final = pd.concat([df_dec_data, df_other_data])
 
-        # Re-order the columns in the original order
+        # Re-order the columns in the original order.
         df_final = df_final[df.columns.tolist()]
+
+        #-------------------------------------------------------------#
 
         # Return the new data frame
         return df_final

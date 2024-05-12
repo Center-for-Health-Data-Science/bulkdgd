@@ -3,7 +3,9 @@
 
 #    _util.py
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Private utilities for plotting.
+#
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -21,26 +23,182 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Standard library
+#######################################################################
+
+
+# Set the module's description.
+__doc__ = "Private utilities for plotting."
+
+
+####################################################################### 
+
+
+# Import from the standard library.
 import logging as log
-# Third-party packages
+import math
+# Import from third-party packages.
 import matplotlib.pyplot as plt
 import numpy as np
 
 
-# Get the module's logger
+#######################################################################
+
+
+# Get the module's logger.
 logger = log.getLogger(__name__)
+
+
+#######################################################################
+
+
+def get_formatted_ticklabels(ticklabels,
+                             fmt = "{:s}"):
+    """Return the ticks' labels, formatted according to a given format
+    string.
+
+    Parameters
+    ----------
+    ticklabels : ``numpy.array`` or ``list``
+        An array or list of labels.
+
+    fmt: ``str``
+        The format string.
+
+    Returns
+    -------
+    ticklabels : ``list``
+        A list with the formatted ticks' labels.
+    """
+
+    # Initialize an empty list to store the formatted ticks' labels.
+    fmt_ticklabels = []
+
+    #-----------------------------------------------------------------#
+
+    # For each tick's label
+    for ticklabel in ticklabels:
+
+        # Format the label.
+        fmt_ticklabel = fmt.format(ticklabel)
+
+        #-------------------------------------------------------------#
+
+        # If the label is a single 0
+        if fmt_ticklabel == "0":
+
+            # Add it to the list.
+            fmt_ticklabels.append(fmt_ticklabel)
+
+            # Go to the next one.
+            continue
+
+        #-------------------------------------------------------------#
+
+        # Strip the label of trailing zeroes.
+        fmt_ticklabel = fmt_ticklabel.rstrip("0")
+
+        # If the label now ends with a dot or a comma (because it was
+        # an integer expressed as 1.0, 3,00, etc., and we removed all
+        # trailing zeroes)
+        if fmt_ticklabel.endswith(".") or fmt_ticklabel.endswith(","):
+
+            # Remove the dot/comma.
+            fmt_ticklabel = fmt_ticklabel.rstrip(".").rstrip(",")
+
+        # Add the label to the list.
+        fmt_ticklabels.append(fmt_ticklabel)
+
+    #-----------------------------------------------------------------#
+
+    # Return the labels.
+    return fmt_ticklabels
+
+
+def find_rectangular_grid(n):
+    """Given an array of ``n`` items, find the best way to arrange
+    them in the 'squarest' possible two-dimensional grid (namely, the
+    grid where the difference between the two dimensions is minimal).
+
+    Allow for blank 'cells' in the grid, so that the number of cells
+    in the grid may exceed the number of items to avoid making a grid
+    with only one row in case the number of items is a prime number.
+
+    Parameters
+    ----------
+    n : ``numpy.array``
+        The array of items.
+
+    Returns
+    -------
+    nrows : ``int``
+        The number of rows in the squarest grid.
+
+    ncols : ``int``
+        The number of columns in the squarest grid.
+    """
+
+    # If we have only one item
+    if n == 1:
+
+        # The grid will have one row and one column.
+        return (1, 1)
+
+    #-----------------------------------------------------------------#
+
+    # If we have two items
+    elif n == 2:
+
+        # The grid will have one row and two columns.
+        return (1, 2)
+
+    #-----------------------------------------------------------------#
+
+    # Initialize the number of rows and columns as one row and 'n'
+    # columns.
+    nrows, ncols = (1, n)
+
+    #-----------------------------------------------------------------#
+
+    # For each possible number ranging from 2 to the square root of
+    # 'n', plus 1
+    for i in range(2, int(math.sqrt(n)) + 1):
+
+        # If the number is a factor of 'n'
+        if n % i == 0:
+
+            # Update the number of rows and columns in the grid.
+            nrows, ncols = (i, n // i)
+
+    #-----------------------------------------------------------------#
+
+    # If we ended up with only one row (because we did not find any
+    # factors, meaning that 'n' is prime)
+    if nrows == 1:
+
+        # For each possible number ranging from 2 to the square root
+        # of 'n + 1', plus 1
+        for i in range(2, int(math.sqrt(n+1)) + 1):
+
+            # If the number is a factor of 'n + 1'
+            if (n+1) % i == 0:
+
+                # Update the number of rows and columns in the grid.
+                nrows, ncols = (i, (n+1) // i)
+
+    #-----------------------------------------------------------------#
+
+    # Return the number of rows and columns.
+    return (nrows, ncols)
 
 
 def get_ticks_positions(values,
                         item,
                         config):
-    """Generate the positions that the ticks
-    will have on a plot axis/colorbar/etc.
+    """Generate the positions that the ticks will have on a plot's
+    axis/colorbar/etc.
 
-    This original code for this function was originally
-    developed by Valentina Sora for the RosettaDDGPrediction
-    package.
+    This original code for this function was originally developed
+    by Valentina Sora for the RosettaDDGPrediction package.
     
     The original function can be found at:
 
@@ -58,8 +216,8 @@ def get_ticks_positions(values,
         ``"colorbar"``).
 
     config : ``dict``
-        The configuration for the interval that the ticks'
-        positions should cover.
+        The configuration for the interval that the ticks' positions
+        should cover.
 
     Returns
     -------
@@ -73,7 +231,7 @@ def get_ticks_positions(values,
     # If there is no configuration for the interval
     if config is None:
 
-        # Raise an error
+        # Raise an error.
         errstr = \
             f"No 'interval' section was found in the " \
             f"configuration for the {item}."
@@ -81,7 +239,7 @@ def get_ticks_positions(values,
 
     #-----------------------------------------------------------------#
     
-    # Get the configurations
+    # Get the configurations.
     int_type = config.get("type")
     rtn = config.get("round_to_nearest")
     top = config.get("top")
@@ -90,7 +248,7 @@ def get_ticks_positions(values,
     spacing = config.get("spacing")
     ciz = config.get("center_in_zero")
 
-    # Inform the user that we are now setting the ticks' interval
+    # Inform the user that we are now setting the ticks' interval.
     infostr = \
         f"Now setting the interval for the plot's {item}'s ticks..."
     logger.info(infostr)
@@ -103,31 +261,29 @@ def get_ticks_positions(values,
         # If the interval is discrete
         if int_type == "discrete":
 
-            # Default to rounding to the nearest 1
+            # Default to rounding to the nearest 1.
             rtn = 1
 
         # If the interval is continuous
         elif int_type == "continuous":
         
-            # Default to rounding to the nearest 0.5
+            # Default to rounding to the nearest 0.5.
             rtn = 0.5
 
-        # Inform the user about the rounding value
+        # Inform the user about the rounding value.
         infostr = \
-            f"Since 'round_to_nearest' is not " \
-            f"defined and 'type' is '{int_type}', " \
-            f"the rounding will be set to the nearest " \
-            f"{rtn}."
+            "Since 'round_to_nearest' is not defined and 'type'" \
+            f"is '{int_type}', the rounding will be set to the " \
+            f"nearest {rtn}."
         logger.info(infostr)
 
     # Otherwise
     else:
 
-        # Inform the user about the chosen rounding value
+        # Inform the user about the chosen rounding value.
         infostr = \
-            f"The user set rounding (up and down) " \
-            f"to the nearest {rtn} " \
-            f"('round_to_nearest' = {rtn})."
+            "The user set the rounding (up and down) to the nearest " \
+            f"{rtn} ('round_to_nearest' = {rtn})."
         logger.info(infostr)
 
     #-----------------------------------------------------------------#
@@ -135,45 +291,41 @@ def get_ticks_positions(values,
     # If the maximum of the ticks interval was not specified
     if top is None:
         
-        # If the interval is discrete
+        # If the interval is discrete.
         if int_type == "discrete":
             
-            # The default top value will be the
-            # maximum of the values provided
+            # The default top value will be the maximum of the values
+            # provided.
             top = int(np.ceil(max(values)))
 
-            # Inform the user about the top value
+            # Inform the user about the top value.
             infostr = \
-                f"Since 'top' is not defined and " \
-                f"'type' is '{int_type}', 'top' " \
-                f"will be the maximum of all values " \
-                f"found ({top})."
+                "Since 'top' is not defined and 'type' is " \
+                f"'{int_type}', 'top' will be the maximum of all " \
+                f"values found, ({top})."
             logger.info(infostr)
         
         # If the interval is continuous
         elif int_type == "continuous":
             
-            # The default top value will be the
-            # rounded-up maximum of the values
-            top = \
-                np.ceil(max(values)*(1/rtn)) / (1/rtn)
+            # The default top value will be the maximum of the values
+            # provided, rounded up.
+            top = np.ceil(max(values)*(1/rtn)) / (1/rtn)
 
-            # Inform the user about the top value
+            # Inform the user about the top value.
             infostr = \
-                f"Since 'top' is not defined and " \
-                f"'type' is '{int_type}', 'top' " \
-                f"will be the maximum of all values " \
-                f"found, rounded up to the nearest " \
-                f"{rtn} ({top})."
+                "Since 'top' is not defined and 'type' is " \
+                f"'{int_type}', 'top' will be the maximum of all " \
+                f"values found, rounded up to the nearest {rtn} " \
+                f"({top})."
             logger.info(infostr)
 
     # Otherwise
     else:
 
-        # Inform the user about the chosen top value
+        # Inform the user about the chosen top value.
         infostr = \
-            f"The user set the top value to {top} " \
-            f"('top' = {top})."
+            f"The user set the top value to {top} ('top' = {top})."
         logger.info(infostr)
 
     #-----------------------------------------------------------------#
@@ -184,33 +336,30 @@ def get_ticks_positions(values,
         # If the interval is discrete
         if int_type == "discrete":
             
-            # The default bottom value is the
-            # minimim of the values provided
+            # The default bottom value is the minimum of the values
+            # provided.
             bottom = int(min(values))
 
-            # Inform the user about the bottom value
+            # Inform the user about the bottom value.
             infostr = \
-                f"Since 'bottom' is not defined and " \
-                f"'type' is '{int_type}', 'bottom' " \
-                f"will be the minimum of all values " \
-                f"found ({bottom})."
+                f"Since 'bottom' is not defined and 'type' is " \
+                f"'{int_type}', 'bottom' will be the minimum of all " \
+                f"values found ({bottom})."
             logger.info(infostr)
         
         # If the interval is continuous
         elif int_type == "continuous":
             
-            # The default bottom value is the rounded
-            # down minimum of the values
-            bottom = \
-                np.floor(min(values)*(1/rtn)) / (1/rtn)
+            # The default bottom value is the minimum of the values
+            # provided, rounded down.
+            bottom = np.floor(min(values)*(1/rtn)) / (1/rtn)
 
-            # Inform the user about the bottom value
+            # Inform the user about the bottom value.
             infostr = \
-                f"Since 'bottom' is not defined and " \
-                f"'type' is '{int_type}', 'bottom' " \
-                f"will be the minimum of all values " \
-                f"found, rounded down to the nearest " \
-                f"{rtn} ({bottom})."
+                "Since 'bottom' is not defined and 'type' is " \
+                f"'{int_type}', 'bottom' will be the minimum of all " \
+                f"values found, rounded down to the nearest {rtn} " \
+                f"({bottom})."
             logger.info(infostr)
 
     # Otherwise
@@ -218,8 +367,8 @@ def get_ticks_positions(values,
 
         # Inform the user about the chosen top value
         infostr = \
-            f"The user set the bottom value to {bottom} " \
-            f"('bottom' = {bottom})."
+            f"The user set the bottom value to {bottom} ('bottom' " \
+            f"= {bottom})."
         logger.info(infostr)
 
     #-----------------------------------------------------------------#
@@ -227,30 +376,29 @@ def get_ticks_positions(values,
     # If the two extremes of the interval coincide
     if top == bottom:
         
-        # Return only one value
+        # Return only one value.
         return np.array([bottom])
 
     #-----------------------------------------------------------------#
 
-    # If the number of steps the interval should have
-    # was not specified
+    # If the number of steps in the interval was not specified
     if steps is None:
 
-        # A default of 10 steps will be set
+        # A default of 10 steps will be set.
         steps = 10
 
-        # Inform the user about the steps if in info mode
+        # Inform the user about the steps.
         infostr = \
-            f"Since the number of steps the interval should have " \
-            f"is not defined, 'steps' will be '10'."
+            "Since the number of steps the interval should have " \
+            "is not defined, 'steps' will be '10'."
         logger.info(infostr)
 
     # Otherwise
     else:
 
-        # Inform the user about the chosen top value
+        # Inform the user about the chosen number of steps.
         infostr = \
-            f"The user set the number of steps the interval " \
+            "The user set the number of steps the interval " \
             f"should have to {steps} ('steps' = {steps})."
         logger.info(infostr)
 
@@ -262,44 +410,43 @@ def get_ticks_positions(values,
         # If the interval is discrete
         if int_type == "discrete":
 
-            # The default spacing is the one between two steps,
-            # rounded up
+            # The default spacing will be the one between two steps,
+            # rounded up.
             spacing = \
                 int(np.ceil(np.linspace(bottom,
                                         top,
                                         steps,
                                         retstep = True)[1]))
 
-            # Inform the user about the spacing
+            # Inform the user about the spacing.
             infostr = \
-                f"Since the spacing between the ticks is not " \
-                f"defined, 'spacing' will be the value " \
-                f"guaranteeing an equipartition of the interval " \
+                "Since the spacing between the ticks is not " \
+                "defined, 'spacing' will be the value " \
+                "guaranteeing an equipartition of the interval " \
                 f"between {bottom} and {top} in {steps} " \
-                f"number of steps, rounded up to the nearest 1 " \
+                "number of steps, rounded up to the nearest 1 " \
                 f"({spacing})."
             logger.info(infostr)
 
-        
         # If the interval is continuous
         elif int_type == "continuous":
             
-            # The default spacing is the one between two steps,
-            # rounded up
+            # The default spacing will be the one between two steps,
+            # rounded up.
             spacing = np.linspace(bottom,
                                   top,
                                   steps,
                                   retstep = True)[1]
 
-            # Get the spacing by rounding up the spacing
-            # obtained above
+            # Get the spacing by rounding up the spacing obtained
+            # obtained above.
             spacing = np.ceil(spacing*(1/rtn)) / (1/rtn)
 
-            # Inform the user about the spacing
+            # Inform the user about the spacing.
             infostr = \
-                f"Since the spacing between the ticks is not " \
-                f"defined, 'spacing' will be the value " \
-                f"guaranteeing an equipartition of the interval " \
+                "Since the spacing between the ticks is not " \
+                "defined, 'spacing' will be the value " \
+                "guaranteeing an equipartition of the interval " \
                 f"between {bottom} and {top} in {steps} " \
                 f"number of steps ({spacing})."
             logger.info(infostr)
@@ -309,36 +456,35 @@ def get_ticks_positions(values,
     # If the interval should be centered in zero
     if ciz:
         
-        # Get the highest absolute value
+        # Get the highest absolute value.
         absval = \
             np.ceil(top) if top > bottom else np.floor(bottom)
         
-        # Top and bottom will be opposite numbers with
-        # absolute value equal to absval
+        # The top and bottom values will be opposite numbers with
+        # absolute value equal to the highest absolute value found.
         top, bottom = absval, -absval
 
-        # Get an evenly-spaced interval between the bottom
-        # and top value
+        # Get an evenly-spaced interval between the bottom and top
+        # value.
         interval = np.linspace(bottom, top, steps)
 
-        # Inform the user about the change in the interval's
-        # extreme
+        # Inform the user about the change in the interval.
         infostr = \
-            f"Since the user requested a ticks' interval centered " \
-            f"in zero, the interval will be now between {top} " \
+            "Since the user requested a ticks' interval centered " \
+            f"in zero, the interval will be between {top} " \
             f"and {bottom} with {steps} number of steps: " \
             f"{', '.join([str(i) for i in interval.tolist()])}."
         logger.info(infostr)
         
-        # Return the interval
+        # Return the interval.
         return interval
 
     #-----------------------------------------------------------------#
 
-    # Get the interval
+    # Get the interval.
     interval = np.arange(bottom, top + spacing, spacing)
 
-    # Inform the user about the interval that will be used
+    # Inform the user about the interval that will be used.
     infostr = \
         f"The ticks' interval will be between {bottom} and {top} " \
         f"with a spacing of {spacing}: " \
@@ -347,7 +493,7 @@ def get_ticks_positions(values,
 
     #-----------------------------------------------------------------#
 
-    # Return the interval
+    # Return the interval.
     return interval
 
 
@@ -387,27 +533,27 @@ def set_axis(ax,
     # If the axis to be set is the x-axis
     if axis == "x":
 
-        # Get the corresponding methods
+        # Get the corresponding methods.
         plot_ticks = plt.xticks
         set_label = ax.set_xlabel
         set_ticks = ax.set_xticks
         set_ticklabels = ax.set_xticklabels
         get_ticklabels = ax.get_xticklabels
 
-        # Get the corresponding spine
+        # Get the corresponding spine.
         spine = "bottom"
 
     # If the axis to be set is the y-axis
     elif axis == "y":
 
-        # Get the corresponding methods
+        # Get the corresponding methods.
         plot_ticks = plt.yticks
         set_label = ax.set_ylabel
         set_ticks = ax.set_yticks
         set_ticklabels = ax.set_yticklabels
         get_ticklabels = ax.get_yticklabels
 
-        # Get the corresponding spine
+        # Get the corresponding spine.
         spine = "left"
 
     #-----------------------------------------------------------------#
@@ -415,7 +561,7 @@ def set_axis(ax,
     # If there is an axis label's configuration
     if config.get("label"):
         
-        # Set the axis label
+        # Set the axis label.
         set_label(**config["label"])        
 
     #-----------------------------------------------------------------#
@@ -423,7 +569,7 @@ def set_axis(ax,
     # If no ticks' positions were passed
     if ticks is None:
 
-        # Default to the tick locations already present
+        # Default to the tick locations already present.
         ticks = plot_ticks()[0]
 
     #-----------------------------------------------------------------#
@@ -431,7 +577,7 @@ def set_axis(ax,
     # If there are any ticks on the axis
     if len(ticks) > 0:      
         
-        # Set the axis boundaries
+        # Set the axis boundaries.
         ax.spines[spine].set_bounds(ticks[0],
                                     ticks[-1])
 
@@ -440,34 +586,42 @@ def set_axis(ax,
     # If a configuration for the tick parameters was provided
     if config.get("tick_params"):
         
-        # Apply the configuration to the ticks
+        # Apply the configuration to the ticks.
         ax.tick_params(axis = axis,
                        **config["tick_params"])
 
     #-----------------------------------------------------------------#
 
-    # Set the ticks
+    # Set the ticks.
     set_ticks(ticks = ticks)
 
     #-----------------------------------------------------------------#
     
+    # Get the configuration for the ticks' labels.
+    tick_labels_config = config.get("ticklabels", {})
+
+    # Get the options for the ticks' labels.
+    tick_labels_options = tick_labels_config.get("options", {})
+    
     # If no ticks' labels were passed
     if tick_labels is None:
-        
-        # Default to the string representations
-        # of the ticks' positions
-        tick_labels = [str(t) for t in ticks]
 
-    # Get the configuration for ticks' labels
-    tick_labels_config = config.get("ticklabels", {})
+        # Get the format to be used for the tick labels.
+        tick_labels_fmt = tick_labels_config.get("fmt", "{:.3f}")
+        
+        # Default to the string representations of the ticks'
+        # positions.
+        tick_labels = \
+            get_formatted_ticklabels(ticklabels = ticks,
+                                     fmt = tick_labels_fmt)
     
-    # Set the ticks' labels
+    # Set the ticks' labels.
     set_ticklabels(labels = tick_labels,
-                   **tick_labels_config)
+                   **tick_labels_options)
 
     #-----------------------------------------------------------------#
 
-    # Return the axis
+    # Return the axis.
     return ax
 
 
@@ -486,7 +640,7 @@ def set_legend(ax,
         An Axes instance. 
     """
 
-    # Get the legend's handles and labels
+    # Get the legend's handles and labels.
     handles, labels = ax.get_legend_handles_labels()
 
     #-----------------------------------------------------------------#
@@ -494,7 +648,7 @@ def set_legend(ax,
     # If there are handles
     if handles:
 
-        # Draw the legend
+        # Draw the legend.
         ax.legend(handles = handles,
                   labels = labels,
                   bbox_transform = plt.gcf().transFigure,
@@ -502,5 +656,5 @@ def set_legend(ax,
 
     #-----------------------------------------------------------------#
 
-    # Retutn the ax
+    # Retutn the ax.
     return ax
