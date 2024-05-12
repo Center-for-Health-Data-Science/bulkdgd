@@ -79,7 +79,7 @@ plot:
     # Default: 'husl'.
     palette: husl
 
-  #-------------------------------------------------------------------#
+  #####################################################################
 
   # Set the options for the legend (passed to
   # 'matplotlib.axes.Axes.legend').
@@ -175,7 +175,9 @@ plot:
       # Default: 10.
       size: 10
 
-  #-------------------------------------------------------------------#
+
+  #####################################################################
+
 
   # Set the options for the plot's title (passed to
   # 'matplotlib.axes.Axes.set_title').
@@ -219,7 +221,9 @@ plot:
       # Default: 10.
       size: 10
 
-  #-------------------------------------------------------------------#
+
+  #####################################################################
+
 
   # Set the options for the x-axis.
   xaxis:
@@ -263,44 +267,51 @@ plot:
         # Default: 10.
         size: 10
     
-    # Set the options for the ticks' labels (passed to 
-    # 'matplotlib.axes.Axes.set_xticklabels').
-    #
-    # All the available options to set up the ticks' labels can be
-    # found at:
-    #
-    # https://matplotlib.org/stable/api/_as_gen/
-    # matplotlib.axes.Axes.set_xticklabels.html
-    ticklabels:
-      
-      # Set the rotation of the ticks' labels.
-      #
-      # Type: float.
-      #
-      # Default: 0.0.
-      rotation: 0.0
+    #-----------------------------------------------------------------#
 
-      # Set the properties of the font of the ticks' labels.
+    # Set the ticks' labels.
+    ticklabels:
+
+      # Set the options for the ticks' labels (passed to 
+      # 'matplotlib.axes.Axes.set_xticklabels').
       #
-      # All the availabe options for the properties can be found at:
+      # All the available options to set up the ticks' labels can be
+      # found at:
       #
-      # https://matplotlib.org/stable/api/
-      # font_manager_api.html#matplotlib.font_manager.FontProperties
-      fontproperties:
-        
-        # Set the name of/path to the font.
+      # https://matplotlib.org/stable/api/_as_gen/
+      # matplotlib.axes.Axes.set_xticklabels.html
+      options:
+      
+        # Set the rotation of the ticks' labels.
         #
-        # Type: str.
+        # Type: float.
         #
-        # Default: !!null (the default Matplotlib font will be used).
-        fname: !!null
-        
-        # Set the font size.
+        # Default: 0.0.
+        rotation: 0.0
+
+        # Set the properties of the font of the ticks' labels.
         #
-        # Type: int.
+        # All the availabe options for the properties can be found at:
         #
-        # Default: 10.
-        size: 8
+        # https://matplotlib.org/stable/api/
+        # font_manager_api.html#matplotlib.font_manager.FontProperties
+        fontproperties:
+          
+          # Set the name of/path to the font.
+          #
+          # Type: str.
+          #
+          # Default: !!null (the default Matplotlib font will be used).
+          fname: !!null
+          
+          # Set the font size.
+          #
+          # Type: int.
+          #
+          # Default: 10.
+          size: 8
+
+    #-----------------------------------------------------------------#
 
     # Set the options for the interval represented on the axis.
     interval:
@@ -331,7 +342,9 @@ plot:
       # Default: 5.
       spacing: 5
 
-  #-------------------------------------------------------------------#
+
+  #####################################################################
+
 
   # Set the options for the y-axis.
   yaxis:
@@ -374,45 +387,52 @@ plot:
         #
         # Default: 10.
         size: 10
-    
-    # Set the options for the ticks' labels (passed to 
-    # 'matplotlib.axes.Axes.set_yticklabels').
-    #
-    # All the available options to set up the ticks' labels can be
-    # found at:
-    #
-    # https://matplotlib.org/stable/api/_as_gen/
-    # matplotlib.axes.Axes.set_yticklabels.html
-    ticklabels:
-      
-      # Set the rotation of the ticks' labels.
-      #
-      # Type: float.
-      #
-      # Default: 0.0.
-      rotation: 0.0
 
-      # Set the properties of the font of the ticks' labels.
+    #-----------------------------------------------------------------#
+    
+    # Set the ticks' labels.
+    ticklabels:
+
+      # Set the options for the ticks' labels (passed to 
+      # 'matplotlib.axes.Axes.set_yticklabels').
       #
-      # All the availabe options for the properties can be found at:
+      # All the available options to set up the ticks' labels can be
+      # found at:
       #
-      # https://matplotlib.org/stable/api/
-      # font_manager_api.html#matplotlib.font_manager.FontProperties
-      fontproperties:
-        
-        # Set the name of/path to the font.
+      # https://matplotlib.org/stable/api/_as_gen/
+      # matplotlib.axes.Axes.set_yticklabels.html
+      options:
+      
+        # Set the rotation of the ticks' labels.
         #
-        # Type: str.
+        # Type: float.
         #
-        # Default: !!null (the default Matplotlib font will be used).
-        fname: !!null
-        
-        # Set the font size.
+        # Default: 0.0.
+        rotation: 0.0
+
+        # Set the properties of the font of the ticks' labels.
         #
-        # Type: int.
+        # All the availabe options for the properties can be found at:
         #
-        # Default: 10.
-        size: 8
+        # https://matplotlib.org/stable/api/
+        # font_manager_api.html#matplotlib.font_manager.FontProperties
+        fontproperties:
+          
+          # Set the name of/path to the font.
+          #
+          # Type: str.
+          #
+          # Default: !!null (the default Matplotlib font will be used).
+          fname: !!null
+          
+          # Set the font size.
+          #
+          # Type: int.
+          #
+          # Default: 10.
+          size: 8
+
+    #-----------------------------------------------------------------#
 
     # Set the options for the interval represented on the axis.
     interval:
