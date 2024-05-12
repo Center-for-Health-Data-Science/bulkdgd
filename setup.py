@@ -46,7 +46,7 @@ author = \
     "Anders Lykkebo-Valløe, Anders Krogh"
 
 # Set the project's version.
-version = "12.05.2024.b"
+version = "12.05.2024.c"
 
 # Set a brief description of the project.
 description = \
