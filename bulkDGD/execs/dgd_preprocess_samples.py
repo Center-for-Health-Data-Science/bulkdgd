@@ -3,7 +3,9 @@
 
 #    dgd_preprocess_samples.py
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Preprocess new samples to use them with the DGD model.
+#
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -21,29 +23,38 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Description of the module
+#######################################################################
+
+
+# Set the module's description.
 __doc__ = \
     "Preprocess new samples to use them with the DGD model."
 
 
-# Standard library
+#######################################################################
+
+
+# Import from the standard library.
 import argparse
 import logging as log
 import os
 import sys
-# bulkDGD
+# Import from 'bulkDGD'.
 from bulkDGD import defaults, ioutil, util
+
+
+#######################################################################
 
 
 def main():
 
 
-    # Create the argument parser
+    # Create the argument parser.
     parser = argparse.ArgumentParser(description = __doc__)
 
     #-----------------------------------------------------------------#
 
-    # Add the arguments
+    # Add the arguments.
     i_help = \
         "The input CSV file containing a data frame with the " \
         "samples to be preprocessed."
@@ -141,37 +152,37 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Parse the arguments
+    # Parse the arguments.
     args = parser.parse_args()
     input_csv = args.input_csv
     output_csv_samples = args.output_csv_samples
     output_txt_genes_excluded = args.output_txt_genes_excluded
     output_txt_genes_missing = args.output_txt_genes_missing
-    wd = args.work_dir
-    log_file = args.log_file
+    wd = os.path.abspath(args.work_dir)
+    log_file = os.path.join(wd, args.log_file)
     log_console = args.log_console
     v = args.log_verbose
     vv = args.log_debug
 
     #-----------------------------------------------------------------#
 
-    # Set WARNING logging level by default
+    # Set WARNING logging level by default.
     log_level = log.WARNING
 
     # If the user requested verbose logging
     if v:
 
-        # The minimal logging level will be INFO
+        # The minimal logging level will be INFO.
         log_level = log.INFO
 
     # If the user requested logging for debug purposes
-    # (-vv overrides -v if both are provided)
+    # (-vv overrides -v if both are provided).
     if vv:
 
-        # The minimal logging level will be DEBUG
+        # The minimal logging level will be DEBUG.
         log_level = log.DEBUG
 
-    # Configure the logging (for non-Dask operations)
+    # Configure the logging.
     handlers = \
         util.get_handlers(\
             log_console = log_console,
@@ -180,21 +191,16 @@ def main():
                                 "mode" : "w"},
             log_level = log_level)
 
-    # Set the logging configuration
-    log.basicConfig(# The level below which log messages are silenced
-                    level = log_level,
-                    # The format of the log strings
+    # Set the logging configuration.
+    log.basicConfig(level = log_level,
                     format = defaults.LOG_FMT,
-                    # The format for dates/time
                     datefmt = defaults.LOG_DATEFMT,
-                    # The format style
                     style = defaults.LOG_STYLE,
-                    # The handlers
                     handlers = handlers)
 
     #-----------------------------------------------------------------#
 
-    # Try to load the input samples
+    # Try to load the input samples.
     try:
 
         df_samples = \
@@ -206,7 +212,7 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to load the samples from " \
             f"'{input_csv}'. Error: {e}"
@@ -215,7 +221,7 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Try to preprocess the samples
+    # Try to preprocess the samples.
     try:
 
         df_preproc, genes_excluded, genes_missing = \
@@ -224,7 +230,7 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to preprocess the samples. " \
             f"Error: {e}"
@@ -233,10 +239,10 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Set the path to the output file
+    # Set the path to the output file.
     output_csv_samples_path = os.path.join(wd, output_csv_samples)
 
-    # Try to write out the preprocessed samples
+    # Try to write out the preprocessed samples.
     try:
 
         ioutil.save_samples(df = df_preproc,
@@ -246,15 +252,15 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to write the preprocessed " \
-            f"samples to '{output_csv_samples_path}'. Error: {e}"
+            f"samples in '{output_csv_samples_path}'. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the preprocessed samples were
-    # successfilly written in the output file
+    # successfilly written in the output file.
     infostr = \
         "The preprocessed samples were successfully written in " \
         f"'{output_csv_samples_path}'."
@@ -265,11 +271,11 @@ def main():
     # If some genes were excluded
     if genes_excluded:
 
-        # Set the path to the output file
+        # Set the path to the output file.
         output_txt_genes_excluded_path = \
             os.path.join(wd, output_txt_genes_excluded)
 
-        # Try to write the list of excluded genes
+        # Try to write the list of excluded genes.
         try:
 
             with open(output_txt_genes_excluded_path, "w") as out:
@@ -278,7 +284,7 @@ def main():
         # If something went wrong
         except Exception as e:
 
-            # Warn the user and exit
+            # Warn the user and exit.
             errstr = \
                 "It was not possible to write the list of genes " \
                 "that are present in the input samples but are " \
@@ -288,7 +294,7 @@ def main():
             sys.exit(errstr)
 
         # Inform the user that the genes were successfully written
-        # to the output file
+        # to the output file.
         infostr = \
             "The list of genes that are present in the input " \
             "samples but are not among the genes included in " \
@@ -301,11 +307,11 @@ def main():
     # If some genes were missing
     if genes_missing:
 
-        # Set the path to the output file
+        # Set the path to the output file.
         output_txt_genes_missing_path = \
             os.path.join(wd, output_txt_genes_missing)
 
-        # Try to write the list of missing genes
+        # Try to write the list of missing genes.
         try:
 
             with open(output_txt_genes_missing_path, "w") as out:
@@ -314,7 +320,7 @@ def main():
         # If something went wrong
         except Exception as e:
 
-            # Warn the user and exit
+            # Warn the user and exit.
             errstr = \
                 "It was not possible to write the list of genes " \
                 "that are included in the DGD model but are " \
@@ -324,7 +330,7 @@ def main():
             sys.exit(errstr)
 
         # Inform the user that the genes were successfully written in
-        # the output file
+        # the output file.
         infostr = \
             "The list of genes that are included in the DGD model " \
             "model but are not present in the input samples " \

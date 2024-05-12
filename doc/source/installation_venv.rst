@@ -52,23 +52,14 @@ Clone the bulkDGD source code from its GitHub repository within a directory of y
 
 If the ``git`` command is unavailable, you can download the repository content as a ZIP file from the bulkDGD GitHub repository web page, unzip it, and enter it.
 
-Step 5 - Install the required Python packages
----------------------------------------------
-
-You can install all the required Python packages specified in the ``requirements.txt`` file using ``pip``:
-
-.. code-block:: shell
-
-    pip install -r requirements.txt
-
-Step 6 - Get the ``dec.pth`` file
+Step 5 - Get the ``dec.pth`` file
 ---------------------------------
 
 You must download the ``dec.pth`` file containing the trained decoder's parameters before installing bulkDGD, so that the file is copied to the installation directory. The file cannot be shipped together with the GitHub package because of its size, but can be downloaded `here <https://drive.google.com/file/d/1SZaoazkvqZ6DBF-adMQ3KRcy4Itxsz77/view?usp=sharing>`_.
 
 Once downloaded, place the file into the ``bulkDGD/ioutil/data`` folder before performing the installation.
 
-Step 7 - Install bulkDGD
+Step 6 - Install bulkDGD
 ----------------------------
 
 You can now install bulkDGD using ``pip``.

@@ -2,27 +2,29 @@
 # -*- Mode: python; tab-width: 4; indent-tabs-mode:nil; coding:utf-8 -*-
 
 
-# Import the 'logging' module
+#######################################################################
+
+
+# Import the 'logging' module.
 import logging as log
-# Import the 'model' module
+# Import the 'model' module.
 from bulkDGD.core import model
-# Import the 'ioutil' module 
+# Import the 'ioutil' module.
 from bulkDGD import ioutil
 
 
+#######################################################################
 
-#------------------------------ Logging ------------------------------#
 
-
-# Set the logging options so that every message
-# above and including the INFO level is reported
+# Set the logging options so that every message of level INFO or above
+# is emitted.
 log.basicConfig(level = "INFO")
 
 
 #---------------------- Preprocess the samples -----------------------#
 
 
-# Load the samples into a data frame
+# Load the samples into a data frame.
 df_samples = \
     ioutil.load_samples(# The CSV file where the samples are stored
                         csv_file = "samples.csv",
@@ -38,7 +40,7 @@ df_samples = \
                         # additional information about the samples                  
                         split = False)
 
-# Preprocess the samples
+# Preprocess the samples.
 df_preproc, genes_excluded, genes_missing = \
     ioutil.preprocess_samples(df_samples = df_samples)
 
@@ -46,19 +48,18 @@ df_preproc, genes_excluded, genes_missing = \
 #---------------------- Load the configurations ----------------------#
 
 
-# Load the model's configuration
+# Load the model's configuration.
 config_model = ioutil.load_config_model("model.yaml")
 
-# Load the configuration with the options to configure
-# the search for the best representations
+# Load the configuration with the options to configure the rounds of
+# optimization when searching for the best representations.
 config_rep = ioutil.load_config_rep("two_opt.yaml")
 
 
 #----------------------- Get the trained model -----------------------#
 
 
-# Get the trained DGD model (Gaussian mixture model
-# and decoder)
+# Get the trained DGD model (Gaussian mixture model and decoder).
 dgd_model = model.DGDModel(**config_model)
 
 
@@ -66,7 +67,7 @@ dgd_model = model.DGDModel(**config_model)
 
 
 # Get the representations, the corresponding decoder outputs, and
-# the time spent in finding the representations
+# the time spent in finding the representations.
 df_rep, df_dec_out, df_time_opt = \
     dgd_model.get_representations(\
         # The data frame with the samples
@@ -83,7 +84,7 @@ df_rep, df_dec_out, df_time_opt = \
 #------------------------- Save the outputs --------------------------#
 
 
-# Save the preprocessed samples
+# Save the preprocessed samples.
 ioutil.save_samples(\
    # The data frame containing the samples
    df = df_preproc,
@@ -92,7 +93,7 @@ ioutil.save_samples(\
    # The field separator in the output CSV file
    sep = ",")
 
-# Save the representations
+# Save the representations.
 ioutil.save_representations(\
     # The data frame containing the representations
     df = df_rep,
@@ -101,7 +102,7 @@ ioutil.save_representations(\
     # The field separator in the output CSV file
     sep = ",")
 
-# Save the decoder outputs
+# Save the decoder outputs.
 ioutil.save_decoder_outputs(\
     # The data frame containing the decoder outputs
     df = df_dec_out,
@@ -110,7 +111,7 @@ ioutil.save_decoder_outputs(\
     # The field separator in the output CSV file
     sep = ",")
 
-# Save the time data
+# Save the time data.
 ioutil.save_time(\
     # The data frame containing the time data
     df = df_time_opt,

@@ -3,7 +3,10 @@
 
 #    dgd_get_representations.py
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Find representations in the latent space defined by the DGD
+#    model for a set of samples.
+#
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -21,31 +24,40 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Description of the module
+#######################################################################
+
+
+# Set the module's description.
 __doc__ = \
     "Find representations in the latent space defined by the " \
     "DGD model for a set of samples."
 
 
-# Standard library
+#######################################################################
+
+
+# Import from the standard library.
 import argparse
 import logging as log
 import os
 import sys
-# bulkDGD
+# Import from 'bulkDGD'.
 from bulkDGD.core import model
 from bulkDGD import defaults, ioutil, util
+
+
+#######################################################################
 
 
 def main():
 
 
-    # Create the argument parser
+    # Create the argument parser.
     parser = argparse.ArgumentParser(description = __doc__)
 
     #-----------------------------------------------------------------#
 
-    # Add the arguments
+    # Add the arguments.
     i_help = \
         "The input CSV file containing a data frame with " \
         "the gene expression data for the samples for which a " \
@@ -182,7 +194,7 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Parse the arguments
+    # Parse the arguments.
     args = parser.parse_args()
     input_csv = args.input_csv
     output_csv_rep = args.output_csv_rep
@@ -191,31 +203,31 @@ def main():
     config_file_model = args.config_file_model
     config_file_rep = args.config_file_rep
     method_optimization = args.method_optimization
-    wd = args.work_dir
-    log_file = args.log_file
+    wd = os.path.abspath(args.work_dir)
+    log_file = os.path.join(wd, args.log_file)
     log_console = args.log_console
     v = args.log_verbose
     vv = args.log_debug
 
     #-----------------------------------------------------------------#
 
-    # Set WARNING logging level by default
+    # Set WARNING logging level by default.
     log_level = log.WARNING
 
     # If the user requested verbose logging
     if v:
 
-        # The minimal logging level will be INFO
+        # The minimal logging level will be INFO.
         log_level = log.INFO
 
     # If the user requested logging for debug purposes
     # (-vv overrides -v if both are provided)
     if vv:
 
-        # The minimal logging level will be DEBUG
+        # The minimal logging level will be DEBUG.
         log_level = log.DEBUG
 
-    # Configure the logging (for non-Dask operations)
+    # Configure the logging.
     handlers = \
         util.get_handlers(\
             log_console = log_console,
@@ -224,21 +236,16 @@ def main():
                                 "mode" : "w"},
             log_level = log_level)
 
-    # Set the logging configuration
-    log.basicConfig(# The level below which log messages are silenced
-                    level = log_level,
-                    # The format of the log strings
+    # Set the logging configuration.
+    log.basicConfig(level = log_level,
                     format = defaults.LOG_FMT,
-                    # The format for dates/time
                     datefmt = defaults.LOG_DATEFMT,
-                    # The format style
                     style = defaults.LOG_STYLE,
-                    # The handlers
                     handlers = handlers)
 
     #-----------------------------------------------------------------#
 
-    # Try to load the configuration
+    # Try to load the configuration.
     try:
 
         config_model = ioutil.load_config_model(config_file_model)
@@ -246,14 +253,14 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to load the configuration from " \
             f"'{config_file_model}'. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the configuration was successfully loaded
+    # Inform the user that the configuration was successfully loaded.
     infostr = \
         "The configuration was successfully loaded from " \
         f"'{config_file_model}'."
@@ -261,7 +268,7 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Try to load the configuration
+    # Try to load the configuration.
     try:
 
         config_rep = ioutil.load_config_rep(config_file_rep)
@@ -269,14 +276,14 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to load the configuration from " \
             f"'{config_file_rep}'. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the configuration was successfully loaded
+    # Inform the user that the configuration was successfully loaded.
     infostr = \
         "The configuration was successfully loaded from " \
         f"'{config_file_rep}'."
@@ -284,7 +291,7 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Try to load the samples' data
+    # Try to load the samples' data.
     try:
 
         df_samples = \
@@ -296,21 +303,21 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to load the samples from " \
             f"'{input_csv}'. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the data were successfully loaded
+    # Inform the user that the data were successfully loaded.
     infostr = \
         f"The samples were successfully loaded from '{input_csv}'."
     log.info(infostr)
 
     #-----------------------------------------------------------------#
 
-    # Try to set the model
+    # Try to set the model.
     try:
         
         dgd_model = model.DGDModel(**config_model)
@@ -318,19 +325,19 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             f"It was not possible to set the DGD model. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the model was successfully set
+    # Inform the user that the model was successfully set.
     infostr = "The DGD model was successfully set."
     log.info(infostr)
 
     #-----------------------------------------------------------------#
 
-    # Try to get the representations
+    # Try to get the representations.
     try:
         
         df_rep, df_dec_out, df_time = \
@@ -348,7 +355,7 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             f"It was not possible to find the representations. " \
             f"Error: {e}"
@@ -356,16 +363,16 @@ def main():
         sys.exit(errstr)
 
     # Inform the user that the representations were successfully
-    # optimized
+    # optimized.
     infostr = "The representations were successfully found."
     log.info(infostr)
 
     #-----------------------------------------------------------------#
 
-    # Set the path to the output file
+    # Set the path to the output file.
     output_csv_rep_path = os.path.join(wd, output_csv_rep)
 
-    # Try to write the representations in the output CSV file
+    # Try to write the representations in the output CSV file.
     try:
 
         ioutil.save_representations(\
@@ -376,7 +383,7 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to write the representations " \
             f"in '{output_csv_rep_path}'. Error: {e}"
@@ -384,7 +391,7 @@ def main():
         sys.exit(errstr)
 
     # Inform the user that the representations were successfully
-    # written in the output file
+    # written in the output file.
     infostr = \
         "The representations were successfully written in " \
         f"'{output_csv_rep_path}'."
@@ -392,10 +399,10 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Set the path to the output file
+    # Set the path to the output file.
     output_csv_dec_path = os.path.join(wd, output_csv_dec)
 
-    # Try to write the decoder outputs in the dedicated CSV file
+    # Try to write the decoder outputs in the dedicated CSV file.
     try:
 
         ioutil.save_decoder_outputs(\
@@ -406,7 +413,7 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to write the decoder outputs " \
             f"in '{output_csv_dec_path}'. Error: {e}"
@@ -414,7 +421,7 @@ def main():
         sys.exit(errstr)
 
     # Inform the user that the decoder outputs were successfully
-    # written in the output file
+    # written in the output file.
     infostr = \
         "The decoder outputs were successfully written in " \
         f"'{output_csv_dec_path}'."
@@ -422,10 +429,10 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Set the path to the output file
+    # Set the path to the output file.
     output_csv_time_path = os.path.join(wd, output_csv_time)
 
-    # Try to write the time data in the dedicated CSV file
+    # Try to write the time data in the dedicated CSV file.
     try:
 
         ioutil.save_time(\
@@ -436,7 +443,7 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to write the time data " \
             f"in '{output_csv_time_path}'. Error: {e}"
@@ -444,7 +451,7 @@ def main():
         sys.exit(errstr)
 
     # Inform the user that the time data was successfully
-    # written in the output file
+    # written in the output file.
     infostr = \
         "The time data were successfully written in " \
         f"'{output_csv_time_path}'."

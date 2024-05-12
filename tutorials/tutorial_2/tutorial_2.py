@@ -2,6 +2,9 @@
 # -*- Mode: python; tab-width: 4; indent-tabs-mode:nil; coding:utf-8 -*-
 
 
+#######################################################################
+
+
 # Import the 'logging' module
 import logging as log
 # Import the 'core.model' module
@@ -12,18 +15,18 @@ from bulkDGD.analysis import dea
 from bulkDGD import ioutil
 
 
-#------------------------------ Logging ------------------------------#
+#######################################################################
 
 
-# Set the logging options so that every message
-# above and including the INFO level is reported
+# Set the logging options so that every message of level INFO or above
+# is emitted.
 log.basicConfig(level = "INFO")
 
 
 #------------------------- Load the samples --------------------------#
 
 
-# Load the preprocessed samples into a data frame
+# Load the preprocessed samples into a data frame.
 df_samples = \
     ioutil.load_samples(# The CSV file where the samples are stored
                         csv_file = "samples_preprocessed.csv",
@@ -39,14 +42,14 @@ df_samples = \
                         # additional information about the samples
                         split = False)
 
-# Get only the first 10 rows
+# Get only the first 10 rows.
 df_samples = df_samples.iloc[:10,:]
 
 
 #--------------------- Load the decoder outputs ----------------------#
 
 
-# Load the decoder outputs into a data frame
+# Load the decoder outputs into a data frame.
 df_dec_out = \
    ioutil.load_decoder_outputs(# The CSV file where the decoder outputs
                                # are stored
@@ -61,35 +64,34 @@ df_dec_out = \
                                # about the original samples
                                split = False)
 
-# Get only the first ten rows
+# Get only the first ten rows.
 df_dec_out = df_dec_out.iloc[:10,:]
 
 
 #---------------------- Load the configuration -----------------------#
 
 
-# Load the model's configuration
+# Load the model's configuration.
 config_model = ioutil.load_config_model("model.yaml")
 
 
 #----------------------- Get the trained model -----------------------#
 
 
-# Get the trained DGD model (Gaussian mixture model
-# and decoder)
+# Get the trained DGD model (Gaussian mixture model and decoder).
 dgd_model = model.DGDModel(**config_model)
 
 
 #----------------- Differential expression analysis ------------------#
 
 
-# Get the r-values
+# Get the r-values.
 r_values = dgd_model.r_values
 
 # For each sample
 for sample in df_samples.index:
 
-    # Perform differential expression analysis
+    # Perform differential expression analysis.
     dea_results, _ = \
         dea.perform_dea(# The observed gene counts for the current
                         # sample
@@ -115,7 +117,7 @@ for sample in df_samples.index:
                         # The method used to calculate the q-values
                         method = "fdr_bh")
 
-    # Save the results
+    # Save the results.
     dea_results.to_csv(# The CSV file where to save the results
                        # for the current sample
                        f"dea_sample_{sample}.csv",

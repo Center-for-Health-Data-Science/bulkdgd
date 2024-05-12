@@ -8,7 +8,7 @@
 #    modeling the representation space, find the probability 
 #    density of each representation for each GMM component.
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -26,7 +26,10 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Description of the module
+#######################################################################
+
+
+# Set the module's description.
 __doc__ = \
     "Given a CSV file containing the representations of one or " \
     "multiple samples and the Gaussian mixture model (GMM) " \
@@ -34,15 +37,18 @@ __doc__ = \
     "density of each representation for each GMM component."
 
 
-# Standard library
+#######################################################################
+
+
+# Import from the standard library.
 import argparse
 import logging as log
 import os
 import sys
-# Third-party packages
+# Import from third-party packages.
 import pandas as pd
 import torch
-# bulkDGD
+# Import from 'bulkDGD'.
 from bulkDGD.core import model
 from bulkDGD import defaults, ioutil, util
 
@@ -50,12 +56,12 @@ from bulkDGD import defaults, ioutil, util
 def main():
 
 
-    # Create the argument parser
+    # Create the argument parser.
     parser = argparse.ArgumentParser(description = __doc__)
 
     #-----------------------------------------------------------------#
 
-    # Add the arguments
+    # Add the arguments.
     i_help = \
         "The input CSV file containing the data frame with " \
         "the representations."
@@ -155,37 +161,37 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Parse the arguments
+    # Parse the arguments.
     args = parser.parse_args()
     input_csv = args.input_csv
     output_csv_prob_rep = args.output_csv_prob_rep
     output_csv_prob_comp = args.output_csv_prob_comp
     config_file_model = args.config_file_model
-    wd = args.work_dir
-    log_file = args.log_file
+    wd = os.path.abspath(args.work_dir)
+    log_file = os.path.join(wd, args.log_file)
     log_console = args.log_console
     v = args.log_verbose
     vv = args.log_debug
 
     #-----------------------------------------------------------------#
 
-    # Set WARNING logging level by default
+    # Set WARNING logging level by default.
     log_level = log.WARNING
 
     # If the user requested verbose logging
     if v:
 
-        # The minimal logging level will be INFO
+        # The minimal logging level will be INFO.
         log_level = log.INFO
 
     # If the user requested logging for debug purposes
     # (-vv overrides -v if both are provided)
     if vv:
 
-        # The minimal logging level will be DEBUG
+        # The minimal logging level will be DEBUG.
         log_level = log.DEBUG
 
-    # Configure the logging (for non-Dask operations)
+    # Configure the logging.
     handlers = \
         util.get_handlers(\
             log_console = log_console,
@@ -194,21 +200,16 @@ def main():
                                 "mode" : "w"},
             log_level = log_level)
 
-    # Set the logging configuration
-    log.basicConfig(# The level below which log messages are silenced
-                    level = log_level,
-                    # The format of the log strings
+    # Set the logging configuration.
+    log.basicConfig(level = log_level,
                     format = defaults.LOG_FMT,
-                    # The format for dates/time
                     datefmt = defaults.LOG_DATEFMT,
-                    # The format style
                     style = defaults.LOG_STYLE,
-                    # The handlers
                     handlers = handlers)
 
     #-----------------------------------------------------------------#
     
-    # Try to load the configuration
+    # Try to load the configuration.
     try:
 
         config_model = ioutil.load_config_model(config_file_model)
@@ -216,14 +217,14 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to load the configuration from " \
             f"'{config_file_model}'. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the configuration was successfully loaded
+    # Inform the user that the configuration was successfully loaded.
     infostr = \
         "The configuration was successfully loaded from " \
         f"'{config_file_model}'."
@@ -231,7 +232,7 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Try to load the data
+    # Try to load the data.
     try:
 
         df_rep  = \
@@ -242,14 +243,14 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to load the representations from " \
             f"'{input_csv}'. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the data were successfully loaded
+    # Inform the user that the data were successfully loaded.
     infostr = \
         "The representations were successfully loaded " \
         f"from '{input_csv}'."
@@ -257,7 +258,7 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Try to get the GMM
+    # Try to get the GMM.
     try:
         
         dgd_model = model.DGDModel(**config_model)
@@ -265,19 +266,19 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             f"It was not possible to set the DGD model. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the model was successfully set
+    # Inform the user that the model was successfully set.
     infostr = "The DGD model was successfully set."
     log.info(infostr)
 
     #-----------------------------------------------------------------#
 
-    # Try to calculate the probability densities
+    # Try to calculate the probability densities.
     try:
         
         df_prob_rep, df_prob_comp = \
@@ -286,7 +287,7 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to calculate the probability " \
             f"densities for the representations. Error: {e}"
@@ -294,7 +295,7 @@ def main():
         sys.exit(errstr)
 
     # Inform the user that the probability densities were successfully
-    # calculated
+    # calculated.
     infostr = \
         "The probability densities for the representations were " \
         "successfully calculated."
@@ -302,11 +303,11 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Set the path to the output file
+    # Set the path to the output file.
     output_csv_prob_rep_path = os.path.join(wd, output_csv_prob_rep)
 
     # Try to write the probability densities for the representations
-    # to the output CSV file
+    # to the output CSV file.
     try:
 
         df_prob_rep.to_csv(output_csv_prob_rep_path,
@@ -317,7 +318,7 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to write the probability " \
             "densities for each representation in " \
@@ -326,7 +327,7 @@ def main():
         sys.exit(errstr)
 
     # Inform the user that the probability densities for the
-    # representations were successfully written in the output file
+    # representations were successfully written in the output file.
     infostr = \
         "The probability densities for each representation " \
         "were successfully written in " \
@@ -335,12 +336,12 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Set the path to the output
+    # Set the path to the output.
     output_csv_prob_comp_path = os.path.join(wd, output_csv_prob_comp)
 
     # Try to write the probability densities for the representations
     # having the highest probability density for each component
-    # to the output CSV file
+    # to the output CSV file.
     try:
 
         df_prob_comp.to_csv(output_csv_prob_comp_path,
@@ -351,7 +352,7 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to write the probability " \
             "densities for the representations having the " \
@@ -361,7 +362,7 @@ def main():
         sys.exit(errstr)
 
     # Inform the user that the probability densities for the
-    # representations were successfully written in the output file
+    # representations were successfully written in the output file.
     infostr = \
         "The probability densities for the representations having " \
         "the highest probability density for each component " \

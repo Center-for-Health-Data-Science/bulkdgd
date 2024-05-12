@@ -3,7 +3,9 @@
 
 #    _util.py
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Private utilities to load and save files.   
+#
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -21,28 +23,43 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Standard library
+#######################################################################
+
+
+# Set the module's description.
+__doc__ = "Private utilities to load and save files."
+
+
+#######################################################################
+
+
+# Import from the standard library.
 import copy
 import logging as log
 
 
-# Get the module's logger
+#######################################################################
+
+
+# Get the module's logger.
 logger = log.getLogger(__name__)
+
+
+#######################################################################
 
 
 def check_config_against_template(config,
                                   template):
-    """Check the configuration against the configuration's
-    template.
+    """Check a configuration against the configuration's template.
 
     Parameters
     ----------
     config : ``dict``
-        The configuration loaded from the file provided by the
-        user.
+        The configuration.
 
     template : ``dict``
-        A template of how the configuration should be structured.
+        A template describing how the configuration should be
+        structured.
 
     Returns
     -------
@@ -52,45 +69,45 @@ def check_config_against_template(config,
     """
 
     # Set the fields that can be missing from the configuration,
-    # so that they do not raise an exception if they are not found
+    # so that they do not raise an exception if they are not found.
     IGNORE_MISSING = \
         {"gmm_pth_file", "dec_pth_file"}
 
     #-----------------------------------------------------------------#
 
-    # Set the fields that can vary, so that they do not raise
-    # an exception if they are different than expected
+    # Set the fields that can vary in the configuration, so that they
+    # do not raise an exception if they are different than expected.
     IGNORE_VARYING = \
         {"means_prior_options", "weights_prior_options",
          "log_var_prior_options"}
 
     #-----------------------------------------------------------------#
 
-    # Define the recursion
+    # Define the recursion.
     def recurse(config,
                 template,
                 key):
 
-        # If both the current configuration dictionary and the
-        # template dictionary are dictionaries (they are
-        # sub-dictionaries of the original ones in the
+        # If both the current configuration dictionary and the template
+        # dictionary are dictionaries (they are either the full
+        # dictionaries or sub-dictionaries of the original ones in the
         # recursive calls)
         if (isinstance(config, dict) \
         and isinstance(template, dict)):
 
-            # Get the fields (= keys) in the configuration
+            # Get the fields (= keys) in the configuration.
             config_fields = set(config.keys())
             
-            # Get the fields (= keys) in the template
+            # Get the fields (= keys) in the template.
             template_fields = set(template.keys())
             
             # Get the fields (= keys) unique to the configuration
-            # (= not found in the template)
+            # (= not found in the template).
             unique_config_fields = \
                 config_fields - template_fields
 
             # Get the fields (= keys) unique to the template
-            # (= not found in the user-provided configuration)
+            # (= not found in the configuration).
             unique_template_fields = \
                 template_fields - config_fields
 
@@ -99,35 +116,33 @@ def check_config_against_template(config,
             # If any unique field was found in the configuration
             if len(unique_config_fields) != 0:
 
-                # Warn the user and raise an exception
+                # Raise an exception.
                 fields = \
                     ", ".join([f"'{f}'" for f \
                                in unique_config_fields])
                 errstr = \
                     f"Unrecognized field(s) in configuration: " \
                     f"{fields}."
-                logger.error(errstr)
                 raise KeyError(errstr)
 
             #---------------------------------------------------------#
 
-            # If any field was found in the template but not
-            # in the configuration
+            # If any field was found in the template but not in the
+            # configuration.
             if len(unique_template_fields) != 0:
 
                 # If the fields corresponds to field that cannot
-                # be ignored (= they need to be present)
+                # be ignored (= they need to be present).
                 if IGNORE_MISSING.union(\
                     unique_template_fields) != IGNORE_MISSING:
 
-                    # Warn the user and raise an exception
+                    # Raise an exception.
                     fields = \
                         ", ".join([f"'{f}'" for f \
                                    in unique_template_fields])
                     errstr = \
                         f"Missing field(s) in configuration: " \
                         f"{fields}."
-                    logger.error(errstr)
                     raise KeyError(errstr)
 
             #---------------------------------------------------------#
@@ -135,26 +150,24 @@ def check_config_against_template(config,
             # For each key, value pair in the configuration
             for k, val_config in config.items():
 
-                # If the element corresponds to a dictionary
-                # of options that can vary
+                # If the element corresponds to a dictionary of
+                # options that can vary
                 if k in IGNORE_VARYING:
 
-                    # Just ignore it
+                    # Just ignore it.
                     continue
 
                 # Get the corresponding value in the template
                 # (we are sure that there will be a value for
                 # the given key, because we checked the equality
                 # of all keys between configuration and template
-                # earlier)
+                # earlier).
                 val_template = template[k]
 
-                # Recursively check the values
+                # Recursively check the values.
                 recurse(config = val_config,
                         template = val_template,
                         key = k)
-
-        #-------------------------------------------------------------#
 
         #-------------------------------------------------------------#
 
@@ -163,22 +176,21 @@ def check_config_against_template(config,
         elif (isinstance(config, dict) \
         and not isinstance(template, dict)):
 
-            # Warn the user and raise an exception
+            # Raise an exception.
             errstr = \
                 f"The configuration contains sub-fields " \
                 f"for the field '{str(template)}', which is " \
                 f"not supposed to have sub-fields."
-            logger.error(errstr)
             raise TypeError(errstr)
 
         #-------------------------------------------------------------#
 
-        # If the template is a dictionary, but the
-        # configuration is not
+        # If the template is a dictionary, but the configuration is
+        # not
         elif (not isinstance(config, dict) \
         and isinstance(template, dict)):
 
-            # Warn the user and raise an exception
+            # Raise an exception.
             errstr = \
                 f"The configuration does not contain " \
                 f"sub-fields for the field '{str(config)}', " \
@@ -188,17 +200,17 @@ def check_config_against_template(config,
 
         #-------------------------------------------------------------#
 
-        # If both the configuration and the template are
-        # not dictionaries (we are in a "leaf" value, not
-        # a key of a nested dictionary)
+        # If both the configuration and the template are not
+        # dictionaries (we are in a "leaf" value, not a key of a
+        # a nested dictionary)
         elif (not isinstance(config, dict) \
         and not isinstance(template, dict)):
 
-            # If the type of value found in the configuration
-            # does not match the type set in the template
+            # If the type of value found in the configuration does not
+            # match the type set in the template
             if not isinstance(config, template):
 
-                # Warn the user and raise an exception
+                # Raise an exception.
                 errstr = \
                     f"'{key}' must be of type '{str(template)}', "\
                     f"not {str(type(config))} ('{config}')."
@@ -206,12 +218,12 @@ def check_config_against_template(config,
 
         #-------------------------------------------------------------#
 
-        # Return the dictionary
+        # Return the dictionary.
         return config
 
     #-----------------------------------------------------------------#
 
-    # Recurse and return the result
+    # Recurse and return the result.
     return recurse(config = config,
                    template = template,
                    key = None)
@@ -221,8 +233,8 @@ def recursive_map_dict(d,
                        func,
                        keys = None):
     """Recursively traverse a dictionary mapping a function to the
-    dictionary's leaf values (= substituting the values with the
-    return value of the function applied to those values).
+    dictionary's leaf values (the function substitutes the values with
+    the return value of the function applied to those values).
 
     Parameters
     ----------
@@ -230,13 +242,12 @@ def recursive_map_dict(d,
         The input dictionary.
 
     func : any callable
-        A callable taking as inputs the leaf values of the dictionary
-        and returning a value which will take the dictionary's
-        place.
+        A callable taking as keyword arguments the values of a
+        dictionary and returning a single value.
 
     keys : ``list``, ``set``, optional
-        A list of specific keys on whose items the mapping
-        should be performed.
+        A list of specific keys on whose items the mapping should be
+        performed.
 
         This means that all values associated with keys different
         from those in the list will not be affected.
@@ -249,7 +260,7 @@ def recursive_map_dict(d,
         The new dictionary.
     """
 
-    # Define the recursion
+    # Define the recursion.
     def recurse(d,
                 func,
                 keys):
@@ -272,34 +283,31 @@ def recursive_map_dict(d,
                     if k in sel_keys:
 
                         # Substitute the value with the return value
-                        # of 'func' applied to it
+                        # of 'func' applied to it.
                         d[k] = func(**v)
                     
                     # Otherwise
                     else:
 
                         # Recursively check the sub-dictionaries
-                        # of the current dictionary
+                        # in the current dictionary.
                         recurse(d = v,
                                 func = func,
                                 keys = sel_keys)
 
     #-----------------------------------------------------------------#
 
-    #-----------------------------------------------------------------#
-
-    # Create a copy of the input dictionary
+    # Create a copy of the input dictionary.
     new_d = copy.deepcopy(d)
 
     #-----------------------------------------------------------------#
 
-    # Add the "key path" and its value to either the
-    # input dictionary or the new dictionary
+    # Recurse through the new dictionary.
     recurse(d = new_d,
             func = func,
             keys = keys)
 
     #-----------------------------------------------------------------#
 
-    # Return the new dictionary
+    # Return the new dictionary.
     return new_d

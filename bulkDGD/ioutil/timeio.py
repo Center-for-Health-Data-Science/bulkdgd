@@ -3,7 +3,9 @@
 
 #    timeio.py
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Utilities to load and save time-related data.
+#
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -21,24 +23,36 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Description of the module
-__doc__ = "Utilities to load and save the time data."
+#######################################################################
 
 
-# Standard library
+# Set the module's description.
+__doc__ = "Utilities to load and save time-related data."
+
+
+#######################################################################
+
+
+# Import from the standard library.
 import logging as log
-# Third-party packages
+# Import from the third-party packages.
 import pandas as pd
 
 
-# Get the module's logger
+#######################################################################
+
+
+# Get the module's logger.
 logger = log.getLogger(__name__)
+
+
+#######################################################################
 
 
 def load_time(csv_file,
               sep = ","):
-    """Load the information about the CPU and wall clock time
-    from a CSV file.
+    """Load the information about the CPU and wall clock time from a
+    CSV file.
 
     Parameters
     ----------
@@ -51,17 +65,17 @@ def load_time(csv_file,
     Returns
     -------
     df_time : ``pandas.DataFrame``
-        A data frame containing the information about the CPU
-        and wall clock time.
+        A data frame containing the information about the CPU and
+        wall clock time.
     """
 
-    # Load the data frame
+    # Load the data frame.
     df_time = pd.read_csv(csv_file,
                           sep = sep,
                           index_col = False,
                           header = 0)
 
-    # Return the data frame
+    # Return the data frame.
     return df_time
 
 
@@ -83,7 +97,7 @@ def save_time(df,
         The column separator in the output CSV file.
     """
 
-    # Save the time information
+    # Save the time information.
     df.to_csv(csv_file,
               sep = sep,
               index = False,

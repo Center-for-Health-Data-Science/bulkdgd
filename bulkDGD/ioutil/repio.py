@@ -3,7 +3,9 @@
 
 #    repio.py
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Utilities to load and save the representations.
+#
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -21,18 +23,30 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Description of the module
+#######################################################################
+
+
+# Set the module's description.
 __doc__ = "Utilities to load and save the representations."
 
 
-# Standard library
+#######################################################################
+
+
+# Import from the standard library.
 import logging as log
-# Third-party packages
+# Import from third-party packages.
 import pandas as pd
 
 
-# Get the module's logger
+#######################################################################
+
+
+# Get the module's logger.
 logger = log.getLogger(__name__)
+
+
+#######################################################################
 
 
 def load_representations(csv_file,
@@ -47,46 +61,45 @@ def load_representations(csv_file,
 
         Each row should contain a representation. The columns should
         contain the representation's values along the latent
-        space's dimensions and additional informations about
-        the representations, if present (for instance, the loss
-        associated with each representation).
+        space's dimensions and additional information about the
+        representations, if present.
 
     sep : ``str``, ``","``
         The column separator in the input CSV file.
 
     split : ``bool``, ``True``
         Whether to split the input data frame into two data frames,
-        one with only the columns containing the representations'
-        values along the latent space's dimensions and the other
-        containing only the columns with additional information
-        about the representations, if any were found.
+        one with only the columns with the representations' values
+        along the latent space's dimensions, and the other containing
+        only the columns with additional information about the
+        representations, if any were found.
 
     Returns
     -------
     df_data : ``pandas.DataFrame``
-        A data frame containing the representations'
-        values along the latent space's dimensions.
+        A data frame containing the representations' values along the
+        latent space's dimensions.
 
         Here, each row contains a representation and the columns
-        contain the representations' values along the latent
-        space's dimensions.
+        contain the representation's values along the latent space's
+        dimensions.
 
-        If ``split`` is ``False``, this data frame will
-        also contain the columns containing additional
-        information about the representations, if any were found.
+        If ``split`` is ``False``, this data frame will also contain
+        the columns with additional information about the
+        representations, if any were found.
 
     df_other_data : ``pandas.DataFrame``
         A data frame containing the additional information about
         the representations found in the input data frame.
 
         Here, each row contains a representation and the columns
-        contain additional information about the representations
+        contain additional information about the representation
         provided in the input data frame.
 
         If ``split`` is ``False``, only ``df_data`` is returned.
     """
 
-    # Load the data frame with the representations
+    # Load the data frame with the representations.
     df = pd.read_csv(csv_file,
                      sep = sep,
                      index_col = 0,
@@ -94,16 +107,25 @@ def load_representations(csv_file,
 
     #-----------------------------------------------------------------#
 
+    # Get the names of the columns containing the values of
+    # the representations along the latent space's dimensions.
+    latent_dims_columns = \
+        [col for col in df.columns if col.startswith("latent_dim_")]
+
+    # Inform the user about how many columns were found containing
+    # the values of the representations.
+    infostr = \
+        f"{len(latent_dims_columns)} column(s) containing the " \
+        "values of the representations along the latent space's " \
+        "dimensions was (were) found in the input data frame."
+    logger.info(infostr)
+
+    #-----------------------------------------------------------------#
+
     # If the user requested splitting the data frame
     if split:
 
-        # Get the names of the columns containing the values of
-        # the representations along the latent space's dimensions
-        latent_dims_columns = \
-            [col for col in df.columns \
-             if col.startswith("latent_dim_")]
-
-        # Get the names of the other columns
+        # Get the names of the other columns.
         other_columns = \
             [col for col in df.columns \
              if col not in latent_dims_columns]
@@ -111,7 +133,7 @@ def load_representations(csv_file,
         # If additional columns were found
         if other_columns:
 
-            # Inform the user of the other columns found
+            # Inform the user of the other columns found.
             infostr = \
                 f"{len(other_columns)} column(s) containing " \
                 "additional information (not values of the " \
@@ -121,7 +143,7 @@ def load_representations(csv_file,
             logger.info(infostr)
 
         # Return a data frame with the representations' values and
-        # another with the extra information
+        # another with the extra information.
         return df[latent_dims_columns], df[other_columns]
 
     #-----------------------------------------------------------------#
@@ -129,7 +151,7 @@ def load_representations(csv_file,
     # Otherwise
     else:
 
-        # Return the full data frame
+        # Return the full data frame.
         return df
 
 
@@ -151,7 +173,7 @@ def save_representations(df,
         The column separator in the output CSV file.
     """
 
-    # Save the representations
+    # Save the representations.
     df.to_csv(csv_file,
               sep = sep,
               index = True,

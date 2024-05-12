@@ -1,88 +1,291 @@
+# This is a configuration file describing the aesthetics of a histogram
+# representing the distribution of a set of r-values corresponding to
+# different negative binomial distributions.
+#
+# The file also contains the options specifying the output file format
+# where the plot will be saved.
 
 
-#------------------------------- Output ------------------------------#
+#######################################################################
 
 
-# Output file settings (passed to 'matplotlib.pyplot.savefig')
+# Set the options for the output file 
+# (passed to 'matplotlib.pyplot.savefig').
+#
+# All the available options to set up the output file can be found at:
+#
+# https://matplotlib.org/stable/api/_as_gen/
+# matplotlib.pyplot.savefig.html
 output:
   
-  # DPI (the higher the number, the higher the resolution)
+  # Set the DPI (the higher the number, the higher the resolution).
+  #
+  # Type: int.
+  #
+  # Default: 900.
   dpi: 900
   
-  # Whether to have a transparent or opaque background
+  # Set whether to have a transparent background.
+  #
+  # Type: bool.
+  #
+  # Default: True.
   transparent: True
   
-  # Format of the output file
+  # Set the format of the output file.
+  #
+  # Type: str.
+  #
+  # Options: all the available options can be found at
+  # https://matplotlib.org/stable/api/_as_gen/
+  # matplotlib.pyplot.savefig.html
+  #
+  # Default: 'pdf'.
   format: pdf
   
-  # Bbox in inches. If 'tight', use a tight layout for the figure
+  # Set the bounding box in inches.
+  #
+  # Type: str or list of floats.
+  #
+  # Options: all the available options can be found at
+  # https://matplotlib.org/stable/api/_as_gen/
+  # matplotlib.pyplot.savefig.html
+  #
+  # Default: 'tight'.
   bbox_inches: tight
 
 
-#----------------------------- Histogram -----------------------------#
+#######################################################################
 
 
-# Plot settings
+# Set the options for the plot.
 plot:
 
-  # Histogram settings
+  # Set the options for the histogram (passed to
+  # 'matplotlib.axes.Axes.hist').
+  #
+  # All the available options to set up the histogram can be found at:
+  #
+  # https://matplotlib.org/stable/api/_as_gen/
+  # matplotlib.axes.Axes.hist.html
   histogram:
 
-    # Number of bins
+    # Set the number of bins in the histogram.
+    #
+    # Type: int.
+    #
+    # Default: 100.
     bins: 100
 
-    # Whether to plot a density or a count. Remember to change the
-    # label of the y-axis accordingly so that it represents the
-    # quantity displayed on the axis
+    # Set whether to plot a density or a count.
+    # 
+    # Remember to set the label of the y-axis accordingly so that
+    # it represents the quantity displayed on the axis.
+    #
+    # Type: bool.
+    #
+    # Default: False.
     density: False
 
+  #-------------------------------------------------------------------#
 
-  # X-axis settings  
+  # Set the options for the x-axis.
   xaxis:
     
-    # Label settings (passed to
-    # 'matplotlib.axes.Axes.set_xlabel')
+    # Set the options for the axis' label (passed to
+    # 'matplotlib.axes.Axes.set_xlabel').
+    #
+    # All the available options to set up the axis' label can be
+    # found at:
+    #
+    # https://matplotlib.org/stable/api/_as_gen/
+    # matplotlib.axes.Axes.set_xlabel.html
     label:
 
-      # Text for the label
+      # Set the axis' label.
+      #
+      # Type: str.
+      #
+      # Default: 'Magnitude of the r-values'.
       xlabel: Magnitude of the r-values
+
+      # Set the properties of the font of the axis' label.
+      #
+      # All the availabe options for the properties can be found at:
+      #
+      # https://matplotlib.org/stable/api/
+      # font_manager_api.html#matplotlib.font_manager.FontProperties
+      fontproperties:
+        
+        # Set the name of/path to the font.
+        #
+        # Type: str.
+        #
+        # Default: !!null (the default Matplotlib font will be used).
+        fname: !!null
+        
+        # Set the font size.
+        #
+        # Type: int.
+        #
+        # Default: 10.
+        size: 10
     
-    # Tick labels settings (passed to 
-    # 'matplotlib.axes.Axes.set_xticklabels')
+    # Set the options for the ticks' labels (passed to 
+    # 'matplotlib.axes.Axes.set_xticklabels').
+    #
+    # All the available options to set up the ticks' labels can be
+    # found at:
+    #
+    # https://matplotlib.org/stable/api/_as_gen/
+    # matplotlib.axes.Axes.set_xticklabels.html
     ticklabels:
       
-      # Tick label rotation
-      rotation: 0
+      # Set the rotation of the ticks' labels.
+      #
+      # Type: float.
+      #
+      # Default: 0.0.
+      rotation: 0.0
 
-    # Settings for the interval represented on the axis
+      # Set the properties of the font of the ticks' labels.
+      #
+      # All the availabe options for the properties can be found at:
+      #
+      # https://matplotlib.org/stable/api/
+      # font_manager_api.html#matplotlib.font_manager.FontProperties
+      fontproperties:
+        
+        # Set the name of/path to the font.
+        #
+        # Type: str.
+        #
+        # Default: !!null (the default Matplotlib font will be used).
+        fname: !!null
+        
+        # Set the font size.
+        #
+        # Type: int.
+        #
+        # Default: 10.
+        size: 8
+
+    # Set the options for the interval represented on the axis.
     interval:
 
-      # Type of interval ('discrete' or 'continuous')
+      # Set the type of interval represented on the axis.
+      #
+      # Type: str.
+      #
+      # Options:
+      # - 'discrete' for a discrete interval.
+      # - 'continuous' for a continuous interval.
+      #
+      # Default: 'discrete'.
       type: discrete
 
 
-  # Y-axis settings
+  #-------------------------------------------------------------------#
+
+  # Set the options for the y-axis.
   yaxis:
     
-    # Label settings (passed to
-    # 'matplotlib.axes.Axes.set_ylabel')
+    # Set the options for the axis' label (passed to
+    # 'matplotlib.axes.Axes.set_ylabel').
+    #
+    # All the available options to set up the axis' label can be
+    # found at:
+    #
+    # https://matplotlib.org/stable/api/_as_gen/
+    # matplotlib.axes.Axes.set_ylabel.html
     label:
 
-      # Text for the label
+      # Set the axis' label.
+      #
+      # Type: str.
+      #
+      # Default: 'Number of r-values'.
       ylabel: Number of r-values
+
+      # Set the properties of the font of the axis' label.
+      #
+      # All the availabe options for the properties can be found at:
+      #
+      # https://matplotlib.org/stable/api/
+      # font_manager_api.html#matplotlib.font_manager.FontProperties
+      fontproperties:
+        
+        # Set the name of/path to the font.
+        #
+        # Type: str.
+        #
+        # Default: !!null (the default Matplotlib font will be used).
+        fname: !!null
+        
+        # Set the font size.
+        #
+        # Type: int.
+        #
+        # Default: 10.
+        size: 10
     
-    # Tick labels settings (passed to
-    # 'matplotlib.axes.Axes.set_yticklabels')
+    # Set the options for the ticks' labels (passed to 
+    # 'matplotlib.axes.Axes.set_yticklabels').
+    #
+    # All the available options to set up the ticks' labels can be
+    # found at:
+    #
+    # https://matplotlib.org/stable/api/_as_gen/
+    # matplotlib.axes.Axes.set_yticklabels.html
     ticklabels:
       
-      # Tick label rotation
-      rotation: 0
+      # Set the rotation of the ticks' labels.
+      #
+      # Type: float.
+      #
+      # Default: 0.0.
+      rotation: 0.0
 
-    # Settings for the interval represented on the axis
+      # Set the properties of the font of the ticks' labels.
+      #
+      # All the availabe options for the properties can be found at:
+      #
+      # https://matplotlib.org/stable/api/
+      # font_manager_api.html#matplotlib.font_manager.FontProperties
+      fontproperties:
+        
+        # Set the name of/path to the font.
+        #
+        # Type: str.
+        #
+        # Default: !!null (the default Matplotlib font will be used).
+        fname: !!null
+        
+        # Set the font size.
+        #
+        # Type: int.
+        #
+        # Default: 10.
+        size: 8
+
+    # Set the options for the interval represented on the axis.
     interval:
 
-      # Type of interval ('discrete' or 'continuous')      
+      # Set the type of interval represented on the axis.
+      #
+      # Type: str.
+      #
+      # Options:
+      # - 'discrete' for a discrete interval.
+      # - 'continuous' for a continuous interval.
+      #
+      # Default: 'discrete'.    
       type: discrete
 
-      # Lowest value of the interval
+      # Set the lowest value in the interval that will be represented
+      # on the axis.
+      #
+      # Type: int or float.
+      #
+      # Default: 0.
       bottom: 0

@@ -5,7 +5,7 @@
 #
 #    bulkDGD setup.
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -23,33 +23,37 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Standard library
+#######################################################################
+
+
+# Import from the standard library.
 from setuptools import setup, find_packages
 
 
-# The name of the project
+#######################################################################
+
+
+# Set the name of the project.
 name = "bulkDGD"
 
-# The URL where to find the project
+# Set the URL where to find the project.
 url = \
-    f"https://github.com/Center-for-Health-Data-Science/" \
-    f"{name}"
+    f"https://github.com/Center-for-Health-Data-Science/{name}"
 
-# The project's author(s)
+# Set the project's author(s).
 author = \
-    "Valentina Sora, Viktoria Schuster, " \
-    "Inigo Prada-Luengo, Anders Lykkebo-Valløe, " \
-    "Anders Krogh"
+    "Valentina Sora, Viktoria Schuster, Iñigo Prada-Luengo, " \
+    "Anders Lykkebo-Valløe, Anders Krogh"
 
-# The project's version
-version = "0.0.3"
+# Set the project's version.
+version = "12.05.2024"
 
-# A brief description of the project
+# Set a brief description of the project.
 description = \
     "A generative model for human gene expression from bulk " \
     "RNA-Seq data."
 
-# Which packages are included
+# Set which packages are included.
 packages = \
     ["bulkDGD",
      "bulkDGD.analysis",
@@ -59,7 +63,7 @@ packages = \
      "bulkDGD.plotting",
      "bulkDGD.recount3"]
 
-# Which package data to include
+# Set which package data to include.
 package_data = \
     {"bulkDGD.ioutil" : ["configs/model/*.yaml",
                          "configs/model/*.md",
@@ -73,7 +77,7 @@ package_data = \
      "bulkDGD.recount3" : ["data/*.txt",
                            "data/*.md"]}
 
-# Command-line executables
+# Set the command-line executables.
 entry_points = \
     {"console_scripts" : \
         [# Public executables
@@ -89,13 +93,13 @@ entry_points = \
          f"{name}.execs.dgd_perform_pca:main",
          "dgd_get_probability_density = " \
          f"{name}.execs.dgd_get_probability_density:main",
-        # "Private executable" - not intended to be called
-        # directly by end users
-        "_dgd_get_recount3_data_single_batch = " \
-         f"{name}.execs._dgd_get_recount3_data_single_batch:main",],
+         # "Private" executables - not intended to be called
+         # directly by end users
+         "_dgd_get_recount3_data_single_batch = " \
+         f"{name}.execs._dgd_get_recount3_data_single_batch:main"],
     }
 
-# Any required dependencies
+# Set any required dependencies.
 install_requires = ["dask",
                     "distributed",
                     "matplotlib",
@@ -109,7 +113,11 @@ install_requires = ["dask",
                     "torch",
                     "PyYAML"]
 
-# Run the setup
+
+#######################################################################
+
+
+# Run the setup.
 setup(name = name,
       url = url,
       author = author,

@@ -3,13 +3,20 @@
 
 #    priors.py
 #
+#    This module contains the classes implementing some of the prior
+#    distributions used in the DGD model. The 'softball' distribution
+#    (:class:`core.priors.SoftballPrior`) is used as a prior over the
+#    means of the components of the Gaussian mixture, while a
+#    Gaussian distribution (:class:`core.priors.GaussianPrior`) is
+#    used as a prior over the log-variance of the Gaussian mixture.
+#
 #    The code was originally developed by Viktoria Schuster,
 #    Inigo Prada Luengo, and Anders Krogh.
 #    
 #    Valentina Sora modified and complemented it for the purposes
 #    of this package.
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #                       Viktoria Schuster
 #                       <viktoria.schuster@sund.ku.dk>
@@ -33,7 +40,10 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Description of the module
+#######################################################################
+
+
+# Set the module's description.
 __doc__ = \
     "This module contains the classes implementing some of the " \
     "prior distributions used in the DGD model. The 'softball' " \
@@ -44,15 +54,24 @@ __doc__ = \
     "over the log-variance of the Gaussian mixture."
 
 
-# Standard library
+#######################################################################
+
+
+# Import from the standard library.
 import logging as log
 import math
-# Third-party packages
+# Import from third-party packages.
 import torch
 
 
-# Get the module's logger
+#######################################################################
+
+
+# Get the module's logger.
 logger = log.getLogger(__name__)
+
+
+#######################################################################
 
 
 class SoftballPrior:
@@ -63,13 +82,16 @@ class SoftballPrior:
     It is an almost uniform prior for an m-dimensional ball, with
     the logistic function making a soft (differentiable) boundary.
     """
+
+
+    ######################### INITIALIZATION ##########################
+
     
     def __init__(self,
                  dim,
                  radius,
                  sharpness):
-        """Initialize an instance of the softball prior
-        distribution.
+        """Initialize an instance of the softball prior distribution.
 
         Parameters
         ----------
@@ -83,17 +105,17 @@ class SoftballPrior:
             The sharpness of the soft boundary of the ball.
         """
         
-        # Set the dimensionality of the prior
+        # Set the dimensionality of the prior.
         self._dim = dim
 
-        # Set the radius of the ball
+        # Set the radius of the ball.
         self._radius = radius
 
-        # Set the sharpness of the boundary
+        # Set the sharpness of the boundary.
         self._sharpness = sharpness
 
 
-    #-------------------------- Properties ---------------------------#
+    ########################### PROPERTIES ############################
 
 
     @property
@@ -107,13 +129,15 @@ class SoftballPrior:
     @dim.setter
     def dim(self,
             value):
-        """Raise an exception if the user tries to modify
-        the value of ``dim`` after initialization.
+        """Raise an exception if the user tries to modify the value of
+        ``dim`` after initialization.
         """
         
         errstr = \
-            "The value of 'dim' cannot be changed " \
-            "after initialization."
+            "The value of 'dim' is set at initialization and cannot " \
+            "be changed. If you want to change the dimensionality " \
+            "of the distribution, initialize a new instance of " \
+            f"'{self.__class__.__name__}'."
         raise ValueError(errstr)
 
 
@@ -128,13 +152,15 @@ class SoftballPrior:
     @radius.setter
     def radius(self,
                value):
-        """Raise an exception if the user tries to modify
-        the value of ``radius`` after initialization.
+        """Raise an exception if the user tries to modify the value of
+        ``radius`` after initialization.
         """
         
         errstr = \
-            "The value of 'radius' cannot be changed " \
-            "after initialization."
+            "The value of 'radius' is set at initialization and " \
+            "cannot be changed. If you want to change the radius of " \
+            "the soft ball, initialize a new instance of " \
+            f"'{self.__class__.__name__}'."
         raise ValueError(errstr)
 
 
@@ -149,24 +175,24 @@ class SoftballPrior:
     @sharpness.setter
     def sharpness(self,
                   value):
-        """Raise an exception if the user tries to modify
-        the value of ``sharpness`` after initialization.
+        """Raise an exception if the user tries to modify the value of
+        ``sharpness`` after initialization.
         """
         
         errstr = \
-            "The value of 'sharpness' cannot be changed " \
-            "after initialization."
+            "The value of 'sharpness' is set at initialization and " \
+            "cannot be changed. If you want to change the sharpness " \
+            "of the soft boundary of the ball, initialize a new " \
+            f"instance of '{self.__class__.__name__}'."
         raise ValueError(errstr)
 
 
-    #------------------------ Public methods -------------------------#
+    ######################### PUBLIC METHODS ##########################
     
 
     def sample(self,
                n_samples):
-        """Get ``n`` random samples from the softball distribution.
-        The sampling is uniform from the ``dim``-dimensional ball,
-        and approximate.
+        """Get samples from the softball distribution.
         
         Parameters
         ----------
@@ -179,24 +205,25 @@ class SoftballPrior:
             The samples drawn from the softball distribution.
         """
 
-        # Disable gradient calculation
+        # Disable gradient calculation.
         with torch.no_grad():
             
             # Get a tensor filled with random numbers sampled from a 
-            # normal distribution with mean of 0 and a standard
+            # normal distribution with a mean of 0 and a standard
             # deviation of 1 - 'sample' is a tensor with dimensions
-            # [n_samples, dim]
+            # [n_samples, dim].
             samples = torch.randn((n_samples, self.dim))
             
             # Get the norm of the tensor calculated on the last
             # dimension of the tensor. Retain 'dim' in the output
-            # tensor. Divide the first element of the norm by
-            # the second element of the norm.
+            # tensor. Divide the first element of the norm by the
+            # second element of the norm.
+            #
             # In brief, get 'n' random directions.
             samples.div_(samples.norm(dim = -1,
                                       keepdim = True))
             
-            # Get 'n' random lengths
+            # Get 'n' random lengths.
             local_len = \
                 self.radius * \
                 torch.pow(torch.rand((n_samples, 1)), 1.0 / self.dim)
@@ -204,14 +231,14 @@ class SoftballPrior:
             # ???
             samples.mul_(local_len.expand(-1, self.dim))
         
-        # Return the new samples
+        # Return the new samples.
         return samples
     
 
     def log_prob(self,
                  x):
-        """Return the log of the probability density function
-        evaluated at ``x``.
+        """Return the log of the probability density function evaluated
+        at ``x``.
 
         Parameters
         ----------
@@ -221,17 +248,18 @@ class SoftballPrior:
         Returns
         -------
         log_prob : ``torch.Tensor``
-            The log of the probability density function evaluated
-            at ``x``.
+            The log of the probability density function evaluated at
+            ``x``.
         """
 
-        # Compute the norm
+        # Compute the norm.
         norm = \
             math.lgamma(1 + self.dim * 0.5) - \
             self.dim * (math.log(self.radius) + \
             0.5 * math.log(math.pi))
         
-        # Return the log of the probability density function
+        # Return the log of the probability density function evaluated
+        # at 'x'.
         return (norm - \
                 torch.log(1 + \
                           torch.exp(\
@@ -244,6 +272,10 @@ class GaussianPrior:
     """
     Class implementing a Gaussian prior distribution.
     """
+
+
+    ######################### INITIALIZATION ##########################
+
 
     def __init__(self,
                  dim,
@@ -263,23 +295,23 @@ class GaussianPrior:
             The standard deviation of the Gaussian distribution.
         """
 
-        # Set the dimensionality
+        # Set the dimensionality of the distribution.
         self._dim = dim
         
-        # Set the mean
+        # Set the mean of the distribution.
         self._mean = mean
 
-        # Set the standard deviation
+        # Set the standard deviation of the distribution.
         self._stddev = stddev
 
-        # Set a normal distribution with the given mean
-        # and standard deviation  
+        # Set a normal distribution with the given mean and standard
+        # deviation.
         self._dist = \
             torch.distributions.normal.Normal(self.mean,
                                               self.stddev)
 
 
-    #-------------------------- Properties ---------------------------#
+    ########################### PROPERTIES ############################
 
 
     @property
@@ -293,13 +325,15 @@ class GaussianPrior:
     @dim.setter
     def dim(self,
             value):
-        """Raise an exception if the user tries to modify
-        the value of ``dim`` after initialization.
+        """Raise an exception if the user tries to modify the value of
+        ``dim`` after initialization.
         """
         
         errstr = \
-            "The value of 'dim' cannot be changed " \
-            "after initialization."
+            "The value of 'dim' is set at initialization and cannot " \
+            "be changed. If you want to change the dimensionality " \
+            "of the distribution, initialize a new instance of " \
+            f"'{self.__class__.__name__}'."
         raise ValueError(errstr)
 
 
@@ -314,13 +348,15 @@ class GaussianPrior:
     @mean.setter
     def mean(self,
              value):
-        """Raise an exception if the user tries to modify
-        the value of ``mean`` after initialization.
+        """Raise an exception if the user tries to modify the value of
+        ``mean`` after initialization.
         """
         
         errstr = \
-            "The value of 'mean' cannot be changed " \
-            "after initialization."
+            "The value of 'mean' is set at initialization and " \
+            "cannot be changed. If you want to change the mean of " \
+            "the distribution, initialize a new instance of " \
+            f"'{self.__class__.__name__}'."
         raise ValueError(errstr)
 
 
@@ -335,22 +371,24 @@ class GaussianPrior:
     @stddev.setter
     def stddev(self,
                value):
-        """Raise an exception if the user tries to modify
-        the value of ``stddev`` after initialization.
+        """Raise an exception if the user tries to modify the value of
+        ``stddev`` after initialization.
         """
         
         errstr = \
-            "The value of 'stddev' cannot be changed " \
-            "after initialization."
+            "The value of 'stddev' is set at initialization and " \
+            "cannot be changed. If you want to change the standard " \
+            "deviation of the distribution, initialize a new " \
+            f"instance of '{self.__class__.__name__}'."
         raise ValueError(errstr)
 
 
-    #------------------------ Public methods -------------------------#
+    ######################### PUBLIC METHODS ##########################
 
 
     def sample(self,
                n_samples):
-        """Sample from the Gaussian distribution.
+        """Get samples from the Gaussian distribution.
 
         Parameters
         ----------
@@ -359,10 +397,11 @@ class GaussianPrior:
 
         Returns
         -------
-        ``torch.Tensor``
+        samples : ``torch.Tensor``
             The samples drawn from the Gaussian distribution.
         """
         
+        # Get the samples from the distribution and return them.
         return self._dist.sample((n_samples, self.dim))
 
     
@@ -383,4 +422,6 @@ class GaussianPrior:
             at ``x``.
         """
         
+        # Return the log probability of the density function
+        # evaluated at the input(s).
         return self._dist.log_prob(x)

@@ -3,7 +3,10 @@
 
 #    dgd_get_recount3_data.py
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Get RNA-seq data associated with specific human samples for
+#    projects hosted on the Recount3 platform.
+#
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -21,34 +24,43 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Description of the module
+#######################################################################
+
+
+# Set the module's description.
 __doc__ = \
-    "Get RNA-seq data associated with specific human samples " \
-    "for projects hosted on the Recount3 platform."
+    "Get RNA-seq data associated with specific human samples for " \
+    "projects hosted on the Recount3 platform."
 
 
-# Standard library
+#######################################################################
+
+
+# Import from the standard library.
 import argparse
 import logging as log
 import logging.handlers as loghandlers
 import os
 import sys
-# Thurd-party packages
+# Import from third-party packages.
 import dask
 import pandas as pd
-# bulDGD
+# Import from 'bulkDGD'.
 from bulkDGD import defaults, util, recount3
+
+
+#######################################################################
 
 
 def main():
 
 
-    # Create the argument parser
+    # Create the argument parser.
     parser = argparse.ArgumentParser(description = __doc__)
 
     #-----------------------------------------------------------------#
 
-    # Add the arguments
+    # Add the arguments.
     ib_help = \
         "A CSV file to download samples' data in bulk. The file " \
         "must contain at least two columns: 'input_project_name' " \
@@ -149,45 +161,45 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Parse the arguments
+    # Parse the arguments.
     args = parser.parse_args()
     input_samples_batches = args.input_samples_batches
-    wd = args.work_dir
+    wd = os.path.abspath(args.work_dir)
     n_proc = args.n_proc
     save_gene_sums = args.save_gene_sums
     save_metadata = args.save_metadata
-    log_file = args.log_file
+    log_file = os.path.join(wd, args.log_file)
     log_console = args.log_console
     v = args.log_verbose
     vv = args.log_debug
 
     #-----------------------------------------------------------------#
 
-    # Set WARNING logging level by default
+    # Set WARNING logging level by default.
     log_level = log.WARNING
 
     # If the user requested verbose logging
     if v:
 
-        # The minimal logging level will be INFO
+        # The minimal logging level will be INFO.
         log_level = log.INFO
 
     # If the user requested logging for debug purposes
     # (-vv overrides -v if both are provided)
     if vv:
 
-        # The minimal logging level will be DEBUG
+        # The minimal logging level will be DEBUG.
         log_level = log.DEBUG
 
-    # Get the logging configuration for Dask
+    # Get the logging configuration for Dask.
     dask_logging_config = \
         util.get_dask_logging_config(log_console = log_console,
                                      log_file = log_file)
     
-    # Set the configuration for Dask-specific logging
+    # Set the configuration for Dask-specific logging.
     dask.config.set({"distributed.logging" : dask_logging_config})
     
-    # Configure the logging (for non-Dask operations)
+    # Configure the logging (for non-Dask operations).
     handlers = \
         util.get_handlers(\
             log_console = log_console,
@@ -195,25 +207,20 @@ def main():
             log_file_options = {"filename" : log_file},
             log_level = log_level)
 
-    # Set the logging configuration
-    log.basicConfig(# The level below which log messages are silenced
-                    level = log_level,
-                    # The format of the log strings
+    # Set the logging configuration.
+    log.basicConfig(level = log_level,
                     format = defaults.LOG_FMT,
-                    # The format for dates/time
                     datefmt = defaults.LOG_DATEFMT,
-                    # The format style
                     style = defaults.LOG_STYLE,
-                    # The handlers
                     handlers = handlers)
 
     #-----------------------------------------------------------------#
     
     # Import 'distributed' only here because, otherwise, the logging
-    # configuration is not properly set    
+    # configuration is not properly set    .
     from distributed import LocalCluster, Client, as_completed
 
-    # Create the local cluster
+    # Create the local cluster.
     cluster = LocalCluster(# Number of workers
                            n_workers = n_proc,
                            # Below which level log messages will
@@ -226,12 +233,12 @@ def main():
                            # be used
                            threads_per_worker = 1)
 
-    # Open the client from the cluster
+    # Open the client from the cluster.
     client = Client(cluster)
 
     #-----------------------------------------------------------------#
 
-    # Try to load the samples' batches
+    # Try to load the samples' batches.
     try:
 
         df = recount3.load_samples_batches(\
@@ -240,14 +247,14 @@ def main():
     # If something went wrong
     except Exception as e:
         
-        # Warn the user and exit
+        # Warn the user and exit.
         errstr = \
             "It was not possible to load the samples' batches " \
             f"from '{input_samples_batches}'. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the batches were successfully loaded
+    # Inform the user that the batches were successfully loaded.
     infostr = \
         "The samples' batches were successfully loaded from " \
         f"'{input_samples_batches}'."
@@ -255,32 +262,32 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Create a list to store the futures
+    # Create a list to store the futures.
     futures = []
 
     # For each row of the data frame containing the samples' batches
     for num_batch, row in enumerate(df.itertuples(index = False), 1):
 
-        # Get the name of the project
+        # Get the name of the project.
         project_name = row.input_project_name
 
-        # Get the samples' category
+        # Get the samples' category.
         samples_category = row.input_samples_category
 
-        # Get the query string
+        # Get the query string.
         query_string = row.query_string
 
         #-------------------------------------------------------------#
 
-        # Get the name of the output file
+        # Get the name of the output file.
         output_csv_name = \
             f"{project_name}_{samples_category}_{num_batch}.csv"
 
-        # Get the path to the output file
+        # Get the path to the output file.
         output_csv_path = os.path.join(wd, output_csv_name)
 
         # Inform the user that the results will be written to the
-        # specified output file
+        # specified output file.
         infostr = \
             f"The results for batch # {num_batch} ('{project_name}' " \
             f"project, '{samples_category}' samples) will be " \
@@ -289,15 +296,15 @@ def main():
 
         #-------------------------------------------------------------#
 
-        # Get the path to the log file and the file's extension
+        # Get the path to the log file and the file's extension.
         log_file_name = \
             f"{project_name}_{samples_category}_{num_batch}.log"
 
-        # Get the path to the log file
+        # Get the path to the log file.
         log_file_path = os.path.join(wd, log_file_name)
 
         # Inform the user about the log file for the current batch
-        # of samples
+        # of samples.
         infostr = \
             f"The log messages for batch # {num_batch} " \
             f"('{project_name}' project, '{samples_category}' " \
@@ -306,7 +313,7 @@ def main():
 
         #-------------------------------------------------------------#
 
-        # Build the list of arguments needed to send one calculation
+        # Build the list of arguments needed to send one calculation.
         args = \
             ["-ip", str(project_name),
              "-is", str(samples_category),
@@ -317,42 +324,42 @@ def main():
         # If the user passed a query string for the current batch
         if not pd.isna(query_string):
 
-            # Add the query string option to the list of arguments
+            # Add the query string option to the list of arguments.
             args.extend(["-qs", query_string])
 
         # If the user wants to save the original 'gene_sums' files
         if save_gene_sums:
 
-            # Add the option for it to the list of arguments
+            # Add the option for it to the list of arguments.
             args.append("-sg")
 
         # If the user wants to save the original 'metadata' files
         if save_metadata:
 
-            # Add the option for it to the list of arguments
+            # Add the option for it to the list of arguments.
             args.append("-sm")
 
         # If the user requested logging to the console
         if log_console:
 
-            # Add the option for it to the list of arguments
+            # Add the option for it to the list of arguments.
             args.append("-lc")
 
         # If the user requested verbose logging
         if v:
 
-            # Add the option for it to the list of arguments
+            # Add the option for it to the list of arguments.
             args.append("-v")
 
         # If the user requested debug-level logging
         if vv:
 
-            # Add the option for it to the list of arguments
+            # Add the option for it to the list of arguments.
             args.append("-vv")
 
         #-------------------------------------------------------------#
 
-        # Submit the calculation
+        # Submit the calculation.
         futures.append(\
             client.submit(\
                 util.run_executable,
@@ -362,15 +369,15 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Get the futures as they are completed
+    # Get the futures as they are completed.
     for future, result in as_completed(futures,
                                        with_results = True):
 
         # Get the process and the batch number from the current
-        # future
+        # future.
         process, num_batch = result
 
-        # Check the process' return code
+        # Check the process' return code.
         try:
 
             process.check_returncode()
@@ -378,18 +385,17 @@ def main():
         # If something went wrong
         except Exception as e:
 
-            # Log the error
+            # Log the error.
             errstr = \
                 f"The run for batch # {num_batch} failed. Please " \
                 f"check the log file '{process.args[10]}' for " \
                 "more details."
             log.error(errstr)
 
-            # Go to the next future
+            # Go to the next future.
             continue
 
-        # Inform the user that the run completed successfully
+        # Inform the user that the run completed successfully.
         infostr = \
             f"The run for batch # {num_batch} completed successfully."
         log.info(infostr)
-

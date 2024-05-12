@@ -3,7 +3,10 @@
 
 #    defaults.py
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Default URLs/files for interacting with the Recount3 platform and
+#    downloading data from it.
+#
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -21,19 +24,26 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Description of the module
+#######################################################################
+
+
+# Set the module's description.
 __doc__ = \
     "Default URLs/files for interacting with the Recount3 platform " \
     "and downloading data from it."
 
 
-# Standard library
+#######################################################################
+
+
+# Import from the standard library.
 import os
 
-#---------------------------------------------------------------------#
 
-# File containing the supported sample types
-# (cancer types/tissues/codes)
+#######################################################################
+
+
+# Set the files containing the supported categories for each project.
 RECOUNT3_SUPPORTED_CATEGORIES_FILE = \
     {"gtex" : os.path.join(os.path.dirname(__file__), 
                            "data/gtex_tissues.txt"),
@@ -44,7 +54,8 @@ RECOUNT3_SUPPORTED_CATEGORIES_FILE = \
 
 #---------------------------------------------------------------------#
 
-# File containing the list of fields found in the metadata
+# Set the files containing the list of fields containing metadata
+# for each project.
 RECOUNT3_METADATA_FIELDS_FILE = \
     {"gtex" : os.path.join(os.path.dirname(__file__),
                            "data/gtex_metadata_fields.txt"),
@@ -55,35 +66,34 @@ RECOUNT3_METADATA_FIELDS_FILE = \
 
 #---------------------------------------------------------------------#
     
-# URL pointing to where the RNA-seq data for the samples
-# are stored on the Recount3 platform
+# Set the URL pointing to where the RNA-seq data for the samples are
+# stored on the Recount3 platform.
 RECOUNT3_GENE_SUMS_URL = \
     "http://duffel.rail.bio/recount3/human/data_sources/{:s}/" \
     "gene_sums/{:s}/{:s}/{:s}.gene_sums.{:s}.G026.gz"
 
 #---------------------------------------------------------------------#
 
-# URL pointing to where the metadata for the samples are stored
-# on the Recount3 platform
+# Set the URL pointing to where the metadata for the samples are stored
+# on the Recount3 platform.
 RECOUNT3_METADATA_URL = \
     "http://duffel.rail.bio/recount3/human/data_sources/{:s}/" \
     "metadata/{:s}/{:s}/{:s}.{:s}.MD.gz"
 
 #---------------------------------------------------------------------#
 
-# Name of the output GZ file containing the samples' gene
-# expression data, if the user decided to save it
+# Set the name of the output GZ file containing the samples' RNA-seq
+# data, if the user decided to save it.
 RECOUNT3_GENE_SUMS_FILE = "{:s}_{:s}_gene_sums.gz"
 
 #---------------------------------------------------------------------#
 
-# Name of the output CSV file containing the samples'
-# metadata, if the user decided to save it
+# Set the name of the output CSV file containing the samples' metadata,
+# if the user decided to save it.
 RECOUNT3_METADATA_FILE = "{:s}_{:s}_metadata.gz"
 
 #---------------------------------------------------------------------#
 
-# Name of the output CSV file containing the samples'
-# updated metadata, if the user decided to save it
+# Set the name of the output CSV file containing the samples' updated
+# metadata, if the user decided to save it.
 RECOUNT3_METADATA_UPDATED_FILE = "{:s}_{:s}_metadata_updated.gz"
-

@@ -3,7 +3,9 @@
 
 #    defaults.py
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Default directories/files to load and save files.
+#
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -21,57 +23,67 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Description of the module
-__doc__ = "Default directories/files for I/O operations."
+#######################################################################
 
 
-# Standard library
+# Set the module's description.
+__doc__ = "Default directories/files to load and save files."
+
+
+#######################################################################
+
+
+# Import from the standard library.
 import os
 
 
-#---------------------------------------------------------------------#
+#######################################################################
 
-# The directory containing the configuration files specifying the
-# DGD model's parameters and the files containing the trained
-# model
+
+# Set the directory containing the configuration files specifying the
+# DGD model's parameters and, possibly, the files containing the
+# parameters of the trained model.
 CONFIG_MODEL_DIR = \
     os.path.join(os.path.dirname(__file__),
                  "configs/model")
 
 #---------------------------------------------------------------------#
 
-# The directory containing the configuration files specifying the
+# Set the directory containing the configuration files specifying the
 # options for the optimization round(s) when finding the best
-# representations
+# representations for a set of samples.
 CONFIG_REP_DIR = \
     os.path.join(os.path.dirname(__file__),
                  "configs/representations")
 
 #---------------------------------------------------------------------#
 
-# The default configuration file for plotting the results of the PCA
+# Set the default configuration file for plotting the results of the
+# PCA.
 CONFIG_PLOT_PCA = \
     os.path.join(os.path.dirname(__file__),
                  "configs/plot/pca_scatter.yaml")
 
 #---------------------------------------------------------------------#
 
-# Default PyTorch file containing the trained Gaussian mixture model
+# Set the default PyTorch file containing the parameters of the trained
+# Gaussian mixture model.
 GMM_FILE = \
     os.path.join(os.path.dirname(__file__),
                  "data/gmm.pth")
 
 #---------------------------------------------------------------------#
 
-# Default PyTorch file containing the trained decoder
+# Set the default PyTorch file containing the parameters of the trained
+# decoder.
 DEC_FILE = \
     os.path.join(os.path.dirname(__file__),
                  "data/dec.pth")
 
 #---------------------------------------------------------------------#
 
-# File containing the Ensembl IDs of the genes included in the DGD
-# model
+# Set the default file containing the Ensembl IDs of the genes included
+# in the DGD model.
 GENES_FILE = \
     os.path.join(os.path.dirname(__file__),
                  "data/genes.txt")

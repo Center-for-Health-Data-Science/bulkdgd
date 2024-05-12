@@ -3,9 +3,9 @@
 
 #    defaults.py
 #
-#    Default values.
+#    General default values.
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -23,11 +23,24 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Standard library
+#######################################################################
+
+
+# Set the module's description.
+__doc__ = "General default values."
+
+
+#######################################################################
+
+
+# Import from the standard library.
 import logging as log
 
 
-# The list of Dask loggers
+#######################################################################
+
+
+# Set the list of Dask loggers.
 DASK_LOGGERS = [\
     "distributed.batched",
     "distributed.client",
@@ -40,51 +53,55 @@ DASK_LOGGERS = [\
     "distributed.worker",
     "bokeh.server"]
 
-# The default level for logging
-LOG_LEVEL = log.WARNING
+#---------------------------------------------------------------------#
 
-# The default format for log records
+# Set the default level for logging.
+LOG_LEVEL = "WARNING"
+
+# Set the default format for log records.
 LOG_FMT = "{asctime}:{levelname}:{name}:{message}"
 
-# The default format for date and time in log records
+# Set the default format for date and time in log records.
 LOG_DATEFMT = "%Y-%m-%d,%H:%M"
 
-# The style of the log record
+# Set the style of the log records.
 LOG_STYLE = "{"
 
-# The configuration for named formatters used when logging
+#---------------------------------------------------------------------#
+
+# Set the configuration for named formatters used when logging.
 CONFIG_FORMATTERS = \
-    {# A generic formatter for log messages
+    {# Set a generic formatter for log messages.
      "generic_formatter" : \
     
-        {# A format string in the given 'style' for the
-         # logged output as a whole 
+        {# Set a format string in the given 'style' for the logged
+         # output as a whole.
          "fmt" : LOG_FMT,
 
-         # A format string in the given 'style' for the
-         # date/time portion of the logged output
+         # Set a format string in the given 'style' for the date/time
+         # portion of the logged output.
          "datefmt" : LOG_DATEFMT,
 
-         # Can be one of '%', '{' or '$' and determines
-         # how the format string will be merged with
-         # its data
+         # The 'style' be one of '%', '{' or '$' and determines how
+         # the format string will be merged with its data.
          "style" : LOG_STYLE},
     }
 
-# The configuration for named filters used when logging
+#---------------------------------------------------------------------#
+
+# Set the configuration for named filters used when logging.
 CONFIG_FILTERS = \
-    {# Ignore messages starting with specific strings
-     # from the 'distributed.worker' logger
+    {# Ignore messages starting with specific strings from the Dask
+     # loggers.
      "distributed_filter" : \
 
-        {# The custom 'factory' for the filter
+        {# Set the custom 'factory' for the filter.
          "()" : "bulkDGD.util.LevelContentFilter",
          
-         # The level of the records that should be
-         # ignored
+         # Set the level of the records that should be ignored.
          "level" : "INFO",
 
-         # How the record should start to be ignored
+         # Set how the record should start for them to be ignored.
          "start" : ["Starting Worker plugin",
                     "---",
                     "Local Directory:",

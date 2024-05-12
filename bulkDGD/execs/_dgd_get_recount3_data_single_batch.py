@@ -3,7 +3,10 @@
 
 #    _dgd_get_recount3_data_single_batch.py
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Get RNA-seq data associated with a single set of human samples
+#    for projects hosted on the Recount3 platform.
+#
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -21,30 +24,41 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Standard library
+#######################################################################
+
+
+# Set the module's description.
+__doc__ = \
+    "Get RNA-seq data associated with a single set of human samples " \
+    "for projects hosted on the Recount3 platform."
+
+
+#######################################################################
+
+
+# Import from the standard library.
 import argparse
 import logging as log
 import os
 import sys
-# Thurd-party packages
+# Import from third-party packages.
 import pandas as pd
-# bulDGD
-from bulkDGD import ioutil, recount3
+# Import from 'bulDGD'.
+from bulkDGD import defaults, ioutil, recount3, util
 
 
-# Set the logger
-logger = log.getLogger(__name__)
+#######################################################################
 
 
 def main():
 
 
-    # Create the argument parser
+    # Create the argument parser.
     parser = argparse.ArgumentParser()
 
     #-----------------------------------------------------------------#
 
-    # Add the arguments
+    # Add the arguments.
     ip_choices = ["gtex", "tcga", "sra"]
     ip_choices_str = ", ".join(f"'{choice}'" for choice in ip_choices)
     ip_help = \
@@ -166,12 +180,12 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Parse the arguments
+    # Parse the arguments.
     args = parser.parse_args()
     input_project_name = args.input_project_name
     input_samples_category = args.input_samples_category
     output_csv = args.output_csv
-    wd = args.work_dir
+    wd = os.path.abspath(args.work_dir)
     query_string = args.query_string
     save_gene_sums = args.save_gene_sums
     save_metadata = args.save_metadata
@@ -182,56 +196,43 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Get the module's logger
+    # Get the module's logger.
     logger = log.getLogger(__name__)
 
-    # Set WARNING logging level by default
+    # Set WARNING logging level by default.
     log_level = log.WARNING
 
     # If the user requested verbose logging
     if v:
 
-        # The minimal logging level will be INFO
+        # The minimal logging level will be INFO.
         log_level = log.INFO
 
     # If the user requested logging for debug purposes
     # (-vv overrides -v if both are provided)
     if vv:
 
-        # The minimal logging level will be DEBUG
+        # The minimal logging level will be DEBUG.
         log_level = log.DEBUG
 
+    # Configure the logging.
+    handlers = \
+        util.get_handlers(\
+            log_console = log_console,
+            log_file_class = log.FileHandler,
+            log_file_options = {"filename" : log_file},
+            log_level = log_level)
 
-    # Initialize the logging handlers to a list containing only
-    # the FileHandler (to log to the log file)
-    handlers = [log.FileHandler(# The log file
-                                filename = log_file,
-                                # How to open the log file ('w' means
-                                # re-create it every time the
-                                # executable is called)
-                                mode = "w")]
-
-    # If the user requested logging to the console, too
-    if log_console:
-
-        # Append a StreamHandler to the list
-        handlers.append(log.StreamHandler())
-
-    # Set the logging level
-    log.basicConfig(# The level below which log messages are silenced
-                    level = log_level,
-                    # The format of the log strings
-                    format = "{asctime}:{levelname}:{name}:{message}",
-                    # The format for dates/time
-                    datefmt="%Y-%m-%d,%H:%M",
-                    # The format style
-                    style = "{",
-                    # The handlers
+    # Set the logging configuration.
+    log.basicConfig(level = log_level,
+                    format = defaults.LOG_FMT,
+                    datefmt = defaults.LOG_DATEFMT,
+                    style = defaults.LOG_STYLE,
                     handlers = handlers)
 
     #-----------------------------------------------------------------#
 
-    # Try to get the RNA-seq data for the samples from Recount3
+    # Try to get the RNA-seq data for the samples from Recount3.
     try:
         
         df_gene_sums = \
@@ -244,7 +245,7 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Log it an exit
+        # Log it an exit.
         errstr = \
             "It was not possible to get the RNA-seq data for " \
             f"project '{input_project_name}', samples " \
@@ -255,7 +256,7 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Try to get the metadata for the samples from Recount3
+    # Try to get the metadata for the samples from Recount3.
     try:
         
         df_metadata = \
@@ -268,7 +269,7 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Log it an exit
+        # Log it an exit.
         errstr = \
             "It was not possible to get the metadata for " \
             f"project '{input_project_name}', samples " \
@@ -279,11 +280,11 @@ def main():
 
     #-----------------------------------------------------------------#
     
-    # If the user has passed a query string or a file containing
-    # the query string
+    # If the user has passed a query string or a file containing the
+    # query string
     if query_string is not None:
 
-        # Try to get the query string
+        # Try to get the query string.
         try:
             
             query_string = \
@@ -293,23 +294,24 @@ def main():
         # If something went wrong
         except Exception as e:
 
-            # Log it and exit
+            # Log it and exit.
             errstr = \
                 "It was not possible to get the query string. " \
                 f"Error: {e}"
             logger.exception(errstr)
             sys.exit(errstr)
 
-        # Try to add the metadata to the RNA-seq data frame
+        # Try to add the metadata to the RNA-seq data frame.
         try:
             
+            # Merge the RNA-seq data frame and the metadata data frame.
             df_merged = \
                 recount3.merge_gene_sums_and_metadata(\
                     df_gene_sums = df_gene_sums,
                     df_metadata = df_metadata,
                     project_name = input_project_name)
 
-            # Filter the samples
+            # Filter the samples.
             df_final = \
                 recount3.filter_by_metadata(\
                     df = df_merged,
@@ -319,7 +321,7 @@ def main():
         # If something went wrong
         except Exception as e:
 
-            # Log it an exit
+            # Log it an exit.
             errstr = \
                 "It was not possible to filter the RNA-seq " \
                 f"by their associated metadata. Error: {e}"
@@ -330,7 +332,7 @@ def main():
     else:
 
         # The final data frame will be the one containing the gene
-        # expression data
+        # expression data.
         df_final = df_gene_sums
 
     #-----------------------------------------------------------------#
@@ -338,7 +340,7 @@ def main():
     # If the user did not pass a name for the output CSV file
     if output_csv is None:
 
-        # Use the default output name
+        # Use the default output name.
         output_csv_path = \
             os.path.join(wd, o_default.format(input_project_name,
                                               input_samples_category))
@@ -346,11 +348,11 @@ def main():
     # Otherwise
     else:
 
-        # Use the user-defined one
+        # Use the user-defined one.
         output_csv_path = \
             os.path.join(wd, output_csv)
 
-    # Try to write the data frame to the output CSV file
+    # Try to write the data frame to the output CSV file.
     try:
         
         ioutil.save_samples(df = df_final,
@@ -360,7 +362,7 @@ def main():
     # If something went wrong
     except Exception as e:
 
-        # Log it and exit
+        # Log it and exit.
         errstr = \
             "It was not possible to save the RNA-seq data " \
             f"in '{output_csv_path}'. Error: {e}"

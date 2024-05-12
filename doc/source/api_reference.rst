@@ -17,7 +17,7 @@ bulkDGD consists of several packages:
 
 * :doc:`core <core>`, containing the core components of the DGD model and the model itself.
 
-* :doc:`ioutil <ioutil>`, containing utilities for I/O operations and data pre-processing.
+* :doc:`ioutil <ioutil>`, containing utilities for loading and saving files and pre-process data.
 
 * :doc:`plotting <plotting>`, containing plotting utilities.
 
