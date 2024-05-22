@@ -47,7 +47,6 @@ import pandas as pd
 import requests as rq
 # Import from 'bulkDGD'.
 from . import defaults
-from bulkDGD import util
 
 
 #######################################################################
@@ -285,7 +284,7 @@ def get_query_string(query_string):
 
     Returns
     -------
-    ``str``
+    query_str : ``str``
         The query string.
     """
 
@@ -370,7 +369,7 @@ def get_gene_sums(project_name,
 
     Returns
     -------
-    ``pandas.DataFrame``
+    df_gene_sums : ``pandas.DataFrame``
         A data frame containing the RNA-seq counts for the samples
         associated with the given category.
     """
@@ -531,7 +530,7 @@ def get_metadata(project_name,
 
     Returns
     -------
-    ``pandas.DataFrame``
+    df_metadata : ``pandas.DataFrame``
         A data frame containing the metadata for the samples associated
         with the given category.
     """
@@ -780,7 +779,7 @@ def merge_gene_sums_and_metadata(df_gene_sums,
 
     Returns
     -------
-    df : ``pandas.DataFrame``
+    df_merged : ``pandas.DataFrame``
         The data frame containing both RNA-seq counts and metadata
         for the samples.
     """
@@ -814,7 +813,7 @@ def filter_by_metadata(df,
 
     Returns
     -------
-    ``pandas.DataFrame``
+    df_filtered : ``pandas.DataFrame``
         The filtered data frame. This data frame will only contain the
         RNA-seq counts (no metadata).
     """
@@ -829,8 +828,11 @@ def filter_by_metadata(df,
         [col for col in df.columns \
          if not col.startswith("ENSG")]
 
-    # Remove the index column from the fields containing metadata.
-    metadata_fields.remove("external_id")
+    # If the 'external_id' column is in the metadata
+    if "external_id" in metadata_fields:
+
+        # Remove the index column from the fields containing metadata.
+        metadata_fields.remove("external_id")
 
     # Drop these columns from the data frame.
     df = df.drop(metadata_fields,
