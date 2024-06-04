@@ -1,63 +1,67 @@
-# Section containing the options for loading the gene expression data
-data:
-  
-  # The data will be loaded in batches of 'batch_size' size
-  batch_size: 8
-  
-  # Whether to shuffle the data when loading them
-  shuffle: True
- 
+# Configuration file specifying the options to get the representations
+# with only one round of optimization.
 
-# Section containing the options to fine-tune the
-# search for the best representations
-rep:
 
-  # How many representations to initialize per component of
-  # the Gaussian mixture model per sample
-  n_rep_per_comp: 1
+#######################################################################
 
-  # Section containing the options for the initial
-  # round of optimization
-  opt1:
 
-    # Number of epochs
-    epochs: 0
+# Set how many representations to initialize per sample per component
+# of the Gaussian mixture model.
+#
+# Type: int.
+#
+# Default: 1.
+n_rep_per_comp: 1
 
-    # Type of optimizer (e.g., "adam")
-    type: "adam"
 
-    # Section containing the options for the optimizer
-    # (they vary according to the type of optimizer)
-    options:
+#######################################################################
 
-      # Learning rate
-      lr: 0.01
 
-      # Weight decay
-      weight_decay: 0
+# Set the options for the optimization.
+optimization:
 
-      # Betas
-      betas: !!seq [0.5, 0.9]
+  # Set the number of epochs.
+  #
+  # Type: int.
+  #
+  # Default: 60.
+  epochs: 25
 
-  # Section containing the options for further
-  # optimization
-  opt2:
+  #-------------------------------------------------------------------#
 
-    # Number of epochs
-    epochs: 25
+  # Set the optimizer to be used.
+  #
+  # Type: str.
+  #
+  # Options:
+  # - 'adam' for the Adam optimizer.
+  #
+  # Default: 'adam'.
+  optimizer_name: adam
 
-    # Type of optimizer (e.g., "adam")
-    type: "adam"
+  # Set the options for the optimizer (they vary according to the
+  # optimizer defined by 'optimizer_name').
+  optimizer_options:
 
-    # Section containing the options for the optimizer
-    # (they vary according to the type of optimizer)
-    options:
+    # Set these options if 'optimizer_name' is 'adam'.
 
-      # Learning rate
-      lr: 0.01
+    # Set the learning rate.
+    #
+    # Type: float.
+    #
+    # Default: 0.01.
+    lr: 0.01
 
-      # Weight decay
-      weight_decay: 0
+    # Set the weight decay.
+    #
+    # Type: float.
+    #
+    # Default: 0.0.
+    weight_decay: 0.0
 
-      # Betas
-      betas: !!seq [0.5, 0.9]
+    # Set the betas.
+    #
+    # Type: list of float.
+    #
+    # Default: [0.5, 0.9].
+    betas: [0.5, 0.9]
