@@ -48,3 +48,6 @@ venv.bak/
 
 # MacOS
 .DS_Store
+
+data/model/dec.pth
+

@@ -179,6 +179,36 @@ def preprocess_samples(df_samples):
         logger.info(infostr)
 
 
+    #------------------------ Check the genes ------------------------#
+
+    # Inform the user that we are looking for duplicate genes
+    infostr = "Now looking for duplicated genes..."
+    logger.info(infostr)
+
+    # If there are duplicate genes
+    if len(genes_columns) > len(set(genes_columns)):
+        
+        # Get the duplicate genes
+        genes_series = pd.Series(genes_columns)
+        duplicated_genes = \
+            genes_series[genes_series.duplicated()].tolist()
+
+        # Raise a warning informing the user of the duplicated
+        # genes
+        warnstr = \
+            "Duplicated genes were found in the input data " \
+            "frame. They will be averaged. The genes are: " \
+            f"{', '.join(duplicated_genes)}."
+        logger.warning(warnstr)
+    else: 
+        # Inform the user that no duplicated genes were found
+        infostr = "No duplicated genes were found."
+        logger.info(infostr)
+
+    # average genes with same name
+    df_samples = df_samples.groupby(df_samples.columns, axis=1).mean()
+
+
     #----------------------- Duplicate samples -----------------------#
 
 
@@ -252,34 +282,6 @@ def preprocess_samples(df_samples):
         logger.info(infostr)
 
 
-    #------------------------ Duplicate genes ------------------------#
-
-
-    # Inform the user that we are looking for duplicate genes
-    infostr = "Now looking for duplicated genes..."
-    logger.info(infostr)
-
-    # If there are duplicate genes
-    if len(genes_columns) > len(set(genes_columns)):
-        
-        # Get the duplicate genes
-        genes_series = pd.Series(genes_columns)
-        duplicated_genes = \
-            genes_series[genes_series.duplicated()].tolist()
-
-        # Raise an error informing the user of the duplicated
-        # genes
-        errstr = \
-            "Duplicated genes were found in the input data " \
-            "frame. The duplicated genes are: " \
-            f"{', '.join(duplicated_genes)}."
-        raise ValueError(errstr)
-
-    # Inform the user that no duplicated genes were found
-    infostr = "No duplicated genes were found."
-    logger.info(infostr)
-
-
     #------------------------- Final columns -------------------------#
 
 
@@ -345,6 +347,19 @@ def preprocess_samples(df_samples):
             "set of genes used to train the DGD model."
         logger.info(infostr)
 
+    # If too few genes (<10%) are left after removing the genes which
+    # were not used during training
+    if (len(genes_columns) - len(genes_excluded)) / len(genes_columns) < 0.1:
+
+        # Raise an error
+        errstr = \
+            f"Too many genes in the input data frame were not used " \
+            f"during training. Only {len(genes_columns) - len(genes_excluded)} " \
+            f"genes out of {len(genes_columns)} were used during " \
+            f"training. Please check that the input data frame " \
+            f"contains the correct genes."
+        raise ValueError(errstr)
+
     # Create a list containing the genes present in the list of genes
     # used to train the DGD model but not in the original data frame.
     # Use lists instead of sets (which would be faster) to preserve
@@ -373,6 +388,7 @@ def preprocess_samples(df_samples):
             "in the input samples."
         logger.info(infostr)
 
+
     # Return the data frame with the preprocessed samples and the
     # two lists
     return df_preproc, genes_excluded, genes_missing
@@ -399,7 +415,7 @@ def load_samples(csv_file,
     sep : ``str``, ``","``
         The column separator in the input CSV file.
 
-    keep_samples_names : ``bool``, default: ``True``
+    keep_samples_names : ``bool``, default: ``True``load_samples
         Whether to keep the names/IDs/indexes assigned to the
         samples in the input data frame, if any were found.
 
@@ -486,26 +502,6 @@ def load_samples(csv_file,
     # Create a data frame with only those columns containing
     # additional information    
     df_other_data = df.loc[:,other_columns]
-
-
-    #------------------------ Check the genes ------------------------#
-
-
-    # Load the list of genes used to train the DGD model
-    genes = misc.get_list(list_file = DGD_GENES_FILE)
-
-    # If the genes in the samples are not the same as those
-    # used to train the DGD model
-    if genes != df_expr_data.columns.tolist():
-
-        # Raise an error
-        errstr = \
-            f"The genes whose counts are reported in '{csv_file}' " \
-            f"do not correspond to those used to train the DGD " \
-            f"model. You can find the the genes (in the order in " \
-            f"which they should appear in the input data frame) in " \
-            f"'{DGD_GENES_FILE}'."
-        raise ValueError(errstr)
 
 
     #-------------------- Return the data frames ---------------------#
@@ -1023,6 +1019,7 @@ def get_representations(df,
         information, if present in the input data frame, will
         appear last in the data frame.
     """
+    from datetime import datetime
 
     # Get the columns containing gene expression data
     genes_columns = \
@@ -1133,6 +1130,7 @@ def get_representations(df,
     # Inform the user that the optimization is starting
     infostr = "Starting the first optimization..."
     logger.info(infostr)
+    print("First opt: " + datetime.now().strftime("%H:%M:%S"))
 
     # For each epoch
     for epoch in range(1, config_opt1["epochs"]+1):
@@ -1384,7 +1382,7 @@ def get_representations(df,
         # Inform the user about the loss at the current epoch
         infostr = f"Epoch {epoch}: loss {rep_avg_loss[epoch-1]}."
         logger.info(infostr)
-
+        print(infostr)
 
     #----------------- Find the best representations -----------------#
 
@@ -1762,6 +1760,7 @@ def get_representations(df,
     # Inform the user that the optimization is starting
     infostr = "Starting the second optimization..."
     logger.info(infostr)
+    print("Second opt: " + datetime.now().strftime("%H:%M:%S"))
     
     # For each epoch
     for epoch in range(1, config_opt2["epochs"]+1):
@@ -1907,6 +1906,7 @@ def get_representations(df,
         # Inform the user about the loss at the current epoch
         infostr = f"Epoch {epoch}: loss {rep_avg_loss[epoch-1]}."
         logger.info(infostr)
+        print(infostr)
 
         # If we reached the last epoch
         if epoch == config_opt2["epochs"]:
@@ -1975,7 +1975,7 @@ def get_representations(df,
 
             # Add the extra data found in the input data frame to the
             # decoder outputs' data frame
-            df_dec_out = pd.concat([df_dec_out, df_other_data])
+            df_dec_out[df_other_data.columns] = df_other_data # pd.concat([df_dec_out, df_other_data])
 
 
             #-------------- Representations data frame ---------------#
@@ -2012,7 +2012,7 @@ def get_representations(df,
 
             # Add the extra data found in the input data frame to the
             # representations' data frame
-            df_rep = pd.concat([df_rep, df_other_data])
+            df_rep[df_other_data.columns] = df_other_data # pd.concat([df_rep, df_other_data])
 
 
             #---------------- Return the data frames -----------------#

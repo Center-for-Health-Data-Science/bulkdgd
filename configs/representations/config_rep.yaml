@@ -21,7 +21,7 @@ rep:
   opt1:
 
     # Number of epochs
-    epochs: 10
+    epochs: 0
 
     # Type of optimizer (e.g., "adam")
     type: "adam"
@@ -44,7 +44,7 @@ rep:
   opt2:
 
     # Number of epochs
-    epochs: 50
+    epochs: 25
 
     # Type of optimizer (e.g., "adam")
     type: "adam"
