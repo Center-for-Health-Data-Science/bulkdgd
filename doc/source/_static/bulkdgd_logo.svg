@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2262 652">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #c6c6c6;
+        font-family: MavenPro-Regular, 'Maven Pro';
+      }
+
+      .cls-2 {
+        fill: #efb359;
+        font-family: MavenPro-Medium, 'Maven Pro';
+        font-weight: 500;
+      }
+
+      .cls-3 {
+        font-size: 420px;
+      }
+    </style>
+  </defs>
+  <text class="cls-3" transform="translate(300.05 472.54)"><tspan class="cls-1" x="0" y="0">bulk</tspan><tspan class="cls-2" x="793.78" y="0">DGD</tspan></text>
+</svg>

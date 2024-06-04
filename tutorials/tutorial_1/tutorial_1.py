@@ -2,88 +2,99 @@
 # -*- Mode: python; tab-width: 4; indent-tabs-mode:nil; coding:utf-8 -*-
 
 
-# Import the 'logging' module
+#######################################################################
+
+
+# Import the 'logging' module.
 import logging as log
-# Import Pandas
-import pandas as pd
-# Import the 'bulkDGD.utils.dgd' module
-import bulkDGD.utils.dgd as dgd
-# Import the 'bulkDGD.utils.misc' module
-from bulkDGD.utils import misc
+# Import the 'model' module.
+from bulkDGD.core import model
+# Import the 'ioutil' module.
+from bulkDGD import ioutil
 
 
-#------------------------------ Logging ------------------------------#
+#######################################################################
 
 
-# Set the logging options so that every message
-# above and including the INFO level is reported
+# Set the logging options so that every message of level INFO or above
+# is emitted.
 log.basicConfig(level = "INFO")
 
 
 #---------------------- Preprocess the samples -----------------------#
 
 
-# Load the samples into a data frame
-df_samples = pd.read_csv(# Name of/path to the CSV file
-                         "samples.csv",
-                         # Column separator used in the file
-                         sep = ",",
-                         # Name or numerical index of the column
-                         # containing the samples' names/IDs/indexes)
-                         index_col = 0,
-                         # Name or numerical index of the row
-                         # containing the columns' names
-                         header = 0)
+# Load the samples into a data frame.
+df_samples = \
+    ioutil.load_samples(# The CSV file where the samples are stored
+                        csv_file = "samples.csv",
+                        # The field separator used in the CSV file
+                        sep = ",",
+                        # Whether to keep the original samples' names/
+                        # indexes (if True, they are assumed to be in
+                        # the first column of the data frame 
+                        keep_samples_names = True,
+                        # Whether to split the input data frame into
+                        # two data frames, one containing only gene
+                        # expression data and the other containing
+                        # additional information about the samples                  
+                        split = False)
 
-# Preprocess the samples
+# Preprocess the samples.
 df_preproc, genes_excluded, genes_missing = \
-    dgd.preprocess_samples(df_samples = df_samples)
+    ioutil.preprocess_samples(df_samples = df_samples)
 
 
 #---------------------- Load the configurations ----------------------#
 
 
-# Load the model's configuration
-config_model = misc.get_config_model("config_model.yaml")
+# Load the model's configuration.
+config_model = ioutil.load_config_model("model.yaml")
 
-# Load the configuration with the options to configure
-# the search for the best representations
-config_rep = misc.get_config_rep("config_rep.yaml")
+# Load the configuration with the options to configure the rounds of
+# optimization when searching for the best representations.
+config_rep = ioutil.load_config_rep("two_opt.yaml")
 
 
 #----------------------- Get the trained model -----------------------#
 
 
-# Get the trained DGD model (Gaussian mixture model
-# and decoder)
-gmm, dec = dgd.get_model(config_gmm = config_model["gmm"],
-                         config_dec = config_model["dec"])
+# Get the trained DGD model (Gaussian mixture model and decoder).
+dgd_model = model.DGDModel(**config_model)
 
 
 #---------------------- Get the representations ----------------------#
 
 
-# Get the representations and the corresponding decoder outputs
-df_rep, df_dec_out = \
-    dgd.get_representations(\
-        # The data frame containing the preprocessed samples
-        df = df_preproc,
-        # The trained Gaussian mixture model
-        gmm = gmm,
-        # The trained decoder
-        dec = dec,
-        # How many representations to initialize per component
-        # of the Gaussian mixture model per sample
-        n_rep_per_comp = config_rep["rep"]["n_rep_per_comp"],
-        # The configuration to load the samples
-        config_data = config_rep["data"],
-        # The configuration for the first optimization
-        config_opt1 = config_rep["rep"]["opt1"],
-        # The configuration for the second optimization
-        config_opt2 = config_rep["rep"]["opt2"])
+# Get the representations, the corresponding decoder outputs, and
+# the time spent in finding the representations.
+df_rep, df_dec_out, df_time_opt = \
+    dgd_model.get_representations(\
+        # The data frame with the samples
+        df_samples = df_preproc,
+        # The method to use to get the representation
+        method = "two_opt",
+        # The configuration for the optimization                         
+        config_opt = config_rep["optimization"],
+        # The number of new representations per component
+        # per sample                         
+        n_rep_per_comp = config_rep["n_rep_per_comp"])
 
-# Save the representations
-dgd.save_representations(\
+
+#------------------------- Save the outputs --------------------------#
+
+
+# Save the preprocessed samples.
+ioutil.save_samples(\
+   # The data frame containing the samples
+   df = df_preproc,
+   # The output CSV file
+   csv_file = "samples_preprocessed.csv",
+   # The field separator in the output CSV file
+   sep = ",")
+
+# Save the representations.
+ioutil.save_representations(\
     # The data frame containing the representations
     df = df_rep,
     # The output CSV file
@@ -91,11 +102,20 @@ dgd.save_representations(\
     # The field separator in the output CSV file
     sep = ",")
 
-# Save the decoder outputs
-dgd.save_decoder_outputs(\
+# Save the decoder outputs.
+ioutil.save_decoder_outputs(\
     # The data frame containing the decoder outputs
     df = df_dec_out,
     # The output CSV file
     csv_file = "decoder_outputs.csv",
+    # The field separator in the output CSV file
+    sep = ",")
+
+# Save the time data.
+ioutil.save_time(\
+    # The data frame containing the time data
+    df = df_time_opt,
+    # The output CSV file
+    csv_file = "time_opt.csv",
     # The field separator in the output CSV file
     sep = ",")

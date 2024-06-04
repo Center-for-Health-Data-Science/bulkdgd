@@ -5,7 +5,7 @@
 #
 #    bulkDGD setup.
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -23,47 +23,65 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Standard library
+#######################################################################
+
+
+# Import from the standard library.
 from setuptools import setup, find_packages
 
 
-# Name of the package 
+#######################################################################
+
+
+# Set the name of the project.
 name = "bulkDGD"
 
-# URL where to find the package
+# Set the URL where to find the project.
 url = \
-    f"https://github.com/Center-for-Health-Data-Science/" \
-    f"{name}-private"
+    f"https://github.com/Center-for-Health-Data-Science/{name}"
 
-# Package author(s)
+# Set the project's author(s).
 author = \
-    "Valentina Sora, Viktoria Schuster, " \
-    "Inigo Prada-Luengo, Anders Krogh"
+    "Valentina Sora, Viktoria Schuster, Iñigo Prada-Luengo, " \
+    "Anders Lykkebo-Valløe, Anders Krogh"
 
-# Package version
-version = "0.0.1"
+# Set the project's version.
+version = "22.05.2024"
 
-# A brief description of the package
+# Set a brief description of the project.
 description = \
     "A generative model for human gene expression from bulk " \
     "RNA-Seq data."
 
-# Directory of the package
-package_dir = {name : name}
+# Set which packages are included.
+packages = \
+    ["bulkDGD",
+     "bulkDGD.analysis",
+     "bulkDGD.core",
+     "bulkDGD.execs",
+     "bulkDGD.ioutil",
+     "bulkDGD.plotting",
+     "bulkDGD.recount3"]
 
-# Which packages are included
-packages = [name]
-
-# Which package data to include
+# Set which package data to include.
 package_data = \
-    {name : ["core/*"
-             "execs/*",
-             "utils/*"]}
+    {"bulkDGD.ioutil" : ["configs/model/*.yaml",
+                         "configs/model/*.md",
+                         "configs/plot/*.yaml",
+                         "configs/plot/*.md",
+                         "configs/representations/*.yaml",
+                         "configs/representations/*.md",
+                         "data/*.pth",
+                         "data/*.txt",
+                         "data/*.md",],
+     "bulkDGD.recount3" : ["data/*.txt",
+                           "data/*.md"]}
 
-# Command-line executables
+# Set the command-line executables.
 entry_points = \
     {"console_scripts" : \
-        ["dgd_get_recount3_data = " \
+        [# Public executables
+         "dgd_get_recount3_data = " \
          f"{name}.execs.dgd_get_recount3_data:main",
          "dgd_preprocess_samples = " \
          f"{name}.execs.dgd_preprocess_samples:main",
@@ -75,29 +93,37 @@ entry_points = \
          f"{name}.execs.dgd_perform_pca:main",
          "dgd_get_probability_density = " \
          f"{name}.execs.dgd_get_probability_density:main",
-        ],
+         # "Private" executables - not intended to be called
+         # directly by end users
+         "_dgd_get_recount3_data_single_batch = " \
+         f"{name}.execs._dgd_get_recount3_data_single_batch:main"],
     }
 
-# Required dependencies
+# Set any required dependencies.
 install_requires = ["dask",
                     "distributed",
+                    "matplotlib",
                     "numpy",
                     "pandas",
                     "requests",
+                    "seaborn",
+                    "scikit-learn",
                     "scipy",
                     "statsmodels",
                     "torch",
                     "PyYAML"]
 
-# Run the setup
+
+#######################################################################
+
+
+# Run the setup.
 setup(name = name,
       url = url,
       author = author,
       version = version,
       description = description,
-      include_package_data = True,
-      package_data = package_data,
-      package_dir = package_dir,
       packages = packages,
+      package_data = package_data,
       entry_points = entry_points,
       install_requires = install_requires)

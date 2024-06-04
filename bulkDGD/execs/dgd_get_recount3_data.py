@@ -3,10 +3,10 @@
 
 #    dgd_get_recount3_data.py
 #
-#    Get RNA-seq data associated with specific human samples
-#    from the Recount3 platform.
+#    Get RNA-seq data associated with specific human samples for
+#    projects hosted on the Recount3 platform.
 #
-#    Copyright (C) 2023 Valentina Sora 
+#    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -24,63 +24,56 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
+#######################################################################
+
+
+# Set the module's description.
 __doc__ = \
-    "Get RNA-seq data associated with specific " \
-    "human samples from the Recount3 platform."
+    "Get RNA-seq data associated with specific human samples for " \
+    "projects hosted on the Recount3 platform."
 
 
-# Standard library
+#######################################################################
+
+
+# Import from the standard library.
 import argparse
 import logging as log
+import logging.handlers as loghandlers
 import os
 import sys
-# bulDGD
-from bulkDGD.utils import dgd, misc, recount3
+# Import from third-party packages.
+import dask
+import pandas as pd
+# Import from 'bulkDGD'.
+from bulkDGD import defaults, util, recount3
+
+
+#######################################################################
 
 
 def main():
 
 
-    #-------------------- Command-line arguments ---------------------#
-
-
-    # Create the argument parser
+    # Create the argument parser.
     parser = argparse.ArgumentParser(description = __doc__)
 
-    ip_choices = ["gtex", "tcga"]
-    ip_choices_str = ", ".join(f"'{choice}'" for choice in ip_choices)
-    ip_help = \
-        "The name of the Recount3 project for which samples will " \
-        f"be retrieved. The available projects are: {ip_choices_str}."
-    parser.add_argument("-ip", "--input-project-name",
-                        type = str,
-                        required = True,
-                        choices = ip_choices,
-                        help = ip_help)
+    #-----------------------------------------------------------------#
 
-    is_help = \
-        "The category of samples for which RNA-seq data will be " \
-        "retrieved. For GTEx data, this is the name of the tissue " \
-        "the samples belong to. " \
-        "For TCGA data, this is the type of cancer the samples are " \
-        "associated with."
-    parser.add_argument("-is", "--input-samples-category",
-                        type = str,
-                        required = True,
-                        help = is_help)
-
-
-    o_default = "{:s}_{:s}.csv"
-    o_help = \
-        "The name of the output CSV file containing the data frame " \
-        "with the RNA-seq data for the samples. The " \
-        "file will be written in the working directory. The default " \
-        "file name is '{input_project_name}_" \
-        "{input_samples_category}.csv'."
-    parser.add_argument("-o", "--output-csv",
+    # Add the arguments.
+    ib_help = \
+        "A CSV file to download samples' data in bulk. The file " \
+        "must contain at least two columns: 'input_project_name' " \
+        "with the name of the project the samples belong to and " \
+        "'input_samples_category' with the samples' category. " \
+        "A third column, 'query_string', may specify the query " \
+        "string used to filter each batch of samples."
+    parser.add_argument("-i", "--input-samples-batches",
                         type = str,
                         default = None,
-                        help = o_help)
+                        help = ib_help)
+
+    #-----------------------------------------------------------------#
 
     d_help = \
         "The working directory. The default is the current " \
@@ -90,36 +83,48 @@ def main():
                         default = os.getcwd(),
                         help = d_help)
 
+    #-----------------------------------------------------------------#
+
+    n_default = 1
+    n_help = \
+        "The number of processes to start. The default " \
+        f"number of processes started is {n_default}."
+    parser.add_argument("-n", "--n-proc",
+                        type = int,
+                        default = n_default,
+                        help = n_help)
+
+    #-----------------------------------------------------------------#
+
     sg_help = \
         "Save the original GZ file containing the RNA-seq " \
-        "data for the samples. The file will be saved in the " \
-        "working directory and named " \
-        "'{input_project_name}_{input_samples_category}_" \
-        "gene_sums.gz'."
+        "data for the samples. For each batch of samples, "\
+        "the corresponding file will be saved in the " \
+        "working directory and named '{input_project_name}_" \
+        "{input_samples_category}_gene_sums.gz'. This file " \
+        "will be written only once if more than one batch " \
+        "refers to the same 'input_project_name' " \
+        "and 'input_samples_category'."
     parser.add_argument("-sg", "--save-gene-sums",
                         action = "store_true",
                         help = sg_help)
 
+    #-----------------------------------------------------------------#
+
     sm_help = \
         "Save the original GZ file containing the metadata " \
-        "for the samples. The file will be saved in the working " \
-        "directory and named " \
-        "'{input_project_name}_{input_samples_category}_" \
-        "metadata.gz'."
+        "for the samples. For each batch of samples, "\
+        "the corresponding file will be saved in the " \
+        "working directory and named '{input_project_name}_" \
+        "{input_samples_category}_metadata.gz'. This file will " \
+        "be written only once if more than one batch refers " \
+        "to the same 'input_project_name' and " \
+        "'input_samples_category'."
     parser.add_argument("-sm", "--save-metadata",
                         action = "store_true",
                         help = sm_help)
 
-    qs_help = \
-        "The string that will be used to filter the samples " \
-        "according to their associated metadata using the " \
-        "'pandas.DataFrame.query()' method. The option also " \
-        "accepts a plain text file containing the string " \
-        "since it can be long for complex queries."
-    parser.add_argument("-qs", "--query-string",
-                        type = str,
-                        default = None,
-                        help = qs_help)
+    #-----------------------------------------------------------------#
 
     lf_default = "dgd_get_recount3_data.log"
     lf_help = \
@@ -131,15 +136,21 @@ def main():
                         default = lf_default,
                         help = lf_help)
 
+    #-----------------------------------------------------------------#
+
     lc_help = "Show log messages also on the console."
     parser.add_argument("-lc", "--log-console",
                         action = "store_true",
                         help = lc_help)
 
+    #-----------------------------------------------------------------#
+
     v_help = "Enable verbose logging (INFO level)."
     parser.add_argument("-v", "--log-verbose",
                         action = "store_true",
                         help = v_help)
+
+    #-----------------------------------------------------------------#
 
     vv_help = \
         "Enable maximally verbose logging for debugging " \
@@ -148,262 +159,243 @@ def main():
                         action = "store_true",
                         help = vv_help)
 
-    # Parse the arguments
+    #-----------------------------------------------------------------#
+
+    # Parse the arguments.
     args = parser.parse_args()
-    input_project_name = args.input_project_name
-    input_samples_category = args.input_samples_category
-    output_csv = args.output_csv
-    wd = args.work_dir
-    query_string = args.query_string
+    input_samples_batches = args.input_samples_batches
+    wd = os.path.abspath(args.work_dir)
+    n_proc = args.n_proc
     save_gene_sums = args.save_gene_sums
     save_metadata = args.save_metadata
-    log_file = args.log_file
+    log_file = os.path.join(wd, args.log_file)
     log_console = args.log_console
     v = args.log_verbose
     vv = args.log_debug
 
+    #-----------------------------------------------------------------#
 
-    #---------------------------- Logging ----------------------------#
-
-
-    # Get the module's logger
-    logger = log.getLogger(__name__)
-
-    # Set WARNING logging level by default
-    level = log.WARNING
+    # Set WARNING logging level by default.
+    log_level = log.WARNING
 
     # If the user requested verbose logging
     if v:
 
-        # The minimal logging level will be INFO
-        level = log.INFO
+        # The minimal logging level will be INFO.
+        log_level = log.INFO
 
     # If the user requested logging for debug purposes
     # (-vv overrides -v if both are provided)
     if vv:
 
-        # The minimal logging level will be DEBUG
-        level = log.DEBUG
+        # The minimal logging level will be DEBUG.
+        log_level = log.DEBUG
 
-    # Initialize the logging handlers to a list containing only
-    # the FileHandler (to log to the log file)
-    handlers = [log.FileHandler(# The log file
-                                filename = log_file,
-                                # How to open the log file ('w' means
-                                # re-create it every time the
-                                # executable is called)
-                                mode = "w")]
+    # Get the logging configuration for Dask.
+    dask_logging_config = \
+        util.get_dask_logging_config(log_console = log_console,
+                                     log_file = log_file)
+    
+    # Set the configuration for Dask-specific logging.
+    dask.config.set({"distributed.logging" : dask_logging_config})
+    
+    # Configure the logging (for non-Dask operations).
+    handlers = \
+        util.get_handlers(\
+            log_console = log_console,
+            log_file_class = loghandlers.RotatingFileHandler,
+            log_file_options = {"filename" : log_file},
+            log_level = log_level)
 
-    # If the user requested logging to the console, too
-    if log_console:
-
-        # Append a StreamHandler to the list
-        handlers.append(log.StreamHandler())
-
-    # Set the logging level
-    log.basicConfig(# The level below which log messages are silenced
-                    level = level,
-                    # The format of the log strings
-                    format = "{asctime}:{levelname}:{name}:{message}",
-                    # The format for dates/time
-                    datefmt="%Y-%m-%d,%H:%M",
-                    # The format style
-                    style = "{",
-                    # The handlers
+    # Set the logging configuration.
+    log.basicConfig(level = log_level,
+                    format = defaults.LOG_FMT,
+                    datefmt = defaults.LOG_DATEFMT,
+                    style = defaults.LOG_STYLE,
                     handlers = handlers)
 
-
-    #------------------ Check the samples' category ------------------#
-
-
-    # Try to validate the category of samples to be retrieved
-    try:
-
-        cancer_type = \
-            recount3.check_samples_category(\
-                samples_category = input_samples_category,
-                project_name = input_project_name)
-
-    # If something went wrong
-    except Exception as e:
-
-        # Warn the user and exit
-        errstr = \
-            "It was not possible to validate the provided " \
-            f"category. Error: {e}"
-        logger.exception(errstr)
-        sys.exit(errstr)
-
-
-    #--------------------- Get the RNA-seq data ----------------------#
-
-
-    # Try to get the RNA-seq data for the samples from Recount3
-    try:
-        
-        df_gene_sums = \
-            recount3.get_gene_sums(\
-                samples_category = input_samples_category,
-                project_name = input_project_name,
-                save_gene_sums = save_gene_sums,
-                wd = wd)
-
-    # If something went wrong
-    except Exception as e:
-
-        # Warn the user and exit
-        errstr = \
-            "It was not possible to retrieve the RNA-seq " \
-            f"data for the '{input_samples_category}' samples " \
-            f"from the Recount3 platform. Error: {e}"
-        logger.exception(errstr)
-        sys.exit(errstr)
-
-
-    #----------------------- Get the metadata ------------------------#
-
-
-    # Try to get the metadata for the samples from Recount3
-    try:
-
-        df_metadata = \
-            recount3.get_metadata(\
-                samples_category = input_samples_category,
-                project_name = input_project_name,
-                save_metadata = save_metadata,
-                wd = wd)
-
-    # If something went wrong
-    except Exception as e:
-
-        # Warn the user and exit
-        errstr = \
-            "It was not possible to retrieve the metadata for the " \
-            f"'{input_samples_category}' samples from the Recount3 " \
-            f"platform. Error: {e}"
-        logger.exception(errstr)
-        sys.exit(errstr)
-
-
-    #---------------------- Filter by metadata -----------------------#
-
+    #-----------------------------------------------------------------#
     
-    # If the user has passed a query string or a file containing the
-    # query string
-    if query_string is not None:
+    # Import 'distributed' only here because, otherwise, the logging
+    # configuration is not properly set    .
+    from distributed import LocalCluster, Client, as_completed
 
-        # Try to get the string
-        try:
-            
-            query_string = \
-                util.get_query_string(query_string = query_string)
+    # Create the local cluster.
+    cluster = LocalCluster(# Number of workers
+                           n_workers = n_proc,
+                           # Below which level log messages will
+                           # be silenced
+                           silence_logs = "ERROR",
+                           # Whether to use processes, single-core
+                           # or threads
+                           processes = True,
+                           # How many threads for each worker should
+                           # be used
+                           threads_per_worker = 1)
 
-        # If something went wrong
-        except Exception as e:
+    # Open the client from the cluster.
+    client = Client(cluster)
 
-            # Warn the user and exit
-            errstr = \
-                "It was not possible to get the query string. " \
-                f"Error: {e}"
-            logger.exception(errstr)
-            sys.exit(errstr)
+    #-----------------------------------------------------------------#
 
-        # Try to add the metadata to the RNA-seq data frame
-        try:
-
-            df_final = \
-                recount3.merge_gene_sums_and_metadata(\
-                    df_gene_sums = df_gene_sums,
-                    df_metadata = df_metadata,
-                    project_name = input_project_name)
-
-        # If something went wrong
-        except Exception as e:
-
-            # Warn the user and exit
-            errstr = \
-                "It was not possible to add the metadata to the " \
-                f"'{input_samples_category}' samples. Error: {e}"
-            logger.exception(errstr)
-            sys.exit(errstr)
-
-        # Inform the user that the metadata were successfully added
-        infostr = \
-            "The metadata were successfully added to the " \
-            f"'{input_samples_category}' samples. Error: {e}"
-        logger.info(infostr)
-
-        # Try to filter tha samples according to the query string
-        try:
-        
-            df_final = \
-                recount3.filter_by_metadata(\
-                    df = df,
-                    query_string = query_string,
-                    project_name = input_project_name)
-
-        # If something went wrong
-        except Exception as e:
-
-            # Warn the user and exit
-            errstr = \
-                "It was not possible to filter the samples " \
-                f"using the associated metadata. Error: {e}"
-            logger.exception(errstr)
-            sys.exit(errstr)
-
-        # Inform the user that the samples were successfully filtered
-        infostr = \
-            "The samples were successfully filtered using the " \
-            "associated metadata."
-        logger.info(infostr)
-
-    # Otherwise
-    else:
-
-        # The final data frame will be the one containing the gene
-        # expression data
-        df_final = df_gene_sums
-
-
-    #------------------ Save the output data frame -------------------#
-
-
-    # If the user did not pass a name for the output CSV file
-    if output_csv is None:
-
-        # Use the default output name
-        output_csv_path = \
-            os.path.join(wd, o_default.format(input_project_name,
-                                              input_samples_category))
-
-    # Otherwise
-    else:
-
-        # Use the user-defined one
-        output_csv_path = \
-            os.path.join(wd, output_csv)
-
-    # Try to write the data frame to the output CSV file
+    # Try to load the samples' batches.
     try:
 
-        dgd.save_samples(df = df_final,
-                         csv_file = output_csv_path,
-                         sep = ",")
-
+        df = recount3.load_samples_batches(\
+            csv_file = input_samples_batches)
+    
     # If something went wrong
     except Exception as e:
-
-        # Warn the user and exit
+        
+        # Warn the user and exit.
         errstr = \
-            "It was not possible to write the data frame " \
-            f"in '{output_csv_path}'. Error: {e}"
-        logger.exception(errstr)
+            "It was not possible to load the samples' batches " \
+            f"from '{input_samples_batches}'. Error: {e}"
+        log.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the data frame was successfully
-    # written to the output file
+    # Inform the user that the batches were successfully loaded.
     infostr = \
-        "The data frame was successfully written in " \
-        f"'{output_csv_path}'."
-    logger.info(infostr)
+        "The samples' batches were successfully loaded from " \
+        f"'{input_samples_batches}'."
+    log.info(infostr)
+
+    #-----------------------------------------------------------------#
+
+    # Create a list to store the futures.
+    futures = []
+
+    # For each row of the data frame containing the samples' batches
+    for num_batch, row in enumerate(df.itertuples(index = False), 1):
+
+        # Get the name of the project.
+        project_name = row.input_project_name
+
+        # Get the samples' category.
+        samples_category = row.input_samples_category
+
+        # Get the query string.
+        query_string = row.query_string
+
+        #-------------------------------------------------------------#
+
+        # Get the name of the output file.
+        output_csv_name = \
+            f"{project_name}_{samples_category}_{num_batch}.csv"
+
+        # Get the path to the output file.
+        output_csv_path = os.path.join(wd, output_csv_name)
+
+        # Inform the user that the results will be written to the
+        # specified output file.
+        infostr = \
+            f"The results for batch # {num_batch} ('{project_name}' " \
+            f"project, '{samples_category}' samples) will be " \
+            f"written in '{output_csv_path}'."
+        log.info(infostr)
+
+        #-------------------------------------------------------------#
+
+        # Get the path to the log file and the file's extension.
+        log_file_name = \
+            f"{project_name}_{samples_category}_{num_batch}.log"
+
+        # Get the path to the log file.
+        log_file_path = os.path.join(wd, log_file_name)
+
+        # Inform the user about the log file for the current batch
+        # of samples.
+        infostr = \
+            f"The log messages for batch # {num_batch} " \
+            f"('{project_name}' project, '{samples_category}' " \
+            f"samples) will be written in '{log_file_path}'."
+        log.info(infostr)
+
+        #-------------------------------------------------------------#
+
+        # Build the list of arguments needed to send one calculation.
+        args = \
+            ["-ip", str(project_name),
+             "-is", str(samples_category),
+             "-o", output_csv_path,
+             "-d", wd,
+             "-lf", log_file_path]
+
+        # If the user passed a query string for the current batch
+        if not pd.isna(query_string):
+
+            # Add the query string option to the list of arguments.
+            args.extend(["-qs", query_string])
+
+        # If the user wants to save the original 'gene_sums' files
+        if save_gene_sums:
+
+            # Add the option for it to the list of arguments.
+            args.append("-sg")
+
+        # If the user wants to save the original 'metadata' files
+        if save_metadata:
+
+            # Add the option for it to the list of arguments.
+            args.append("-sm")
+
+        # If the user requested logging to the console
+        if log_console:
+
+            # Add the option for it to the list of arguments.
+            args.append("-lc")
+
+        # If the user requested verbose logging
+        if v:
+
+            # Add the option for it to the list of arguments.
+            args.append("-v")
+
+        # If the user requested debug-level logging
+        if vv:
+
+            # Add the option for it to the list of arguments.
+            args.append("-vv")
+
+        #-------------------------------------------------------------#
+
+        # Submit the calculation.
+        futures.append(\
+            client.submit(\
+                util.run_executable,
+                executable = "_dgd_get_recount3_data_single_batch",
+                arguments = args,
+                extra_return_values = [num_batch]))
+
+    #-----------------------------------------------------------------#
+
+    # Get the futures as they are completed.
+    for future, result in as_completed(futures,
+                                       with_results = True):
+
+        # Get the process and the batch number from the current
+        # future.
+        process, num_batch = result
+
+        # Check the process' return code.
+        try:
+
+            process.check_returncode()
+
+        # If something went wrong
+        except Exception as e:
+
+            # Log the error.
+            errstr = \
+                f"The run for batch # {num_batch} failed. Please " \
+                f"check the log file '{process.args[10]}' for " \
+                "more details."
+            log.error(errstr)
+
+            # Go to the next future.
+            continue
+
+        # Inform the user that the run completed successfully.
+        infostr = \
+            f"The run for batch # {num_batch} completed successfully."
+        log.info(infostr)
