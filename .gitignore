@@ -49,5 +49,14 @@ venv.bak/
 # MacOS
 .DS_Store
 
+# downloaded decoder
 dec.pth
 
+# only keep whitelisted set of config files
+bulkDGD/ioutil/configs/*.yaml
+!model.yaml 
+!pca_scatter.yaml
+!r_values_hist.yaml
+!time_line.yaml
+!one_opt.yaml 
+!two_opt.yaml
