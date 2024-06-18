@@ -1,0 +1,67 @@
+# Configuration file specifying the options to get the representations
+# with only one round of optimization.
+
+
+#######################################################################
+
+
+# Set how many representations to initialize per sample per component
+# of the Gaussian mixture model.
+#
+# Type: int.
+#
+# Default: 1.
+n_rep_per_comp: 1
+
+
+#######################################################################
+
+
+# Set the options for the optimization.
+optimization:
+
+  # Set the number of epochs.
+  #
+  # Type: int.
+  #
+  # Default: 60.
+  epochs: 25
+
+  #-------------------------------------------------------------------#
+
+  # Set the optimizer to be used.
+  #
+  # Type: str.
+  #
+  # Options:
+  # - 'adam' for the Adam optimizer.
+  #
+  # Default: 'adam'.
+  optimizer_name: adam
+
+  # Set the options for the optimizer (they vary according to the
+  # optimizer defined by 'optimizer_name').
+  optimizer_options:
+
+    # Set these options if 'optimizer_name' is 'adam'.
+
+    # Set the learning rate.
+    #
+    # Type: float.
+    #
+    # Default: 0.01.
+    lr: 0.01
+
+    # Set the weight decay.
+    #
+    # Type: float.
+    #
+    # Default: 0.0.
+    weight_decay: 0.0
+
+    # Set the betas.
+    #
+    # Type: list of float.
+    #
+    # Default: [0.5, 0.9].
+    betas: [0.5, 0.9]
