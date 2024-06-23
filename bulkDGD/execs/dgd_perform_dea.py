@@ -435,6 +435,10 @@ def main():
         # Get the data frame containing the DEA results for the
         # current sample and the name of the sample.
         df_stats, sample_name = result
+        df_stats["obs_counts"] = obs_counts.loc[sample_name,:]
+        df_stats["dgd_mean"] = pred_means.loc[sample_name,:]
+        df_stats["dgd_r"] = r_values
+        
 
         # Set the path to the output file.
         output_csv_path = \
@@ -465,3 +469,6 @@ def main():
             f"The DEA results for sample '{sample_name}' were " \
             f"successfully written in '{output_csv_path}'."
         log.info(infostr)
+
+if __name__ == "__main__":
+    main()

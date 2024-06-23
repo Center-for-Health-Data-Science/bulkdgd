@@ -456,3 +456,6 @@ def main():
         "The time data were successfully written in " \
         f"'{output_csv_time_path}'."
     log.info(infostr)
+
+if __name__ == "__main__":
+    main()

@@ -793,8 +793,7 @@ def get_log2_fold_changes(obs_counts,
     # should return the columns in the order specified by the
     # selection.
     obs_counts = \
-        torch.Tensor(obs_counts.loc[genes_obs].astype("int").values)
-
+        torch.tensor(obs_counts.loc[genes_obs].astype("float").values)
     #-----------------------------------------------------------------#
     
     # Create a tensor containing only those columns containing gene
@@ -802,8 +801,7 @@ def get_log2_fold_changes(obs_counts,
     # should return the columns in the order specified by the
     # selection.
     pred_means = \
-        torch.Tensor(pred_means.loc[genes_obs].astype("int").values)
-
+        torch.tensor(pred_means.loc[genes_obs].astype("float").values)
     #-----------------------------------------------------------------#
 
     # Get the mean gene counts for the sample.
