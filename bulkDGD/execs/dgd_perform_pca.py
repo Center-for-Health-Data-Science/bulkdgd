@@ -352,3 +352,10 @@ def main():
         "The results of the PCA were successfully plotted, and " \
         f"the plot was saved in '{output_plot_pca_path}'."
     log.info(infostr)
+
+
+#######################################################################
+
+
+if __name__ == "__main__":
+    main()

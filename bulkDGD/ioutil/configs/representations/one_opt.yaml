@@ -5,63 +5,85 @@
 #######################################################################
 
 
+# Set the name of the optimization scheme the configuration refers to.
+#
+# Type: str.
+#
+# Options:
+# - 'one_opt' for the optimization scheme with only one round of
+#   optimization.
+# - 'two_opt' for the optimization scheme with two rounds of
+#   optimization.
+scheme: one_opt
+
+
+#######################################################################
+
+
 # Set how many representations to initialize per sample per component
 # of the Gaussian mixture model.
 #
 # Type: int.
-#
-# Default: 1.
 n_rep_per_comp: 1
 
 
 #######################################################################
 
 
-# Set the options for the optimization.
-optimization:
+# Set the options for the data loader. They are passed to the
+# 'torch.utils.data.DataLoader' construction.
+data_loader:
 
-  # Set the number of epochs.
+  # Set how many samples per batch to load.
   #
   # Type: int.
+  batch_size: 8
+
+
+#######################################################################
+
+
+# Set the options for the optimization.
+opt:
+
+  # Set the number of epochs the optimization should be run for.
   #
-  # Default: 60.
+  # Type: int.
   epochs: 60
 
-  #-------------------------------------------------------------------#
+  #-----------------------------------------------------------------#
 
-  # Set the optimizer to be used.
-  #
-  # Type: str.
-  #
-  # Options:
-  # - 'adam' for the Adam optimizer.
-  #
-  # Default: 'adam'.
-  optimizer_name: adam
+  # Set the options for the optimizer.
+  optimizer:
 
-  # Set the options for the optimizer (they vary according to the
-  # optimizer defined by 'optimizer_name').
-  optimizer_options:
+    # Set the name of the optimizer to be used.
+    #
+    # Type: str.
+    #
+    # Options:
+    # - 'adam' for the Adam optimizer.
+    name: adam
 
-    # Set these options if 'optimizer_name' is 'adam'.
+    # Set the options for the optimizer (they vary according to the
+    # optimizer defined by 'optimizer_name').
+    #
+    # For the 'adam' optimizer, they will be passed to the
+    # 'torch.optim.Adam' constructor.
+    options:
 
-    # Set the learning rate.
-    #
-    # Type: float.
-    #
-    # Default: 0.01.
-    lr: 0.01
+      # Set these options if 'optimizer_name' is 'adam'.
 
-    # Set the weight decay.
-    #
-    # Type: float.
-    #
-    # Default: 0.0.
-    weight_decay: 0.0
+      # Set the learning rate.
+      #
+      # Type: float.
+      lr: 0.01
 
-    # Set the betas.
-    #
-    # Type: list of float.
-    #
-    # Default: [0.5, 0.9].
-    betas: [0.5, 0.9]
+      # Set the weight decay.
+      #
+      # Type: float.
+      weight_decay: 0.0
+
+      # Set the betas.
+      #
+      # Type: list of float.
+      betas: [0.5, 0.9]

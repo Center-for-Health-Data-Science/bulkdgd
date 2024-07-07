@@ -1,5 +1,5 @@
-Options used to configure the optimization scheme
-=================================================
+Configuration for the optimization scheme
+=========================================
 
 So far, bulkDGD implements two optimization schemes:
 
@@ -10,95 +10,208 @@ So far, bulkDGD implements two optimization schemes:
 ``one_opt`` scheme
 ------------------
 
-When running :meth:`core.model.DGDModel.get_representations` with ``method`` set to ``one_opt``, the ``config`` argument should be a dictionary structured as follows:
+When running :meth:`core.model.DGDModel.get_representations` the ``config`` argument should be a dictionary structured as follows to use the ``one_opt`` scheme:
 
 .. code-block:: python
    
-   {"optimization" : \
+   {# Set the name of the optimization scheme the configuration refers
+    # to.
+    #
+    # Type: str.
+    #
+    # Options:
+    # - 'one_opt' for the optimization scheme with only one round of
+    #   optimization.
+    # - 'two_opt' for the optimization scheme with two rounds of
+    #   optimization.
+    "scheme" : "one_opt",
+
+    # Set how many representations to initialize per sample per
+    # component of the Gaussian mixture model.
+    #
+    # Type: int.
+    "n_rep_per_comp" : 1,
+
+    # Set the options for the data loader. They are passed to the
+    # 'torch.utils.data.DataLoader' constructor.
+    "data_loader" : \
+
+      {# Set how many samples per batch to load.
+       #
+       # Type: int.
+       "batch_size" : 8},
+
+   # Set the options for the optimization.
+   "opt":
         
       {# Set the number of epochs the optimization should be run for.
+       #
+       # Type: int.
        "epochs" : 60,
+
+       # Set the options for the optimizer.
+       "optimizer" : \
         
-       # Set the optimizer to be used - so far, only 'adam'
-       # has been implemented.
-       "optimizer_name" : "adam",
-        
-       # Set the options to initialize the optimizer - they vary
-       # according to the selected optimizer.
-       "optimizer_options" : \
+          {# Set the name of the optimizer to be used.
+           #
+           # Type: str.
+           #
+           # Options:
+           # - 'adam' for the Adam optimizer.
+           "optimizer_name" : "adam",
+           
+           # Set the options to initialize the optimizer - they vary
+           # according to the selected optimizer.
+           #
+           # For the 'adam' optimizer, they will be passed to the
+           # 'torch.optim.Adam' constructor.
+           "optimizer_options" : \
 
-           {# Set the learning rate.
-            lr: 0.01,
+               # Set these options if 'optimizer_name' is 'adam'.
 
-            # Set the weight decay.
-            weight_decay: 0,
+               {# Set the learning rate.
+                #
+                # Type: float.
+                "lr" : 0.01,
 
-            # Set the betas.
-            betas: [0.5, 0.9],
-           },
+                # Set the weight decay.
+                #
+                # Type: float.
+                "weight_decay" : 0.0,
+
+                # Set the betas.
+                #
+                # Type: list of float.
+                "betas" : [0.5, 0.9],
+               },
+          },
       },
+
    }
 
 ``two_opt`` scheme
 ------------------
 
-When running :meth:`core.model.DGDModel.get_representations` with ``method`` set to ``two_opt``, the ``config`` argument should be a dictionary structured as follows:
+When running :meth:`core.model.DGDModel.get_representations` the ``config`` argument should be a dictionary structured as follows to use the ``two_opt`` scheme:
 
-.. code-block:: python
-   
-   {"optimization" : \
+   {# Set the name of the optimization scheme the configuration refers
+    # to.
+    #
+    # Type: str.
+    #
+    # Options:
+    # - 'one_opt' for the optimization scheme with only one round of
+    #   optimization.
+    # - 'two_opt' for the optimization scheme with two rounds of
+    #   optimization.
+    "scheme" : "two_opt",
+
+    # Set how many representations to initialize per sample per
+    # component of the Gaussian mixture model.
+    #
+    # Type: int.
+    "n_rep_per_comp" : 1,
+
+    # Set the options for the data loader. They are passed to the
+    # 'torch.utils.data.DataLoader' constructor.
+    "data_loader" : \
+
+      {# Set how many samples per batch to load.
+       #
+       # Type: int.
+       "batch_size" : 8},
+
+   # Set the options for the first optimization.
+   "opt1":
         
-      {# Set the options regarding the first optimization round.
-       "opt1" : 
+      {# Set the number of epochs the optimization should be run for.
+       #
+       # Type: int.
+       "epochs" : 10,
+
+       # Set the options for the optimizer.
+       "optimizer" : \
+        
+          {# Set the name of the optimizer to be used.
+           #
+           # Type: str.
+           #
+           # Options:
+           # - 'adam' for the Adam optimizer.
+           "optimizer_name" : "adam",
            
-           {# Set the number of epochs the optimization should be run
-            # for.
-            "epochs" : 10,
-           
-            # Set the optimizer to be used - so far, only 'adam'
-            # has been implemented.
-            "optimizer_name" : "adam",
-           
-            # Set the options to initialize the optimizer - they
-            # vary according to the selected optimizer.
-            "optimizer_options" : \
+           # Set the options to initialize the optimizer - they vary
+           # according to the selected optimizer.
+           #
+           # For the 'adam' optimizer, they will be passed to the
+           # 'torch.optim.Adam' constructor.
+           "optimizer_options" : \
+
+               # Set these options if 'optimizer_name' is 'adam'.
 
                {# Set the learning rate.
-                lr: 0.01,
+                #
+                # Type: float.
+                "lr" : 0.01,
 
                 # Set the weight decay.
-                weight_decay: 0,
+                #
+                # Type: float.
+                "weight_decay" : 0.0,
 
                 # Set the betas.
-                betas: [0.5, 0.9],
+                #
+                # Type: list of float.
+                "betas" : [0.5, 0.9],
                },
-            },
-       },
+          },
+      },
 
-      {# Set the options regarding the second optimization round.
-       "opt2" : 
+   # Set the options for the second optimization.
+   "opt2":
+        
+      {# Set the number of epochs the optimization should be run for.
+       #
+       # Type: int.
+       "epochs" : 50,
+
+       # Set the options for the optimizer.
+       "optimizer" : \
+        
+          {# Set the name of the optimizer to be used.
+           #
+           # Type: str.
+           #
+           # Options:
+           # - 'adam' for the Adam optimizer.
+           "optimizer_name" : "adam",
            
-           {# Set the number of epochs the optimization should be
-            # run for.
-            "epochs" : 50,
-           
-            # Set the optimizer to be used - so far, only 'adam'
-            # has been implemented.
-            "optimizer_name" : "adam",
-           
-            # Set the options to initialize the optimizer - they
-            # vary according to the selected optimizer.
-            "optimizer_options" : \
+           # Set the options to initialize the optimizer - they vary
+           # according to the selected optimizer.
+           #
+           # For the 'adam' optimizer, they will be passed to the
+           # 'torch.optim.Adam' constructor.
+           "optimizer_options" : \
+
+               # Set these options if 'optimizer_name' is 'adam'.
 
                {# Set the learning rate.
-                lr: 0.01,
+                #
+                # Type: float.
+                "lr" : 0.01,
 
                 # Set the weight decay.
-                weight_decay: 0,
+                #
+                # Type: float.
+                "weight_decay" : 0.0,
 
                 # Set the betas.
-                betas: [0.5, 0.9],
+                #
+                # Type: list of float.
+                "betas" : [0.5, 0.9],
                },
-            },
-       },
-   }
+          },
+      },
+
+   }     
+     

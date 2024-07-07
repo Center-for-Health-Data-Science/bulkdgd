@@ -58,6 +58,14 @@ CONFIG_REP_DIR = \
 
 #---------------------------------------------------------------------#
 
+# Set the directory containing the configuration files specifying the
+# options for training the model.
+CONFIG_TRAIN_DIR = \
+    os.path.join(os.path.dirname(__file__),
+                 "configs/training")
+
+#---------------------------------------------------------------------#
+
 # Set the default configuration file for plotting the results of the
 # PCA.
 CONFIG_PLOT_PCA = \

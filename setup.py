@@ -43,10 +43,10 @@ url = \
 # Set the project's author(s).
 author = \
     "Valentina Sora, Viktoria Schuster, Iñigo Prada-Luengo, " \
-    "Anders Lykkebo-Valløe, Anders Krogh"
+    "Anders Lykkebo-Valløe, Andreas Bjerregaard, Anders Krogh"
 
 # Set the project's version.
-version = "22.05.2024"
+version = "1.0.0"
 
 # Set a brief description of the project.
 description = \
@@ -71,6 +71,8 @@ package_data = \
                          "configs/plot/*.md",
                          "configs/representations/*.yaml",
                          "configs/representations/*.md",
+                         "configs/training/*.yaml",
+                         "configs/training/*.md",
                          "data/*.pth",
                          "data/*.txt",
                          "data/*.md",],
@@ -83,16 +85,25 @@ entry_points = \
         [# Public executables
          "dgd_get_recount3_data = " \
          f"{name}.execs.dgd_get_recount3_data:main",
+
          "dgd_preprocess_samples = " \
          f"{name}.execs.dgd_preprocess_samples:main",
+
          "dgd_get_representations = " \
          f"{name}.execs.dgd_get_representations:main",
+
          "dgd_perform_dea = " \
          f"{name}.execs.dgd_perform_dea:main",
+
          "dgd_perform_pca = " \
          f"{name}.execs.dgd_perform_pca:main",
+
          "dgd_get_probability_density = " \
          f"{name}.execs.dgd_get_probability_density:main",
+
+         "dgd_train = " \
+         f"{name}.execs.dgd_train:main",
+
          # "Private" executables - not intended to be called
          # directly by end users
          "_dgd_get_recount3_data_single_batch = " \

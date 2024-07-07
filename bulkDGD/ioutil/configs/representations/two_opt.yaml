@@ -9,109 +9,106 @@
 # of the Gaussian mixture model.
 #
 # Type: int.
-#
-# Default: 1.
 n_rep_per_comp: 1
 
 
 #######################################################################
 
 
-# Set the options for the optimizations.
-optimization:
+# Set the options for the data loader.
+data_loader:
 
-  # Set the options for the first optimization round.
-  opt1:
+  # Set how many samples per batch to load.
+  batch_size: 8
 
-    # Set the number of epochs.
-    #
-    # Type: int.
-    #
-    # Default: 10.
-    epochs: 10
 
-    # Set the optimizer to be used.
+#######################################################################
+
+
+# Set the optimization scheme.
+scheme: two_opt
+
+
+#######################################################################
+
+# Set the options for the first optimization round.
+opt1:
+
+  # Set the number of epochs.
+  #
+  # Type: int.
+  epochs: 10
+
+  # Set the optimizer.
+  optimizer:
+
+    # Set the name of the optimizer.
     #
     # Type: str.
     #
     # Options:
     # - 'adam' for the Adam optimizer.
-    #
-    # Default: 'adam'.
-    optimizer_name: adam
+    name: adam
 
     # Set the options for the optimizer (they vary according to the
     # optimizer defined by 'optimizer_name').
-    optimizer_options:
+    options:
 
       # Set these options if 'optimizer_name' is 'adam'.
 
       # Set the learning rate.
       #
       # Type: float.
-      #
-      # Default: 0.01.
       lr: 0.01
 
       # Set the weight decay.
       #
       # Type: float.
-      #
-      # Default: 0.0
       weight_decay: 0.0
 
       # Set the betas.
       #
       # Type: list of float.
-      #
-      # Default: [0.5, 0.9].
       betas: [0.5, 0.9]
 
-  #-------------------------------------------------------------------#
+#---------------------------------------------------------------------#
 
-  # Set the options for the second optimization round.
-  opt2:
+# Set the options for the second optimization round.
+opt2:
 
-    # Set the number of epochs.
-    #
-    # Type: int.
-    #
-    # Default: 50.
-    epochs: 50
+  # Set the number of epochs.
+  #
+  # Type: int.
+  epochs: 50
 
-    # Set the optimizer to be used.
+  # Set the optimizer.
+  optimizer:
+
+    # Set the name of the optimizer.
     #
     # Type: str.
     #
     # Options:
     # - 'adam' for the Adam optimizer.
-    #
-    # Default: 'adam'.
-    optimizer_name: adam
+    name: adam
 
     # Set the options for the optimizer (they vary according to the
     # optimizer defined by 'optimizer_name').
-    optimizer_options:
+    options:
 
       # Set these options if 'optimizer_name' is 'adam'.
 
       # Set the learning rate.
       #
       # Type: float.
-      #
-      # Default: 0.01.
       lr: 0.01
 
       # Set the weight decay.
       #
       # Type: float.
-      #
-      # Default: 0.0
       weight_decay: 0.0
 
       # Set the betas.
       #
       # Type: list of float.
-      #
-      # Default: [0.5, 0.9].
       betas: [0.5, 0.9]

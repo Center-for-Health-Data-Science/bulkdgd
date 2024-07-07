@@ -135,20 +135,6 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    m_choices = ["one_opt", "two_opt"]
-    m_help = \
-        "The method for optimizing the representations. " \
-        "The file specified with the '-cr', '--config-file-rep' " \
-        "option must contain options compatible with the " \
-        "chosen method."
-    parser.add_argument("-m", "--method-optimization",
-                        type = str,
-                        required = True,
-                        choices = m_choices,
-                        help = m_help)
-
-    #-----------------------------------------------------------------#
-
     d_help = \
         "The working directory. The default is the current " \
         "working directory."
@@ -202,7 +188,6 @@ def main():
     output_csv_time = args.output_csv_time
     config_file_model = args.config_file_model
     config_file_rep = args.config_file_rep
-    method_optimization = args.method_optimization
     wd = os.path.abspath(args.work_dir)
     log_file = os.path.join(wd, args.log_file)
     log_console = args.log_console
@@ -344,13 +329,8 @@ def main():
             dgd_model.get_representations(\
                 # The data frame with the samples
                 df_samples = df_samples,
-                # The method to use to get the representation
-                method = method_optimization,
-                # The configuration for the optimization                         
-                config_opt = config_rep["optimization"],
-                # The number of new representations per component
-                # per sample                         
-                n_rep_per_comp = config_rep["n_rep_per_comp"])
+                # The configuration to find the representations                        
+                config_rep = config_rep)
 
     # If something went wrong
     except Exception as e:
@@ -456,6 +436,10 @@ def main():
         "The time data were successfully written in " \
         f"'{output_csv_time_path}'."
     log.info(infostr)
+
+
+#######################################################################
+
 
 if __name__ == "__main__":
     main()

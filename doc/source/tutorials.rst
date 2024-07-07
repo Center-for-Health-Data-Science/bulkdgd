@@ -21,6 +21,6 @@ Specifically, we provide detailed tutorials to:
 
 * Perform differential expression analysis between a set of "treated" samples (for instance, cancer samples) and their corresponding "untreated" samples ("normal" samples) found using the DGD model (:doc:`Tutorial 2 <tutorial_2>`).
 
-* Perform principal component analysis (PCA) on a set of representations and plot the results (:doc:`Tutorial 3 <tutorial_3>`).
+* Train the DGD model on a new set of samples (:doc:`Tutorial 3 <tutorial_3>`).
 
-The data and Python scripts needed to reproduce the tutorials can be found in the different ``tutorial_*`` directories inside the ``bulkDGD/tutorials/data`` directory.
+The data and Python scripts needed to reproduce the tutorials can be found in the different ``tutorial_*`` directories inside the ``bulkDGD/tutorials`` directory.

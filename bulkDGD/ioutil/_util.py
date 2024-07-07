@@ -49,7 +49,9 @@ logger = log.getLogger(__name__)
 
 
 def check_config_against_template(config,
-                                  template):
+                                  template,
+                                  ignore_if_missing,
+                                  ignore_if_varying):
     """Check a configuration against the configuration's template.
 
     Parameters
@@ -61,27 +63,20 @@ def check_config_against_template(config,
         A template describing how the configuration should be
         structured.
 
+    ignore_if_missing : ``set``
+        A set containing the fields that can be missing from the
+        configuration.
+
+    ignore_if_varying : ``set``
+        A set containing the fields that can vary in the
+        configuration.
+
     Returns
     -------
     config : ``dict``
         The configuration loaded from the file provided by
         the user, if all checks were successful.
     """
-
-    # Set the fields that can be missing from the configuration,
-    # so that they do not raise an exception if they are not found.
-    IGNORE_MISSING = \
-        {"gmm_pth_file", "dec_pth_file"}
-
-    #-----------------------------------------------------------------#
-
-    # Set the fields that can vary in the configuration, so that they
-    # do not raise an exception if they are different than expected.
-    IGNORE_VARYING = \
-        {"means_prior_options", "weights_prior_options",
-         "log_var_prior_options"}
-
-    #-----------------------------------------------------------------#
 
     # Define the recursion.
     def recurse(config,
@@ -131,15 +126,17 @@ def check_config_against_template(config,
             # configuration.
             if len(unique_template_fields) != 0:
 
-                # If the fields corresponds to field that cannot
-                # be ignored (= they need to be present).
-                if IGNORE_MISSING.union(\
-                    unique_template_fields) != IGNORE_MISSING:
+                # Get the fields that need to be present.
+                needed_fields = \
+                    ignore_if_missing.union(unique_template_fields) \
+                    - ignore_if_missing
+
+                # If some fields that are needed are missing.
+                if needed_fields:
 
                     # Raise an exception.
                     fields = \
-                        ", ".join([f"'{f}'" for f \
-                                   in unique_template_fields])
+                        ", ".join([f"'{f}'" for f in needed_fields])
                     errstr = \
                         f"Missing field(s) in configuration: " \
                         f"{fields}."
@@ -152,7 +149,7 @@ def check_config_against_template(config,
 
                 # If the element corresponds to a dictionary of
                 # options that can vary
-                if k in IGNORE_VARYING:
+                if k in ignore_if_varying:
 
                     # Just ignore it.
                     continue
@@ -174,7 +171,7 @@ def check_config_against_template(config,
         # If the user-supplied configuration is a dictionary, but the
         # template is not
         elif (isinstance(config, dict) \
-        and not isinstance(template, dict)):
+        and not isinstance(template, dict)) and template is not None:
 
             # Raise an exception.
             errstr = \

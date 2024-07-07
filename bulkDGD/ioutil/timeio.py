@@ -83,7 +83,7 @@ def save_time(df,
               csv_file,
               sep = ","):
     """Save the information about the CPU and wall clock time
-    to a CSV file.
+    in a CSV file.
 
     Parameters
     ----------

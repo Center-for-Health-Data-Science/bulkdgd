@@ -441,6 +441,8 @@ def uniquify_file_path(file_path):
     # Get the file's name and extension.
     file_name, file_ext = os.path.splitext(file_path)
 
+    # Set the new 
+
     # Set the counter to 1.
     counter = 1
 

@@ -10,6 +10,8 @@ API reference
    ioutil
    plotting
    recount3
+   rep_config_options
+   train_config_options
 
 bulkDGD consists of several packages:
 
@@ -22,3 +24,9 @@ bulkDGD consists of several packages:
 * :doc:`plotting <plotting>`, containing plotting utilities.
 
 * :doc:`recount3 <recount3>`, containing utilities to interact with the Recount3 platform.
+
+Some functions and methods use dictionary-based configurations for several tasks, such as finding the best representations for a new set of samples and training the DGD model. More detailed descriptions of such configurations are available here:
+
+* :doc:`configuration used to set the optimization scheme <rep_config_options>` when finding representations for a new set of samples.
+
+* :doc:`configuration used to train the DGD model <train_config_options>`.

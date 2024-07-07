@@ -67,7 +67,7 @@ Then, we can preprocess the samples.
    df_preproc, genes_excluded, genes_missing = \
        ioutil.preprocess_samples(df_samples = df_samples)
 
-The functions looks for duplicated samples, duplicated genes, and missing values in the columns containing gene expression data. If the function finds duplicated samples or genes with missing expression values, it raises a warning but keeps the samples where the duplication or missing values were found. However, the function will throw an error if it finds duplicated genes since the DGD model assumes the input samples report expression data for unique genes.
+The function looks for duplicated samples, duplicated genes, and missing values in the columns containing gene expression data. If the function finds duplicated samples or genes with missing expression values, it raises a warning but keeps the samples where the duplication or missing values were found. However, the function will throw an error if it finds duplicated genes since the DGD model assumes the input samples report expression data for unique genes.
 
 Then, the function re-orders the columns containing gene expression data according to the list of genes included in the DGD model and places all the columns containing additional information about the samples (in our case, the ``tissue`` column) as the last columns of the output data frame.
 
@@ -140,14 +140,9 @@ We can now use the :meth:`core.model.DGDModel.get_representations` method to fin
    df_rep, df_dec_out, df_time_opt = \
        dgd_model.get_representations(\
            # The data frame with the samples
-           df_samples = df_preproc,
-           # The method to use to optimize the representation
-           method = "two_opt",
-           # The configuration for the optimization                         
-           config_opt = config_rep["optimization"],
-           # The number of new representations per component
-           # per sample                         
-           n_rep_per_comp = config_rep["n_rep_per_comp"])
+           df_samples = df_samples,
+           # The configuration to find the representations                        
+           config_rep = config_rep)
 
 The method returns three objects:
 

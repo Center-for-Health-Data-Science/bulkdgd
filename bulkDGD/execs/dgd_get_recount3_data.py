@@ -399,3 +399,10 @@ def main():
         infostr = \
             f"The run for batch # {num_batch} completed successfully."
         log.info(infostr)
+
+
+#######################################################################
+
+
+if __name__ == "__main__":
+    main()

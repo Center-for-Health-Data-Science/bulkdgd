@@ -71,14 +71,9 @@ dgd_model = model.DGDModel(**config_model)
 df_rep, df_dec_out, df_time_opt = \
     dgd_model.get_representations(\
         # The data frame with the samples
-        df_samples = df_preproc,
-        # The method to use to get the representation
-        method = "two_opt",
-        # The configuration for the optimization                         
-        config_opt = config_rep["optimization"],
-        # The number of new representations per component
-        # per sample                         
-        n_rep_per_comp = config_rep["n_rep_per_comp"])
+        df_samples = df_samples,
+        # The configuration to find the representations                        
+        config_rep = config_rep)
 
 
 #------------------------- Save the outputs --------------------------#

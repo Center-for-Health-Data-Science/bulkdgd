@@ -11,6 +11,7 @@ Command-line interface
    dgd_perform_dea
    dgd_perform_pca
    dgd_get_probability_density
+   dgd_train
 
 
 bulkDGD is structured as an importable Python package.
@@ -30,3 +31,5 @@ This interface consists of a series of executables installed together with the p
 * :doc:`dgd_perform_pca <dgd_perform_pca>` allows performing and plotting the results of a 2D principal component analysis on a set of representations.
 
 * :doc:`dgd_get_probability_density <dgd_get_probability_density>` allows finding, for a given a set of representations, the probability density of each representation for each component of the Gaussian mixture model that defines the DGD model's latent space.
+
+* :doc:`dgd_train <dgd_train>` allows training the DGD model.

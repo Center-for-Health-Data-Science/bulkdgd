@@ -53,6 +53,9 @@ from bulkDGD.core import model
 from bulkDGD import defaults, ioutil, util
 
 
+#######################################################################
+
+
 def main():
 
 
@@ -369,6 +372,10 @@ def main():
         "were successfully written in " \
         f"'{output_csv_prob_comp_path}'."
     log.info(infostr)
+
+
+#######################################################################
+
 
 if __name__ == "__main__":
     main()

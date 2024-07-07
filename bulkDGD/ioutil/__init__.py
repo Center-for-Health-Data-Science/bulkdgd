@@ -27,6 +27,7 @@
 from .defaults import *
 from .configio import *
 from .decoutio import *
+from .lossio import *
 from .repio import *
 from .samplesio import *
 from .timeio import *
