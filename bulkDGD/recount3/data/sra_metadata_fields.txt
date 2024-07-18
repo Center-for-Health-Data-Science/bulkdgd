@@ -1,4 +1,6 @@
-# Fields found in the SRA metadata files downloaded from the Recount3 platform.
+# Recount3-specific metadata fields found in the SRA metadata files
+# downloaded from the Recount3 platform. Other study-specific metadata
+# fields may be present in SRA studies.
 
 rail_id
 external_id

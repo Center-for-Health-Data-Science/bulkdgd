@@ -65,7 +65,6 @@ def main():
         "The name of the Recount3 project for which samples will " \
         f"be retrieved. The available projects are: {ip_choices_str}."
     parser.add_argument("-ip", "--input-project-name",
-                        type = str,
                         required = True,
                         choices = ip_choices,
                         help = ip_help)
@@ -80,7 +79,6 @@ def main():
         "associated with." \
         "For SRA data, this is the code associated with the project."
     parser.add_argument("-is", "--input-samples-category",
-                        type = str,
                         required = True,
                         help = is_help)
 
@@ -92,7 +90,6 @@ def main():
         "written in the working directory. The default file name is " \
         "'{input_project_name}_{input_samples_category}.csv'."
     parser.add_argument("-o", "--output-csv",
-                        type = str,
                         default = None,
                         help = o_help)
 
@@ -102,7 +99,6 @@ def main():
         "The working directory. The default is the current " \
         "working directory."
     parser.add_argument("-d", "--work-dir",
-                        type = str,
                         default = os.getcwd(),
                         help = d_help)
 
@@ -139,9 +135,35 @@ def main():
         "accepts a plain text file containing the string " \
         "since it can be long for complex queries."
     parser.add_argument("-qs", "--query-string",
-                        type = str,
                         default = None,
                         help = qs_help)
+
+    #-----------------------------------------------------------------#
+
+    mk_help = \
+        "A vertical line (|)-separated list of names of metadata " \
+        "columns to keep in the final data frame. All the other " \
+        "metadata columns will be dropped from the data frame. If " \
+        "neither this option nor the '-md', '--metadata-to-drop' " \
+        "is passed, all metadata columns are kept in the final data " \
+        "frame."
+    parser.add_argument("-mk", "--metadata-to-keep",
+                        default = None,
+                        help = mk_help)
+
+    #-----------------------------------------------------------------#
+
+    md_help = \
+        "A vertical line (|)-separated list of names of metadata " \
+        "columns to drop in the final data frame. All the other " \
+        "metadata columns will be kept in the final data frame. Use " \
+        "the '_all_' reserved keyword to drop all metadata columns " \
+        "from the data frame. If neither this option nor the '-mk', " \
+        "'--metadata-to-keep' option is passed, all metadata " \
+        "columns are kept in the final data frame."
+    parser.add_argument("-md", "--metadata-to-drop",
+                        default = None,
+                        help = md_help)
 
     #-----------------------------------------------------------------#
 
@@ -151,7 +173,6 @@ def main():
         "in the working directory. The default file name is " \
         f"'{lf_default}'."
     parser.add_argument("-lf", "--log-file",
-                        type = str,
                         default = lf_default,
                         help = lf_help)
 
@@ -187,6 +208,8 @@ def main():
     output_csv = args.output_csv
     wd = os.path.abspath(args.work_dir)
     query_string = args.query_string
+    metadata_to_keep = args.metadata_to_keep
+    metadata_to_drop = args.metadata_to_drop
     save_gene_sums = args.save_gene_sums
     save_metadata = args.save_metadata
     log_file = args.log_file
@@ -197,7 +220,7 @@ def main():
     #-----------------------------------------------------------------#
 
     # Get the module's logger.
-    logger = log.getLogger(__name__)
+    logger = log.getLogger("dgd_get_recount3_data")
 
     # Set WARNING logging level by default.
     log_level = log.WARNING
@@ -219,9 +242,11 @@ def main():
     handlers = \
         util.get_handlers(\
             log_console = log_console,
+            log_console_level = log.ERROR,
             log_file_class = log.FileHandler,
-            log_file_options = {"filename" : log_file},
-            log_level = log_level)
+            log_file_options = {"filename" : log_file,
+                                "mode" : "w"},
+            log_file_level = log_level)
 
     # Set the logging configuration.
     log.basicConfig(level = log_level,
@@ -247,10 +272,8 @@ def main():
 
         # Log it an exit.
         errstr = \
-            "It was not possible to get the RNA-seq data for " \
-            f"project '{input_project_name}', samples " \
-            f"'{input_samples_category}' from Recount3. " \
-            f"Error: {e}"
+            "It was not possible to get the RNA-seq data from " \
+            f"Recount3. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
 
@@ -271,10 +294,28 @@ def main():
 
         # Log it an exit.
         errstr = \
-            "It was not possible to get the metadata for " \
-            f"project '{input_project_name}', samples " \
-            f"'{input_samples_category}' from Recount3. " \
+            "It was not possible to get the metadata from Recount3. " \
             f"Error: {e}"
+        logger.exception(errstr)
+        sys.exit(errstr)
+
+    #-----------------------------------------------------------------#
+
+    # Try to merge the RNA-seq data frame and the metadata data frame.
+    try:
+        
+        df_final = \
+            recount3.merge_gene_sums_and_metadata(\
+                df_gene_sums = df_gene_sums,
+                df_metadata = df_metadata)
+
+    # If something went wrong
+    except Exception as e:
+
+        # Log it and exit.
+        errstr = \
+            "It was not possible to combine the RNA-seq data " \
+            f"with the metadata. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
 
@@ -303,20 +344,12 @@ def main():
 
         # Try to add the metadata to the RNA-seq data frame.
         try:
-            
-            # Merge the RNA-seq data frame and the metadata data frame.
-            df_merged = \
-                recount3.merge_gene_sums_and_metadata(\
-                    df_gene_sums = df_gene_sums,
-                    df_metadata = df_metadata,
-                    project_name = input_project_name)
 
             # Filter the samples.
             df_final = \
                 recount3.filter_by_metadata(\
-                    df = df_merged,
-                    query_string = query_string,
-                    project_name = input_project_name)
+                    df = df_final,
+                    query_string = query_string)
 
         # If something went wrong
         except Exception as e:
@@ -328,12 +361,95 @@ def main():
             logger.exception(errstr)
             sys.exit(errstr)
 
-    # Otherwise
-    else:
+    #-----------------------------------------------------------------#
 
-        # The final data frame will be the one containing the gene
-        # expression data.
-        df_final = df_gene_sums
+    # If the user passed a list of metadata columns to keep in the
+    # final data frame
+    if metadata_to_keep is not None:
+
+        # Get the list of metadata columns to keep.
+        metadata_to_keep = \
+            [m.lstrip("'").rstrip("'") for m \
+             in metadata_to_keep.rstrip().split("|")]
+
+        # Get the columns to keep in the final data frame.
+        columns_to_keep = \
+            [col for col in df_final.columns \
+             if col.startswith("ENSG")] + \
+            [col for col in df_final.columns \
+             if not col.startswith("ENSG") \
+             and col in metadata_to_keep]
+
+        # Try to keep only the selected columns
+        try:
+            
+            df_final = df_final.loc[:,columns_to_keep]
+
+        # If something went wrong
+        except Exception as e:
+
+            # Get a string representing the metadata columns to keep.
+            metadata_to_keep_str = \
+                ", ".join([f"'{m}'" for m in metadata_to_keep])
+
+            # Log it and exit.
+            errstr = \
+                "It was not possible to keep only the following " \
+                "metadata columns in the final data frame: " \
+                f"{metadata_to_keep_str}. Error: {e}"
+            logger.exception(errstr)
+            sys.exit(errstr)
+
+    #-----------------------------------------------------------------#
+
+    # If the user passed a list of metadata columns to drop in the
+    # final data frame
+    if metadata_to_drop is not None:
+
+        # If the user wants to drop all metadata columns
+        if metadata_to_drop == "_all_":
+
+            # Get the columns to keep in the final data frame.
+            columns_to_keep = \
+                [col for col in df_final.columns \
+                 if col.startswith("ENSG")] 
+
+        # Otherwise
+        else:
+
+            # Get the list of metadata columns.
+            metadata_to_drop = \
+                [m.lstrip("'").rstrip("'") for m \
+                 in metadata_to_drop.rstrip().split("|")]
+
+            # Get the columns to keep in the final data frame.
+            columns_to_keep = \
+                [col for col in df_final.columns \
+                 if col.startswith("ENSG")] + \
+                [col for col in df_final.columns \
+                 if not col.startswith("ENSG") \
+                 and col not in metadata_to_drop]
+
+        # Try to keep only the selected columns.
+        try:
+            
+            df_final = df_final.loc[:, columns_to_keep]
+
+        # If something went wrong
+        except Exception as e:
+
+            # Get a string representing the metadata columns to
+            # drop.
+            metadata_to_drop_str = \
+                ", ".join([f"'{m}'" for m in metadata_to_drop])
+
+            # Log it and exit.
+            errstr = \
+                "It was not possible to drop the following " \
+                "metadata columns from the final data frame: " \
+                f"{metadata_to_drop_str}. Error: {e}"
+            logger.exception(errstr)
+            sys.exit(errstr)
 
     #-----------------------------------------------------------------#
 
@@ -364,7 +480,7 @@ def main():
 
         # Log it and exit.
         errstr = \
-            "It was not possible to save the RNA-seq data " \
-            f"in '{output_csv_path}'. Error: {e}"
+            "It was not possible to save the final data frame in " \
+            f"'{output_csv_path}'. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)

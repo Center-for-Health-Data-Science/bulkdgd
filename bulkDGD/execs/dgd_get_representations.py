@@ -216,10 +216,11 @@ def main():
     handlers = \
         util.get_handlers(\
             log_console = log_console,
+            log_console_level = log_level,
             log_file_class = log.FileHandler,
             log_file_options = {"filename" : log_file,
                                 "mode" : "w"},
-            log_level = log_level)
+            log_file_level = log_level)
 
     # Set the logging configuration.
     log.basicConfig(level = log_level,

@@ -45,6 +45,7 @@ import tempfile
 # Import from third-party packages.
 import pandas as pd
 import requests as rq
+import yaml
 # Import from 'bulkDGD'.
 from . import defaults
 
@@ -99,66 +100,63 @@ def _get_metadata_fields(project_name,
 
         #-------------------------------------------------------------#
 
-        # Initialize an empty set to store each sample's attributes.
-        samples_attributes = set()
+        # For each entity that may have attributes
+        for entity in ["sample", "experiment"]:
 
-        # If:
-        # - The project is 'sra'.
-        # - A data frame was passed.
-        # - There is a 'sample_attributes' column in the data frame.
-        if project_name == "sra" \
-        and df is not None \
-        and "sample_attributes" in df.columns:
+            # Initialize an empty set to store the entity's attributes.
+            attributes = set()
 
-            # Add the names of the samples' attributes to the set.
-            samples_attributes.add(\
-                [item.split(";;")[0].replace(" ", "_") for item \
-                 in df["sample_attributes"].split("|")])
+            # Set the name of the column that may contain the
+            # attributes.
+            column_attrs = f"{entity}_attributes"
+
+            # If:
+            # - The project is 'sra'.
+            # - A data frame was passed.
+            # - There is an '{entity}_attributes' column in the data
+            # frame.
+            if project_name == "sra" \
+            and df is not None \
+            and column_attrs in df.columns:
+
+                # Add the names of the samples' attributes to the set.
+                attributes.add(\
+                    [item.split(";;")[0].replace(" ", "_") for item \
+                     in df[column_attrs].split("|")])
+
+                # Add the attributes to the list of metadata fields
+                # found.
+                metadata_fields += sorted(attributes)
 
         #-------------------------------------------------------------#
 
         # Return all the metadata fields found.
-        return metadata_fields + sorted(samples_attributes)
+        return metadata_fields
 
 
-########################## PUBLIC FUNCTIONS ###########################
-
-
-def load_samples_batches(csv_file):
-    """Load a comma-separated CSV file containing a data frame with
-    information about the batches of samples to be downloaded from
-    Recount3.
-
-    The data frame is expected to have at least two columns:
-
-    * ``"input_project_name"``, containing the name of the project
-      the samples belong to.
-    * ``"input_samples_category"``, containing the name of the
-      category the samples belong to.
-
-    A third column, ``"query_string"``, may be present. This should
-    contain the query string that should be used to filter each batch
-    of samples by their metadata.
-
-    If no ``"query_string"`` column is present, the samples will not
-    be filtered.
+def _load_samples_batches_csv(csv_file):
+    """Load the information for batches of samples to be downloaded
+    from the Recount3 platform from a CSV file.
 
     Parameters
     ----------
-    csv_file : ``str``
-        The input CSV file.
+    yaml_file : ``str``
+        The CSV file.
 
     Returns
     -------
     df : ``pandas.DataFrame``
-        The data frame parsed from the CSV file.
+        A data frame containing the information for the batches of
+        samples.
     """
 
     # Set the columns taken into consideration in the data frame.
     supported_columns = \
-        ["input_project_name",
-         "input_samples_category",
-         "query_string"]
+        ["recount3_project_name",
+         "recount3_samples_category",
+         "query_string",
+         "metadata_to_keep",
+         "metadata_to_drop"]
 
     #-----------------------------------------------------------------#
 
@@ -167,12 +165,12 @@ def load_samples_batches(csv_file):
                      sep = ",",
                      header = 0,
                      comment = "#",
-                     index_col = False)
+                     index_col = False).fillna("")
 
     #-----------------------------------------------------------------#
 
     # For each required column
-    for col in ["input_project_name", "input_samples_category"]:
+    for col in ["recount3_project_name", "recount3_samples_category"]:
 
         # If it does not exist
         if col not in df.columns:
@@ -186,13 +184,13 @@ def load_samples_batches(csv_file):
     #-----------------------------------------------------------------#
 
     # For each project found in the data frame
-    for project_name in df["input_project_name"].unique():
+    for project_name in df["recount3_project_name"].unique():
 
         # Get the unique samples' categories found for that project
         # in the data frame.
         unique_samples_categories = \
-            df.loc[df["input_project_name"] == project_name][\
-                "input_samples_category"].unique()
+            df.loc[df["recount3_project_name"] == project_name][\
+                "recount3_samples_category"].unique()
 
         # For each samples' category
         for samples_category in unique_samples_categories:
@@ -229,6 +227,291 @@ def load_samples_batches(csv_file):
 
     # Return the data frame.
     return df
+
+
+def _load_samples_batches_yaml(yaml_file):
+    """Load the information for batches of samples to be downloaded
+    from the Recount3 platform from a YAML file.
+
+    Parameters
+    ----------
+    yaml_file : ``str``
+        The YAML file.
+
+    Returns
+    -------
+    df : ``pandas.DataFrame``
+        A data frame containing the information for the batches of
+        samples.
+    """
+
+    # Set the columns that the final data frame will have.
+    columns = \
+        ["recount3_project_name",
+         "recount3_samples_category",
+         "query_string",
+         "metadata_to_keep",
+         "metadata_to_drop"]
+
+    #-----------------------------------------------------------------#
+
+    # Set an empty list to store the data for the final data frame.
+    data = []
+
+    #-----------------------------------------------------------------#
+    
+    # Load the batches of samples.
+    samples_batches = yaml.safe_load(open(yaml_file, "r"))
+
+    #-----------------------------------------------------------------#
+
+    # For each Recount3 project's name.
+    for project_name in samples_batches:
+
+        # Get the conditions that apply to all samples' categories
+        # for the project.
+        conditions_all = samples_batches[project_name].pop("all", {})
+
+        # Get the query string to filter all samples belonging to
+        # the project.
+        qs = conditions_all.get("query_string", "")
+
+        # Get the metadata columns to be kept in all samples belonging
+        # to the project.
+        mtk = \
+            "|".join(conditions_all.get("metadata_to_keep", []))
+
+        # Get the metadata columns to be dropped from all samples
+        # belonging to the project.
+        mtd = \
+            "|".join(conditions_all.get("metadata_to_drop", []))
+        
+        # For each category of samples in the project
+        for samples_category in samples_batches[project_name]:
+
+            # Get the data for the samples belonging to the category.
+            samples_data = \
+                samples_batches[project_name][samples_category]
+
+            # Add each piece of data to the final list.
+            data.append(\
+                {"recount3_project_name" : \
+                    project_name,
+                 "recount3_samples_category" : \
+                    samples_category,
+                 "query_string" : \
+                    samples_data.get("query_string", qs),
+                 "metadata_to_keep" : \
+                    mtk + "|".join(samples_data.get(\
+                        "metadata_to_keep", [])),
+                 "metadata_to_drop" : \
+                    mtd + "|".join(samples_data.get(\
+                        "metadata_to_drop", []))})
+
+    #-----------------------------------------------------------------#
+
+    # Create the final data frame from the list.
+    df = pd.DataFrame(data,
+                      columns = columns)
+
+    #-----------------------------------------------------------------#
+
+    # Return the data frame.
+    return df
+
+
+########################## PUBLIC FUNCTIONS ###########################
+
+
+def load_samples_batches(samples_file):
+    """Load a file with information about the batches of samples to be
+    downloaded from Recount3.
+
+    The file can be either a CSV file or a YAML file.
+
+    See the Notes section below for more details about their format.
+
+    Parameters
+    ----------
+    samples_file : ``str``
+        The input file.
+
+    Returns
+    -------
+    df : ``pandas.DataFrame``
+        A data frame containing the information parsed from the
+        file.
+
+    Notes
+    -----
+    ** CSV file **
+
+    If the input file is a CSV file, it should contain a
+    comma-separated data frame.
+
+    The data frame is expected to have at least two columns:
+
+    * ``"recount3_project_name"``, containing the name of the project
+      the samples belong to.
+    * ``"recount3_samples_category"``, containing the name of the
+      category the samples belong to (it is a tissue type for GTEx
+      data, a cancer type for TCGA data, and a project code for SRA
+      data)
+    
+    These additional three columns may also be present:
+    
+    * ``"query_string"``, containing the query string that should be
+      used to filter each batch of samples by their metadata. The
+      query string is passed to the ``pandas.DataFrame.query()``
+      method.
+
+      If no ``"query_string"`` column is present, the samples will not
+      be filtered.
+
+    * ``metadata_to_keep``, containing a vertical line (|)-separated
+      list of names of metadata columns that will be kept in the 
+      final data frames, together with the columns containing gene
+      expression data.
+
+      ``"recount3_project_name"`` and ``"recount3_samples_category"``
+      are valid column names, and, if passed, the final data frames
+      will also include them (each data frame will, of course, contain
+      only one repeated value for each of these columns, since it
+      contains samples from a single category of a single project).
+
+      By default, all metadata columns (plus the
+      ``"recount3_project_name"`` and ``"recount3_samples_category"`` 
+      columns) are kept in the final data frames.
+
+    * ``metadata_to_drop``, containing a vertical line (|)-separated
+      list of names of metadata columns that will be dropped from the
+      final data frames.
+
+      The reserved keyword ``'_all_'`` can be used to drop all metadata
+      columns from the final data frame of a specific batch of samples.
+
+      ``"recount3_project_name"`` and ``"recount3_samples_category"``
+      are valid column names and, if passed, will result in these
+      columns being dropped.
+
+    ** YAML file **
+
+    If the file is a YAML file, it should have the format exemplified
+    below. We recommend using a YAML file over a CSV file when you have
+    several studies for which different filtering conditions should be
+    applied.
+
+    .. code-block:: yaml
+
+        # SRA studies - it can be omitted if no SRA studies are
+        # included.
+        sra:
+
+          # Conditions applied to all SRA studies.
+          all:
+
+            # Which metadata to keep in all studies (if found). It is
+            # a vertical line (|)-separated list of names of metadata
+            # columns that will be kept in the  final data frames,
+            # together with the columns containing gene expression
+            # data.
+            #
+            # "recount3_project_name"`` and "recount3_samples_category"
+            # are valid column names, and, if passed, the final data
+            # frames will also include them (each data frame will, of
+            # course, contain only one repeated value for each of these
+            # columns, since it contains samples from a single category
+            # of a single project).
+            #
+            # By default, all metadata columns (plus the
+            # "recount3_project_name" and `"recount3_samples_category"
+            # columns) are kept in the final data frames.
+            metadata_to_keep:
+
+              # Keep in all studies.
+              - source_name
+              ...
+
+            # Which metadata to drop from all studies (if found). It is
+            # a vertical line (|)-separated list of names of metadata
+            # columns that will be dropped from the final data frames.
+            #
+            # The reserved keyword '_all_' can be used to drop all
+            # columns from the data frames.
+            #
+            # "recount3_project_name" and "recount3_samples_category"
+            # are valid column names and, if passed, will result in
+            # these columns being dropped.
+            metadata_to_drop:
+
+              # Found in all studies.
+              - age
+              ...
+
+          # Conditions applied to SRA study SRP179061.
+          SRP179061:
+            
+            # The query string that should be used to filter each batch
+            # of samples by their metadata. The query string is passed
+            # to the 'pandas.DataFrame.query()' method for filtering.
+
+            # If no query string  is present, the samples will not
+            # be filtered.
+            query_string: diagnosis == 'Control'
+
+            # Which metadata to keep in this study (if found), It
+            # follows the same rules as the 'metadata_to_keep' field
+            # in the 'all' section.
+            metadata_to_keep:
+            - tissue
+
+            # Which metadata to drop from this study (if found), It
+            # follows the same rules as the 'metadata_to_drop' field
+            # in the 'all' section.
+            metadata_to_drop:
+            - Sex
+
+        # GTEx studies - it can be omitted if no GTEx studies are
+        # included.
+        gtex:
+
+          # Same format as for SRA studies - single studies are
+          # identified by the tissue type each study refers to.
+          ...
+
+        # TCGA studies - it can be omitted if no TCGA studies are
+        # included.
+        tcga:
+
+          # Same format as for SRA studies - single studies are
+          # identified by the cancer type each study refers to.
+          ...
+
+    """
+
+    # Get the extension of the input file.
+    _, samples_file_ext = os.path.splitext(samples_file)
+
+    # If the file is a CSV file
+    if samples_file_ext == ".csv":
+
+        # Create the data frame from the file and return it.
+        return _load_samples_batches_csv(csv_file = samples_file)
+
+    # If the file is a YAML file
+    elif samples_file_ext == ".yaml":
+
+        # Create the data frame from the file and return it.
+        return _load_samples_batches_yaml(yaml_file = samples_file)
+
+    # Otherwise
+    else:
+
+        # Raise an error.
+        errstr = \
+            f"The file '{samples_file}' must be either a CSV file " \
+            "('.csv' extension) or a YAML file ('.yaml' extension)."
+        raise ValueError(errstr)
 
 
 def check_samples_category(samples_category,
@@ -533,6 +816,14 @@ def get_metadata(project_name,
     df_metadata : ``pandas.DataFrame``
         A data frame containing the metadata for the samples associated
         with the given category.
+
+    Notes
+    -----
+    The ``"recount3_project_name"`` and the
+    ``"recount3_samples_category"`` columns are automatically added to
+    the metadata returned by the function and contain the
+    ``project_name`` and ``samples_category`` of the samples,
+    respectively.
     """
 
     # Set the name of the file that will contain the metadata.
@@ -570,6 +861,16 @@ def get_metadata(project_name,
                                   index_col = "external_id",
                                   compression = "gzip",
                                   low_memory = False)
+
+        # Add the column containing the project's name.
+        df_metadata.insert(loc = 0,
+                           column = "recount3_project_name",
+                           value = project_name)
+
+        # Add the column containing the samples' category.
+        df_metadata.insert(loc = 1,
+                           column = "recount3_samples_category",
+                           value = samples_category)
 
         # Return the data frame.
         return df_metadata
@@ -652,66 +953,92 @@ def get_metadata(project_name,
 
     #-----------------------------------------------------------------#
 
-    # If there is no 'sample_attributes' column in the data frame
-    if "sample_attributes" not in df_metadata.columns:
+    # Add the column containing the project's name.
+    df_metadata.insert(loc = 0,
+                       column = "recount3_project_name",
+                       value = project_name)
 
-        # Simply return the data frame as it is.
-        return df_metadata
-
-    #-----------------------------------------------------------------#
-    
-    # Inform the string that samples' attributes were found.
-    infostr = \
-        "Samples' attributes were found in the metadata (see below)."
-    logger.info(infostr)
-
-    # Define a function to parse the 'sample_attribute' column in the
-    # metadata.
-    parse_sample_attributes = \
-        lambda attr_str: dict(\
-            (item.split(";;")[0].replace(" ", "_"), 
-             item.split(";;")[1]) \
-            for item in attr_str.split("|"))
-
-    # Parse the samples' attributes from the data frame and covert
-    # them into a DataFrame.
-    df_sample_attrs = \
-        df_metadata["sample_attributes"].apply(\
-            parse_sample_attributes).apply(pd.Series)
-
-    # For each attribute
-    for col in df_sample_attrs.columns:
-
-        # Get a string representing the unique values found in the
-        # column.
-        unique_values_str = \
-            ", ".join([f"'{val}'" \
-                       for val in df_sample_attrs[col].unique()])
-
-        # Log the attribute and its unique values.
-        infostr = \
-            f"Sample attribute '{col}' found. Unique values: " \
-            f"{unique_values_str}."
-        logger.info(infostr)
+    # Add the column containing the samples' category.
+    df_metadata.insert(loc = 1,
+                       column = "recount3_samples_category",
+                       value = samples_category)
 
     #-----------------------------------------------------------------#
 
-    # Get the standard metadata fields.
-    metadata_fields = \
-        _get_metadata_fields(project_name = project_name)
+    # For each entity that may have attributes
+    for entity in ["sample", "experiment"]:
 
-    # Get any attributes that are already found in metadata.
-    attrs_to_drop = \
-        df_sample_attrs.columns[\
-            [col_name in df_metadata.columns \
-             for col_name in df_sample_attrs.columns]]
+        # Set the name of the column that may contain the attributes.
+        column_attrs = f"{entity}_attributes"
 
-    # Drop them from the data frame of attributes.
-    df_sample_attrs = df_sample_attrs.drop(attrs_to_drop,
+        # If the column exists in the data frame containing the
+        # metadata
+        if column_attrs in df_metadata.columns:
+
+            #---------------------------------------------------------#
+            
+            # Inform the user that attributes were found.
+            infostr = \
+                f"{entity.capitalize()}s' attributes were found in " \
+                "the metadata (see below)."
+            logger.info(infostr)
+
+            #---------------------------------------------------------#
+
+            # Define a function to parse the 'sample_attribute' column
+            # in the metadata.
+            parse_attributes = \
+                lambda attr_str: dict(\
+                    (item.split(";;")[0].replace(" ", "_"), 
+                     item.split(";;")[1]) \
+                    for item in str(attr_str).split("|") \
+                    if item != "nan")
+
+            # Parse the samples' attributes from the data frame and
+            # convert them into a data frame.
+            df_attrs = \
+                df_metadata[column_attrs].apply(\
+                    parse_attributes).apply(pd.Series)
+
+            # For each attribute
+            for col in df_attrs.columns:
+
+                # Get a string representing the unique values found in
+                # the column.
+                unique_values_str = \
+                    ", ".join(\
+                        [f"'{v}'" for v in df_attrs[col].unique()])
+
+                # Log the attribute and its unique values.
+                infostr = \
+                    f"{entity} attribute '{col}' found. Unique " \
+                    f"values: {unique_values_str}."
+                logger.info(infostr)
+
+            #---------------------------------------------------------#
+
+            # Get the standard metadata fields.
+            metadata_fields = \
+                _get_metadata_fields(project_name = project_name)
+
+            # Get any attributes that are already found in the
+            # metadata.
+            attrs_to_drop = \
+                df_attrs.columns[\
+                    [col_name in df_metadata.columns \
+                     for col_name in df_attrs.columns]]
+
+            # Drop them from the data frame of attributes.
+            df_attrs = df_attrs.drop(labels = attrs_to_drop,
+                                     axis = 1)
+
+            # Add the metadata columns to the data frame of metadata.
+            df_metadata = df_metadata.join(df_attrs)
+
+            # Drop the original column from the data frame containing
+            # the metadata.
+            df_metadata = df_metadata.drop(labels = [column_attrs],
                                            axis = 1)
-
-    # Add the metadata columns to the data frame of metadata.
-    df_metadata = df_metadata.join(df_sample_attrs)
 
     #-----------------------------------------------------------------#
 
@@ -721,8 +1048,9 @@ def get_metadata(project_name,
         # Inform the user that the updated metadata will be saved
         # in a separate file.
         infostr = \
-            "The metadata with the 'sample_attributes' split into " \
-            "different columns will be saved in a separate file."
+            "The metadata with the sample/experiment attributes " \
+            "split into different columns will be saved in a " \
+            "separate file."
         logger.info(infostr)
             
         # Set the name of the file that will contain the metadata.
@@ -750,7 +1078,7 @@ def get_metadata(project_name,
 
         # Inform the user that the file was written.
         infostr = \
-            "The metadata with the 'sample_attributes' column " \
+            "The metadata with the sample/experiment attributes " \
             "split into different columns were successfully " \
             f"written in '{f_metadata_path}'."
         logger.info(infostr)
@@ -762,8 +1090,7 @@ def get_metadata(project_name,
 
 
 def merge_gene_sums_and_metadata(df_gene_sums,
-                                 df_metadata,
-                                 project_name):
+                                 df_metadata):
     """Add the metadata for samples deposited in the Recount3 platform.
 
     Parameters
@@ -774,9 +1101,6 @@ def merge_gene_sums_and_metadata(df_gene_sums,
     df_metadata : ``pandas.DataFrame``
         The data frame containing the metadata for the samples.
 
-    project_name : ``str``, {``"gtex"``, ``"tcga"``, ``"sra"``}
-        The name of the project of interest.
-
     Returns
     -------
     df_merged : ``pandas.DataFrame``
@@ -784,7 +1108,8 @@ def merge_gene_sums_and_metadata(df_gene_sums,
         for the samples.
     """
 
-    # Add the metadata to the original data frame.
+    # Add the metadata to the original data frame. Drop duplicated
+    # columns.
     df_final =  pd.concat(objs = [df_gene_sums, df_metadata],
                           axis = 1)
 
@@ -795,8 +1120,7 @@ def merge_gene_sums_and_metadata(df_gene_sums,
 
 
 def filter_by_metadata(df,
-                       query_string,
-                       project_name):
+                       query_string):
     """Filter samples using the associated metadata.
 
     Parameters
@@ -808,35 +1132,14 @@ def filter_by_metadata(df,
     query_string : ``str``
         A string to query the data frame with.
 
-    project_name : ``str``, {``"gtex"``, ``"tcga"``, ``"sra"``}
-        The name of the project of interest.
-
     Returns
     -------
     df_filtered : ``pandas.DataFrame``
-        The filtered data frame. This data frame will only contain the
-        RNA-seq counts (no metadata).
+        The filtered data frame.
     """
 
     # Filter the data frame based on the query string.
     df = df.query(query_string)
-
-    #-----------------------------------------------------------------#
-
-    # Get the fields containing metadata.
-    metadata_fields = \
-        [col for col in df.columns \
-         if not col.startswith("ENSG")]
-
-    # If the 'external_id' column is in the metadata
-    if "external_id" in metadata_fields:
-
-        # Remove the index column from the fields containing metadata.
-        metadata_fields.remove("external_id")
-
-    # Drop these columns from the data frame.
-    df = df.drop(metadata_fields,
-                 axis = 1)
 
     #-----------------------------------------------------------------#
 

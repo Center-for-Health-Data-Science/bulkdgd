@@ -62,12 +62,7 @@ def main():
 
     # Add the arguments.
     ib_help = \
-        "A CSV file to download samples' data in bulk. The file " \
-        "must contain at least two columns: 'input_project_name' " \
-        "with the name of the project the samples belong to and " \
-        "'input_samples_category' with the samples' category. " \
-        "A third column, 'query_string', may specify the query " \
-        "string used to filter each batch of samples."
+        "A CSV or a YAML file used to download samples' data in bulk."
     parser.add_argument("-i", "--input-samples-batches",
                         type = str,
                         default = None,
@@ -100,11 +95,11 @@ def main():
         "Save the original GZ file containing the RNA-seq " \
         "data for the samples. For each batch of samples, "\
         "the corresponding file will be saved in the " \
-        "working directory and named '{input_project_name}_" \
-        "{input_samples_category}_gene_sums.gz'. This file " \
+        "working directory and named '{recount3_project_name}_" \
+        "{recount3_samples_category}_gene_sums.gz'. This file " \
         "will be written only once if more than one batch " \
-        "refers to the same 'input_project_name' " \
-        "and 'input_samples_category'."
+        "refers to the same 'recount3_project_name' " \
+        "and 'recount3_samples_category'."
     parser.add_argument("-sg", "--save-gene-sums",
                         action = "store_true",
                         help = sg_help)
@@ -115,11 +110,11 @@ def main():
         "Save the original GZ file containing the metadata " \
         "for the samples. For each batch of samples, "\
         "the corresponding file will be saved in the " \
-        "working directory and named '{input_project_name}_" \
-        "{input_samples_category}_metadata.gz'. This file will " \
+        "working directory and named '{recount3_project_name}_" \
+        "{recount3_samples_category}_metadata.gz'. This file will " \
         "be written only once if more than one batch refers " \
-        "to the same 'input_project_name' and " \
-        "'input_samples_category'."
+        "to the same 'recount3_project_name' and " \
+        "'recount3_samples_category'."
     parser.add_argument("-sm", "--save-metadata",
                         action = "store_true",
                         help = sm_help)
@@ -203,9 +198,11 @@ def main():
     handlers = \
         util.get_handlers(\
             log_console = log_console,
+            log_console_level = log_level,
             log_file_class = loghandlers.RotatingFileHandler,
-            log_file_options = {"filename" : log_file},
-            log_level = log_level)
+            log_file_options = {"filename" : log_file,
+                                "mode" : "w"},
+            log_file_level = log_level)
 
     # Set the logging configuration.
     log.basicConfig(level = log_level,
@@ -242,7 +239,7 @@ def main():
     try:
 
         df = recount3.load_samples_batches(\
-            csv_file = input_samples_batches)
+            samples_file = input_samples_batches)
     
     # If something went wrong
     except Exception as e:
@@ -269,13 +266,25 @@ def main():
     for num_batch, row in enumerate(df.itertuples(index = False), 1):
 
         # Get the name of the project.
-        project_name = row.input_project_name
+        project_name = row.recount3_project_name
 
         # Get the samples' category.
-        samples_category = row.input_samples_category
+        samples_category = row.recount3_samples_category
 
-        # Get the query string.
-        query_string = row.query_string
+        # Get the query string, if provided.
+        query_string = \
+            row.query_string \
+            if hasattr(row, "query_string") else None
+
+        # Get the columns to keep, if provided.
+        metadata_to_keep = \
+            row.metadata_to_keep \
+            if hasattr(row, "metadata_to_keep") else None
+
+        # Get the columns to drop, if provided.
+        metadata_to_drop = \
+            row.metadata_to_drop \
+            if hasattr(row, "metadata_to_drop") else None
 
         #-------------------------------------------------------------#
 
@@ -322,10 +331,24 @@ def main():
              "-lf", log_file_path]
 
         # If the user passed a query string for the current batch
-        if not pd.isna(query_string):
+        if query_string is not None and query_string != "":
 
             # Add the query string option to the list of arguments.
-            args.extend(["-qs", query_string])
+            args.extend(["-qs", str(query_string)])
+
+        # If the user passed the metadata columns to keep
+        if metadata_to_keep is not None and metadata_to_keep != "":
+
+            # Add the option to keep only selected metadata columns to
+            # the list of arguments.
+            args.extend(["-mk", str(metadata_to_keep)])
+
+        # If the user passed the metadata columns to drop
+        if metadata_to_drop is not None and metadata_to_drop != "":
+
+            # Add the option to drop selected metadata columns to the
+            # list of arguments.
+            args.extend(["-md", str(metadata_to_drop)])
 
         # If the user wants to save the original 'gene_sums' files
         if save_gene_sums:

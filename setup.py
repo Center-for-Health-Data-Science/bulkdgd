@@ -46,12 +46,12 @@ author = \
     "Anders Lykkebo-Valløe, Andreas Bjerregaard, Anders Krogh"
 
 # Set the project's version.
-version = "1.0.0"
+version = "1.0.1"
 
 # Set a brief description of the project.
 description = \
     "A generative model for human gene expression from bulk " \
-    "RNA-Seq data."
+    "RNA-seq data."
 
 # Set which packages are included.
 packages = \
@@ -66,13 +66,9 @@ packages = \
 # Set which package data to include.
 package_data = \
     {"bulkDGD.ioutil" : ["configs/model/*.yaml",
-                         "configs/model/*.md",
                          "configs/plot/*.yaml",
-                         "configs/plot/*.md",
                          "configs/representations/*.yaml",
-                         "configs/representations/*.md",
                          "configs/training/*.yaml",
-                         "configs/training/*.md",
                          "data/*.pth",
                          "data/*.txt",
                          "data/*.md",],
