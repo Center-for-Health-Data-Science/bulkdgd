@@ -183,25 +183,6 @@ def _load_samples_batches_csv(csv_file):
 
     #-----------------------------------------------------------------#
 
-    # For each project found in the data frame
-    for project_name in df["recount3_project_name"].unique():
-
-        # Get the unique samples' categories found for that project
-        # in the data frame.
-        unique_samples_categories = \
-            df.loc[df["recount3_project_name"] == project_name][\
-                "recount3_samples_category"].unique()
-
-        # For each samples' category
-        for samples_category in unique_samples_categories:
-
-            # Check whether it is valid.
-            check_samples_category(\
-                samples_category = samples_category,
-                project_name = project_name)
-
-    #-----------------------------------------------------------------#
-
     # If there are extra columns
     if set(df.columns) != set(supported_columns):
 
@@ -511,47 +492,6 @@ def load_samples_batches(samples_file):
         errstr = \
             f"The file '{samples_file}' must be either a CSV file " \
             "('.csv' extension) or a YAML file ('.yaml' extension)."
-        raise ValueError(errstr)
-
-
-def check_samples_category(samples_category,
-                           project_name):
-    """Check that the category of samples requested by the user is
-    present for the project of choice.
-
-    Parameters
-    ----------
-    samples_category : ``str``
-        The category of samples requested.
-
-    project_name : ``str``, {``"gtex"``, ``"tcga"``, ``"sra"``}
-        The name of the project of interest.
-    """
-
-    # Get the list of supported categories for the project of interest.
-    supported_categories = \
-        [l.rstrip("\n") for l in \
-         open(\
-            defaults.RECOUNT3_SUPPORTED_CATEGORIES_FILE[\
-                project_name], "r") \
-         if (not l.startswith("#") and not re.match(r"^\s*$", l))]
-
-    #-----------------------------------------------------------------#
-
-    # If the category provided by the user is not among the supported
-    # categories
-    if not samples_category in supported_categories:
-
-        # Format the string representing the supported categories.
-        supported_categories_str = \
-            ", ".join([f"'{cat}'" for cat in supported_categories])
-
-        # Raise an error.
-        errstr = \
-            f"The category '{samples_category}' is not a " \
-            f"supported category for '{project_name}'. The " \
-            f"supported categories for '{project_name}' are " \
-            f"{supported_categories_str}."
         raise ValueError(errstr)
 
 

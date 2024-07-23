@@ -43,17 +43,6 @@ import os
 #######################################################################
 
 
-# Set the files containing the supported categories for each project.
-RECOUNT3_SUPPORTED_CATEGORIES_FILE = \
-    {"gtex" : os.path.join(os.path.dirname(__file__), 
-                           "data/gtex_tissues.txt"),
-     "tcga" : os.path.join(os.path.dirname(__file__),
-                           "data/tcga_cancer_types.txt"),
-     "sra" : os.path.join(os.path.dirname(__file__),
-                           "data/sra_codes.txt")}
-
-#---------------------------------------------------------------------#
-
 # Set the files containing the list of fields containing metadata
 # for each project.
 RECOUNT3_METADATA_FIELDS_FILE = \
