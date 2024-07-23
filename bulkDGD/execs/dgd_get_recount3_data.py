@@ -262,6 +262,9 @@ def main():
     # Create a list to store the futures.
     futures = []
 
+    # Create a set to store the names of the output/log files.
+    output_names = set()
+
     # For each row of the data frame containing the samples' batches
     for num_batch, row in enumerate(df.itertuples(index = False), 1):
 
@@ -288,9 +291,29 @@ def main():
 
         #-------------------------------------------------------------#
 
+        # Get the overall name for the output/log files.
+        output_name = f"{project_name}_{samples_category}"
+
+        # Set a counter in case the name already exists and we need
+        # to name the files differently.
+        counter = 1
+
+        # If the name already exists
+        while output_name in output_names:
+
+            # Uniquify the name by adding a counter.
+            output_name = output_name + f"_{counter}"
+
+            # Update the counter.
+            counter += 1
+
+        # Add the new name to the list of names.
+        output_names.add(output_name)
+
+        #-------------------------------------------------------------#
+
         # Get the name of the output file.
-        output_csv_name = \
-            f"{project_name}_{samples_category}_{num_batch}.csv"
+        output_csv_name = f"{output_name}.csv"
 
         # Get the path to the output file.
         output_csv_path = os.path.join(wd, output_csv_name)
@@ -306,8 +329,7 @@ def main():
         #-------------------------------------------------------------#
 
         # Get the path to the log file and the file's extension.
-        log_file_name = \
-            f"{project_name}_{samples_category}_{num_batch}.log"
+        log_file_name = f"{output_name}.log"
 
         # Get the path to the log file.
         log_file_path = os.path.join(wd, log_file_name)

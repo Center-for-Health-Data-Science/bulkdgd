@@ -182,10 +182,10 @@ class LevelContentFilter(log.Filter):
 
 
 def get_handlers(log_console = True,
-                 log_level_console = defaults.LOG_LEVEL,
+                 log_console_level = defaults.LOG_LEVEL,
                  log_file_class = None,
                  log_file_options = None,
-                 log_level_file = defaults.LOG_LEVEL):
+                 log_file_level = defaults.LOG_LEVEL):
     """Get the handlers to use when logging.
 
     Parameters
@@ -193,7 +193,7 @@ def get_handlers(log_console = True,
     log_console : ``bool``, ``True``
         Whether to write log messages to the console.
 
-    log_level_console : ``str``, ``bulkDGD.defaults.LOG_LEVEL``
+    log_console_level : ``str``, ``bulkDGD.defaults.LOG_LEVEL``
         The level below which log messages will not be logged on the
         console.
 
@@ -213,7 +213,7 @@ def get_handlers(log_console = True,
 
         It must be provided if ``log_file_class`` is provided.
 
-    log_level_file : ``str``, ``bulkDGD.defaults.LOG_LEVEL``
+    log_file_level : ``str``, ``bulkDGD.defaults.LOG_LEVEL``
         The level below which log messages will not be logged to the
         file.
 
@@ -238,7 +238,7 @@ def get_handlers(log_console = True,
         handler = log.StreamHandler()
 
         # Set the handler's level.
-        handler.setLevel(log_level_console)
+        handler.setLevel(log_console_level)
 
         # Add the handler to the list of handlers.
         handlers.append(handler)
@@ -284,7 +284,7 @@ def get_handlers(log_console = True,
         handler = log_file_class(**log_file_options)
 
         # Set the handler's level.
-        handler.setLevel(log_level_file)
+        handler.setLevel(log_file_level)
 
         # Add the handler to the list of handlers.
         handlers.append(handler)
@@ -449,8 +449,6 @@ def uniquify_file_path(file_path):
     
     # Get the file's name and extension.
     file_name, file_ext = os.path.splitext(file_path)
-
-    # Set the new 
 
     # Set the counter to 1.
     counter = 1

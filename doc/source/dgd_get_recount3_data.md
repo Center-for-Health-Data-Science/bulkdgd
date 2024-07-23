@@ -109,7 +109,7 @@ A list of the available metadata fields/columns is available in `bulkDGD/recount
     ...
   ```
 
-The main output of `dgd_get_recount3_data` is several CSV files (one per batch of samples) containing the RNA-seq data retrieved from Recount3 for the samples of interest. The rows represent the samples, while the columns contain the genes identified by their Ensembl IDs or the samples' metadata.
+The main output of `dgd_get_recount3_data` is several CSV files (one per batch of samples) containing the RNA-seq data retrieved from Recount3 for the samples of interest. The rows represent the samples, while the columns contain the genes identified by their Ensembl IDs or the samples' metadata. This file is usually named `{recount3_project_name}_{recount3_samples_category}.csv`. If several different batches of samples are downloaded for the same project and samples' category (for instance, for the same GTEx tissue but using a different query string for filtering the samples), the output file for the first batch will be named `{recount3_project_name}_{recount3_samples_category}.csv`, the output file for the second one will be named `{recount3_project_name}_{recount3_samples_category}_1.csv`, and so forth.
 
 The user also has the option to save the original compressed (`.gz`) files containing the RNA-seq data and the metadata associated with the samples. If these files are found in the working directory for a specific project and sample category, they will not be downloaded again.
 
