@@ -46,7 +46,6 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 # Import from 'bulkDGD'.
-from bulkDGD import util
 from . import (
     dataclasses,
     decoder,
@@ -60,6 +59,42 @@ from . import (
 
 # Get the module's logger.
 logger = log.getLogger(__name__)
+
+
+#######################################################################
+
+
+def uniquify_file_path(file_path):
+    """If ``file_path`` exists, number it uniquely.
+
+    Parameters
+    ----------
+    file_path : ``str``
+        The file path.
+
+    Returns
+    -------
+    unique_file_path : ``str``
+        A unique file path generated from the original file path.
+    """
+    
+    # Get the file's name and extension.
+    file_name, file_ext = os.path.splitext(file_path)
+
+    # Set the counter to 1.
+    counter = 1
+
+    # If the file already exists
+    while os.path.exists(file_path):
+
+        # Set the path to the new unique file.
+        file_path = file_name + "_" + str(counter) + file_ext
+
+        # Update the counter.
+        counter += 1
+
+    # Return the new path.
+    return file_path
 
 
 #######################################################################
@@ -2852,7 +2887,7 @@ class DGDModel:
 
         # Save the GMM's parameters.
         torch.save(self.gmm.state_dict(),
-                   util.uniquify_file_path(gmm_pth_file))
+                   uniquify_file_path(gmm_pth_file))
 
         # Inform the user that the parameters were saved.
         infostr = \
@@ -2864,7 +2899,7 @@ class DGDModel:
 
         # Save the decoder's parameters.
         torch.save(self.dec.state_dict(),
-                   util.uniquify_file_path(dec_pth_file))
+                   uniquify_file_path(dec_pth_file))
 
         # Inform the user that the parameters were saved.
         infostr = \
