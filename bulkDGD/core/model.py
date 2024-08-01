@@ -38,6 +38,7 @@ __doc__ = \
 
 # Import from the standard library.
 import logging as log
+import os
 import platform
 import re
 import time
