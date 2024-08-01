@@ -45,6 +45,7 @@ import time
 # Import from third-party packages.
 import pandas as pd
 import torch
+from torch import nn
 from torch.utils.data import DataLoader
 # Import from 'bulkDGD'.
 from . import (
@@ -101,7 +102,7 @@ def uniquify_file_path(file_path):
 #######################################################################
 
 
-class DGDModel:
+class DGDModel(nn.Module):
 
     """
     Class implementing the full DGD model.
@@ -251,6 +252,11 @@ class DGDModel:
 
             Omit it if the model needs training.
         """
+
+        # Run the superclass' initialization.
+        super(DGDModel, self).__init__()
+
+        #-------------------------------------------------------------#
 
         # Get the genes included in the model.
         genes = \

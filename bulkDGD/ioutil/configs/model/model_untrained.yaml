@@ -145,4 +145,4 @@ activation_output: softplus
 # DGD model.
 #
 # Type: str.
-genes_txt_file: custom_genes.txt
+genes_txt_file: default
