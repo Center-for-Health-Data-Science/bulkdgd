@@ -20,7 +20,7 @@ The executable produces four output files:
 ## Command line
 
 ```
-dgd_train [-h] -it INPUT_CSV_TRAIN -ie INPUT_CSV_TEST [-ort OUTPUT_CSV_REP_TRAIN] [-ore OUTPUT_CSV_REP_TEST [-ol OUTPUT_CSV_LOSS] [-ot OUTPUT_CSV_TIME] -cm CONFIG_FILE_MODEL -ct CONFIG_FILE_TRAIN [-d WORK_DIR] [-lf LOG_FILE] [-lc] [-v] [-vv]
+dgd_train [-h] -it INPUT_CSV_TRAIN -ie INPUT_CSV_TEST [-ort OUTPUT_CSV_REP_TRAIN] [-ore OUTPUT_CSV_REP_TEST [-ol OUTPUT_CSV_LOSS] [-ot OUTPUT_CSV_TIME] -cm CONFIG_FILE_MODEL -ct CONFIG_FILE_TRAIN [-d WORK_DIR] [-dev DEVICE] [-lf LOG_FILE] [-lc] [-v] [-vv]
 ```
 
 ## Options
@@ -37,6 +37,7 @@ dgd_train [-h] -it INPUT_CSV_TRAIN -ie INPUT_CSV_TEST [-ort OUTPUT_CSV_REP_TRAIN
 | `-cm`, `--config-file-model`     | The YAML configuration file specifying the DGD model's parameters. If it is a name without an extension, it is assumed to be the name of a configuration file in `$INSTALLDIR/bulkDGD/ioutil/configs/model`. |
 | `-ct`, `--config-file-train`     | The YAML configuration file containing the options for training the DGD model. If it is a name without an extension, it is assumed to be the name of a configuration file in `$INSTALLDIR/bulkDGD/ioutil/configs/training`. |
 | `-d`, `--work-dir`               | The working directory. The default is the current working directory. |
+| `-dev`, `--device`               | The device to use. If not provided, the GPU will be used if it is available. Available devices are: `"cpu"`, `"cuda"`. |
 | `-lf`, `--log-file`              | The name of the log file. The file will be written in the working directory. The default file name is `dgd_train.log`. |
 | `-lc`, `--log-console`           | Show log messages also on the console.                       |
 | `-v`, `--logging-verbose`        | Enable verbose logging (INFO level).                         |

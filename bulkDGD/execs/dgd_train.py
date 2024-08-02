@@ -38,6 +38,8 @@ import argparse
 import logging as log
 import os
 import sys
+# Import from third-party packages.
+import torch
 # Import from 'bulkDGD'.
 from bulkDGD.core import model
 from bulkDGD import defaults, ioutil, util
@@ -150,7 +152,7 @@ def main():
                         required = True,
                         help = ct_help)
 
-   #-----------------------------------------------------------------#
+    #-----------------------------------------------------------------#
 
     d_help = \
         "The working directory. The default is the current " \
@@ -159,6 +161,16 @@ def main():
                         type = str,
                         default = os.getcwd(),
                         help = d_help)
+
+    #-----------------------------------------------------------------#
+
+    dev_help = \
+        "The device to use. If not provided, the GPU will be used " \
+        "if it is available. Available devices are: 'cpu', 'cuda'."
+    parser.add_argument("-dev", "--device",
+                        type = str,
+                        default = None,
+                        help = dev_help)
 
     #-----------------------------------------------------------------#
 
@@ -208,6 +220,7 @@ def main():
     config_file_model = args.config_file_model
     config_file_train = args.config_file_train
     wd = os.path.abspath(args.work_dir)
+    device = args.device
     log_file = os.path.join(wd, args.log_file)
     log_console = args.log_console
     v = args.log_verbose
@@ -366,6 +379,44 @@ def main():
 
     # Inform the user that the model was successfully set.
     infostr = "The DGD model was successfully set."
+    log.info(infostr)
+
+    #-----------------------------------------------------------------#
+
+    # If no device was passed
+    if device is None:
+        
+        # If a CPU with CUDA is available.
+        if torch.cuda.is_available():
+
+            # Set the GPU as the device.
+            device = torch.device("cuda")
+
+        # Otherwise
+        else:
+
+            # Set the CPU as the device.
+            device = torch.device("cpu")
+
+    # Try to move the model to the device.
+    try:
+        
+        dgd_model.device = device
+
+    # If something went wrong
+    except Exception as e:
+
+        # Warn the user and exit.
+        errstr = \
+            "It was not possible to move the DGD model to the " \
+            f"'{device}' device. Error: {e}"
+        log.exception(errstr)
+        sys.exit(errstr)
+
+    # Inform the user that the model was successfully moved.
+    infostr = \
+        f"The DGD model was successfully moved to the '{device}' " \
+        "device."
     log.info(infostr)
 
     #-----------------------------------------------------------------#

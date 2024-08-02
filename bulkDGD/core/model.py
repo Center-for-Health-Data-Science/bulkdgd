@@ -684,6 +684,18 @@ class DGDModel(nn.Module):
                 # Get the number of samples in the batch.
                 n_samples_in_batch = len(samples_ixs)
 
+                #-----------------------------------------------------#
+
+                # Move the gene expression of the samples to the
+                # correct device.
+                samples_exp = samples_exp.to(self.device)
+
+                # Move the mean gene expression of the samples to
+                # the correct device.
+                samples_mean_exp = samples_mean_exp.to(self.device)
+
+                #-----------------------------------------------------#
+
                 # Get the representations' values from the
                 # representation layer.
                 # 
@@ -1058,6 +1070,18 @@ class DGDModel(nn.Module):
 
             # Get the number of samples in the batch.
             n_samples_in_batch = len(samples_ixs)
+
+            #---------------------------------------------------------#
+
+            # Move the gene expression of the samples to the
+            # correct device.
+            samples_exp = samples_exp.to(self.device)
+
+            # Move the mean gene expression of the samples to
+            # the correct device.
+            samples_mean_exp = samples_mean_exp.to(self.device)
+
+            #---------------------------------------------------------#
 
             # Get the representations' values for the samples in the
             # batch from the representation layer.
@@ -1537,7 +1561,8 @@ class DGDModel(nn.Module):
         # Create a representation layer containing the initialized
         # representations.
         rep_layer_init = \
-            latent.RepresentationLayer(values = rep_init)
+            latent.RepresentationLayer(values = rep_init).to(\
+                self.device)
 
         #-------------------------------------------------------------#
 
@@ -1553,7 +1578,8 @@ class DGDModel(nn.Module):
         # Create a representation layer containing the best
         # representations found.
         rep_layer_best = \
-            latent.RepresentationLayer(values = rep_best)
+            latent.RepresentationLayer(values = rep_best).to(\
+                self.device)
 
         #-------------------------------------------------------------#
         
@@ -1737,7 +1763,8 @@ class DGDModel(nn.Module):
 
         # Create the representation layer.
         rep_layer_init = \
-            latent.RepresentationLayer(values = rep_init)
+            latent.RepresentationLayer(values = rep_init).to(\
+                self.device)
 
         #-------------------------------------------------------------#
 
@@ -1766,7 +1793,8 @@ class DGDModel(nn.Module):
 
         # Create the representation layer.
         rep_layer_1 = \
-            latent.RepresentationLayer(values = rep_1)
+            latent.RepresentationLayer(values = rep_1).to(\
+                self.device)
 
         #-------------------------------------------------------------#
 
@@ -1787,7 +1815,8 @@ class DGDModel(nn.Module):
         # Create a representation layer containing the best
         # representations found (one representation per sample).
         rep_layer_best = \
-            latent.RepresentationLayer(values = rep_best)
+            latent.RepresentationLayer(values = rep_best).to(\
+                self.device)
 
         #-------------------------------------------------------------#
 
