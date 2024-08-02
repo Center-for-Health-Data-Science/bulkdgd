@@ -59,13 +59,15 @@ packages = \
      "bulkDGD.analysis",
      "bulkDGD.core",
      "bulkDGD.execs",
+     "bulkDGD.genes",
      "bulkDGD.ioutil",
      "bulkDGD.plotting",
      "bulkDGD.recount3"]
 
 # Set which package data to include.
 package_data = \
-    {"bulkDGD.ioutil" : ["configs/model/*.yaml",
+    {"bulkDGD.ioutil" : ["configs/genes/*.yaml",
+                         "configs/model/*.yaml",
                          "configs/plot/*.yaml",
                          "configs/representations/*.yaml",
                          "configs/training/*.yaml",
@@ -81,6 +83,9 @@ entry_points = \
         [# Public executables
          "dgd_get_recount3_data = " \
          f"{name}.execs.dgd_get_recount3_data:main",
+
+         "dgd_get_genes_list = " \
+         f"{name}.execs.dgd_get_genes_list:main",
 
          "dgd_preprocess_samples = " \
          f"{name}.execs.dgd_preprocess_samples:main",

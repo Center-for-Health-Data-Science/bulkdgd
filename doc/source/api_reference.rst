@@ -7,6 +7,7 @@ API reference
 
    analysis
    core
+   genes
    ioutil
    plotting
    recount3
@@ -18,6 +19,8 @@ bulkDGD consists of several packages:
 * :doc:`analysis <analysis>`, containing utilities to analyze the data produced by the DGD model.
 
 * :doc:`core <core>`, containing the core components of the DGD model and the model itself.
+
+* :doc:`genes <genes>`, containing utilities to create customized lists of genes to use with the DGD model.
 
 * :doc:`ioutil <ioutil>`, containing utilities for loading and saving files and pre-process data.
 

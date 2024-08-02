@@ -1,0 +1,537 @@
+# Filters for the list of genes. For a complete list of available
+# filters for human genes, go to https://mart.ensembl.org/biomart and
+# select the 'Ensembl Genes 112', 'Human genes (GRCh38.p14)' dataset.
+filters:
+
+  # The chromosome(s) or scaffold(s) where the genes are.
+  #chromosome_name:
+  #  - ""
+
+  # The transcripts' classification. Most of the available options are
+  # described at
+  # https://grch37.ensembl.org/info/genome/genebuild/biotypes.html.
+  #
+  # Options:
+  #
+  #-------------------------------------------------------------------#
+  #
+  # Protein coding transcripts.
+  #
+  # - 'protein_coding' = transcript that contains an open reading frame 
+  #   (ORF).
+  #
+  # - 'protein_coding_CDS_not_defined' = alternatively spliced
+  #   transcript of a protein coding gene for which we cannot define a
+  #   CDS.
+  #
+  # - 'protein_coding_LoF' = not translated in the reference genome
+  #   owing to a SNP/DIP but in other individuals/haplotypes/strains
+  #   the transcript is translated.
+
+  #-------------------------------------------------------------------#
+  #
+  # Transcripts from immunoglobulin genes that undergo somatic
+  # recombination.
+  #
+  # - 'IG_gene' = transcript from an immunoglobulin gene. 
+  #
+  # - 'IG_C_gene' = transcript from a constant chain immunoglobulin
+  #   gene.
+  #
+  # - 'IG_D_gene' = transcript from a diversity chain immunoglobulin
+  #   gene.
+  #
+  # - 'IG_J_gene' = transcript from a joining chain immunoglobulin
+  #   gene.
+  #
+  # - 'IG_V_gene' = transcript from a variable chain immunoglobulin
+  #   gene.
+  #
+  #-------------------------------------------------------------------#
+  #
+  # Transcripts from T cell receptor genes that undergo somatic
+  # recombination.
+  #
+  # - 'TR_C_gene' = transcript from a constant chain T cell receptor
+  #   gene.
+  #
+  # - 'TR_D_gene' = transcript from a diversity chain T cell receptor
+  #   gene.
+  #
+  # - 'TR_J_gene' = transcript from a joining chain T cell receptor
+  #   gene.
+  #
+  # - 'TR_V_gene' = transcript from a variable chain T cell receptor
+  #   gene.
+  #
+  #-------------------------------------------------------------------#
+  #
+  # Ribozymes.
+  #
+  # - 'ribozyme' = an RNA molecule that has the ability to catalyze
+  #   specific biochemical reactions.
+  #
+  #-------------------------------------------------------------------#
+  #
+  # Processed transcripts.
+  #
+  # - 'processed_transcript' = transcript that does not contain an ORF.
+  #
+  #-------------------------------------------------------------------#
+  #
+  # Decay transcripts.
+  #
+  # - 'nonsense_mediated_decay' = transcript with a premature stop
+  #   codon considered likely to be subjected to targeted degradation
+  #   Nonsense-Mediated Decay is predicted to be triggered where the
+  #   in-frame termination codon is found more than 50bp upstream of
+  #   the final splice junction.
+  #
+  # - 'non_stop_decay' = transcript that has polyA features
+  #   (including signal) without a prior stop codon in the CDS,
+  #   i.e., a non-genomic polyA tail attached directly to the CDS
+  #   without 3' UTR. These transcripts are subject to degradation.
+  #
+  #-------------------------------------------------------------------#
+  #
+  # Transcripts from non-coding genes.
+  #
+  # - 'lncRNA' = long non-coding RNA (>200bp).
+  #
+  # - 'miRNA' = small RNA (~22bp) that silences the expression of
+  #   target mRNA.
+  #
+  # - 'misc_RNA' = miscellaneous RNA. A non-coding RNA that cannot be
+  #   classified.
+  #
+  # - 'Mt_rRNA' = mitochondrial ribosomal RNA.
+  #
+  # - 'Mt_tRNA' = mitochondrial transfer RNA.
+  #
+  # - 'retained_intron' = an alternatively spliced transcript believed
+  #   to contain intronic sequence relative to other, coding,
+  #   transcripts of the same gene.
+  #
+  # - 'rRNA' = ribosomal RNA.
+  #
+  # - 'scaRNA' = small Cajal body-specific RNA, a class of small
+  #   nucleolar RNAs (snoRNAs) that specifically localise to the Cajal
+  #   body, a nuclear organelle (cellular sub-organelle) involved in
+  #   the biogenesis of small nuclear ribonucleoproteins.
+  #
+  # - 'scRNA' = small cytoplasmic RNA.
+  #
+  # - 'snoRNA' = small nucleolar RNA.
+  #
+  # - 'snRNA' = small nuclear RNA.
+  #
+  # - 'sRNA' = small RNA.
+  #
+  # - 'vault_RNA' = short non coding RNA that form part of the vault
+  #   ribonucleoprotein complex.
+  #
+  #-------------------------------------------------------------------#
+  #
+  # Transcripts from inactivated immunoglobulin genes.
+  #
+  # - 'IG_pseudogene' = transcript from an inactivated immunoglobulin
+  #   gene.
+  #
+  # - 'IG_C_pseudogene' = transcript from an inactivated constant chain 
+  #   immunoglobulin gene.
+  #
+  # - 'IG_D_pseudogene' = transcript from an inactivated diversity
+  #   chain immunoglobulin gene.
+  #
+  # - 'IG_J_pseudogene' = transcript from an inactivated joining chain
+  #   immunoglobulin gene.
+  #
+  # - 'IG_V_pseudogene' = transcript from an inactivated variable chain
+  #   immunoglobulin gene.
+  #
+  #-------------------------------------------------------------------#
+  #
+  # Transcript from inactivated T cell receptor genes.
+  #
+  # - 'TR_J_pseudogene' = transcript from an inactivated joining chain
+  #   T cell receptor gene.
+  #
+  # - 'TR_V_pseudogene' = transcript from an inactivated variable
+  #   chain T cell receptor gene.
+  #
+  #-------------------------------------------------------------------#
+  #
+  # Transcript from seudogenes.
+  #
+  # - 'pseudogene' = transcript from a gene that has homology to known
+  #   protein-coding genes but contain a frameshift and/or stop
+  #   codon(s) which disrupts the ORF. Thought to have arisen through
+  #   duplication followed by loss of function.
+  #
+  # - 'processed_pseudogene' = transcript from a pseudogene that lack
+  #   introns and is thought to arise from reverse transcription of
+  #   mRNA followed by reinsertion of DNA into the genome.
+  #
+  # - 'rRNA_pseudogene' = transcript from a ribosomal RNA pseudogene.
+  #
+  # - 'transcribed_processed_pseudogene' = transcript from a processed
+  #   (lacks introns) pseudogene where protein homology or genomic
+  #   structure indicates a pseudogene, but the presence of
+  #   locus-specific transcripts indicates expression.
+  #
+  # - 'transcribed_unitary_pseudogene' = transcript from a
+  #   species-specific unprocessed transcribed pseudogene without a
+  #   parent gene, as it has an active orthologue in another species.
+  #
+  # - 'transcribed_unprocessed_pseudogene' = transcript from a
+  #   transcribed pseudogene that can contain introns since produced
+  #   by gene duplication.
+  #
+  # - 'translated_unprocessed_pseudogene' = transcript from an
+  #   unprocessed (can have introns) pseudogene that has mass spec
+  #   data suggesting that it is also translated.
+  #
+  # - 'unitary_pseudogene' = transcript from a species-specific
+  #   unprocessed pseudogene without a parent gene, as it has an
+  #   active orthologue in another species.
+  #
+  # - 'unprocessed_pseudogene' = transcript from a pseudogene that can
+  #   contain introns since produced by gene duplication.
+  #
+  #-------------------------------------------------------------------#
+  #
+  # Transcripts from egions to be experimentally confirmed.
+  #
+  # - 'TEC' = transcript from a a region with EST clusters that have
+  #   polyA features that could indicate the presence of protein coding
+  #   genes. These require experimental validation, either by 5' RACE
+  #   or RT-PCR to extend the transcripts, or by confirming expression
+  #   of the putatively-encoded peptide with specific antibodies.
+  #
+  #-------------------------------------------------------------------#
+  #
+  # - 'artifact' = transcripts from an artifactual region of the genome
+  #   assembly.
+  #
+  transcript_biotype:
+    - "protein_coding"
+
+  # The genes' classification. Most of the available options are
+  # described at
+  # https://grch37.ensembl.org/info/genome/genebuild/biotypes.html.
+  #
+  # Options:
+  #
+  #-------------------------------------------------------------------#
+  #
+  # Protein coding genes.
+  #
+  # - 'protein_coding' = gene that contains an open reading frame 
+  #   (ORF).
+  #
+  #-------------------------------------------------------------------#
+  #
+  # Immunoglobulin genes that undergo somatic recombination.
+  #
+  # - 'IG_gene' = immunoglobulin gene. 
+  #
+  # - 'IG_C_gene' = constant chain immunoglobulin gene that undergoes
+  #    somatic recombination before transcription.
+  #
+  # - 'IG_D_gene' = diversity chain immunoglobulin gene that undergoes
+  #    somatic recombination before transcription.
+  #
+  # - 'IG_J_gene' = joining chain immunoglobulin gene that undergoes
+  #   somatic recombination before transcription.
+  #
+  # - 'IG_V_gene' = variable chain immunoglobulin gene that undergoes
+  #   somatic recombination before transcription.
+  #
+  #-------------------------------------------------------------------#
+  #
+  # T cell receptor genes that undergo somatic recombination.
+  #
+  # - 'TR_C_gene' = constant chain T cell receptor gene that undergoes
+  #   somatic recombination before transcription.
+  #
+  # - 'TR_D_gene' = diversity chain T cell receptor gene that undergoes
+  #   somatic recombination before transcription.
+  #
+  # - 'TR_J_gene' = joining chain T cell receptor gene that undergoes
+  #   somatic recombination before transcription.
+  #
+  # - 'TR_V_gene' = variable chain T cell receptor gene that undergoes
+  #   somatic recombination before transcription.
+  #
+  #-------------------------------------------------------------------#
+  #
+  # Ribozyme genes.
+  #
+  # - 'ribozyme' = gene that gets transcribed into an RNA molecule that
+  #   has the ability to catalyze specific biochemical reactions.
+  #
+  #-------------------------------------------------------------------#
+  #
+  # Non-coding genes.
+  #
+  # - 'lncRNA' = gene that gets transcribed into long non-coding RNA
+  #   >200bp.
+  #
+  # - 'miRNA' = gene that gets transcribed into small RNA (~22bp) that
+  #   silences the expression of target mRNA.
+  #
+  # - 'misc_RNA' = gene that gets transcribed into miscellaneous RNA.
+  #   A non-coding RNA that cannot be classified.
+  #
+  # - 'Mt_rRNA' = gene that gets transcribed into mitochondrial
+  #   ribosomal RNA.
+  #
+  # - 'Mt_tRNA' = gene that gets transcribed into mitochondrial
+  #   transfer RNA.
+  #
+  # - 'rRNA' = gene that gets transcribed into ribosomal RNA.
+  #
+  # - 'scaRNA' = a gene that gets transcribed into small Cajal
+  #   body-specific RNA, a class of small nucleolar RNAs (snoRNAs) that
+  #   specifically localise to the Cajal body, a nuclear organelle
+  #   (cellular sub-organelle) involved in the biogenesis of small
+  #   nuclear ribonucleoproteins.
+  #
+  # - 'scRNA' = a gene that gets transcribed into small cytoplasmic
+  #   RNA.
+  #
+  # - 'snoRNA' = gene that gets transcribed into small nucleolar RNA.
+  #
+  # - 'snRNA' = gene that gets transcribed into small nuclear RNA.
+  #
+  # - 'sRNA' = gene that gets transcribed into small RNA.
+  #
+  # - 'vault_RNA' = short non coding RNA genes that form part of the
+  #   vault ribonucleoprotein complex.
+  #
+  #-------------------------------------------------------------------#
+  #
+  # Inactivated immunoglobulin genes.
+  #
+  # - 'IG_pseudogene' = inactivated immunoglobulin gene.
+  #
+  # - 'IG_C_pseudogene' = inactivated constant chain immunoglobulin
+  #   gene.
+  #
+  # - 'IG_D_pseudogene' = inactivated diversity chain immunoglobulin
+  #   gene.
+  #
+  # - 'IG_J_pseudogene' = inactivated joining chain immunoglobulin
+  #   gene.
+  #
+  # - 'IG_V_pseudogene' = inactivated variable chain immunoglobulin
+  #   gene.
+  #
+  #-------------------------------------------------------------------#
+  #
+  # Inactivated T cell receptor genes.
+  #
+  # - 'TR_J_pseudogene' = inactivated joining chain T cell receptor
+  #   gene.
+  #
+  # - 'TR_V_pseudogene' = inactivated variable chain T cell receptor
+  #   gene.
+  #
+  #-------------------------------------------------------------------#
+  #
+  # Pseudogenes.
+  #
+  # - 'pseudogene' = gene that has homology to known protein-coding
+  #   genes but contain a frameshift and/or stop codon(s) which
+  #   disrupts the ORF. Thought to have arisen through duplication
+  #   followed by loss of function.
+  #
+  # - 'processed_pseudogene' = pseudogene that lack introns and is
+  #   thought to arise from reverse transcription of mRNA followed by
+  #   reinsertion of DNA into the genome.
+  #
+  # - 'rRNA_pseudogene' = ribosomal RNA pseudogene.
+  #
+  # - 'transcribed_processed_pseudogene' = processed (lacks introns)
+  #   pseudogene where protein homology or genomic structure indicates
+  #   a pseudogene, but the presence of locus-specific transcripts
+  #   indicates expression.
+  #
+  # - 'transcribed_unitary_pseudogene' = species-specific unprocessed
+  #   transcribed pseudogene without a parent gene, as it has an
+  #   active orthologue in another species.
+  #
+  # - 'transcribed_unprocessed_pseudogene' = transcribed pseudogene
+  #   that can contain introns since produced by gene duplication.
+  #
+  # - 'translated_unprocessed_pseudogene' = unprocessed (can have
+  #   introns) pseudogene that has mass spec data suggesting that it is
+  #   also translated.
+  #
+  # - 'unitary_pseudogene' = species-specific unprocessed pseudogene
+  #   without a parent gene, as it has an active orthologue in another
+  #   species.
+  #
+  # - 'unprocessed_pseudogene' = pseudogene that can contain introns
+  #   since produced by gene duplication.
+  #
+  #-------------------------------------------------------------------#
+  #
+  # Regions to be experimentally confirmed.
+  #
+  # - 'TEC' = a region with EST clusters that have polyA features that
+  #   could indicate the presence of protein coding genes. These require
+  #   experimental validation, either by 5' RACE or RT-PCR to extend
+  #   the transcripts, or by confirming expression of the
+  #   putatively-encoded peptide with specific antibodies.
+  #
+  #-------------------------------------------------------------------#
+  #
+  # - 'artifact' = annotated on an artifactual region of the genome
+  #   assembly.
+  #
+  biotype:
+    - "protein_coding"
+
+  # The phenotype(s) associated with the genes.
+  #phenotype_description:
+  #  - ""
+
+  # The source of the phenotypes (classification).
+  #
+  # Options:
+  #
+  # - "Cancer Gene Census" = catalog of genes of which mutations have
+  #   been causally implicated in cancer.
+  #
+  # - "G2P" =   Genotype-to-Phenotype Database.
+  #
+  # - "MIM Morbid" = Online Mendelian Inheritance in Man (OMIM)
+  #   database.
+  #
+  # - "Orphanet" = The portal for rare diseases and drugs.
+  #phenotype_source:
+  #  - ""
+
+  # GO Term Accession.
+  #go_parent_term: ""
+
+  # GO Evidence code.
+  #
+  # Options:
+  #
+  # - 'EXP' = inferred from experiment.
+  #
+  # - 'HDA' = inferred from high throughput direct assay.
+  #
+  # - 'HEP' = inferred from high throughput expression pattern.
+  #
+  # - 'HMP' = inferred from high throughput mutant phenotype.
+  #
+  # - 'IBA' = inferred from biological aspect of ancestor.
+  #
+  # - 'IC' = inferred by curator.
+  #
+  # - 'IDA' = inferred from direct assay.
+  #
+  # - 'IEA' = inferred from electronic annotation.
+  #
+  # - 'IEP' = inferred from expression pattern.
+  #
+  # - 'IGI' = inferred from genetic interaction.
+  #
+  # - 'IMP' = inferred from mutant phenotype.
+  #
+  # - 'IPI' = inferred from physical interaction.
+  #
+  # - 'ISA' = inferred from sequence alignment.
+  #
+  # - 'ISM' = inferred from sequence model.
+  #
+  # - 'ISO' = inferred from sequence orthology.
+  #
+  # - 'ISS' = inferred from sequence or structural similarity.
+  #
+  # - 'NAS' = non-traceable author statement.
+  #
+  # - 'ND' = no biological data available.
+  #
+  # - 'RCA' = inferred from reviewed computational analysis.
+  #
+  # - 'TAS' = traceable author statement.
+  #go_evidence_code: ""
+
+#---------------------------------------------------------------------#
+
+# Attributes to report for each gene in the list. For a complete list
+# of available filters for human genes, go to
+# https://mart.ensembl.org/biomart and select the
+# 'Ensembl Genes 112', 'Human genes (GRCh38.p14)' dataset.
+attributes:
+
+  # The Ensembl ID of the gene.
+  - ensembl_gene_id
+
+  # The version of the Ensembl ID of the gene.
+  - ensembl_gene_id_version
+
+  # The Ensembl ID(s) of the gene's transcript(s).
+  - ensembl_transcript_id
+
+  # The version of the Ensembl ID(s) of the gene's transcript(s).
+  - ensembl_transcript_id_version
+
+  # The Ensembl ID(s) of the protein product(s) translated from the
+  # gene.
+  - ensembl_peptide_id
+
+  # The version of the Ensembl ID(s) of the protein product(s)
+  # translated from the gene.
+  - ensembl_peptide_id_version
+
+  # The Ensembl ID of the exon(s).
+  - ensembl_exon_id
+
+  # The chromosome where the gene is.
+  - chromosome_name
+
+  # The gene's start position.
+  - start_position
+
+  # The gene's end position.
+  - end_position
+
+  # The DNA strand where the gene is.
+  - strand
+
+  # The gene's transcript(s) start position(s).
+  - transcript_start
+
+  # The gene's transcript(s) end position(s).
+  - transcript_end
+
+  # The gene's transcript(s) transcription start site(s).
+  - transcription_start_site
+
+  # The gene's transcript(s) length(s).
+  - transcript_length
+
+  # The gene's transcript(s) support level(s).
+  - transcript_tsl
+
+  # The gene's classification.
+  - gene_biotype
+
+  # The transcript's classification.
+  - transcript_biotype
+
+  # The gene's symbol according to the HUGO nomenclature.
+  - hgnc_symbol
+
+  # The UniProt Swissprot ID(s) of the protein product(s) translated
+  # from the gene.
+  - uniprotswissprot
+
+  # The isoform(s) of the protein product(s) translated from the gene.
+  - uniprot_isoform
+

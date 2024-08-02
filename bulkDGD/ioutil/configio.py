@@ -510,3 +510,57 @@ def load_config_plot(config_file):
 
     # Return the new configuration.
     return new_config
+
+
+def load_config_genes(config_file):
+    """Load a configuration for creating a new list of genes from a
+    YAML file.
+
+    Parameters
+    ----------
+    config_file : ``str``
+        A YAML configuration file.
+
+    Returns
+    -------
+    config : ``dict``
+        A dictionary containing the configuration.
+    """
+
+    # Get the name of the configuration file.
+    config_file_name = os.path.basename(config_file).rstrip(".yaml")
+
+    #-----------------------------------------------------------------#
+
+    # If the configuration file is a name without extension
+    if config_file == config_file_name:
+        
+        # Assume it is a configuration file in the directory storing
+        # configuration files for plotting.
+        config_file = os.path.join(defaults.CONFIG_GENES_DIR,
+                                   config_file_name + ".yaml")
+
+    # Otherwise
+    else:
+        
+        # Assume it is a file name/file path.
+        config_file = os.path.abspath(config_file)
+
+    #-----------------------------------------------------------------#
+
+    # Load the configuration from the file.
+    config = yaml.safe_load(open(config_file, "r"))
+
+    #-----------------------------------------------------------------#
+    
+    # Substitute the font properties definitions with the corresponding
+    # 'FontProperties' instances.
+    new_config = _util.recursive_map_dict(\
+        d = config,
+        func = fm.FontProperties,
+        keys = {"fontproperties", "prop", "title_fontproperties"})
+
+    #-----------------------------------------------------------------#
+
+    # Return the new configuration.
+    return new_config

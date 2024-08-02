@@ -59,10 +59,26 @@ CONFIG_REP_DIR = \
 #---------------------------------------------------------------------#
 
 # Set the directory containing the configuration files specifying the
+# options to generate plots.
+CONFIG_PLOT_DIR = \
+    os.path.join(os.path.dirname(__file__),
+                 "configs/plot")
+
+#---------------------------------------------------------------------#
+
+# Set the directory containing the configuration files specifying the
 # options for training the model.
 CONFIG_TRAIN_DIR = \
     os.path.join(os.path.dirname(__file__),
                  "configs/training")
+
+#---------------------------------------------------------------------#
+
+# Set the directory containing the configuration files specifying the
+# options to create a new list of genes for the bulkDGD model.
+CONFIG_GENES_DIR = \
+    os.path.join(os.path.dirname(__file__),
+                 "configs/genes")
 
 #---------------------------------------------------------------------#
 
