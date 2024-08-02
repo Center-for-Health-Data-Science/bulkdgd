@@ -137,6 +137,9 @@ class DGDModel(nn.Module):
                  dec_pth_file = None):
         """Initialize an instance of the class.
 
+        The model is initialized on the CPU. To move the model to
+        another device, modify the ``device`` property.
+
         Parameters
         ----------
         dim : ``int``
@@ -324,6 +327,11 @@ class DGDModel(nn.Module):
             pd.Series(r_values,
                       index = genes)
 
+        #-------------------------------------------------------------#
+
+        # By default, the model is initialized on the CPU.
+        self._device = torch.device("cpu")
+
 
     @staticmethod
     def _load_state(mod,
@@ -455,6 +463,26 @@ class DGDModel(nn.Module):
             "genes included in the model, initialize a new instance " \
             f"of '{self.__class__.__name__}'."
         raise ValueError(errstr)
+
+    @property
+    def device(self):
+        """The device where the model is.
+        """
+
+        return self._device
+
+    @device.setter
+    def device(self,
+               value):
+        """Raise an exception if the user tries to modify the value of
+        ``device`` directly.
+        """
+        
+        # Move the model to the specified device.
+        self.to(device = torch.device(value))
+
+        # Update the device the model is on.
+        self._device = value
     
 
     ######################### PRIVATE METHODS #########################
@@ -2597,7 +2625,9 @@ class DGDModel(nn.Module):
         # Create the representation layer for the training samples.
         rep_layer_train = \
             latent.RepresentationLayer(values = \
-                torch.zeros(size = (n_samples_train, self.gmm.dim)))
+                torch.zeros(\
+                    size = (n_samples_train, self.gmm.dim))).to(\
+                        self.device)
 
         #-------------------------------------------------------------#
 
@@ -2633,7 +2663,9 @@ class DGDModel(nn.Module):
         # Create the representation layer for the testing samples.
         rep_layer_test = \
             latent.RepresentationLayer(values = \
-                torch.zeros(size = (n_samples_test, self.gmm.dim)))  
+                torch.zeros(\
+                    size = (n_samples_test, self.gmm.dim))).to(\
+                        self.device)
 
         #-------------------------------------------------------------#
 
@@ -2737,6 +2769,16 @@ class DGDModel(nn.Module):
 
                     # Get the number of samples in the current batch.
                     n_samples_in_batch = len(samples_ixs)
+
+                    #-------------------------------------------------#
+
+                    # Move the gene expression of the samples to the
+                    # correct device.
+                    samples_exp = samples_exp.to(self.device)
+
+                    # Move the mean gene expression of the samples to
+                    # the correct device.
+                    samples_mean_exp = samples_mean_exp.to(self.device)
 
                     #-------------------------------------------------#
 

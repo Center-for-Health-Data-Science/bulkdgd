@@ -48,6 +48,29 @@ We can now initialize the DGD model.
    # Get the DGD model (Gaussian mixture model and decoder).
    dgd_model = model.DGDModel(**config_model)
 
+If we have a GPU available, we can move the model there.
+
+.. code-block:: python
+
+   # Import 'torch'.
+   import torch 
+
+   # If a CPU with CUDA is available.
+   if torch.cuda.is_available():
+
+       # Set the GPU as the device.
+       device = torch.device("cuda")
+
+   # Otherwise
+   else:
+
+       # Set the CPU as the device.
+       device = torch.device("cpu")
+
+   # Move the model to the device.
+   dgd_model.device = device
+
+
 Step 2 - Preprocess the input samples
 -------------------------------------
 
