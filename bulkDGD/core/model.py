@@ -320,7 +320,8 @@ class DGDModel(nn.Module):
 
         # Get the r-values associated with the negative binomials
         # modeling the different genes.
-        r_values = torch.exp(self._dec.nb.log_r).squeeze().detach()
+        r_values = \
+            torch.exp(self._dec.nb.log_r).squeeze().detach()
 
         # Associate the r-values with the genes.
         self._r_values = \
@@ -1974,7 +1975,7 @@ class DGDModel(nn.Module):
 
         # Convert the tensor containing the decoder outputs into a
         # list.
-        dec_out_list = dec_out.detach().numpy().tolist()
+        dec_out_list = dec_out.detach().cpu().numpy().tolist()
 
         # Get a data frame containing the decoder outputs for all
         # samples.
@@ -1992,7 +1993,7 @@ class DGDModel(nn.Module):
 
         # Convert the tensor containing the representations into a
         # list.
-        rep_list = rep.detach().numpy().tolist()
+        rep_list = rep.detach().cpu().numpy().tolist()
 
         # Create a data frame for the representations.
         df_rep = pd.DataFrame(rep_list)
@@ -2109,7 +2110,7 @@ class DGDModel(nn.Module):
 
         # Convert the tensor containing the representations for the
         # training samples into a list.
-        rep_list_train = rep_train.detach().numpy().tolist()
+        rep_list_train = rep_train.detach().cpu().numpy().tolist()
 
         # Create a data frame for the representations.
         df_rep_train = pd.DataFrame(rep_list_train)
@@ -2128,7 +2129,7 @@ class DGDModel(nn.Module):
 
         # Convert the tensor containing the representations for the
         # testing samples into a list.
-        rep_list_test = rep_test.detach().numpy().tolist()
+        rep_list_test = rep_test.detach().cpu().numpy().tolist()
 
         # Create a data frame for the representations.
         df_rep_test = pd.DataFrame(rep_list_test)
@@ -2395,7 +2396,7 @@ class DGDModel(nn.Module):
         #-------------------------------------------------------------#
 
         # Convert the result into a data frame.
-        df_prob_rep = pd.DataFrame(probs_values.detach().numpy())
+        df_prob_rep = pd.DataFrame(probs_values.detach().cpu().numpy())
 
         # Add a column storing the highest probability density per
         # representation.
