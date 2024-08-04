@@ -32,7 +32,7 @@ df_samples = \
                         sep = ",",
                         # Whether to keep the original samples' names/
                         # indexes (if True, they are assumed to be in
-                        # the first column of the data frame 
+                        # the first column of the data frame)
                         keep_samples_names = True,
                         # Whether to split the input data frame into
                         # two data frames, one containing only gene
@@ -49,11 +49,11 @@ df_preproc, genes_excluded, genes_missing = \
 
 
 # Load the model's configuration.
-config_model = ioutil.load_config_model("model.yaml")
+config_model = ioutil.load_config_model("model")
 
 # Load the configuration with the options to configure the rounds of
 # optimization when searching for the best representations.
-config_rep = ioutil.load_config_rep("two_opt.yaml")
+config_rep = ioutil.load_config_rep("two_opt")
 
 
 #----------------------- Get the trained model -----------------------#
@@ -66,9 +66,11 @@ dgd_model = model.DGDModel(**config_model)
 #---------------------- Get the representations ----------------------#
 
 
-# Get the representations, the corresponding decoder outputs, and
-# the time spent in finding the representations.
-df_rep, df_dec_out, df_time_opt = \
+# Get the representations, the predicted scaled means and
+# r-values of the negative binomials modeling the genes' counts for
+# the in silico samples corresponding to the representations found,
+# and the time spent finding the representations.
+df_rep, df_pred_means, df_pred_r_values, df_time_opt = \
     dgd_model.get_representations(\
         # The data frame with the samples
         df_samples = df_samples,
@@ -97,12 +99,21 @@ ioutil.save_representations(\
     # The field separator in the output CSV file
     sep = ",")
 
-# Save the decoder outputs.
+# Save the predicted scaled means.
 ioutil.save_decoder_outputs(\
-    # The data frame containing the decoder outputs
-    df = df_dec_out,
+    # The data frame containing the predicted scaled means
+    df = df_pred_means,
     # The output CSV file
-    csv_file = "decoder_outputs.csv",
+    csv_file = "pred_means.csv",
+    # The field separator in the output CSV file
+    sep = ",")
+
+# Save the predicted r-values.
+ioutil.save_decoder_outputs(\
+    # The data frame containing the predicted r-values
+    df = df_pred_r_values,
+    # The output CSV file
+    csv_file = "pred_r_values.csv",
     # The field separator in the output CSV file
     sep = ",")
 

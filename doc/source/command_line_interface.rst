@@ -6,6 +6,7 @@ Command-line interface
    :hidden:
 
    dgd_get_recount3_data
+   dgd_get_genes_list
    dgd_preprocess_samples
    dgd_get_representations
    dgd_perform_dea
@@ -21,6 +22,8 @@ However, a command-line interface is provided for some of the most common tasks 
 This interface consists of a series of executables installed together with the package:
 
 * :doc:`dgd_get_recount3_data <dgd_get_recount3_data>` allows the seamless retrieval of RNA-seq data and their associated metadata from the Recount3 platform.
+
+* :doc:`dgd_get_genes_list <dgd_get_genes_list>` allows the creation of custom lists of genes to use with the DGD model.
 
 * :doc:`dgd_preprocess_samples <dgd_preprocess_samples>` allows the preprocessing of samples' data before using them with the DGD model.
 

@@ -104,9 +104,7 @@ df_test, genes_excluded_test, genes_missing_test = \
 #---------------- Load the configuration for training ----------------#
 
 
-# Load the configuration for training the model. Since the file is
-# stored in the 'bulkDGD/ioutil/configs/training' directory, we can
-# simply refer to it by its name (without the .yaml extension).
+# Load the configuration for training the model.
 config_train = ioutil.load_config_train("training")
 
 

@@ -82,16 +82,31 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    od_default = "decoder_outputs.csv"
-    od_help = \
+    om_default = "pred_means.csv"
+    om_help = \
         "The name of the output CSV file containing the data frame " \
-        "with the decoder output for each input sample. " \
-        "The file will be written in the working directory. " \
-        f"The default file name is '{od_default}'."
-    parser.add_argument("-od", "--output-csv-dec",
+        "with the predicted scaled means of the negative  " \
+        "binomials for the in silico samples obtained from the best " \
+        "representations found. The file will be written in the " \
+        f"working directory. The default file name is '{om_default}'."
+    parser.add_argument("-om", "--output-csv-means",
                         type = str,
-                        default = od_default,
-                        help = od_help)
+                        default = om_default,
+                        help = om_help)
+
+    #-----------------------------------------------------------------#
+
+    ov_default = "pred_r_values.csv"
+    ov_help = \
+        "The name of the output CSV file containing the data frame " \
+        "with the predicted r-values of the negative binomials for " \
+        "the in silico samples obtained from the best " \
+        "representations found. The file will be written in the " \
+        f"working directory. The default file name is '{ov_default}'."
+    parser.add_argument("-ov", "--output-csv-rvalues",
+                        type = str,
+                        default = ov_default,
+                        help = ov_help)
 
     #-----------------------------------------------------------------#
 
@@ -184,7 +199,8 @@ def main():
     args = parser.parse_args()
     input_csv = args.input_csv
     output_csv_rep = args.output_csv_rep
-    output_csv_dec = args.output_csv_dec
+    output_csv_means = args.output_csv_means
+    output_csv_rvalues = args.output_csv_rvalues
     output_csv_time = args.output_csv_time
     config_file_model = args.config_file_model
     config_file_rep = args.config_file_rep
@@ -326,7 +342,7 @@ def main():
     # Try to get the representations.
     try:
         
-        df_rep, df_dec_out, df_time = \
+        df_rep, df_pred_means, df_pred_r_values, df_time = \
             dgd_model.get_representations(\
                 # The data frame with the samples
                 df_samples = df_samples,
@@ -381,14 +397,14 @@ def main():
     #-----------------------------------------------------------------#
 
     # Set the path to the output file.
-    output_csv_dec_path = os.path.join(wd, output_csv_dec)
+    output_csv_means_path = os.path.join(wd, output_csv_means)
 
-    # Try to write the decoder outputs in the dedicated CSV file.
+    # Try to write the predicted means in the dedicated CSV file.
     try:
 
         ioutil.save_decoder_outputs(\
-            df = df_dec_out,
-            csv_file = output_csv_dec_path,
+            df = df_pred_means,
+            csv_file = output_csv_means_path,
             sep = ",")
 
     # If something went wrong
@@ -396,16 +412,46 @@ def main():
 
         # Warn the user and exit.
         errstr = \
-            "It was not possible to write the decoder outputs " \
-            f"in '{output_csv_dec_path}'. Error: {e}"
+            "It was not possible to write the predicted means " \
+            f"in '{output_csv_means_path}'. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the decoder outputs were successfully
+    # Inform the user that the predicted means were successfully
     # written in the output file.
     infostr = \
-        "The decoder outputs were successfully written in " \
-        f"'{output_csv_dec_path}'."
+        "The predicted means were successfully written in " \
+        f"'{output_csv_means_path}'."
+    log.info(infostr)
+
+    #-----------------------------------------------------------------#
+
+    # Set the path to the output file.
+    output_csv_rvalues_path = os.path.join(wd, output_csv_rvalues)
+
+    # Try to write the predicted r-values in the dedicated CSV file.
+    try:
+
+        ioutil.save_decoder_outputs(\
+            df = df_pred_r_values,
+            csv_file = output_csv_rvalues_path,
+            sep = ",")
+
+    # If something went wrong
+    except Exception as e:
+
+        # Warn the user and exit.
+        errstr = \
+            "It was not possible to write the predicted r-values " \
+            f"in '{output_csv_rvalues_path}'. Error: {e}"
+        log.exception(errstr)
+        sys.exit(errstr)
+
+    # Inform the user that the predicted r-values were successfully
+    # written in the output file.
+    infostr = \
+        "The predicted r-values were successfully written in " \
+        f"'{output_csv_rvalues_path}'."
     log.info(infostr)
 
     #-----------------------------------------------------------------#

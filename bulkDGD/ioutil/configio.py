@@ -57,26 +57,19 @@ logger = log.getLogger(__name__)
 
 # Set the template against which to check the model's configuration.
 _CONFIG_MODEL_TEMPLATE = \
-    {# Set the options for the Gaussian mixture model.
+    {# Set the dimensionality of the input.
+     "input_dim" : int,
+
+     # Set the options for the Gaussian mixture model.
+     "gmm_options" : None,
      "gmm_pth_file" : str,
-     "dim" : int,
-     "n_comp" : int,
-     "cm_type" : str,
-     "means_prior_name" : str,
-     "means_prior_options" : None,
-     "weights_prior_name" : str,
-     "weights_prior_options" : None,
-     "log_var_prior_name" : str,
-     "log_var_prior_options" : None,
 
      # Set the options for the decoder.
+     "dec_options" : None,
      "dec_pth_file" : str,
-     "n_units_hidden_layers" : list,
-     "r_init" : int,
-     "activation_output" : str,
     
-    # Set the file containing the genes included in the model.
-    "genes_txt_file" : str}
+     # Set the file containing the genes included in the model.
+     "genes_txt_file" : str}
 
 
 # Set the templates against which to check the configuration for
@@ -183,25 +176,23 @@ def load_config_model(config_file):
 
     # Set the fields that can be missing from the configuration,
     # so that they do not raise an exception if they are not found.
-    ignore_if_missing = \
-        {"gmm_pth_file", "dec_pth_file"}
+    ignore_if_missing = {"gmm_pth_file", "dec_pth_file"}
 
     # Set the fields that can vary in the configuration, so that they
     # do not raise an exception if they are different than expected.
-    ignore_if_varying = \
-        {"means_prior_options", "weights_prior_options",
-         "log_var_prior_options"}
+    ignore_if_varying = {"gmm_options", "dec_options"}
 
     #-----------------------------------------------------------------#
 
     # Get the name of the configuration file.
-    config_file_name = os.path.basename(config_file).rstrip(".yaml")
+    config_file_name = \
+        os.path.splitext(os.path.basename(config_file))[0]
 
     #-----------------------------------------------------------------#
 
     # If the configuration file is a name without extension
     if config_file == config_file_name:
-        
+
         # Assume it is a configuration file in the directory storing
         # configuration files for the model.
         config_file = os.path.join(defaults.CONFIG_MODEL_DIR,
@@ -340,7 +331,8 @@ def load_config_rep(config_file):
     #-----------------------------------------------------------------#
 
     # Get the name of the configuration file.
-    config_file_name = os.path.basename(config_file).rstrip(".yaml")
+    config_file_name = \
+        os.path.splitext(os.path.basename(config_file))[0]
 
     #-----------------------------------------------------------------#
 
@@ -421,7 +413,8 @@ def load_config_train(config_file):
     """
 
     # Get the name of the configuration file.
-    config_file_name = os.path.basename(config_file).rstrip(".yaml")
+    config_file_name = \
+        os.path.splitext(os.path.basename(config_file))[0]
 
     #-----------------------------------------------------------------#
 
@@ -474,7 +467,8 @@ def load_config_plot(config_file):
     """
 
     # Get the name of the configuration file.
-    config_file_name = os.path.basename(config_file).rstrip(".yaml")
+    config_file_name = \
+        os.path.splitext(os.path.basename(config_file))[0]
 
     #-----------------------------------------------------------------#
 
@@ -528,7 +522,8 @@ def load_config_genes(config_file):
     """
 
     # Get the name of the configuration file.
-    config_file_name = os.path.basename(config_file).rstrip(".yaml")
+    config_file_name = \
+        os.path.splitext(os.path.basename(config_file))[0]
 
     #-----------------------------------------------------------------#
 

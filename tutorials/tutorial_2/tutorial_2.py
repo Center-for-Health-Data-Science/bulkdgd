@@ -34,7 +34,7 @@ df_samples = \
                         sep = ",",
                         # Whether to keep the original samples' names/
                         # indexes (if True, they are assumed to be in
-                        # the first column of the data frame 
+                        # the first column of the data frame) 
                         keep_samples_names = True,
                         # Whether to split the input data frame into
                         # two data frames, one containing only gene
@@ -42,51 +42,56 @@ df_samples = \
                         # additional information about the samples
                         split = False)
 
-# Get only the first 10 rows.
+# Get only the first ten rows.
 df_samples = df_samples.iloc[:10,:]
 
 
-#--------------------- Load the decoder outputs ----------------------#
+#----------------- Load the predicted scaled means -------------------#
 
 
-# Load the decoder outputs into a data frame.
-df_dec_out = \
-   ioutil.load_decoder_outputs(# The CSV file where the decoder outputs
-                               # are stored
-                               csv_file = "decoder_outputs.csv",
+# Load the predicted scaled means into a data frame.
+df_pred_means = \
+   ioutil.load_decoder_outputs(# The CSV file where the predicted
+                               # scaled means are stored
+                               csv_file = "pred_means.csv",
                                # The field separator used in the CSV
                                # file
                                sep = ",",
                                # Whether to split the input data frame
-                               # into two data frame, one containing
-                               # only the decoder outputs and the other
-                               # containing additional information
-                               # about the original samples
+                               # into two data frames, one containing
+                               # only the predicted scaled means and
+                               # the other containing additional
+                               # information about the original samples
                                split = False)
 
 # Get only the first ten rows.
-df_dec_out = df_dec_out.iloc[:10,:]
+df_pred_means = df_pred_means.iloc[:10,:]
 
 
-#---------------------- Load the configuration -----------------------#
+#-------------------- Load the predicted r-values --------------------#
 
 
-# Load the model's configuration.
-config_model = ioutil.load_config_model("model.yaml")
+# Load the predicted r-values into a data frame.
+df_pred_r_values = \
+   ioutil.load_decoder_outputs(# The CSV file where the predicted
+                               # r-values are stored
+                               csv_file = "pred_r_values.csv",
+                               # The field separator used in the CSV
+                               # file
+                               sep = ",",
+                               # Whether to split the input data frame
+                               # into two data frames, one containing
+                               # only the predicted r-values and
+                               # the other containing additional
+                               # information about the original samples
+                               split = False)
 
-
-#----------------------- Get the trained model -----------------------#
-
-
-# Get the trained DGD model (Gaussian mixture model and decoder).
-dgd_model = model.DGDModel(**config_model)
+# Get only the first ten rows.
+df_pred_r_values = df_pred_r_values.iloc[:10,:]
 
 
 #----------------- Differential expression analysis ------------------#
 
-
-# Get the r-values.
-r_values = dgd_model.r_values
 
 # For each sample
 for sample in df_samples.index:
@@ -96,16 +101,16 @@ for sample in df_samples.index:
         dea.perform_dea(# The observed gene counts for the current
                         # sample
                         obs_counts = df_samples.loc[sample,:],
-                        # The predicted means - decoder outputs for
-                        # the current sample
-                        pred_means = df_dec_out.loc[sample,:],
+                        # The predicted scaled means for the current
+                        # sample
+                        pred_means = df_pred_means.loc[sample,:],
+                        # The r-values for the current sample
+                        r_values = df_pred_r_values.loc[sample,:],
                         # Which statistics should be computed and
                         # included in the results
                         statistics = \
                             ["p_values", "q_values",
                              "log2_fold_changes"],
-                        # The r-values of the negative binomials
-                        r_values = r_values,
                         # The resolution for the p-values calculation
                         # (the higher, the more accurate the
                         # calculation; set to 'None' for an exact

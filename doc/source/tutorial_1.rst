@@ -51,7 +51,7 @@ Then, we load our CSV file as a data frame using the :func:`ioutil.load_samples`
                           sep = ",",
                           # Whether to keep the original samples' names/
                           # indexes (if True, they are assumed to be in
-                          # the first column of the data frame 
+                          # the first column of the data frame)
                           keep_samples_names = True,
                           # Whether to split the input data frame into
                           # two data frames, one containing only gene
@@ -84,18 +84,20 @@ The function returns three objects:
 Step 2 - Get the trained DGD model
 ----------------------------------
 
-In order to set up the DGD model and load its trained parameters, we need a configuration file specifying the options to initialize it and the path to the files containing the trained model.
+In order to set up the DGD model and load its trained parameters, we need a configuration file specifying the options to initialize the model and the path to the files containing the parameters of the trained model.
 
-In this case, we will use the ``bulkDGD/ioutil/configs/model/model.yaml`` file. We assume this file was copied to the current working directory.
+In this case, we will use the ``bulkDGD/ioutil/configs/model/model.yaml`` file. We can refer to this file using only the file's name (without extension) since it is located in the ``bulkDGD/ioutil/configs/model`` directory.
 
 We can load the configuration using the :func:`ioutil.load_config_model` function.
 
 .. code-block:: python
    
    # Load the configuration.
-   config_model = ioutil.get_config_model("model.yaml")
+   config_model = ioutil.get_config_model("model")
 
 Once loaded, the configuration consists of a dictionary of options, which maps to the arguments required by the :class:`core.model.DGDModel` constructor.
+
+You can find more information about the available options to configure the DGD model :doc:`here <model_config_options>`.
 
 Then, we can initialize the trained DGD model.
 
@@ -115,18 +117,18 @@ Before finding the representations, we need to define the scheme that will be us
 
 The scheme is contained in a YAML configuration file similar to that containing the DGD model's configuration.
 
-In this case, we will use the ``bulkDGD/ioutil/configs/representations/two_opt.yaml`` file. We assume this file was copied to the current working directory.
+In this case, we will use the ``bulkDGD/ioutil/configs/representations/two_opt.yaml`` file. We can refer to this file using only the file's name (without extension) since it is located in the ``bulkDGD/ioutil/configs/representations`` directory.
 
-We can load the configuration using the :func:`ioutil.load_config_rep` function. Here, we use the ``two_opt.yaml`` file, which contains the options to run two optimization rounds.
+We can load the configuration using the :func:`ioutil.load_config_rep` function.
+
+Once loaded, the configuration consists of a dictionary of options.
 
 You can find more information about the supported optimization schemes and corresponding options :doc:`here <rep_config_options>`.
 
 .. code-block:: python
    
    # Load the configuration.
-   config_rep = ioutil.load_config_rep("two_opt.yaml")
-
-Once loaded, the configuration consists of a dictionary of options.
+   config_rep = ioutil.load_config_rep("two_opt")
 
 Step 4 - Find and optimize the representations
 ----------------------------------------------
@@ -135,27 +137,31 @@ We can now use the :meth:`core.model.DGDModel.get_representations` method to fin
 
 .. code-block:: python
    
-   # Get the representations, the corresponding decoder outputs, and
-   # the time spent in finding the representations
-   df_rep, df_dec_out, df_time_opt = \
+   # Get the representations, the predicted scaled means and
+   # r-values of the negative binomials modeling the genes' counts for
+   # the in silico samples corresponding to the representations found,
+   # and the time spent finding the representations.
+   df_rep, df_pred_means, df_pred_r_values, df_time_opt = \
        dgd_model.get_representations(\
            # The data frame with the samples
            df_samples = df_samples,
            # The configuration to find the representations                        
            config_rep = config_rep)
 
-The method returns three objects:
+The method returns four objects:
 
 * ``df_rep`` is a ``pandas.DataFrame`` containing the optimized representations. In this data frame, each row represents a different representation, and each column represents either the value of the representatione along a dimension of the latent space (in the ``latent_dim_*`` columns) or additional information about the original samples (in our case, the ``tissue`` column).
 
-* ``df_dec_out`` is a ``pandas.DataFrame`` containing the decoder outputs corresponding to the representations found. The decoder outputs are the rescaled means of the negative binomial distributions used to model the RNA-seq counts for the genes included in the DGD model. In this data frame, each row represents a different representation, and each column represents either the decoder output for a specific gene (in the columns named after the genes' Ensembl IDs) or additional information about the original samples (in our case, the ``tissue`` column).
+* ``df_pred_means`` is a ``pandas.DataFrame`` containing the predicted scaled means of the negative binomials used to model the RNA-seq genes' counts in the in silico samples corresponding to the best representations found. In this data frame, each row represents a different sample, and each column represents either the scaled mean of the negative binomial for a specific gene (in the columns named after the genes' Ensembl IDs) or additional information about the original samples (in our case, the ``tissue`` column).
+
+* ``df_pred_r_values`` is a ``pandas.DataFrame`` containing the predicted r-values of the negative binomials used to model the RNA-seq genes' counts in the in silico samples corresponding to the best representations found. In this data frame, each row represents a different sample, and each column represents either the r-value of the negative binomial for a specific gene (in the columns named after the genes' Ensembl IDs) or additional information about the original samples (in our case, the ``tissue`` column).
 
 * ``df_time`` is a ``pandas.DataFrame`` containing information about the CPU and wall clock time used by each optimization epoch and each backpropagation step through the decoder (one per epoch).
 
 Step 5 - Save the outputs
 -------------------------
 
-We can save the preprocessed samples, the representations, the decoder outputs, and the information about the optimization time to CSV files using the :func:`ioutil.save_samples`, :func:`ioutil.save_representations`, :func:`ioutil.save_decoder_outputs`, and :func:`ioutil.save_time` functions.
+We can save the preprocessed samples, the representations, the predicted scaled means, the predicted r-values, and the information about the optimization time to CSV files using the :func:`ioutil.save_samples`, :func:`ioutil.save_representations`, :func:`ioutil.save_decoder_outputs`, and :func:`ioutil.save_time` functions.
 
 .. code-block:: python
    
@@ -177,12 +183,21 @@ We can save the preprocessed samples, the representations, the decoder outputs, 
        # The field separator in the output CSV file
        sep = ",")
 
-   # Save the decoder outputs.
+   # Save the predicted scaled means.
    ioutil.save_decoder_outputs(\
-       # The data frame containing the decoder outputs
-       df = df_dec_out,
+       # The data frame containing the predicted scaled means
+       df = df_pred_means,
        # The output CSV file
-       csv_file = "decoder_outputs.csv",
+       csv_file = "pred_means.csv",
+       # The field separator in the output CSV file
+       sep = ",")
+
+   # Save the predicted r-values.
+   ioutil.save_decoder_outputs(\
+       # The data frame containing the predicted r-values
+       df = df_pred_r_values,
+       # The output CSV file
+       csv_file = "pred_r_values.csv",
        # The field separator in the output CSV file
        sep = ",")
 

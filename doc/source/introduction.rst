@@ -19,7 +19,6 @@ The :doc:`API reference section <api_reference>` provides a detailed description
 
 However, we also provide a small :doc:`command-line interface <command_line_interface>` to automate some of the most common tasks for which the DGD model can be used for more bio-oriented audiences.
 
-
 Tutorials
 ---------
 

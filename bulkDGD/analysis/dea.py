@@ -513,12 +513,13 @@ def get_p_values(obs_counts,
 
     # Get the names of the cells containing r-values from the series
     # of r-values.
-    genes_r_values = r_values.index
+    genes_r_values =  \
+        [col for col in r_values.index if col.startswith("ENSG")]
 
     #-----------------------------------------------------------------#
 
     # If the lists do not contain the same genes
-    if set(genes_obs) != set(genes_pred) != set(r_values):
+    if set(genes_obs) != set(genes_pred) != set(genes_r_values):
 
         # Raise an error.
         errstr = \
@@ -534,7 +535,8 @@ def get_p_values(obs_counts,
     # should return the columns in the order specified by the
     # selection.
     obs_counts = \
-        torch.Tensor(pd.to_numeric(obs_counts.loc[genes_obs]).values)
+        torch.Tensor(\
+            pd.to_numeric(obs_counts.loc[genes_obs]).values)
 
     #-----------------------------------------------------------------#
 
@@ -543,14 +545,18 @@ def get_p_values(obs_counts,
     # should return the columns in the order specified by the
     # selection.
     pred_means = \
-        torch.Tensor(pd.to_numeric(pred_means.loc[genes_obs]).values)
+        torch.Tensor(\
+            pd.to_numeric(pred_means.loc[genes_obs]).values)
 
     #-----------------------------------------------------------------#
 
-    # Sort the r-values so be sure they are in the same order as the
-    # genes in the observed counts/predicted mean counts.
+    # Create a tensor containing only those columns containing gene
+    # expression data for the predicted r-values - the 'loc' syntax
+    # should return the columns in the order specified by the
+    # selection.
     r_values = \
-        torch.Tensor(r_values.reindex(index = genes_obs).values)
+        torch.Tensor(\
+            pd.to_numeric(r_values.loc[genes_r_values]).values)
 
     #-----------------------------------------------------------------#
 
@@ -561,7 +567,7 @@ def get_p_values(obs_counts,
 
     #-----------------------------------------------------------------#
 
-    # Get the rescaled predicted means of the negative binomials
+    # Get the scaled predicted means of the negative binomials
     # (one for each gene). This is a 1D tensor whose length is equal
     # to the number of genes.
     pred_means = pred_means * obs_counts_mean
@@ -811,7 +817,7 @@ def get_log2_fold_changes(obs_counts,
 
     #-----------------------------------------------------------------#
 
-    # Get the rescaled predicted means of the negative binomials
+    # Get the scaled predicted means of the negative binomials
     # (one for each gene). This is a 1D tensor whose length is equal
     # to the number of genes.
     pred_means = pred_means * obs_counts_mean

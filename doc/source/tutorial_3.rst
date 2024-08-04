@@ -1,7 +1,9 @@
 Tutorial 3 - Training the DGD model
 ===================================
 
-The code and input/output data regarding this tutorial can be found in the ``bulkDGD/tutorials/tutorial_3`` directory.
+The code and input data regarding this tutorial can be found in the ``bulkDGD/tutorials/tutorial_3`` directory.
+
+The output data are not included because of GitHub's file size constraints.
 
 Step 1 - Set the DGD model
 --------------------------
@@ -38,6 +40,8 @@ Once loaded, the configuration consists of a dictionary of options, which maps t
 
 Here, we use the custom list contained in the ``custom_genes.txt`` file (in the ``model_untrained.yaml`` configuration file, ``genes_txt_file`` is set to ``custom_genes.txt``).
 
+A detailed descritpions of the other options used to initialize the DGD model can be found :doc:`here <model_config_options>`.
+
 We can now initialize the DGD model.
 
 .. code-block:: python
@@ -69,7 +73,6 @@ If we have a GPU available, we can move the model there.
 
    # Move the model to the device.
    dgd_model.device = device
-
 
 Step 2 - Preprocess the input samples
 -------------------------------------
@@ -157,14 +160,13 @@ The function returns three objects:
 Step 3 - Get the training options
 ---------------------------------
 
-Before training the DGD model, we need to obtain the configuration for the training procedure (which optimizers to use, for how many epochs to train, etc.). Here, we load the configuration from the ``bulkDGD/ioutil/configs/training/training.yaml`` configuration file. However, the configuration can also be stored in a dictionary whose structure is described :doc:`here <train_config_options>`.
+Before training the DGD model, we need to obtain the configuration for the training procedure (which optimizers to use, for how many epochs to train, etc.). Here, we load the configuration from the ``bulkDGD/ioutil/configs/training/training.yaml`` configuration file. We can refer to this file using its name (without extension) because the file is stored in the ``bulkDGD/ioutil/configs/training`` directory.
+
+The configuration can also be stored in a dictionary whose structure is described :doc:`here <train_config_options>`.
 
 .. code-block:: python
    
-   # Load the configuration for training the DGD model. Since the
-   # file is stored in the 'bulkDGD/ioutil/configs/training'
-   # directory, we can simply refer to it by its name (without the
-   # .yaml extension).
+   # Load the configuration for training the DGD model.
    config_train = ioutil.load_config_train("training")
 
 Step 4 - Train the DGD model

@@ -76,14 +76,25 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    id_help = \
-        "The input CSV file containing the data frame " \
-        "with the decoder's output for each samples' best " \
-        "representation."
-    parser.add_argument("-id", "--input-csv-dec",
+    im_help = \
+        "The input CSV file containing the data frame with the " \
+        "predicted scaled means of the negative binomials for each " \
+        "in silico control sample."
+    parser.add_argument("-im", "--input-csv-means",
                         type = str,
                         required = True,
-                        help = id_help)
+                        help = im_help)
+
+    #-----------------------------------------------------------------#
+
+    iv_help = \
+        "The input CSV file containing the data frame with the " \
+        "predicted r-values of the negative binomials for each " \
+        "in silico control sample."
+    parser.add_argument("-iv", "--input-csv-rvalues",
+                        type = str,
+                        required = True,
+                        help = iv_help)
 
     #-----------------------------------------------------------------#
 
@@ -99,19 +110,6 @@ def main():
                         type = str,
                         default = op_default,
                         help = op_help)
-
-    #-----------------------------------------------------------------#
-
-    cm_help = \
-        "The YAML configuration file specifying the " \
-        "DGD model's parameters and files containing " \
-        "the trained model. If it is a name without an " \
-        "extension, it is assumed to be the name of a " \
-        f"configuration file in '{ioutil.CONFIG_MODEL_DIR}'."
-    parser.add_argument("-cm", "--config-file-model",
-                        type = str,
-                        required = True,
-                        help = cm_help)
 
     #-----------------------------------------------------------------#
 
@@ -212,9 +210,9 @@ def main():
     # Parse the arguments.
     args = parser.parse_args()
     input_csv_samples = args.input_csv_samples
-    input_csv_dec = args.input_csv_dec
+    input_csv_means = args.input_csv_means
+    input_csv_rvalues = args.input_csv_rvalues
     output_csv_prefix = args.output_csv_prefix
-    config_file_model = args.config_file_model
     p_values_resolution = args.p_values_resolution
     q_values_alpha = args.q_values_alpha
     q_values_method = args.q_values_method
@@ -269,29 +267,6 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Try to load the configuration.
-    try:
-
-        config_model = ioutil.load_config_model(config_file_model)
-
-    # If something went wrong
-    except Exception as e:
-
-        # Warn the user and exit.
-        errstr = \
-            "It was not possible to load the configuration from " \
-            f"'{config_file_model}'. Error: {e}"
-        log.exception(errstr)
-        sys.exit(errstr)
-
-    # Inform the user that the configuration was successfully loaded.
-    infostr = \
-        "The configuration was successfully loaded from " \
-        f"'{config_file_model}'."
-    log.info(infostr)
-
-    #-----------------------------------------------------------------#
-
     # Try to load the samples.
     try:
 
@@ -324,57 +299,59 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Try to load the decoder outputs.
+    # Try to load the predicted means.
     try:
 
-        # Get the decoder outputs (= predicted means).
+        # Get the predicted means.
         pred_means = \
-            ioutil.load_decoder_outputs(\
-                csv_file = input_csv_dec,
-                sep = ",",
-                split = False)
+            ioutil.load_decoder_outputs(csv_file = input_csv_means,
+                                        sep = ",",
+                                        split = False)
 
     # If something went wrong
     except Exception as e:
 
         # Warn the user and exit.
         errstr = \
-            "It was not possible to load the decoder outputs from " \
-            f"'{input_csv_dec}'. Error: {e}"
+            "It was not possible to load the predicted means from " \
+            f"'{input_csv_means}'. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the decoder outputs were successfully
+    # Inform the user that the predicted means were successfully
     # loaded.
     infostr = \
-        "The decoder outputs were successfully loaded from " \
-        f"'{input_csv_dec}'."
+        "The predicted means were successfully loaded from " \
+        f"'{input_csv_means}'."
     log.info(infostr)
 
     #-----------------------------------------------------------------#
 
-    # Try to set the model.
+    # Try to load the predicted r-values.
     try:
-        
-        dgd_model = model.DGDModel(**config_model)
+
+        # Get the predicted r-values.
+        r_values = \
+            ioutil.load_decoder_outputs(csv_file = input_csv_rvalues,
+                                        sep = ",",
+                                        split = False)
 
     # If something went wrong
     except Exception as e:
 
         # Warn the user and exit.
         errstr = \
-            f"It was not possible to set the DGD model. Error: {e}"
+            "It was not possible to load the predicted r-values " \
+            f"from '{input_csv_rvalues}'. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the model was successfully set.
-    infostr = "The DGD model was successfully set."
+    # Inform the user that the predicted r-values were successfully
+    # loaded.
+    infostr = \
+        "The predicted r-values were successfully loaded from " \
+        f"'{input_csv_rvalues}'."
     log.info(infostr)
-
-    #-----------------------------------------------------------------#
-
-    # Get the r-values of the negative binomials.
-    r_values = dgd_model.r_values
 
     #-----------------------------------------------------------------#
 
@@ -415,6 +392,9 @@ def main():
         # Get the predicted means.
         pred_means_sample = pred_means.loc[sample_name,:]
 
+        # Get the r-values.
+        r_values_sample = r_values.loc[sample_name,:]
+
         # Submit the calculation to the cluster.
         futures.append(\
             client.submit(dea.perform_dea,
@@ -422,7 +402,7 @@ def main():
                           pred_means = pred_means_sample,
                           sample_name = sample_name,
                           statistics = statistics,
-                          r_values = r_values,
+                          r_values = r_values_sample,
                           resolution = p_values_resolution,
                           alpha = q_values_alpha,
                           method = q_values_method))
@@ -438,7 +418,7 @@ def main():
         df_stats, sample_name = result
         df_stats["obs_counts"] = obs_counts.loc[sample_name,:]
         df_stats["dgd_mean"] = pred_means.loc[sample_name,:]
-        df_stats["dgd_r"] = r_values
+        df_stats["dgd_r"] = r_values.loc[sample_name,:]
         
 
         # Set the path to the output file.

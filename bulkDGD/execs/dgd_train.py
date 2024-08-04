@@ -174,7 +174,7 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    lf_default = "dgd_get_representations.log"
+    lf_default = "dgd_get_train.log"
     lf_help = \
         "The name of the log file. The file will be written " \
         "in the working directory. The default file name is " \
@@ -516,7 +516,7 @@ def main():
 
         ioutil.save_loss(\
             df = df_loss,
-            csv_file = output_csv_loss,
+            csv_file = output_csv_loss_path,
             sep = ",")
 
     # If something went wrong

@@ -43,6 +43,7 @@ import platform
 import re
 import time
 # Import from third-party packages.
+import numpy as np
 import pandas as pd
 import torch
 from torch import nn
@@ -52,6 +53,7 @@ from . import (
     dataclasses,
     decoder,
     latent,
+    outputmodules,
     priors,
     )
 
@@ -120,21 +122,12 @@ class DGDModel(nn.Module):
 
 
     def __init__(self,
-                 dim,
-                 n_comp,
-                 cm_type,
-                 means_prior_name,
-                 means_prior_options,
-                 weights_prior_name,
-                 weights_prior_options,
-                 log_var_prior_name,
-                 log_var_prior_options,
-                 n_units_hidden_layers,
-                 r_init,
-                 activation_output,
+                 input_dim,
+                 gmm_options,
+                 dec_options,
                  genes_txt_file = None,
                  gmm_pth_file = None,
-                 dec_pth_file = None):
+                 dec_pth_file = None,):
         """Initialize an instance of the class.
 
         The model is initialized on the CPU. To move the model to
@@ -142,90 +135,22 @@ class DGDModel(nn.Module):
 
         Parameters
         ----------
-        dim : ``int``
-            The dimensionality of the latent space, the Gaussian
-            mixture model, and the first layer of the decoder..
+        input_dim : ``int``
+            The dimensionality of the input (= the dimensionality of
+            the representations, of the Gaussian mixture model, and of
+            the first layer of the decoder.
 
-        n_comp : ``int``
-            The number of components in the Gaussian mixture model.
+        gmm_options : ``dict``
+            The options for setting up the Gaussian mixture model.
 
-        cm_type : ``str``, {``"fixed"``, ``"isotropic"``, \
-            ``"diagonal"``}
-            The covariance matrix type for the Gaussian mixture model.
-        
-        means_prior_name : ``str``, {``"softball"``}
-            The name of the prior distribution over the means of the
-            components of the Gaussian mixture model.
+            For the available options, refer to the
+            :ref:`model_config_options` page.
 
-            Currently, only the ``"softball"`` distribution is
-            supported.
+        dec_options : ``dict``
+            The options for setting up the decoder.
 
-        means_prior_options : ``dict``
-            A dictionary of options for setting up the
-            prior distribution over the means of the components of
-            the Gaussian mixture model.
-
-            For the ``"softball"`` distribution, the following options
-            must be provided:
-
-            - ``"radius"`` (int): the radius of the multi-
-              dimensional soft ball.
-
-            - ``"sharpness"`` (int): the sharpness of the ball's
-              soft boundary.
-
-        weights_prior_name : ``str``, {``"dirichlet"``}
-            The name of the prior distribution over the weights of
-            the components of the Gaussian mixture model.
-
-            Currently, only the ``"dirichlet"`` distribution is
-            supported.
-
-        weights_prior_oprions : ``dict``
-            A dictionary of options for setting up the prior
-            distribution over the weights of the components of the
-            Gaussian mixture model.
-
-            For the ``"dirichlet"`` distribution, the following options
-            must be provided:
-
-            - ``"alpha"`` (float): the alpha of the Dirichlet
-              distribution.
-
-        log_var_prior_name : ``str``, {``"gaussian"``}
-            The name of the prior distribution over the log-variance
-            of the Gaussian mixture model.
-
-            Currently, only the ``"gaussian"`` prior is supported.
-
-        log_var_prior_options : ``dict``
-            A dictionary of options for setting up the prior
-            distribution over the log-variance of the Gaussian mixture
-            model.
-
-            For the ``"gaussian"`` distirbution, the following options
-            must be provided:
-
-            - ``"mean"`` (float): the mean of the Gaussian
-              distribution.
-
-            - ``"stddev"`` (float): the standard deviation of the
-              Gaussian distribution.
-
-        n_units_hidden_layers : ``list``
-            The number of units in each hidden layer of the decoder.
-
-            The length of the list determines the number of hidden
-            layers.
-
-        r_init : ``int``
-            The initial value for 'r' for the negative binomial
-            distributions in the decoder's 
-            :class:`core.decoder.NBLayer`.
-
-        activation_output : ``str``, {``"sigmoid"``, ``"softplus"``}
-            The name of the activation function for the decoder's
-            output layer.
+            For the available options, refer to the
+            :ref:`model_config_options` page.
 
         genes_txt_file : ``str``
             A .txt file containing the Ensembl IDs of the genes
@@ -270,16 +195,8 @@ class DGDModel(nn.Module):
 
         # Initialize the Gaussian mixture model.
         self._gmm = \
-            latent.GaussianMixtureModel(\
-                 dim = dim,
-                 n_comp = n_comp,
-                 cm_type = cm_type,
-                 means_prior_name = means_prior_name,
-                 means_prior_options = means_prior_options,
-                 weights_prior_name = weights_prior_name,
-                 weights_prior_options = weights_prior_options,
-                 log_var_prior_name = log_var_prior_name,
-                 log_var_prior_options = log_var_prior_options)
+            latent.GaussianMixtureModel(dim = input_dim,
+                                        **gmm_options)
 
         # If the user provided a file with the GMM's trained
         # parameters
@@ -295,14 +212,13 @@ class DGDModel(nn.Module):
 
         #-------------------------------------------------------------#
 
+        # Update the decoder's options.
+        dec_options["output_module_options"]["output_dim"] = len(genes)
+
         # Get the decoder.
         self._dec = \
-            decoder.Decoder(\
-                n_units_input_layer = dim,
-                n_units_hidden_layers = n_units_hidden_layers,
-                n_units_output_layer = len(genes),
-                r_init = r_init,
-                activation_output = activation_output)
+            decoder.Decoder(n_units_input_layer = input_dim,
+                            **dec_options)
 
         # If the user provided a file with the decoder's trained
         # parameters
@@ -318,15 +234,26 @@ class DGDModel(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Get the r-values associated with the negative binomials
-        # modeling the different genes.
-        r_values = \
-            torch.exp(self._dec.nb.log_r).squeeze().detach()
+        # Get the output module's name.
+        output_module_name = dec_options["output_module_name"]
 
-        # Associate the r-values with the genes.
-        self._r_values = \
-            pd.Series(r_values,
-                      index = genes)
+        # If the output module is the 'nb_feature_dispersion' one
+        if output_module_name == "nb_feature_dispersion":
+
+            # Get the r-values associated with the negative binomials
+            # modeling the different genes.
+            r_values = \
+                torch.exp(self._dec.nb.log_r).squeeze().detach()
+
+            # Associate the r-values with the genes.
+            self._r_values = pd.Series(r_values,
+                                       index = genes)
+
+        # If the output module is the 'nb_full_dispersion' one
+        elif output_module_name == "nb_full_dispersion":
+
+            # The r-values will be None.
+            self._r_values = None
 
         #-------------------------------------------------------------#
 
@@ -444,7 +371,9 @@ class DGDModel(nn.Module):
     @property
     def r_values(self):
         """The r-values of the negative binomials modeling the
-        counts for the genes included in the model.
+        counts for the genes included in the model. It is not ``None``
+        only if the decoder was initialized with the output module's
+        ``nb_feature_dispersion``.
         """
 
         return self._r_values
@@ -604,7 +533,7 @@ class DGDModel(nn.Module):
 
         Returns
         -------
-        rep_opt : ``torch.Tensor``
+        rep : ``torch.Tensor``
             A tensor containing the optimized representations.
 
             This is a 2D tensor where:
@@ -616,9 +545,9 @@ class DGDModel(nn.Module):
               dimensionality of the latent space where the
               representations live.
 
-        dec_out_opt : ``torch.Tensor``
-            A tensor containing the decoder's outputs for the
-            optimized representations.
+        pred_means : ``torch.Tensor``
+            A tensor containing the predicted scaled means of the
+            negative binomials.
 
             This is a 2D tensor where:
 
@@ -626,8 +555,19 @@ class DGDModel(nn.Module):
               of samples.
 
             - The second dimension has a length equal to the
-              dimensionality of the decoder output, which is also
-              the dimensionality of the gene space.
+              dimensionality of the gene space.
+
+        pred_r_values : ``torch.Tensor``
+            A tensor containing the predicted r-values of the negative
+            binomials.
+
+            This is a 2D tensor where:
+
+            - The first dimension has a length equal to the number
+              of samples.
+
+            - The second dimension has a length equal to the
+              dimensionality of the gene space.
 
         time_opt : ``list``
             A list of tuples storing, for each epoch, information
@@ -644,7 +584,7 @@ class DGDModel(nn.Module):
 
         # Get the number of genes (= the dimensionality of the
         # decoder's output).
-        n_genes = self.dec.main[-1].out_features
+        n_genes = self.dec.nb.output_dim
 
         # Create a list to store the CPU/wall clock time used in each
         # epoch of the optimization.
@@ -764,25 +704,82 @@ class DGDModel(nn.Module):
 
                 #-----------------------------------------------------#
 
-                # Get the outputs in gene space corresponding to the
-                # representations found in latent space using the
-                # decoder.
-                #
-                # The output is a 2D tensor with:
-                #
-                # - 1st dimension: the number of samples in the current
-                #                  batch times the number of components
-                #                  in the Gaussian mixture model times
-                #                  the number of representations taken
-                #                  per component per sample ->
-                #                  'n_samples_in_batch' * 
-                #                  'n_comp' *
-                #                  'n_rep_per_comp'
-                #
-                # - 2nd dimension: the dimensionality of the output
-                #                  (= gene) space ->
-                #                  'n_genes'
-                dec_out = self.dec(z = z)
+                # If the chosen output module means that the r-values
+                # are not learned
+                if isinstance(\
+                    self.dec.nb,
+                    outputmodules.OutputModuleNBFeatureDispersion):
+                    
+                    # Get the predicted scaled means of the negative
+                    # binomials.
+                    #
+                    # The output is a 2D tensor with:
+                    #
+                    # - 1st dimension: the number of samples in the
+                    #                  current batch times the number
+                    #                  of components in the Gaussian
+                    #                  mixture model times the number
+                    #                  of representations taken per
+                    #                  component per sample ->
+                    #                  'n_samples_in_batch' * 
+                    #                  'n_comp' *
+                    #                  'n_rep_per_comp'
+                    #
+                    # - 2nd dimension: the dimensionality of the output
+                    #                  (= gene) space ->
+                    #                  'n_genes'
+                    pred_means = self.dec(z = z)
+
+                # If the chosen output module means that the r-values
+                # are learned
+                elif isinstance(\
+                    self.dec.nb,
+                    outputmodules.OutputModuleNBFullDispersion):
+
+                    # Get the predicted scaled means and r-values
+                    # of the negative binomials.
+                    #
+                    # Both outputs are 2D tensors with:
+                    #
+                    # - 1st dimension: the number of samples in the
+                    #                  current batch times the number
+                    #                  of components in the Gaussian
+                    #                  mixture model times the number
+                    #                  of representations taken per
+                    #                  component per sample ->
+                    #                  'n_samples_in_batch' * 
+                    #                  'n_comp' *
+                    #                  'n_rep_per_comp'
+                    #
+                    # - 2nd dimension: the dimensionality of the output
+                    #                  (= gene) space ->
+                    #                  'n_genes'
+                    pred_means, pred_log_r_values = self.dec(z = z)
+
+                    # Reshape the predicted r-values to match the shape
+                    # required to compute the loss.
+                    #
+                    # The output is a 4D tensor with:   
+                    #
+                    # - 1st dimension: the number of samples in the
+                    #                  current batch ->
+                    #                  'n_samples_in_batch'
+                    #
+                    # - 2nd dimension: the number of representations
+                    #                  taken per component per
+                    #                  sample -> 'n_rep_per_comp'
+                    #
+                    # -3rd dimension: the number of components in the
+                    #                 Gaussian mixture model ->
+                    #                 'n_comp'
+                    #
+                    # - 4th dimension: the dimensionality of the output
+                    #                  (= gene) space -> 'n_genes'      
+                    pred_log_r_values = \
+                        pred_log_r_values.view(n_samples_in_batch,
+                                               n_rep_per_comp,
+                                               n_comp,
+                                               n_genes)
 
                 #-----------------------------------------------------#
 
@@ -811,6 +808,8 @@ class DGDModel(nn.Module):
                         n_comp,
                         -1)
 
+                #-----------------------------------------------------#
+
                 # Get the scaling factors for the mean of each negative
                 # binomial modelling the expression of a gene and
                 # reshape it so that it matches the shape required to
@@ -830,8 +829,10 @@ class DGDModel(nn.Module):
                     decoder.reshape_scaling_factors(samples_mean_exp,
                                                     4)
 
-                # Reshape the decoder's output to match the shape
-                # required to compute the loss.
+                #-----------------------------------------------------#
+
+                # Reshape the predicted scaled means to match the
+                # shape required to compute the loss.
                 #
                 # The output is a 4D tensor with:   
                 #
@@ -847,10 +848,39 @@ class DGDModel(nn.Module):
                 #
                 # - 4th dimension: the dimensionality of the output
                 #                  (= gene) space -> 'n_genes'      
-                pred_means = dec_out.view(n_samples_in_batch,
-                                          n_rep_per_comp,
-                                          n_comp,
-                                          n_genes)
+                pred_means = pred_means.view(n_samples_in_batch,
+                                             n_rep_per_comp,
+                                             n_comp,
+                                             n_genes)
+
+                #-----------------------------------------------------#
+
+                # If the chosen output module means that the r-values
+                # are not learned
+                if isinstance(\
+                    self.dec.nb,
+                    outputmodules.OutputModuleNBFeatureDispersion):
+
+                    # Set the options to compute the reconstruction
+                    # loss.
+                    recon_loss_options = \
+                        {"obs_counts" : obs_counts,
+                         "pred_means" : pred_means,
+                         "scaling_factors" : scaling_factors}
+
+                # If the chosen output module means that the r-values
+                # are learned
+                elif isinstance(\
+                    self.dec.nb,
+                    outputmodules.OutputModuleNBFullDispersion):
+
+                    # Set the options to compute the reconstruction
+                    # loss.
+                    recon_loss_options = \
+                        {"obs_counts" : obs_counts,
+                         "pred_means" : pred_means,
+                         "pred_log_r_values" : pred_log_r_values,
+                         "scaling_factors" : scaling_factors}
 
                 # Get the reconstruction loss.
                 #
@@ -870,10 +900,7 @@ class DGDModel(nn.Module):
                 # - 4th dimension: the dimensionality of the output
                 #                  (= gene) space ->
                 #                  'n_genes'
-                recon_loss = \
-                    self.dec.nb.loss(obs_counts = obs_counts,
-                                     scaling_factors = scaling_factors,
-                                     pred_means = pred_means)
+                recon_loss = self.dec.nb.loss(**recon_loss_options)
 
                 # Get the total reconstruction loss by summing all
                 # values in the 'recon_loss' tensor.
@@ -995,13 +1022,40 @@ class DGDModel(nn.Module):
                 # Get the optimized representations.
                 rep_final = rep_layer()
 
-                # Get the decoder's outputs for the optimized
-                # representations.
-                dec_out_final = self.dec(z = rep_final)
+                # If the chosen output module means that the r-values
+                # are not learned
+                if isinstance(\
+                    self.dec.nb,
+                    outputmodules.OutputModuleNBFeatureDispersion):
 
-                # Return the representations, the decoder's outputs,
-                # and the time data.
-                return rep_final, dec_out_final, time_opt
+                    # Get the predicted scaled means.
+                    means_final = self.dec(z = rep_final)
+
+                    # Get the r-values.
+                    r_values_final = \
+                        torch.exp(\
+                            self.dec.nb.log_r).squeeze().detach()
+
+                # If the chosen output module means that the r-values
+                # are learned
+                elif isinstance(\
+                    self.dec.nb,
+                    outputmodules.OutputModuleNBFullDispersion):
+
+                    # Get the predicted scaled means.
+                    means_final, log_r_values_final = \
+                        self.dec(z = rep_final)
+
+                    # Get the r-values.
+                    r_values_final = \
+                        torch.exp(\
+                            log_r_values_final).squeeze().detach()
+
+                # Return the representations, the predicted scaled
+                # means, the predicted r-values, and the time data.
+                return rep_final, \
+                       means_final, r_values_final, \
+                       time_opt
 
 
     def _select_best_rep(self,
@@ -1025,7 +1079,7 @@ class DGDModel(nn.Module):
 
         Returns
         -------
-        rep_opt : ``torch.Tensor``
+        rep : ``torch.Tensor``
             A tensor containing the best representations found for the
             given samples (one representation per sample).
 
@@ -1050,7 +1104,7 @@ class DGDModel(nn.Module):
 
         # Get the number of genes (= dimensionality of the decoder's
         # output).
-        n_genes = self.dec.main[-1].out_features
+        n_genes = self.dec.nb.output_dim
 
         # Initialize an empty tensor to store the best representations
         # found for all samples.
@@ -1150,25 +1204,82 @@ class DGDModel(nn.Module):
 
             #---------------------------------------------------------#
 
-            # Get the outputs in gene space corresponding to the
-            # representations found in latent space using the
-            # decoder for the samples in the current batch.
-            #
-            # The output is a 2D tensor with:
-            #
-            # - 1st dimension: the number of samples in the current
-            #                  batch times the number of components
-            #                  in the Gaussian mixture model times the
-            #                  number of representations taken per
-            #                  component per sample ->
-            #                  'n_samples_in_batch' * 
-            #                  'n_comp' *
-            #                  'n_rep_per_comp'
-            #
-            # - 2nd dimension: the dimensionality of the output
-            #                  (= gene) space ->
-            #                  'n_genes'
-            dec_out = self.dec(z)
+            # If the chosen output module means that the r-values
+            # are not learned
+            if isinstance(\
+                self.dec.nb,
+                outputmodules.OutputModuleNBFeatureDispersion):
+                
+                # Get the predicted scaled means of the negative
+                # binomials.
+                #
+                # The output is a 2D tensor with:
+                #
+                # - 1st dimension: the number of samples in the
+                #                  current batch times the number
+                #                  of components in the Gaussian
+                #                  mixture model times the number
+                #                  of representations taken per
+                #                  component per sample ->
+                #                  'n_samples_in_batch' * 
+                #                  'n_comp' *
+                #                  'n_rep_per_comp'
+                #
+                # - 2nd dimension: the dimensionality of the output
+                #                  (= gene) space ->
+                #                  'n_genes'
+                pred_means = self.dec(z = z)
+
+            # If the chosen output module means that the r-values
+            # are learned
+            elif isinstance(\
+                self.dec.nb,
+                outputmodules.OutputModuleNBFullDispersion):
+
+                # Get the predicted scaled means and r-values of the
+                # negative binomials.
+                #
+                # Both outputs are 2D tensors with:
+                #
+                # - 1st dimension: the number of samples in the
+                #                  current batch times the number
+                #                  of components in the Gaussian
+                #                  mixture model times the number
+                #                  of representations taken per
+                #                  component per sample ->
+                #                  'n_samples_in_batch' * 
+                #                  'n_comp' *
+                #                  'n_rep_per_comp'
+                #
+                # - 2nd dimension: the dimensionality of the output
+                #                  (= gene) space ->
+                #                  'n_genes'
+                pred_means, pred_log_r_values = self.dec(z = z)
+
+                # Reshape the predicted r-values to match the shape
+                # required to compute the loss.
+                #
+                # The output is a 4D tensor with:   
+                #
+                # - 1st dimension: the number of samples in the
+                #                  current batch ->
+                #                  'n_samples_in_batch'
+                #
+                # - 2nd dimension: the number of representations
+                #                  taken per component per
+                #                  sample -> 'n_rep_per_comp'
+                #
+                # -3rd dimension: the number of components in the
+                #                 Gaussian mixture model ->
+                #                 'n_comp'
+                #
+                # - 4th dimension: the dimensionality of the output
+                #                  (= gene) space -> 'n_genes'      
+                pred_log_r_values = \
+                    pred_log_r_values.view(n_samples_in_batch,
+                                           n_rep_per_comp,
+                                           n_comp,
+                                           n_genes)
 
             #---------------------------------------------------------#
 
@@ -1198,6 +1309,8 @@ class DGDModel(nn.Module):
                     n_comp,
                     -1)
 
+            #---------------------------------------------------------#
+
             # Get the scaling factors for the mean of each negative
             # binomial used to model the expression of a gene and
             # reshape it so that it matches the shape required to
@@ -1217,8 +1330,10 @@ class DGDModel(nn.Module):
                 decoder.reshape_scaling_factors(samples_mean_exp,
                                                 4)
 
-            # Reshape the decoded output to match the shape required to
-            # compute the reconstruction loss.
+            #---------------------------------------------------------#
+
+            # Reshape the predicted scaled means to match the shape
+            # required to compute the reconstruction loss.
             #
             # The output is a 4D tensor with:   
             #
@@ -1234,34 +1349,59 @@ class DGDModel(nn.Module):
             #
             # - 4th dimension: the dimensionality of the output
             #                  (= gene) space -> 'n_genes'      
-            pred_means = dec_out.view(n_samples_in_batch,
-                                      n_rep_per_comp,
-                                      n_comp,
-                                      n_genes)
+            pred_means = pred_means.view(n_samples_in_batch,
+                                         n_rep_per_comp,
+                                         n_comp,
+                                         n_genes)
      
-            # Get the reconstruction loss (rescale based on the mean
-            # expression of the genes in the samples in the batch).
+            #---------------------------------------------------------#
+
+            # If the chosen output module means that the r-values
+            # are not learned
+            if isinstance(\
+                self.dec.nb,
+                outputmodules.OutputModuleNBFeatureDispersion):
+
+                # Set the options to compute the reconstruction
+                # loss.
+                recon_loss_options = \
+                    {"obs_counts" : obs_counts,
+                     "pred_means" : pred_means,
+                     "scaling_factors" : scaling_factors}
+
+            # If the chosen output module means that the r-values
+            # are learned
+            elif isinstance(\
+                self.dec.nb,
+                outputmodules.OutputModuleNBFullDispersion):
+
+                # Set the options to compute the reconstruction
+                # loss.
+                recon_loss_options = \
+                    {"obs_counts" : obs_counts,
+                     "pred_means" : pred_means,
+                     "pred_log_r_values" : pred_log_r_values,
+                     "scaling_factors" : scaling_factors}
+
+            # Get the reconstruction loss.
             #
             # The output is a 4D tensor with:
             #
             # - 1st dimension: the number of samples in the current
             #                  batch -> 'n_samples_in_batch'
             # 
-            # - 2nd dimension: the number of representations taken per
-            #                  component per sample ->
+            # - 2nd dimension: the number of representations taken
+            #                  per component per sample ->
             #                  'n_rep_per_comp'
             #
-            # - 3rd dimension: the number of components in the Gaussian
-            #                  mixture model ->
+            # - 3rd dimension: the number of components in the
+            #                  Gaussian mixture model ->
             #                  'n_comp'
             #
             # - 4th dimension: the dimensionality of the output
             #                  (= gene) space ->
             #                  'n_genes'
-            recon_loss = \
-                self.dec.nb.loss(obs_counts = obs_counts,
-                                 scaling_factors = scaling_factors,
-                                 pred_means = pred_means)
+            recon_loss = self.dec.nb.loss(**recon_loss_options)
 
             # Get the total reconstruction loss by summing over the
             # last dimension of the 'recon_loss' tensor.
@@ -1474,30 +1614,41 @@ class DGDModel(nn.Module):
 
         Returns
         -------
-        rep_opt : ``torch.Tensor``
+        rep : ``torch.Tensor``
             A tensor containing the optimized representations.
 
             This is a 2D tensor where:
 
-            * The first dimension has a length equal to the number
+            - The first dimension has a length equal to the number
               of samples.
 
-            * The second dimension has a length equal to the
-              dimensionality of the latent space, where the
+            - The second dimension has a length equal to the
+              dimensionality of the latent space where the
               representations live.
 
-        dec_out_opt : ``torch.Tensor``
-            A tensor containing the decoder outputs corresponding
-            to the optimized representations.
+        pred_means : ``torch.Tensor``
+            A tensor containing the predicted scaled means of the
+            negatuve binomials.
 
             This is a 2D tensor where:
 
-            * The first dimension has a length equal to the number
+            - The first dimension has a length equal to the number
               of samples.
 
-            * The second dimension has a length equal to the
-              dimensionality of the decoder output, which is also
-              the dimensionality of the gene space.
+            - The second dimension has a length equal to the
+              dimensionality of the gene space.
+
+        pred_r_values : ``torch.Tensor``
+            A tensor containing the predicted r-values of the negative
+            binomials.
+
+            This is a 2D tensor where:
+
+            - The first dimension has a length equal to the number
+              of samples.
+
+            - The second dimension has a length equal to the
+              dimensionality of the gene space.
 
         time_opt : ``list``
             A list of tuples storing, for each epoch, information
@@ -1593,7 +1744,7 @@ class DGDModel(nn.Module):
         #-------------------------------------------------------------#
 
         # Get the optimized representations.
-        rep, dec_out, time = \
+        rep, pred_means, pred_r_values, time = \
             self._optimize_rep(\
                 data_loader = data_loader,
                 rep_layer = rep_layer_best,
@@ -1610,9 +1761,9 @@ class DGDModel(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Return the representations, the decoder's outputs, and the
-        # time of the optimization.
-        return rep, dec_out, time
+        # Return the representations, the predicted scaled means and
+        # r-values, and the time of the optimization.
+        return rep, pred_means, pred_r_values, time
 
 
     def _get_representations_two_opt(self,
@@ -1659,30 +1810,41 @@ class DGDModel(nn.Module):
 
         Returns
         -------
-        rep_opt : ``torch.Tensor``
+        rep : ``torch.Tensor``
             A tensor containing the optimized representations.
 
             This is a 2D tensor where:
 
-            * The first dimension has a length equal to the number of
-              samples.
+            - The first dimension has a length equal to the number
+              of samples.
 
-            * The second dimension has a length equal to the
-              dimensionality of the latent space, where the
+            - The second dimension has a length equal to the
+              dimensionality of the latent space where the
               representations live.
 
-        dec_out_opt : ``torch.Tensor``
-            A tensor containing the decoder outputs corresponding
-            to the optimized representations.
+        pred_means : ``torch.Tensor``
+            A tensor containing the predicted scaled means of the
+            negative binomials.
 
             This is a 2D tensor where:
 
-            * The first dimension has a length equal to the number
+            - The first dimension has a length equal to the number
               of samples.
 
-            * The second dimension has a length equal to the
-              dimensionality of the decoder output, which is also
-              the dimensionality of the gene space.
+            - The second dimension has a length equal to the
+              dimensionality of the gene space.
+
+        pred_r_values : ``torch.Tensor``
+            A tensor containing the predicted r-values of the negative
+            binomials.
+
+            This is a 2D tensor where:
+
+            - The first dimension has a length equal to the number
+              of samples.
+
+            - The second dimension has a length equal to the
+              dimensionality of the gene space.
 
         time_opt : ``list``
             A list of tuples storing, for each epoch, information
@@ -1737,9 +1899,9 @@ class DGDModel(nn.Module):
         # Get the initial values for the representations by sampling
         # from the Gaussian mixture model.
         #
-        # The representations will be the sampled from the means of
-        # the mixture components (since 'sampling_method' is set to
-        # '"mean"').
+        # The representations will be the sampled from the scaled
+        # means of the mixture components (since 'sampling_method'
+        # is set to '"mean"').
         #
         # The output is a 2D tensor with:
         #
@@ -1777,10 +1939,10 @@ class DGDModel(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Get the optimized representations, the corresponding decoder
-        # outputs, and the time information about the optimization's
-        # epochs.
-        rep_1, dec_out_1, time_1 = \
+        # Get the optimized representations, the corresponding
+        # predicted scaled means and r-values, and the time
+        # information about the optimization's epochs.
+        rep_1, pred_means_1, pred_r_values_1, time_1 = \
             self._optimize_rep(\
                 data_loader = data_loader,
                 rep_layer = rep_layer_init,
@@ -1829,10 +1991,10 @@ class DGDModel(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Get the optimized representations, the corresponding decoder
-        # outputs, and the time information about the optimization's
-        # epochs.
-        rep_2, dec_out_2, time_2 = \
+        # Get the optimized representations, the corresponding
+        # predicted scaled means and r-values, and the time
+        # information about the optimization's epochs.
+        rep_2, pred_means_2, pred_r_values_2, time_2 = \
             self._optimize_rep(\
                 data_loader = data_loader,
                 rep_layer = rep_layer_best,
@@ -1855,9 +2017,9 @@ class DGDModel(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Return the representations, the decoder's outputs, and the
-        # time information for both rounds.
-        return rep_2, dec_out_2, time
+        # Return the representations, the predicted scaled means and
+        # r-values, and the time information for both rounds.
+        return rep_2, pred_means_2, pred_r_values_2, time
 
 
     def _get_time_dataframe(self,
@@ -1913,7 +2075,8 @@ class DGDModel(nn.Module):
 
     def _get_final_dataframes_rep(self,
                                   rep,
-                                  dec_out,
+                                  pred_means,
+                                  pred_r_values,
                                   time_opt,
                                   samples_names,
                                   genes_names):
@@ -1928,25 +2091,36 @@ class DGDModel(nn.Module):
 
             This is a 2D tensor where:
 
-            * The first dimension has a length equal to the number
+            - The first dimension has a length equal to the number
               of samples.
 
-            * The second dimension has a length equal to the
-              dimensionality of the latent space, where the
+            - The second dimension has a length equal to the
+              dimensionality of the latent space where the
               representations live.
 
-        dec_out_opt : ``torch.Tensor``
-            A tensor containing the decoder outputs corresponding
-            to the optimized representations.
+        pred_means : ``torch.Tensor``
+            A tensor containing the predicted scaled means of the
+            negative binomials.
 
             This is a 2D tensor where:
 
-            * The first dimension has a length equal to the number
+            - The first dimension has a length equal to the number
               of samples.
 
-            * The second dimension has a length equal to the
-              dimensionality of the decoder output, which is also
-              the dimensionality of the gene space.
+            - The second dimension has a length equal to the
+              dimensionality of the gene space.
+
+        pred_r_values : ``torch.Tensor``
+            A tensor containing the predicted r-values of the negative
+            binomials.
+
+            This is a 2D tensor where:
+
+            - The first dimension has a length equal to the number
+              of samples.
+
+            - The second dimension has a length equal to the
+              dimensionality of the gene space.
 
         time_opt : ``list``
             A list of tuples storing, for each epoch, information
@@ -1965,29 +2139,62 @@ class DGDModel(nn.Module):
         df_rep : ``pandas.DataFrame``
             A data frame containing the representations.
 
-        df_dec_out : ``pandas.DataFrame``
-            A data frame containing the decoder outputs corresponding
-            to the representations.
+        df_pred_means : ``pandas.DataFrame``
+            A data frame containing the predicted scaled means of the
+            negative binomials.
+
+        df_pred_r_values : ``pandas.DataFrame``
+            A data frame containing the predicted r-values of the
+            negative binomials.
 
         df_time_opt : ``pandas.DataFrame``
             A data frame containing data about the optimization time.
         """
 
-        # Convert the tensor containing the decoder outputs into a
-        # list.
-        dec_out_list = dec_out.detach().cpu().numpy().tolist()
+        #-------------------------------------------------------------#
 
-        # Get a data frame containing the decoder outputs for all
-        # samples.
-        df_dec_out = pd.DataFrame(dec_out_list)
+        # Convert the tensor containing the predicted scaled means
+        # into an array.
+        pred_means_array = pred_means.detach().cpu().numpy()
+
+        # Get a data frame containing the predicted scaled means for
+        # all samples.
+        df_pred_means = pd.DataFrame(pred_means_array.tolist())
 
         # Set the names of the rows of the data frame to be the
         # names/IDs/indexes of the samples.
-        df_dec_out.index = samples_names
+        df_pred_means.index = samples_names
 
         # Set the names of the columns of the data frame to be the
         # names of the genes.
-        df_dec_out.columns = genes_names
+        df_pred_means.columns = genes_names
+
+        #-------------------------------------------------------------#
+
+        # Convert the tensor containing the predicted r-values into an
+        # array.
+        pred_r_values_array = pred_r_values.detach().cpu().numpy()
+
+        # If the array is one-dimensional (one r-value per gene for
+        # all samples)
+        if len(pred_r_values_array.shape) == 1:
+
+            # Convert it into a two-dimensional array by repeating the
+            # r-values for as many samples we have.
+            pred_r_values_array = np.tile(pred_r_values_array,
+                                          (len(samples_names), 1))
+
+        # Get a data frame containing the predicted r-values for all
+        # samples.
+        df_pred_r_values = pd.DataFrame(pred_r_values_array.tolist())
+
+        # Set the names of the rows of the data frame to be the
+        # names/IDs/indexes of the samples.
+        df_pred_r_values.index = samples_names
+
+        # Set the names of the columns of the data frame to be the
+        # names of the genes.
+        df_pred_r_values.columns = genes_names
 
         #-------------------------------------------------------------#
 
@@ -2024,7 +2231,7 @@ class DGDModel(nn.Module):
         #-------------------------------------------------------------#
 
         # Return the data frames.
-        return df_rep, df_dec_out, df_time
+        return df_rep, df_pred_means, df_pred_r_values, df_time
 
 
     def _get_final_dataframes_train(self,
@@ -2174,6 +2381,129 @@ class DGDModel(nn.Module):
     ######################### PUBLIC METHODS #########################
 
 
+    @staticmethod
+    def rescale_pred_means(df_pred_means,
+                           df_pred_r_values):
+        """Rescale the means of the negative binomials modeling
+        the genes' counts.
+
+        Parameters
+        ----------
+        df_pred_means : ``pandas.DataFrame``
+            A data frame containing the predicted scaled means of
+            the negative binomials modeling the genes' counts.
+
+            Here, each row contains the scaled mean for a given
+            representation/sample, and the columns contain either the
+            values of the scaled means or additional information.
+
+            The columns containing the scaled means must be
+            named after the corresponding genes' Ensembl IDs.
+
+        df_pred_r_values : ``pandas.DataFrame``
+            A data frame containing the predicted r-values of
+            the negative binomials modeling the genes' counts.
+
+            Here, each row contains the r-value for a given
+            representation/sample, and the columns contain either the
+            r-values or additional information.
+
+            The columns containing the r-values must be
+            named after the corresponding genes' Ensembl IDs.
+        
+        Returns
+        -------
+        df_scaled : ``pandas.DataFrame``
+            A data frame containing the predicted means.
+
+            It contains the same columns of the ``df_pred_means`` data
+            frame, in the same order they appear in the
+            ``df_pred_means`` data frame.
+
+            However, the values in the columns containing the
+            predicted means are scaled back by the corresponding
+            r-values.
+        """
+
+        # Get whether the rows' names of the two input data frames
+        # are identical.
+        index_equal = \
+            (df_pred_means.index == df_pred_r_values.index).all()
+
+        # If they are not identical
+        if not index_equal:
+
+            # Raise an error.
+            errstr = \
+                "The names of the rows of the 'df_pred_means' and " \
+                "'df_pred_r_values' data frames must be identical."
+            raise ValueError(errstr)
+
+        #-------------------------------------------------------------#
+
+        # Get whetner the columns' names of the two input data frames
+        # are indentical
+        columns_equal = \
+            (df_pred_means.columns == df_pred_r_values.columns).all()
+
+        # If they are not identical
+        if not columns_equal:
+
+            # Raise an error.
+            errstr = \
+                "The names of the columns of the 'df_pred_means' " \
+                "and 'df_pred_r_values' data frames must be identical."
+            raise ValueError(errstr)
+
+        #-------------------------------------------------------------#
+
+        # Get the names of the columns containing gene expression
+        # data from the data frame with the means.
+        genes_columns = \
+            [col for col in df_pred_means.columns \
+             if col.startswith("ENSG")]
+
+        # Create a data frame with only those columns containing gene
+        # expression data.
+        df_pred_means_data = df_pred_means.loc[:,genes_columns]
+
+        # Create a data frame with only those columns containing gene
+        # expression data.
+        df_pred_r_values_data = df_pred_r_values.loc[:,genes_columns]
+
+        #-------------------------------------------------------------#
+
+        # Get the names of the other columns.
+        other_columns = \
+            [col for col in df_pred_means.columns \
+             if col not in genes_columns]
+
+        # Create a data frame with only those columns containing
+        # additional information.
+        df_other_data = df_pred_means.loc[:,other_columns]
+
+        #-------------------------------------------------------------#
+
+        # Rescale the means.
+        df_final_means_data = \
+            df_pred_means_data * df_pred_r_values_data
+
+        #-------------------------------------------------------------#
+
+        # Make a new data frame with the scaled means.
+        df_final_means = \
+            pd.concat([df_final_means_data, df_other_data],
+                      axis = 1)
+
+        # Re-order the columns in the original order.
+        df_final_means = df_final_means[df_pred_means.columns.tolist()]
+
+        #-------------------------------------------------------------#
+
+        # Return the new data frame
+        return df_final_means
+
+
     def get_representations(self,
                             df_samples,
                             config_rep):
@@ -2204,13 +2534,25 @@ class DGDModel(nn.Module):
             information, if present in the input data frame, will
             appear last in the data frame.
 
-        df_dec_out : ``pandas.DataFrame``
-            A data frame containing the decoder outputs
-            corresponding to the representations found.
+        df_pred_means : ``pandas.DataFrame``
+            A data frame containing the predicted scaled means of
+            the negative binomials for the representations found.
 
-            Here, each row contains the decoder output for a given
+            Here, each row contains the predicted scaled means for a
+            given representation, and the columns contain either the
+            mean of a negative binomial or additional information
+            about the input samples found in the input
+            data frame. Columns containing additional
+            information, if present in the input data frame, will
+            appear last in the data frame.
+
+        df_pred_r_values : ``pandas.DataFrame``
+            A data frame containing the predicted r-values of the
+            negative binomials for the representations found.
+
+            Here, each row contains the predicted r-values for a given
             representation, and the columns contain either the
-            values of the decoder outputs or additional information
+            r-value of a negative binomial or additional information
             about the input samples found in the input
             data frame. Columns containing additional
             information, if present in the input data frame, will
@@ -2291,19 +2633,21 @@ class DGDModel(nn.Module):
 
         #-------------------------------------------------------------#
             
-        # Get the representations, the corresponding decoder
-        # outputs, and the time data.
-        rep, dec_out, time_opt = \
+        # Get the representations, the corresponding predicted scaled
+        # means and r-values of the negative binomials, and the time
+        # data.
+        rep, pred_means, pred_r_values, time_opt = \
             opt_method(dataset = dataset,
                        config = config_rep)
 
         #-------------------------------------------------------------#
 
         # Generate the final data frames.
-        df_rep, df_dec_out, df_time = \
+        df_rep, df_pred_means, df_pred_r_values, df_time = \
             self._get_final_dataframes_rep(\
                 rep = rep,
-                dec_out = dec_out,
+                pred_means = pred_means,
+                pred_r_values = pred_r_values,
                 time_opt = time_opt,
                 samples_names = samples_names,
                 genes_names = genes_names)
@@ -2316,14 +2660,19 @@ class DGDModel(nn.Module):
                            axis = 1)
 
         # Add the extra data found in the input data frame to the
-        # decoder outputs' data frame.
-        df_dec_out = pd.concat([df_dec_out, df_other_data],
-                               axis = 1)
+        # predicted scaled means' data frame.
+        df_pred_means = pd.concat([df_pred_means, df_other_data],
+                                   axis = 1)
+
+        # Add the extra data found in the input data frame to the
+        # predicted r-values' data frame.
+        df_pred_r_values = pd.concat([df_pred_r_values, df_other_data],
+                                      axis = 1)
 
         #-------------------------------------------------------------#
 
         # Return the data frames.
-        return df_rep, df_dec_out, df_time
+        return df_rep, df_pred_means, df_pred_r_values, df_time
 
 
     def get_probability_density(self,
@@ -2462,77 +2811,6 @@ class DGDModel(nn.Module):
 
         # Return the two data frames.
         return df_prob_rep, df_prob_comp
-
-
-    def rescale_decoder_outputs(self,
-                                df):
-        """Rescale the decoder outputs, which correspond to the
-        means of the negative binomials modeling the expression
-        of the genes included in the model.
-
-        Parameters
-        ----------
-        df : ``pandas.DataFrame``
-            A data frame containing the decoder outputs.
-
-            Here, each row contains the decoder output for a given
-            representation/sample, and the columns contain either the
-            values of the decoder outputs or additional information.
-
-            The columns containing the decoder outputs must be
-            named after the corresponding genes' Ensembl IDs.
-        
-        Returns
-        -------
-        df_rescaled : ``pandas.DataFrame``
-            A data frame containing the rescaled decoder outputs.
-
-            It contains the same columns of the input data frame,
-            in the same order they appear in the input data frame.
-
-            However, the values in the columns containing the
-            decoder outputs are rescaled.
-        """
-
-        # Get the r-values.
-        r_values = self.r_values
-
-        #-------------------------------------------------------------#
-
-        # Get the names of the columns containing gene expression
-        # data from the original data frame.
-        genes_columns = \
-            [col for col in df.columns if col.startswith("ENSG")]
-
-        # Create a data frame with only those columns containing gene
-        # expression data.
-        df_dec_data = df.loc[:,genes_columns]
-
-        # Rescale the decoder outputs.
-        df_dec_data = df_dec_data * self.r_values
-
-        #-------------------------------------------------------------#
-
-        # Get the names of the other columns.
-        other_columns = \
-            [col for col in df.columns if col not in genes_columns]
-
-        # Create a data frame with only those columns containing
-        # additional information.
-        df_other_data = df.loc[:,other_columns]
-
-        #-------------------------------------------------------------#
-
-        # Make a new data frame with the rescaled outputs.
-        df_final = pd.concat([df_dec_data, df_other_data])
-
-        # Re-order the columns in the original order.
-        df_final = df_final[df.columns.tolist()]
-
-        #-------------------------------------------------------------#
-
-        # Return the new data frame
-        return df_final
 
 
     def train(self,
@@ -2826,20 +3104,99 @@ class DGDModel(nn.Module):
 
                     #-------------------------------------------------#
 
-                    # Get the decoder's outputs for the representations.
-                    dec_out = self.dec(z = z)
+                    # If the chosen output module means that the
+                    # r-values are not learned
+                    if isinstance(\
+                        self.dec.nb,
+                        outputmodules.OutputModuleNBFeatureDispersion):
+                        
+                        # Get the predicted means of the negative
+                        # binomials.
+                        #
+                        # The output is a 2D tensor with:
+                        #
+                        # - 1st dimension: the number of samples in the
+                        #                  current batch times the
+                        #                  number of components in the
+                        #                  Gaussian mixture model times
+                        #                  the number of
+                        #                  representations taken per
+                        #                  component per sample ->
+                        #                  'n_samples_in_batch' * 
+                        #                  'n_comp' *
+                        #                  'n_rep_per_comp'
+                        #
+                        # - 2nd dimension: the dimensionality of the
+                        #                  output (= gene) space ->
+                        #                  'n_genes'
+                        pred_means = self.dec(z = z)
+
+                    # If the chosen output module means that the
+                    # r-values are learned
+                    elif isinstance(\
+                        self.dec.nb,
+                        outputmodules.OutputModuleNBFullDispersion):
+
+                        # Get the predicted means and r-values of the
+                        # negative binomials.
+                        #
+                        # Both outputs are 2D tensors with:
+                        #
+                        # - 1st dimension: the number of samples in the
+                        #                  current batch times the
+                        #                  number of components in the
+                        #                  Gaussian mixture model times
+                        #                  the number of
+                        #                  representations taken per
+                        #                  component per sample ->
+                        #                  'n_samples_in_batch' * 
+                        #                  'n_comp' *
+                        #                  'n_rep_per_comp'
+                        #
+                        # - 2nd dimension: the dimensionality of the
+                        #                  output (= gene) space ->
+                        #                  'n_genes'
+                        pred_means, pred_log_r_values = self.dec(z = z)
 
                     #-------------------------------------------------#
 
                     # Get the Gaussian mixture model's loss.
                     gmm_loss = self.gmm(x = z).sum()
 
+                    #-------------------------------------------------#
+
+                    # If the chosen output module means that the
+                    # r-values are not learned
+                    if isinstance(\
+                        self.dec.nb,
+                        outputmodules.OutputModuleNBFeatureDispersion):
+
+                        # Set the options to compute the reconstruction
+                        # loss.
+                        recon_loss_options = \
+                            {"obs_counts" : samples_exp,
+                             "pred_means" : pred_means,
+                             "scaling_factors" : samples_mean_exp}
+
+                    # If the chosen output module means that the
+                    # r-values are learned
+                    elif isinstance(\
+                        self.dec.nb,
+                        outputmodules.OutputModuleNBFullDispersion):
+
+                        # Set the options to compute the reconstruction
+                        # loss.
+                        recon_loss_options = \
+                            {"obs_counts" : samples_exp,
+                             "pred_means" : pred_means,
+                             "pred_log_r_values" : pred_log_r_values,
+                             "scaling_factors" : samples_mean_exp}
+
                     # Get the reconstruction loss.
                     recon_loss = \
-                        self.dec.nb.loss(\
-                            obs_counts = samples_exp,
-                            pred_means = dec_out,
-                            scaling_factors = samples_mean_exp).sum()
+                        self.dec.nb.loss(**recon_loss_options).sum()
+
+                    #-------------------------------------------------#
 
                     # Get the overall loss.
                     loss = gmm_loss.clone() + recon_loss.clone()
@@ -2990,4 +3347,3 @@ class DGDModel(nn.Module):
 
         # Return the data frames.
         return df_rep_train, df_rep_test, df_loss, df_time
-

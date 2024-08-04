@@ -11,6 +11,8 @@
 
    .. autofunction:: ioutil.load_config_plot
 
+   .. autofunction:: ioutil.load_config_genes
+
    .. autofunction:: ioutil.load_decoder_outputs
 
    .. autofunction:: ioutil.load_samples
