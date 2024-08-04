@@ -46,7 +46,7 @@ author = \
     "Anders Lykkebo-Valløe, Andreas Bjerregaard, Anders Krogh"
 
 # Set the project's version.
-version = "1.0.6"
+version = "1.1.0"
 
 # Set a brief description of the project.
 description = \
