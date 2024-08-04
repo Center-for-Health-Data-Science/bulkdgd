@@ -263,7 +263,7 @@ def main():
     log.info(infostr)
 
     #-----------------------------------------------------------------#
-    
+
     # Get the list of Ensembl IDs of the genes retrieved.
     genes_list = \
         genes_attributes["Gene stable ID"].unique().tolist()

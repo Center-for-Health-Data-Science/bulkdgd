@@ -39,7 +39,7 @@ ENSEMBL_XML_QUERY = \
     'http://www.ensembl.org/biomart/martservice?' \
     'query=<?xml version="1.0" encoding="UTF-8"?>' \
     '<!DOCTYPE Query><Query  virtualSchemaName = "default" ' \
-    'formatter = "CSV" header = "0" uniqueRows = "0" count = "" ' \
+    'formatter = "CSV" header = "1" uniqueRows = "0" count = "" ' \
     'datasetConfigVersion = "0.6" >' \
     '<Dataset name = "{:s}" interface = "default" >' \
     '{:s}' \
