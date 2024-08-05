@@ -152,7 +152,7 @@ And this is how the ``dec_options`` dictionary should look like:
       # Type: int.
       r_init: 2
 
-If we are loading the options from a YAML configuration file similar to those provided in the `bulkDGD/ioutil/configs/model` directory, we can set up the model as follows:
+If we are loading the options from a YAML configuration file similar to those provided in the ``bulkDGD/ioutil/configs/model`` directory, we can set up the model as follows:
 
 .. code-block:: python
 
