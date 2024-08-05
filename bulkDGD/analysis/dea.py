@@ -260,8 +260,8 @@ def _yield_p_values(obs_counts,
         for the genes.
 
     pred_means : ``torch.Tensor``
-        A one-dimensional tensor containing the predicted mean counts
-        for the genes.
+        A one-dimensional tensor containing the predicted scaled
+        mean counts for the genes.
 
     r_values : ``torch.Tensor``
         A one-dimensional tensor containing the r-values for the genes.
@@ -433,15 +433,15 @@ def get_p_values(obs_counts,
         information about the sample.
 
     pred_means : ``pandas.Series``
-        The predicted means of the negative binomials modelling the
-        genes' counts in a single sample.
+        The predicted scaled means of the negative binomials modelling
+        the genes' counts in a single sample.
 
         This is a series whose index contains either the genes'
         Ensembl IDs or names of fields containing additional
         information about the sample.
 
     r_values : ``pandas.Series``
-        The predicted r_values of the negative binomials modelling
+        The predicted r-values of the negative binomials modelling
         the genes' counts in a single sample.
 
         This is a series whose index contains either the genes'
@@ -753,9 +753,8 @@ def get_log2_fold_changes(obs_counts,
         information about the sample.
 
     pred_means : ``pandas.Series``
-        The predicted means of the negative binomials modelling the
-        gene counts in a single sample. This is the raw output of the
-        DGD model for a single sample.
+        The predicted scaled means of the negative binomials modelling
+        the genes' counts in a single sample.
 
         This is a series whose index contains either the genes'
         Ensembl IDs or names of fields containing additional
@@ -871,9 +870,8 @@ def perform_dea(obs_counts,
         information about the sample.
 
     pred_means : ``pandas.Series``
-        The predicted means of the negative binomials modelling the
-        gene counts in a single sample. This is the raw output of the
-        DGD model for a single sample.
+        The predicted scaled means of the negative binomials modelling
+        the genes' counts in a single sample.
 
         This is a series whose index contains either the genes'
         Ensembl IDs or names of fields containing additional
@@ -893,7 +891,7 @@ def perform_dea(obs_counts,
         will be computed.
 
     r_values : ``pandas.Series``
-        The predicted r_values of the negative binomials modelling
+        The predicted r-values of the negative binomials modelling
         the genes' counts in a single sample.
 
         This is a series whose index contains either the genes'
