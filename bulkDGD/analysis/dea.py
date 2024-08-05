@@ -434,16 +434,19 @@ def get_p_values(obs_counts,
 
     pred_means : ``pandas.Series``
         The predicted means of the negative binomials modelling the
-        gene counts in a single sample. This is the raw output of the
-        DGD model for a single sample.
+        genes' counts in a single sample.
 
         This is a series whose index contains either the genes'
         Ensembl IDs or names of fields containing additional
         information about the sample.
 
     r_values : ``pandas.Series``
-        A series containing one r-value for each negative binomial
-        (= one r-value per gene).
+        The predicted r_values of the negative binomials modelling
+        the genes' counts in a single sample.
+
+        This is a series whose index contains either the genes'
+        Ensembl IDs or names of fields containing additional
+        information about the sample.
 
     resolution : ``int``, optional
         How accurate the calculation of the p-values should be.
@@ -890,8 +893,12 @@ def perform_dea(obs_counts,
         will be computed.
 
     r_values : ``pandas.Series``
-        A series containing one r-value for each negative binomial
-        (= one r-value per gene).
+        The predicted r_values of the negative binomials modelling
+        the genes' counts in a single sample.
+
+        This is a series whose index contains either the genes'
+        Ensembl IDs or names of fields containing additional
+        information about the sample.
 
     resolution : ``int``, optional
         How accurate the calculation of the p-values should be.
