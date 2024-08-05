@@ -94,6 +94,8 @@ When running :meth:`core.model.DGDModel.get_representations` the ``config`` argu
 
 When running :meth:`core.model.DGDModel.get_representations` the ``config`` argument should be a dictionary structured as follows to use the ``two_opt`` scheme:
 
+.. code-block:: python
+
    {# Set the name of the optimization scheme the configuration refers
     # to.
     #

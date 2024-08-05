@@ -4,7 +4,7 @@ Installing with ``conda``
 Step 1 - Install ``conda``
 --------------------------
 
-Go `here <https://docs.conda.io/en/latest/miniconda.html>`_ for detailed instructions on how to install ``conda``.
+Go `to the Miniconda documentation <https://docs.conda.io/en/latest/miniconda.html>`_ for detailed instructions on how to install ``conda``.
 
 Installing ``miniconda`` rather than the full ``anaconda`` package is advised.
 
