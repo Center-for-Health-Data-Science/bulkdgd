@@ -11,7 +11,10 @@ bulkDGD is a Python package providing an interface to use the Deep Generative De
 
 The first application of the model to bulk RNA-Seq data is presented in the work of Prada-Luengo, Schuster, Liang, and coworkers (Prada-Luego, Schuster, Liang, et al., 2023).
 
-* **Documentation**: bulkDGD's documentation can be found [here](https://bulkdgd.readthedocs.io/en/latest/).
+* **Documentation**
+  * bulkDGD's documentation for the latest version (which can be under development) can be found [here](https://bulkdgd.readthedocs.io/en/latest/).
+  * bulkDGD's documentation for the latest stable version can be found [here](https://bulkdgd.readthedocs.io/en/stable/).
+
 * **Bug reports**: please report any bugs or problems you encounter with bulkDGD in the dedicated [issues](https://github.com/Center-for-Health-Data-Science/bulkDGD/issues) section on GitHub.
 
 **License**
