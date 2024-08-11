@@ -12,7 +12,7 @@ In detail, sample preprocessing consists of the following steps:
 
 1. Removing duplicated samples.
 2. Removing samples containing missing values for the expression of some genes.
-3. Excluding all data for genes that are not included in the DGD model. A plain text file containing the list of the genes used in the model is available in `bulkDGD/ioutil/data/genes.txt`.
+3. Excluding all data for genes that are not included in the DGD model. A plain text file containing the list of the genes used in the model (`genes.txt`) is available in `bulkDGD/data/model/genes`.
 4. Adding a count of 0 for all genes not found in the input samples but part of the set of genes used to train the DGD model.
 5. Sorting the genes in the order expected by the DGD model.
 

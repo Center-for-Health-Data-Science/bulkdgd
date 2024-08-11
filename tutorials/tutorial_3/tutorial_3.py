@@ -29,6 +29,9 @@ log.basicConfig(level = "INFO")
 # Load the model's configuration.
 config_model = ioutil.load_config_model("model_untrained.yaml")
 
+# Check the configuration.
+config_model = util.check_config_model(config = config_model)
+
 
 #------------------------- Create the model --------------------------#
 
@@ -107,6 +110,8 @@ df_test, genes_excluded_test, genes_missing_test = \
 # Load the configuration for training the model.
 config_train = ioutil.load_config_train("training")
 
+# Check the configuration.
+config_train = util.check_config_train(config = config_train)
 
 #-------------------------- Train the model --------------------------#
 

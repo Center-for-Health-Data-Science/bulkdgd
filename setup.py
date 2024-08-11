@@ -71,8 +71,8 @@ package_data = \
                          "configs/plot/*.yaml",
                          "configs/representations/*.yaml",
                          "configs/training/*.yaml",
-                         "data/*.pth",
-                         "data/*.txt",
+                         "data/genes/*.txt"
+                         "data/model/*.pth",
                          "data/*.md",],
      "bulkDGD.recount3" : ["data/*.txt",
                            "data/*.md"]}

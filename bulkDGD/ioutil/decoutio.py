@@ -56,17 +56,17 @@ def load_decoder_outputs(csv_file,
 
     Parameters
     ----------
-    csv_file : ``str``
+    csv_file : :class:`str`
         A CSV file containing a data frame with the decoder's outputs.
 
         Each row should represent the decoder's output for a given
         representation, while each column should contain either the
         values of the output or additional information about it.
 
-    sep : ``str``, ``","``
+    sep : :class:`str`, ``","``
         The column separator in the input CSV file.
 
-    split : ``bool``, ``True``
+    split : :class:`bool`, ``True``
         Whether to split the input data frame into two data frames,
         one with only the columns containing the decoder's outputs
         and the other containing only the columns with additional
@@ -74,7 +74,7 @@ def load_decoder_outputs(csv_file,
 
     Returns
     -------    
-    df_data : ``pandas.DataFrame``
+    df_data : :class:`pandas.DataFrame`
         A data frame containing the decoder's outputs.
 
         Here, each row represents the decoder's output for a given
@@ -85,7 +85,7 @@ def load_decoder_outputs(csv_file,
         the columns with additional information about the output, if
         any were found.
 
-    df_other_data : ``pandas.DataFrame``
+    df_other_data : :class:`pandas.DataFrame`
         A data frame containing additional information about the
         decoder's outputs found in the input data frame.
 
@@ -155,13 +155,13 @@ def save_decoder_outputs(df,
 
     Parameters
     ----------
-    df : ``pandas.DataFrame``
+    df : :class:`pandas.DataFrame`
         A data frame containing the decoder's outputs.
 
-    csv_file : ``str``
+    csv_file : :class:`str`
         The output CSV file.
 
-    sep : ``str``, ``","``
+    sep : :class:`str`, ``","``
         The column separator in the output CSV file.
     """
 

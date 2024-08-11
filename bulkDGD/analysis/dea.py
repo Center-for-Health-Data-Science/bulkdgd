@@ -39,9 +39,11 @@ import logging as log
 # Import from third-party packages.
 import numpy as np
 import pandas as pd
-from scipy.stats import nbinom
+from scipy.stats import nbinom, poisson
 from statsmodels.stats.multitest import multipletests
 import torch
+# Import from 'bulkDGD'.
+from . import _util
 
 
 #######################################################################
@@ -54,197 +56,6 @@ logger = log.getLogger(__name__)
 ########################## PRIVATE FUNCTIONS ##########################
 
 
-def _log_prob_mass(k,
-                   m,
-                   r):
-    """Compute the natural logarithm of the probability mass for a set
-    of negative binomial distributions.
-
-    Thr formula used to compute the logarithm of the probability mass
-    is:
-
-    .. math::
-
-       logPDF_{NB(k,m,r)} &=
-       log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\ 
-       &+ k \\cdot log(m \\cdot c + \\epsilon) +
-       r \\cdot log(r \\cdot c)
-
-    Where :math:`\\epsilon` is a small value to prevent underflow/
-    overflow, and :math:`c` is equal to
-    :math:`\\frac{1}{r+m+\\epsilon}`.
-
-    The derivation of this formula from the non-logarithmic formulation
-    of the probability mass function of the negative binomial
-    distribution can be found below.
-
-    Parameters
-    ----------
-    k : ``torch.Tensor``
-        A one-dimensional tensor containing he "number of successes"
-        seen before stopping the trials.
-
-        Each value in the tensor corresponds to the number of
-        successes in a different negative binomial.
-
-    m : ``torch.Tensor``
-        A one-dimensional tensor containing the means of the negative
-        binomials.
-
-        Each value in the tensor corresponds to the mean of a different
-        negative binomial.
-
-    r : ``torch.Tensor``
-        A one-dimensional tensor containing the "number of failures"
-        after which the trials end.
-
-        Each value in the tensor corresponds to the number of failures
-        in a different negative binomial.
-
-    Returns
-    -------
-    x : ``torch.Tensor``
-        A one-dimensional tensor containing the lhe log-probability
-        mass of each negative binomials.
-
-        Each value in the tensor corresponds to the log-probability
-        mass of a different negative binomial.
-
-    Notes
-    -----
-    Here, we show how we derived the formula for the logarithm of the
-    probability mass of the negative binomial distribution.
-
-    We start from the non-logarithmic version of the probability mass
-    for the negative binomial, which is:
-
-    .. math::
-
-       PDF_{NB(k,m,r)} = \
-       \\binom{k+r-1}{k} (1-p)^{k} p^{r}
-
-    However, since:
-
-    * :math:`1-p` is equal to :math:`\\frac{m}{r+m}`
-    * :math:`p` is equal to :math:`\\frac{r}{r+m}`
-    * :math:`k+r-1` can be rewritten in terms of the
-      gamma function as :math:`\\Gamma(k+r)`
-    * :math:`k` can also be rewritten as
-      :math:`\\Gamma(r) \\cdot k!`
-
-    The formula becomes:
-
-    .. math::
-
-       PDF_{NB(k,m,r)} = \
-       \\binom{\\Gamma(k+r)}{\\Gamma(r) \\cdot k!}
-       \\left( \\frac{m}{r+m} \\right)^k
-       \\left( \\frac{r}{r+m} \\right)^r
-
-    However, :math:`k!` can be also be rewritten as
-    :math:`\\Gamma(k+1)`, resulting in:
-
-    .. math::
-
-       PDF_{NB(k,m,r)} = \
-       \\binom{\\Gamma(k+r)}{\\Gamma(r) \\cdot 
-       \\Gamma(k+1)}
-       \\left( \\frac{m}{r+m} \\right)^k
-       \\left( \\frac{r}{r+m} \\right)^r
-
-    Then, we get the natural logarithm of both sides:
-    
-    .. math::
-
-       logPDF_{NB(k,m,r)} &= \
-       log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\
-       &+ k \\cdot log \\left( \\frac{m}{r+m} \\right) +
-       r \\cdot log \\left( \\frac{r}{r+m} \\right)
-    
-    Here, we are adding a small value :math:`\\epsilon` to prevent
-    underflow/overflow:
-
-    .. math::
-
-       logPDF_{NB(k,m,r)} &= \
-       log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\
-       &+ k \\cdot
-       log \\left( m \\cdot \\frac{1}{r+m+\\epsilon} 
-       + \\epsilon \\right) +
-       r \\cdot
-       log \\left( r \\cdot \\frac{1}{r+m+\\epsilon}
-       \\right)
-
-    Finally, we substitute :math:`\\frac{1}{r+m+\\epsilon}` with
-    :math:`c` and we obtain:
-
-    .. math::
-
-       logPDF_{NB(k,m,r)} &= \
-       log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\
-       &+ k \\cdot
-       log \\left( m \\cdot c + \\epsilon \\right) +
-       r \\cdot
-       log \\left( r \\cdot c \\right)
-    """
-
-    # Convert the "number of successes" to a double-precision floating
-    # point number.
-    k = k.double()
-    
-    # Set a small value used to prevent underflow and overflow.
-    eps = 1.e-10
-    
-    # Set a constant used later in the equation defining the log-
-    # probability mass.
-    c = 1.0 / (r + m + eps)
-    
-    # Get the log-probability mass of the negative binomials.
-    #
-    # The non-log version would be:
-    #
-    # NB(k,m,r) = \
-    #   gamma(k+r) / (gamma(r) * k!) *
-    #   (m/(r+m))^k *
-    #   (r/(r+m))^r
-    #
-    # Since k! can be rewritten as 'gamma(k+1)':
-    #
-    # NB(k,m,r) = \
-    #   gamma(k+r) / (gamma(r) * gamma(k+1)) *
-    #   (m/(r+m))^k *
-    #   (r/(r+m))^r
-    #
-    # Getting the natural logarithm of both sides results in:
-    #
-    # log(NB(k,m,r)) = \
-    #   lgamma(k+r) - lgamma(r) - lgamma(k+1) +
-    #   k * log(m * 1/(r+m)) +
-    #   r * log(r * 1/(r+m))
-    #
-    # Here, we are adding the small 'eps' to prevent underflow/
-    # overflow:
-    #
-    # log(NB(k,m,r)) = \
-    #   lgamma(k+r) - lgamma(r) - lgamma(k+1) +
-    #   k * log(m * 1/(r+m+eps) + eps) +
-    #   r * log(r * 1/(r+m+eps))
-    #
-    # Substituting '1/(r+m+eps)' with 'c' yields:
-    #
-    # log(NB(k,m,r)) = \
-    #   lgamma(k+r) - lgamma(r) - lgamma(k+1) +
-    #   k * log(m * c + eps) +
-    #   r * log(r * c)
-    x = \
-        torch.lgamma(k+r) - torch.lgamma(r) - \
-        torch.lgamma(k+1) + k*torch.log(m*c+eps) + \
-        r*torch.log(r*c)
-
-    # Return the log-probability mass for the negative binomials.
-    return x
-
-
 def _yield_p_values(obs_counts,
                     pred_means,
                     r_values,
@@ -255,71 +66,100 @@ def _yield_p_values(obs_counts,
 
     Parameters
     ----------
-    obs_counts : ``torch.Tensor``
+    obs_counts : :class:`torch.Tensor`
         A one-dimensional tensor containing the observed counts
         for the genes.
 
-    pred_means : ``torch.Tensor``
+    pred_means : :class:`torch.Tensor`
         A one-dimensional tensor containing the predicted scaled
         mean counts for the genes.
 
-    r_values : ``torch.Tensor``
+    r_values : :class:`torch.Tensor` or :obj:`None`
         A one-dimensional tensor containing the r-values for the genes.
 
-    resolution : ``int``
+    resolution : :class:`int`
         The resolution at which to perform the p-value calculation.
 
     Yields
     ------
-    p_val : ``float``
+    p_val : :class:`float`
         The calculated p-values for all genes.
 
-    k : ``numpy.ndarray``
+    k : :class:`numpy.ndarray`
         A two-dimensional array containing the points at which the
         log-probability mass function was evaluated for each gene.
 
-    pmf : ``numpy.ndarray``
+    pmf : :class:`numpy.ndarray`
         A two-dimensional array containing the values of the
         log-probability mass function evalutated at each ``k`` point
         for each gene.
     """
 
     # For each gene's observed count, predicted mean count, and r-value
-    for obs_count_gene_i, pred_mean_gene_i, r_value_i \
-        in zip(obs_counts, pred_means, r_values):
+    for i, obs_count_gene_i, pred_mean_gene_i \
+        in enumerate(zip(obs_counts, pred_means)):
 
         #-------------------------------------------------------------#
 
-        # Calculate the probability of "success" from the r-value
-        # (number of successes till the experiment is stopped) and
-        # the mean of the negative binomial. This is a single value,
-        # and is calculated from the mean 'm' of the negative binomial
-        # as:
-        #
-        # m = r(1-p) / p
-        # mp = r - rp
-        # mp + rp = r
-        # p(m+r) = r
-        # p = r / (m + r)
-        p_i = pred_mean_gene_i.item() / \
-              (pred_mean_gene_i.item() + r_value_i.item())
+        # If negative binomial distributions were used to model the
+        # genes' counts
+        if r_values is not None:
+
+            # Get the r-value for the current gene.
+            r_value_gene_i = r_values[i]
+
+            # Calculate the probability of "success" from the r-value
+            # (number of successes till the experiment is stopped) from
+            # the mean of the negative binomial. This is a single
+            # value, and is calculated from the mean 'm' of the
+            # negative binomial as:
+            #
+            # m = r(1-p) / p
+            # mp = r - rp
+            # mp + rp = r
+            # p(m+r) = r
+            # p = r / (m + r)
+            p_i = pred_mean_gene_i.item() / \
+                  (pred_mean_gene_i.item() + r_value_gene_i.item())
+
+            #---------------------------------------------------------#
+
+            # Set the percent point function to be calculated.
+            ppf_dist = nbinom
+
+            # Set the options to calculate the percent point function.
+            #
+            # Since SciPy's negative binomial function is implemented
+            # as a function of the number of failures, their 'p' is
+            # equivalent to our '1-p' and their 'n' is our 'r'.
+            ppf_options = \
+                {"q" : 0.99999,
+                 "n" : r_value_gene_i.item(),
+                 "p" : 1 - p_i}
+
+        #-------------------------------------------------------------#
+
+        # If Poisson distributions were used to model the genes' counts
+        else:
+
+            # Set the percent point function to be calculated.
+            ppf_dist = poisson
+
+            # Set the options to calculate the percent point function.
+            ppf_options = \
+                {"q" : 0.99999,
+                 "mu" : pred_mean_gene_i.item()}
 
         #-------------------------------------------------------------#
         
-        # Get the count value at which the value of the percent point
-        # function (the inverse of the cumulative mass function) is
-        # 0.99999.
+        # Get the count value at which the value of the percent
+        # point function (the inverse of the cumulative mass
+        # function) is 0.99999.
         #
         # This corresponds to the value in the probability mass
         # function beyond which lies 0.00001 of the mass. This is a
         # single value.
-        #
-        # Since SciPy's negative binomial function is implemented as a
-        # function of the number of failures, their 'p' is equivalent
-        # to our '1-p' and their 'n' is our 'r'.
-        tail = nbinom.ppf(q = 0.99999,
-                          n = r_value_i.item(),
-                          p = 1 - p_i).item()
+        tail = ppf_dist.ppf(**ppf_options).item()
         
         #-------------------------------------------------------------#
 
@@ -352,16 +192,59 @@ def _yield_p_values(obs_counts,
 
         #-------------------------------------------------------------#
 
+        # If negative binomial distributions were used to model the
+        # genes' counts
+        if r_values is not None:
+
+            # Get the log-probability mass distribution to be used.
+            log_prob_mass_dist = _util.log_prob_mass_nb
+
+            # Get the options for the log-probability mass function to
+            # be used when calculating the PMF.
+            log_prob_mass_pmf_options = \
+                {"k" : k,
+                 "m" : pred_mean_gene_i,
+                 "r" : r_value_gene_i}
+
+            # Get the options for the log-probability mass function to
+            # be used when calculating the value of the mass function
+            # for the actual value of the count for gene 'i'.
+            log_prob_mass_count_options = \
+                {"k" : obs_count_gene_i,
+                 "m" : pred_mean_gene_i,
+                 "r" : r_value_gene_i}
+
+        #-------------------------------------------------------------#
+
+        # If Poisson distributions were used to model the genes' counts
+        else:
+
+            # Get the log-probability mass distribution to be used.
+            log_prob_mass_dist = _util.log_prob_mass_poisson
+
+            # Get the options for the log-probability mass function to
+            # be used when calculating the PMF.
+            log_prob_mass_pmf_options = \
+                {"k" : k,
+                 "m" : pred_mean_gene_i}
+
+            # Get the options for the log-probability mass function to
+            # be used when calculating the value of the mass function
+            # for the actual value of the count for gene 'i'.
+            log_prob_mass_count_options = \
+                {"k" : obs_count_gene_i,
+                 "m" : pred_mean_gene_i}
+
+        #-------------------------------------------------------------#
+
         # Find the value of the log-probability mass function for
         # each point in the 'k' tensor.
         #
         # The output is a 1D tensor whose length is equal to
         # the length of 'k'.
         pmf = \
-            _log_prob_mass(\
-                k = k,
-                m = pred_mean_gene_i,
-                r = r_value_i).to(torch.float64)
+            log_prob_mass_dist(**log_prob_mass_pmf_options).to(\
+                torch.float64)
 
         #-------------------------------------------------------------#
 
@@ -370,10 +253,8 @@ def _yield_p_values(obs_counts,
         #
         # The output is a single value.
         prob_obs_count_gene_i = \
-            _log_prob_mass(\
-                k = obs_count_gene_i,
-                m = pred_mean_gene_i,
-                r = r_value_i).to(torch.float64)
+            log_prob_mass_dist(**log_prob_mass_count_options).to(\
+                torch.float64)
 
         #-------------------------------------------------------------#
 
@@ -414,54 +295,61 @@ def _yield_p_values(obs_counts,
 
 def get_p_values(obs_counts,
                  pred_means,
-                 r_values,
+                 r_values = None,
                  resolution = None,
                  return_pmf_values = False):
-    """Given the observed gene counts in a single sample, the predicted
-    mean gene counts in a single sample, and r-values of the negative
-    binomial distributions with which the predicted gene counts are
-    modelled, calculate the p-value ssociated with the predicted mean
-    of each negative binomial by comparing it to the actual gene count.
+    """Given the observed gene counts in a single sample, and the
+    predicted mean gene counts in a single sample, calculate the
+    p-value ssociated with the predicted mean of each distribution
+    modeling a gene's counts by comparing it to the actual gene count.
 
     Parameters
     ----------
-    obs_counts : ``pandas.Series``
+    obs_counts : :class:`pandas.Series`
         The observed gene counts in a single sample.
 
         This is a series whose index contains either the genes'
         Ensembl IDs or names of fields containing additional
         information about the sample.
 
-    pred_means : ``pandas.Series``
-        The predicted scaled means of the negative binomials modelling
+    pred_means : :class:`pandas.Series`
+        The predicted means of the distributions modelling
         the genes' counts in a single sample.
 
         This is a series whose index contains either the genes'
         Ensembl IDs or names of fields containing additional
         information about the sample.
 
-    r_values : ``pandas.Series``
-        The predicted r-values of the negative binomials modelling
-        the genes' counts in a single sample.
+        If the genes' counts were modelled using negative binomial
+        distributions, the predicted means are scaled by the
+        corresponding distributions' r-values.
+
+    r_values : :class:`pandas.Series`, optional
+        The predicted r-values of the negative binomial distributions
+        modelling the genes' counts in a single sample, if the genes'
+        counts were modelled using negative binomial distributions.
 
         This is a series whose index contains either the genes'
         Ensembl IDs or names of fields containing additional
         information about the sample.
 
-    resolution : ``int``, optional
+        If ``r_values`` is not provided, it is assumed that the genes'
+        counts were modelled using Poisson distributions.
+
+    resolution : :class:`int`, optional
         How accurate the calculation of the p-values should be.
 
         The ``resolution`` corresponds to the coarseness of the sum
-        over the probability mass function of each negative binomial
+        over the probability mass function of each distribution
         to compute the corresponding p-value.
 
         The higher the ``resolution``, the more accurate (and more
         computationally expensive) the calculation of the p-values
         will be.
 
-        If ``None`` (the default), the calculation will be exact.
+        If not passed, the calculation will be exact.
 
-    return_pmf_values : ``bool``, ``False``
+    return_pmf_values : :class:`bool`, ``False``
         Return the points at which the log-probability mass function
         was evaluated and the corresponding values of the log-
         probability mass function, together with the p-values.
@@ -475,10 +363,10 @@ def get_p_values(obs_counts,
 
     Returns
     -------
-    p_values : ``pandas.Series``
+    p_values : :class:`pandas.Series`
         A series containing one p-value per gene.
     
-    ks : ``pandas.DataFrame``
+    ks : :class:`pandas.DataFrame`
         A data frame containing the count values at which the log-
         probability mass function was evaluated to compute the
         p-values.
@@ -489,7 +377,7 @@ def get_p_values(obs_counts,
         This is an empty data frame if ``return_pmf_values`` is
         ``False``.
     
-    pmfs : ``numpy.ndarray``
+    pmfs : :class:`numpy.ndarray`
         A data frame containing the value of the log-probability mass
         function for each count value at which it was evaluated.
 
@@ -514,22 +402,43 @@ def get_p_values(obs_counts,
 
     #-----------------------------------------------------------------#
 
-    # Get the names of the cells containing r-values from the series
-    # of r-values.
-    genes_r_values =  \
-        [col for col in r_values.index if col.startswith("ENSG")]
-
-    #-----------------------------------------------------------------#
-
     # If the lists do not contain the same genes
-    if set(genes_obs) != set(genes_pred) != set(genes_r_values):
+    if set(genes_obs) != set(genes_pred):
 
         # Raise an error.
         errstr = \
-            "The set of genes in 'obs_counts', 'pred_means', " \
-            "and 'r_values' must be the same. It is assumed that " \
-            "the genes are specified using their Ensembl IDs."
+            "The set of genes in 'obs_counts' and 'pred_means', " \
+            "must be the same. It is assumed that the genes are " \
+            "specified using their Ensembl IDs."
         raise ValueError(errstr)
+
+    #-----------------------------------------------------------------#
+
+    # If the r-values were passed
+    if r_values is not None:
+
+        # Get the names of the cells containing r-values from the
+        # series of r-values.
+        genes_r_values =  \
+            [col for col in r_values.index if col.startswith("ENSG")]
+
+        # If the lists do not contain the same genes
+        if set(genes_obs) != set(genes_pred) != set(genes_r_values):
+
+            # Raise an error.
+            errstr = \
+                "The set of genes in 'obs_counts', 'pred_means', " \
+                "and 'r_values' must be the same. It is assumed " \
+                "that the genes are specified using their Ensembl IDs."
+            raise ValueError(errstr)
+
+        # Create a tensor containing only those columns containing gene
+        # expression data for the predicted r-values - the 'loc' syntax
+        # should return the columns in the order specified by the
+        # selection.
+        r_values = \
+            torch.Tensor(\
+                pd.to_numeric(r_values.loc[genes_r_values]).values)
 
     #-----------------------------------------------------------------#
 
@@ -553,16 +462,6 @@ def get_p_values(obs_counts,
 
     #-----------------------------------------------------------------#
 
-    # Create a tensor containing only those columns containing gene
-    # expression data for the predicted r-values - the 'loc' syntax
-    # should return the columns in the order specified by the
-    # selection.
-    r_values = \
-        torch.Tensor(\
-            pd.to_numeric(r_values.loc[genes_r_values]).values)
-
-    #-----------------------------------------------------------------#
-
     # Get the mean gene counts for the sample.
     #
     # The output is a single value.
@@ -570,17 +469,16 @@ def get_p_values(obs_counts,
 
     #-----------------------------------------------------------------#
 
-    # Get the scaled predicted means of the negative binomials
-    # (one for each gene). This is a 1D tensor whose length is equal
-    # to the number of genes.
+    # Rescale the predicted means by the mean gene counts.
+    #
+    # The output is a 1D tensor containing the rescaled means.
     pred_means = pred_means * obs_counts_mean
 
     #-----------------------------------------------------------------#
 
-    # Create an empty list to store the p-values computed per gene in
-    # in the current sample, the 'k' points at which the log-
-    # probability mass function was calculated, and the values of the
-    # function at those points.
+    # Yield the p-values computed per gene in the current sample, the
+    # 'k' points at which the log-probability mass function was
+    # calculated, and the values of the function at those points.
     results = _yield_p_values(obs_counts = obs_counts,
                               pred_means = pred_means,
                               r_values = r_values,
@@ -672,26 +570,26 @@ def get_q_values(p_values,
 
     Parameters
     ----------
-    p_values : ``pandas.Series``
+    p_values : :class:`pandas.Series`
         The p-values.
 
-    alpha : ``float``, ``0.05``
+    alpha : :class:`float`, ``0.05``
         The family-wise error rate for the calculation of the q-values.
 
-    method : ``str``, ``"fdr_bh"``
+    method : :class:`str`, ``"fdr_bh"``
         The method used to adjust the p-values. The available methods
         are listed in the documentation for
         ``statsmodels.stats.multitest.multipletests``.
 
     Returns
     -------
-    q_values : ``pandas.Series``
+    q_values : :class:`pandas.Series`
         A series containing the q-values (adjusted p-values).
 
         The index of the series is equal to the index of the input
         series of p-values.
 
-    rejected : ``pandas.Series``
+    rejected : :class:`pandas.Series`
         A series containing booleans indicating whether a p-value in
         the input data frame was rejected (``True``) or not
         (``False``).
@@ -745,15 +643,15 @@ def get_log2_fold_changes(obs_counts,
 
     Parameters
     ----------
-    obs_counts : ``pandas.Series``
+    obs_counts : :class:`pandas.Series`
         The observed gene counts in a single sample.
 
         This is a series whose index contains either the genes'
         Ensembl IDs or names of fields containing additional
         information about the sample.
 
-    pred_means : ``pandas.Series``
-        The predicted scaled means of the negative binomials modelling
+    pred_means : :class:`pandas.Series`
+        The predicted means of the distributions modelling
         the genes' counts in a single sample.
 
         This is a series whose index contains either the genes'
@@ -762,7 +660,7 @@ def get_log2_fold_changes(obs_counts,
     
     Returns
     -------
-    log2_fold_changes : ``pandas.Series``
+    log2_fold_changes : :class:`pandas.Series`
         The log2-fold change associated with each gene in the given
         sample.
 
@@ -810,6 +708,7 @@ def get_log2_fold_changes(obs_counts,
     # selection.
     pred_means = \
         torch.tensor(pred_means.loc[genes_obs].astype("float").values)
+
     #-----------------------------------------------------------------#
 
     # Get the mean gene counts for the sample.
@@ -819,9 +718,9 @@ def get_log2_fold_changes(obs_counts,
 
     #-----------------------------------------------------------------#
 
-    # Get the scaled predicted means of the negative binomials
-    # (one for each gene). This is a 1D tensor whose length is equal
-    # to the number of genes.
+    # Rescale the predicted means by the mean gene counts.
+    #
+    # The output is a 1D tensor containing the rescaled means.
     pred_means = pred_means * obs_counts_mean
 
     #-----------------------------------------------------------------#
@@ -851,10 +750,10 @@ def get_log2_fold_changes(obs_counts,
 
 def perform_dea(obs_counts,
                 pred_means,
+                r_values = None,
                 sample_name = None,
                 statistics = \
                     ["p_values", "q_values", "log2_fold_changes"],
-                r_values = None,
                 resolution = None,
                 alpha = 0.05,
                 method = "fdr_bh"):
@@ -862,22 +761,38 @@ def perform_dea(obs_counts,
 
     Parameters
     ----------
-    obs_counts : ``pandas.Series``
+    obs_counts : :class:`pandas.Series`
         The observed gene counts in a single sample.
 
         This is a series whose index contains either the genes'
         Ensembl IDs or names of fields containing additional
         information about the sample.
 
-    pred_means : ``pandas.Series``
-        The predicted scaled means of the negative binomials modelling
+    pred_means : :class:`pandas.Series`
+        The predicted means of the distributions modelling
         the genes' counts in a single sample.
 
         This is a series whose index contains either the genes'
         Ensembl IDs or names of fields containing additional
         information about the sample.
 
-    sample_name : ``str``, optional
+        If the genes' counts were modelled using negative binomial
+        distributions, the predicted means are scaled by the
+        corresponding distributions' r-values.
+
+    r_values : :class:`pandas.Series`, optional
+        The predicted r-values of the negative binomial distributions
+        modelling the genes' counts in a single sample, if the genes'
+        counts were modelled using negative binomial distributions.
+
+        This is a series whose index contains either the genes'
+        Ensembl IDs or names of fields containing additional
+        information about the sample.
+
+        If ``r_values`` is not provided, it is assumed that the genes'
+        counts were modelled using Poisson distributions.
+
+    sample_name : :class:`str`, optional
         The name of the sample under consideration.
 
         It is returned together with the results of the analysis
@@ -885,37 +800,29 @@ def perform_dea(obs_counts,
         the analysis in parallel for multiple samples (i.e., launching
         the function in parallel on multiple samples).
 
-    statistics : ``list``, \
+    statistics : :class:`list`, \
         {``["p_values", "q_values", "log2_fold_changes"]``}
         The statistics to be computed. By default, all of them
         will be computed.
 
-    r_values : ``pandas.Series``
-        The predicted r-values of the negative binomials modelling
-        the genes' counts in a single sample.
-
-        This is a series whose index contains either the genes'
-        Ensembl IDs or names of fields containing additional
-        information about the sample.
-
-    resolution : ``int``, optional
+    resolution : :class:`int`, optional
         How accurate the calculation of the p-values should be.
 
         The ``resolution`` corresponds to the coarseness of the sum
-        over the probability mass function of each negative binomial
+        over the probability mass function of each distribution
         to compute the corresponding p-value.
 
         The higher the ``resolution``, the more accurate (and more
         computationally expensive) the calculation of the p-values
         will be.
 
-        If ``None`` (the default), the calculation will be exact.
+        If not passed, the calculation will be exact.
 
-    alpha : ``float``, ``0.05``
+    alpha : :class:`float`, ``0.05``
         The family-wise error rate for the calculation of the
         q-values.
 
-    method : ``str``, ``"fdr_bh"``
+    method : :class:`str`, ``"fdr_bh"``
         The method used to calculate the q-values (in other words, to
         adjust the p-values). The available methods are listed in the
         documentation for
@@ -923,14 +830,14 @@ def perform_dea(obs_counts,
 
     Returns
     -------
-    df_stats : ``pandas.DataFrame``
+    df_stats : :class:`pandas.DataFrame`
         A data frame whose rows represent the genes on which the DEA
         was performed, and whose columns contain the statistics
         computed (p-values, q_values, log2-fold changes). If not all
         statistics were computed, the columns corresponding to the
         missing ones will be empty.
 
-    sample_name : ``str`` or ``None``
+    sample_name : :class:`str` or :obj:`None`
         The name of the sample under consideration.
     """
 
@@ -966,14 +873,6 @@ def perform_dea(obs_counts,
     # If the user requested the calculation of p-values
     if "p_values" in statistics:
 
-        # If no r-values were passed.
-        if r_values is None:
-
-            # Raise an error.
-            errstr = \
-                "'r-values' are needed to compute the p-values."
-            raise RuntimeError(errstr)
-
         # Calculate the p-values. Do not return the points at which
         # the log-probability mass function was evaluated or the 
         # value of the function at these points.
@@ -992,12 +891,15 @@ def perform_dea(obs_counts,
         # If no p-values were calculated
         if p_values is None:
 
-            # Raise an error.
-            errstr = \
-                "The calculation of p-values is needed to " \
-                "compute the q-values. This can be done " \
-                "by adding 'p_values' to the 'statistics' list."
-            raise RuntimeError(errstr)
+            # Calculate the p-values. Do not return the points at which
+            # the log-probability mass function was evaluated or the 
+            # value of the function at these points.
+            p_values, ks, pmfs = \
+                get_p_values(obs_counts = obs_counts,
+                             pred_means = pred_means,
+                             r_values = r_values,
+                             resolution = resolution,
+                             return_pmf_values = False)
 
         # Calculate the q-values.
         q_values, rejected = \

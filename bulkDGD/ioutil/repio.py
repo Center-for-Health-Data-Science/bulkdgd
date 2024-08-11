@@ -56,7 +56,7 @@ def load_representations(csv_file,
 
     Parameters
     ----------
-    csv_file : ``str``
+    csv_file : :class:`str`
         A CSV file containing a data frame with the representations.
 
         Each row should contain a representation. The columns should
@@ -64,10 +64,10 @@ def load_representations(csv_file,
         space's dimensions and additional information about the
         representations, if present.
 
-    sep : ``str``, ``","``
+    sep : :class:`str`, ``","``
         The column separator in the input CSV file.
 
-    split : ``bool``, ``True``
+    split : :class:`bool`, ``True``
         Whether to split the input data frame into two data frames,
         one with only the columns with the representations' values
         along the latent space's dimensions, and the other containing
@@ -76,7 +76,7 @@ def load_representations(csv_file,
 
     Returns
     -------
-    df_data : ``pandas.DataFrame``
+    df_data : :class:`pandas.DataFrame`
         A data frame containing the representations' values along the
         latent space's dimensions.
 
@@ -88,7 +88,7 @@ def load_representations(csv_file,
         the columns with additional information about the
         representations, if any were found.
 
-    df_other_data : ``pandas.DataFrame``
+    df_other_data : :class:`pandas.DataFrame`
         A data frame containing the additional information about
         the representations found in the input data frame.
 
@@ -162,14 +162,14 @@ def save_representations(df,
 
     Parameters
     ----------
-    df : ``pandas.DataFrame``
+    df : :class:`pandas.DataFrame`
         A data frame containing the representations, and, possibly,
         additional information about the representations.
 
-    csv_file : ``str``
+    csv_file : :class:`str`
         The output CSV file.
 
-    sep : ``str``, ``","``
+    sep : :class:`str`, ``","``
         The column separator in the output CSV file.
     """
 

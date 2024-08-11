@@ -110,25 +110,25 @@ class GaussianMixtureModel(nn.Module):
 
         Parameters
         ----------
-        dim : ``int``
+        dim : :class:`int`
             The dimensionality of the Gaussian mixture model.
 
-        n_comp : ``int``
+        n_comp : :class:`int`
             The number of components in the Gaussian mixture.
 
-        means_prior_name : ``str``, {``"softball"``}
+        means_prior_name : :class:`str`, {``"softball"``}
             The name of the prior over the means of the components
             of the Gaussian mixture.
 
-        weights_prior_name : ``str``, {``"dirichlet"``}
+        weights_prior_name : :class:`str`, {``"dirichlet"``}
             The name of the prior over the weights of the components
             of the Gaussian mixture.
 
-        log_var_prior_name : ``str``, {``"gaussian"``}
+        log_var_prior_name : :class:`str`, {``"gaussian"``}
             The name of the prior over the negative log-variance of the
             components of the Gaussian mixture.
 
-        means_prior_options : ``dict``
+        means_prior_options : :class:`int`
             A dictionary containing the options needed to set up the
             prior over the means of the components of the Gaussian
             mixture model.
@@ -144,7 +144,7 @@ class GaussianMixtureModel(nn.Module):
             * ``"sharpness"``, namely the sharpness of the
               soft boundary of the ball.
 
-        weights_prior_options : ``dict``
+        weights_prior_options : :class:`int`
             A dictionary containing the options needed to set up the
             prior over the weights of the components of the Gaussian
             mixture model.
@@ -157,7 +157,7 @@ class GaussianMixtureModel(nn.Module):
             * ``"alpha"``, namely the alpha of the Dirichlet
               distribution.
 
-        log_var_prior_options : ``dict``
+        log_var_prior_options : :class:`int`
             A dictionary containing the options needed to set up the
             prior over the negative log-variance of the Gaussian
             mixture model.
@@ -173,7 +173,7 @@ class GaussianMixtureModel(nn.Module):
             * ``"stddev"``, namely the standard deviation of the
               Gaussian distribution.
 
-        cm_type : ``str``, {``"fixed"``, ``"isotropic"``, \
+        cm_type : :class:`str`, {``"fixed"``, ``"isotropic"``, \
             ``"diagonal"``}, ``"diagonal"``
             The shape of the covariance matrix.
         """
@@ -201,6 +201,21 @@ class GaussianMixtureModel(nn.Module):
         # Set the means.
         self._means = self._get_means()
 
+        # Set a string with the options used for the prior over the
+        # means.
+        means_prior_opts_str = \
+            ", ".join([f"{opt} = '{val}'" \
+                       if isinstance(val, str) \
+                       else f"{opt} = {val}" \
+                       for opt, val in means_prior_options.items()])
+
+        # Inform the user that the prior over the means was set.
+        logstr = \
+            "The prior over the means of the components of the " \
+            "Gaussian mixture model was set. Prior " \
+            f"'{means_prior_name}' ({means_prior_opts_str})."
+        log.info(logstr)
+
         #-------------------------------------------------------------#
 
         # Set the prior over the weights of the components.
@@ -212,6 +227,21 @@ class GaussianMixtureModel(nn.Module):
         # Set the weights.
         self._weights = self._get_weights()
 
+        # Set a string with the options used for the prior over the
+        # weights.
+        weights_prior_opts_str = \
+            ", ".join([f"{opt} = '{val}'" \
+                       if isinstance(val, str) \
+                       else f"{opt} = {val}" \
+                       for opt, val in weights_prior_options.items()])
+
+        # Inform the user that the prior over the weights was set.
+        logstr = \
+            "The prior over the weights of the components of the " \
+            "Gaussian mixture model was set. Prior " \
+            f"'{weights_prior_name}' ({weights_prior_opts_str})."
+        log.info(logstr)
+
         #-------------------------------------------------------------#
 
         # Set the prior over the log-variance of the components.
@@ -222,6 +252,21 @@ class GaussianMixtureModel(nn.Module):
 
         # Get the log-variance.
         self._log_var = self._get_log_var()
+
+        # Set a string with the options used for the prior over the
+        # log-variance.
+        log_var_prior_opts_str = \
+            ", ".join([f"{opt} = '{val}'" \
+                       if isinstance(val, str) \
+                       else f"{opt} = {val}" \
+                       for opt, val in log_var_prior_options.items()])
+
+        # Inform the user that the prior over the log-variance was set.
+        logstr = \
+            "The prior over the log-variance of the components of " \
+            "the Gaussian mixture model was set. Prior " \
+            f"'{log_var_prior_name}' ({log_var_prior_opts_str})."
+        log.info(logstr)
 
 
     ######################### INITIALIZATION ##########################
@@ -235,15 +280,15 @@ class GaussianMixtureModel(nn.Module):
 
         Parameters
         ----------
-        means_prior_name : ``str``
+        means_prior_name : :class:`str`
             The name of the prior.
 
-        means_prior_options : ``dict``
+        means_prior_options : :class:`int`
             The options to set up the prior.
 
         Returns
         -------
-        means_prior_dict : ``dict``
+        means_prior_dict : :class:`int`
             A dictionary containing the name of the prior and the
             options and distribution associated with it.
         """
@@ -282,7 +327,7 @@ class GaussianMixtureModel(nn.Module):
 
         Returns
         -------
-        means : ``torch.Tensor``
+        means : :class:`torch.Tensor`
             The means of the Gaussian mixture components sampled from
             the prior.
 
@@ -316,15 +361,15 @@ class GaussianMixtureModel(nn.Module):
 
         Parameters
         ----------
-        weights_prior_name : ``str``
+        weights_prior_name : :class:`str`
             The name of the prior.
 
-        weights_prior_options : ``dict``
+        weights_prior_options : :class:`int`
             The options to set up the prior.
 
         Returns
         -------
-        weights_prior_dict : ``dict``
+        weights_prior_dict : :class:`int`
             A dictionary containing the name of the prior and the
             options associated with it.
         """
@@ -375,7 +420,7 @@ class GaussianMixtureModel(nn.Module):
 
         Returns
         -------
-        ``torch.Tensor``
+        weights : :class:`torch.Tensor`
             The weights of the components in the Gaussian mixture.
             
             The is a 1D tensor having a length equal to the number
@@ -395,15 +440,15 @@ class GaussianMixtureModel(nn.Module):
 
         Parameters
         ----------
-        log_var_prior_name : ``str``
+        log_var_prior_name : :class:`str`
             The name of the prior.
 
-        log_var_prior_options : ``dict``
+        log_var_prior_options : :class:`int`
             The options to set up the prior.
 
         Returns
         -------
-        log_var_prior_dict : ``dict``
+        log_var_prior_dict : :class:`int`
             A dictionary containing the name of the prior and the
             options and distribution associated with it.
         """
@@ -525,7 +570,7 @@ class GaussianMixtureModel(nn.Module):
 
         Returns
         -------
-        log_var : ``torch.Tensor``
+        log_var : :class:`torch.Tensor`
             The log-variance of the components.
 
             It is a 2D tensor where:
@@ -818,7 +863,7 @@ class GaussianMixtureModel(nn.Module):
 
         Parameters
         ----------
-        x : ``torch.Tensor``
+        x : :class:`torch.Tensor`
             The input data points. This is a 2D tensor where:
 
             * The first dimension has a length equal to the number of
@@ -829,7 +874,7 @@ class GaussianMixtureModel(nn.Module):
 
         Returns
         -------
-        log_prob_comp : ``torch.Tensor``
+        log_prob_comp : :class:`torch.Tensor`
             The per-sample, per-component log-probability.
 
             This is a 2D tensor where:
@@ -921,7 +966,7 @@ class GaussianMixtureModel(nn.Module):
 
         Returns
         -------
-        mixture_probs : ``torch.Tensor``
+        mixture_probs : :class:`torch.Tensor`
             The mixture probabilities.
 
             This is a 1D tensor whose size equals the number of
@@ -939,7 +984,7 @@ class GaussianMixtureModel(nn.Module):
 
         Returns
         -------
-        p : ``float``
+        p : :class:`float`
             The log-probability of the priors.
         """
 
@@ -1041,7 +1086,7 @@ class GaussianMixtureModel(nn.Module):
 
         Parameters
         ----------
-        x : ``torch.Tensor``
+        x : :class:`torch.Tensor`
             The input data points. This is a 2D tensor where:
 
             * The first dimension has a length equal to the number of
@@ -1052,7 +1097,7 @@ class GaussianMixtureModel(nn.Module):
             
         Returns
         -------
-        y : ``torch.Tensor``
+        y : :class:`torch.Tensor`
             The result of the forward pass.
 
             This is a 1D tensor whose size is equal to the number of
@@ -1087,7 +1132,7 @@ class GaussianMixtureModel(nn.Module):
 
         Parameters
         ----------
-        x : ``torch.Tensor``
+        x : :class:`torch.Tensor`
             The input data points. This is a 2D tensor where:
 
             * The first dimension has a length equal to the number
@@ -1098,7 +1143,7 @@ class GaussianMixtureModel(nn.Module):
 
         Returns
         -------
-        probs : ``torch.Tensor``
+        probs : :class:`torch.Tensor`
             The probability densities.
 
             This is a 2D tensor where:
@@ -1127,7 +1172,7 @@ class GaussianMixtureModel(nn.Module):
 
         Parameters
         ----------
-        x : ``torch.Tensor``
+        x : :class:`torch.Tensor`
             The input data points. This is a 2D tensor where:
 
             * The first dimension has a length equal to the number
@@ -1138,7 +1183,7 @@ class GaussianMixtureModel(nn.Module):
 
         Returns
         -------
-        log_prob : ``torch.Tensor``
+        log_prob : :class:`torch.Tensor`
             A 1D tensor storing the log-probability density of each
             input data point to be drawn from the Gaussian mixture
             model.
@@ -1159,15 +1204,15 @@ class GaussianMixtureModel(nn.Module):
 
         Parameters
         ----------
-        n_points : ``int``
+        n_points : :class:`int`
             The number of data points for which samples should be
             drawn.
 
-        n_samples_per_comp : ``int``, ``1``
+        n_samples_per_comp : :class:`int`, ``1``
             The number of samples to draw per data point per component
             of the Gaussian mixture.
 
-        sampling_method : ``str``, {``"mean"``}, ``"mean"``
+        sampling_method : :class:`str`, {``"mean"``}, ``"mean"``
             How to draw the samples for the given data points:
 
             * ``"mean"`` means taking the mean of each component as
@@ -1176,7 +1221,7 @@ class GaussianMixtureModel(nn.Module):
 
         Returns
         -------
-        new_points : ``torch.Tensor``
+        new_points : :class:`torch.Tensor`
             The samples drawn.
 
             This is a 2D tensor where:
@@ -1272,7 +1317,7 @@ class RepresentationLayer(nn.Module):
 
         Parameters
         ----------
-        values : ``torch.Tensor``, optional
+        values : :class:`torch.Tensor`, optional
             A tensor used to initialize the representations in
             the layer.
 
@@ -1288,14 +1333,14 @@ class RepresentationLayer(nn.Module):
             initialized by sampling the distribution specified
             by ``dist``.
 
-        dist : ``str``, {``"normal"``}, default: ``"normal"``
+        dist : :class:`str`, {``"normal"``}, default: ``"normal"``
             The name of the distribution used to sample the
             representations, if no ``values`` are passed.
 
             By default, the distribution is a ``"normal"``
             distribution.
 
-        dist_options : ``dict``, optional
+        dist_options : :class:`int`, optional
             A dictionary containing the parameters to sample the
             representations from the distribution, if no ``values``
             are passed.
@@ -1372,18 +1417,18 @@ class RepresentationLayer(nn.Module):
 
         Parameters
         ----------
-        values : ``torch.Tensor``
+        values : :class:`torch.Tensor`
             The tensor used to initialize the representations.
 
         Returns
         -------
-        n_rep : ``int``
+        n_rep : :class:`int`
             The number of representations found in the input tensor.
 
-        dim : ``int``
+        dim : :class:`int`
             The dimensionality of the representations.
 
-        rep : ``torch.Tensor``
+        rep : :class:`torch.Tensor`
             The values of the representations.
 
             This is a 2D tensor where:
@@ -1425,7 +1470,7 @@ class RepresentationLayer(nn.Module):
 
         Parameters
         ----------
-        options : ``dict``
+        options : :class:`int`
             A dictionary containing the parameters to sample the
             representations from a normal distribution.
 
@@ -1446,13 +1491,13 @@ class RepresentationLayer(nn.Module):
 
         Returns
         -------
-        n_rep : ``int``
+        n_rep : :class:`int`
             The number of representations found in the input tensor.
 
-        dim : ``int``
+        dim : :class:`int`
             The dimensionality of the representations.
 
-        rep : ``torch.Tensor``
+        rep : :class:`torch.Tensor`
             The values of the representations.
 
             This is a 2D tensor where:
@@ -1463,7 +1508,7 @@ class RepresentationLayer(nn.Module):
             * The second dimension has a length equal to the
               dimensionality of the representations.
 
-        options : ``dict``
+        options : :class:`int`
             A dictionary containing the options used to initialize
             the representations.
         """
@@ -1610,14 +1655,14 @@ class RepresentationLayer(nn.Module):
 
         Parameters
         ----------
-        ixs : ``list``, optional
+        ixs : :class:`int`, optional
             The indexes of the samples whose representations should
             be returned. If not passed, all representations will be
             returned.
 
         Returns
         -------
-        reps : ``torch.Tensor``
+        reps : :class:`torch.Tensor`
             A tensor containing the values of the representations for
             the samples of interest.
 
@@ -1664,7 +1709,7 @@ class RepresentationLayer(nn.Module):
 
         Returns
         -------
-        reps_rescaled : ``torch.Tensor``
+        reps_rescaled : :class:`torch.Tensor`
             The rescaled values of the representations.
 
             This is a 2D tensor where:

@@ -97,7 +97,7 @@ def main():
     cp_help = \
         "The YAML configuration file specifying the plot's " \
         "aesthetics and output format. If not provided, the " \
-        f"default configuration file ('{ioutil.CONFIG_PLOT_PCA}') " \
+        f"default configuration file ('{defaults.CONFIG_PLOT_PCA}') " \
         "will be used."
     parser.add_argument("-cp", "--config-file-plot",
                         type = str,

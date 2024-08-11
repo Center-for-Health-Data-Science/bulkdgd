@@ -49,6 +49,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 # Import from 'bulkDGD'.
+from bulkDGD import util
 from . import (
     dataclasses,
     decoder,
@@ -68,47 +69,20 @@ logger = log.getLogger(__name__)
 #######################################################################
 
 
-def uniquify_file_path(file_path):
-    """If ``file_path`` exists, number it uniquely.
-
-    Parameters
-    ----------
-    file_path : ``str``
-        The file path.
-
-    Returns
-    -------
-    unique_file_path : ``str``
-        A unique file path generated from the original file path.
-    """
-    
-    # Get the file's name and extension.
-    file_name, file_ext = os.path.splitext(file_path)
-
-    # Set the counter to 1.
-    counter = 1
-
-    # If the file already exists
-    while os.path.exists(file_path):
-
-        # Set the path to the new unique file.
-        file_path = file_name + "_" + str(counter) + file_ext
-
-        # Update the counter.
-        counter += 1
-
-    # Return the new path.
-    return file_path
-
-
-#######################################################################
-
-
 class DGDModel(nn.Module):
 
     """
     Class implementing the full DGD model.
     """
+
+    ####################### PRIVATE ATTRIBUTES ########################
+
+
+    # Set the available normalization methods for the loss.
+    _LOSS_NORM_METHODS = \
+        {"gmm" : ["none", "n_samples"],
+         "recon" : ["none", "n_samples"],
+         "total" : ["none", "n_samples"]}
 
 
     ######################## PUBLIC ATTRIBUTES ########################
@@ -135,24 +109,24 @@ class DGDModel(nn.Module):
 
         Parameters
         ----------
-        input_dim : ``int``
+        input_dim : :class:`int`
             The dimensionality of the input (= the dimensionality of
             the representations, of the Gaussian mixture model, and of
             the first layer of the decoder.
 
-        gmm_options : ``dict``
+        gmm_options : :class:`dict`
             The options for setting up the Gaussian mixture model.
 
             For the available options, refer to the
             :ref:`model_config_options` page.
 
-        dec_options : ``dict``
+        dec_options : :class:`dict`
             The options for setting up the decoder.
 
             For the available options, refer to the
             :ref:`model_config_options` page.
 
-        genes_txt_file : ``str``
+        genes_txt_file : :class:`str`
             A .txt file containing the Ensembl IDs of the genes
             included in the model.
 
@@ -162,7 +136,7 @@ class DGDModel(nn.Module):
             The number of output units in the decoder is initialized
             from the number of genes found in this file.
 
-        gmm_pth_file : ``str``, optional
+        gmm_pth_file : :class:`str`, optional
             A .pth file with the GMM's trained parameters
             (means, weights, and log-variance of the components).
 
@@ -171,7 +145,7 @@ class DGDModel(nn.Module):
 
             Omit it if the model needs training.
 
-        dec_pth_file : ``str``, optional
+        dec_pth_file : :class:`str`, optional
             A .pth file containing the decoder's trained parameters
             (weights and biases).
 
@@ -249,8 +223,9 @@ class DGDModel(nn.Module):
             self._r_values = pd.Series(r_values,
                                        index = genes)
 
-        # If the output module is the 'nb_full_dispersion' one
-        elif output_module_name == "nb_full_dispersion":
+        # If the output module is the 'nb_full_dispersion' or the
+        # 'poisson' one
+        elif output_module_name in ("nb_full_dispersion", "poisson"):
 
             # The r-values will be None.
             self._r_values = None
@@ -271,7 +246,7 @@ class DGDModel(nn.Module):
         mod : ``nn.Module``
             The module.
 
-        pth_file : ``str``
+        pth_file : :class:`str`
             The PyTorch file to load the parameters from.
         """
 
@@ -303,12 +278,12 @@ class DGDModel(nn.Module):
 
         Parameters
         ----------
-        genes_list_file : ``str``
+        genes_list_file : :class:`str`
             The plain text file containing the genes of interest.
 
         Returns
         -------
-        list_genes : ``list``
+        list_genes : :class:`list`
             The list of genes.
         """
 
@@ -367,33 +342,6 @@ class DGDModel(nn.Module):
             f"'{self.__class__.__name__}'."
         raise ValueError(errstr)
 
-
-    @property
-    def r_values(self):
-        """The r-values of the negative binomials modeling the
-        counts for the genes included in the model. It is not ``None``
-        only if the decoder was initialized with the output module's
-        ``nb_feature_dispersion``.
-        """
-
-        return self._r_values
-
-
-    @r_values.setter
-    def r_values(self,
-                 value):
-        """Raise an exception if the user tries to modify the value of
-        ``r_values`` after initialization.
-        """
-        
-        errstr = \
-            "The value of 'r_values' is set at initialization and " \
-            "cannot be changed. If you want to change the r-values " \
-            "of the negative binomials modeling the counts for the " \
-            "genes included in the model, initialize a new instance " \
-            f"of '{self.__class__.__name__}'."
-        raise ValueError(errstr)
-
     @property
     def device(self):
         """The device where the model is.
@@ -425,15 +373,15 @@ class DGDModel(nn.Module):
 
         Parameters
         ----------
-        optimizer_config : ``dict``
+        optimizer_config : :class:`dict`
             The configuration for the optimizer.
 
-        optimizer_parameters : ``torch.nn.Parameter``
+        optimizer_parameters : :class:`torch.nn.Parameter`
             The parameters that will be optimized.
 
         Returns
         -------
-        optimizer : ``torch.optim.Optimizer``
+        optimizer : :class:`torch.optim.Optimizer`
             The optimizer.
         """
 
@@ -473,15 +421,16 @@ class DGDModel(nn.Module):
 
         Parameters
         ----------
-        dataset : ``bulkDGD.core.dataclasses.GeneExpressionDataset``
+        dataset : \
+            :class:`bulkDGD.core.dataclasses.GeneExpressionDataset`
             The dataset from which the data loader should be created.
 
-        data_loader_config : ``dict``
+        data_loader_config : :class:`dict`
             The configuration for the data loader.
 
         Returns
         -------
-        data_loader : ``torch.utils.data.DataLoader``
+        data_loader : :class:`torch.utils.data.DataLoader`
             The data loader.
         """
 
@@ -499,41 +448,45 @@ class DGDModel(nn.Module):
                       optimizer,
                       n_comp,
                       n_rep_per_comp,
+                      config_loss,
                       epochs,
                       opt_num):
         """Optimize the representation(s) found for each sample.
 
         Parameters
         ----------
-        data_loader : ``torch.utils.data.DataLoader``
+        data_loader : :class:`torch.utils.data.DataLoader`
             The data loader.
 
-        rep_layer : ``bulkDGD.core.latent.RepresentationLayer``
+        rep_layer : :class:`bulkDGD.core.latent.RepresentationLayer`
             The representation layer containing the initial
             representations.
 
-        optimizer : ``torch.optim.Optimizer``
+        optimizer : :class:`torch.optim.Optimizer`
             The optimizer.
 
-        n_comp : ``int``
+        n_comp : :class:`int`
             The number of components of the Gaussian mixture model
             for which at least one representation was drawn per
             sample.
 
-        n_rep_per_comp : ``int``
+        n_rep_per_comp : :class:`int`
             The number of new representations taken per sample
             per component of the Gaussian mixture model.
 
-        epochs : ``int``
+        config_loss : :class:`dict`
+            A dictionary containing the options to output the loss.
+
+        epochs : :class:`int`
             The number of epochs to run the optimization for.
 
-        opt_num : ``int``
+        opt_num : :class:`int`
             The number of the optimization round (especially useful
             if multiple rounds are run).
 
         Returns
         -------
-        rep : ``torch.Tensor``
+        rep : :class:`torch.Tensor`
             A tensor containing the optimized representations.
 
             This is a 2D tensor where:
@@ -545,9 +498,9 @@ class DGDModel(nn.Module):
               dimensionality of the latent space where the
               representations live.
 
-        pred_means : ``torch.Tensor``
-            A tensor containing the predicted scaled means of the
-            negative binomials.
+        pred_means : :class:`torch.Tensor`
+            A tensor containing the predicted means of the
+            distributions modelling the genes' counts.
 
             This is a 2D tensor where:
 
@@ -557,9 +510,14 @@ class DGDModel(nn.Module):
             - The second dimension has a length equal to the
               dimensionality of the gene space.
 
-        pred_r_values : ``torch.Tensor``
+            If the genes counts are modelled using negative binomial
+            distributions, the predicted means are scaled by the
+            corresponding distributions' r-values.
+
+        pred_r_values : :class:`torch.Tensor` or ``None``
             A tensor containing the predicted r-values of the negative
-            binomials.
+            binomial distributions modelling the genes' counts, if
+            the counts are modelled by negative binomial distributions.
 
             This is a 2D tensor where:
 
@@ -569,7 +527,10 @@ class DGDModel(nn.Module):
             - The second dimension has a length equal to the
               dimensionality of the gene space.
 
-        time_opt : ``list``
+            ``pred_r_values`` is ``None`` if the counts are modelled
+            by Poisson distributions.
+
+        time_opt : :class:`list`
             A list of tuples storing, for each epoch, information
             about the CPU and wall clock time used by the entire
             epoch and by the backpropagation step run within the
@@ -585,6 +546,9 @@ class DGDModel(nn.Module):
         # Get the number of genes (= the dimensionality of the
         # decoder's output).
         n_genes = self.dec.nb.output_dim
+
+        # Get the method that will be used to normalize the total loss.
+        loss_norm_method = config_loss.get("total").get("norm_method")
 
         # Create a list to store the CPU/wall clock time used in each
         # epoch of the optimization.
@@ -615,6 +579,9 @@ class DGDModel(nn.Module):
 
             # Make the optimizer's gradients zero.
             optimizer.zero_grad()
+
+            # Initialize the loss for the current epoch to 0.0.
+            rep_avg_loss_epoch = 0.0
 
             # For each batch of samples, the mean gene expression
             # in the samples in the batch, and the unique indexes
@@ -708,10 +675,11 @@ class DGDModel(nn.Module):
                 # are not learned
                 if isinstance(\
                     self.dec.nb,
-                    outputmodules.OutputModuleNBFeatureDispersion):
+                    (outputmodules.OutputModuleNBFeatureDispersion,
+                     outputmodules.OutputModulePoisson)):
                     
-                    # Get the predicted scaled means of the negative
-                    # binomials.
+                    # Get the predicted scaled means of the
+                    # distributons modelling the genes' counts.
                     #
                     # The output is a 2D tensor with:
                     #
@@ -737,7 +705,8 @@ class DGDModel(nn.Module):
                     outputmodules.OutputModuleNBFullDispersion):
 
                     # Get the predicted scaled means and r-values
-                    # of the negative binomials.
+                    # of the negative binomial distributions modelling
+                    # the genes' counts.
                     #
                     # Both outputs are 2D tensors with:
                     #
@@ -859,7 +828,8 @@ class DGDModel(nn.Module):
                 # are not learned
                 if isinstance(\
                     self.dec.nb,
-                    outputmodules.OutputModuleNBFeatureDispersion):
+                    (outputmodules.OutputModuleNBFeatureDispersion,
+                     outputmodules.OutputModulePoisson)):
 
                     # Set the options to compute the reconstruction
                     # loss.
@@ -970,11 +940,13 @@ class DGDModel(nn.Module):
 
                 #-----------------------------------------------------#
 
-                # Get the average loss for the current epoch.
-                rep_avg_loss_epoch = \
-                    total_loss.item() / \
-                        (n_samples * n_genes * \
-                         n_comp * n_rep_per_comp)
+                # Update the average loss for the current epoch.
+                rep_avg_loss_epoch += \
+                    self._normalize_loss(\
+                        loss = total_loss.item(),
+                        loss_type = "total",
+                        loss_norm_method = loss_norm_method,
+                        loss_norm_options = {"n_samples" : n_samples})
 
             #---------------------------------------------------------#
 
@@ -1022,8 +994,11 @@ class DGDModel(nn.Module):
                 # Get the optimized representations.
                 rep_final = rep_layer()
 
-                # If the chosen output module means that the r-values
-                # are not learned
+                #-----------------------------------------------------#
+
+                # If the genes' counts are modelled by negative
+                # binomial distributions whose r-values are learned
+                # per gene (but not per sample)
                 if isinstance(\
                     self.dec.nb,
                     outputmodules.OutputModuleNBFeatureDispersion):
@@ -1036,8 +1011,9 @@ class DGDModel(nn.Module):
                         torch.exp(\
                             self.dec.nb.log_r).squeeze().detach()
 
-                # If the chosen output module means that the r-values
-                # are learned
+                # If the genes' counts are modelled by negative
+                # binomial distributions whose r-values are learned
+                # per gene per sample
                 elif isinstance(\
                     self.dec.nb,
                     outputmodules.OutputModuleNBFullDispersion):
@@ -1050,6 +1026,20 @@ class DGDModel(nn.Module):
                     r_values_final = \
                         torch.exp(\
                             log_r_values_final).squeeze().detach()
+
+                # If the genes' counts are modelled by Poisson
+                # distributions
+                elif isinstance(    
+                    self.dec.nb,
+                    outputmodules.OutputModulePoisson):
+
+                    # Get the predicted scaled means.
+                    means_final = self.dec(z = rep_final)
+
+                    # The r-values will be None.
+                    r_values_final = None
+
+                #-----------------------------------------------------#
 
                 # Return the representations, the predicted scaled
                 # means, the predicted r-values, and the time data.
@@ -1066,20 +1056,20 @@ class DGDModel(nn.Module):
 
         Parameters
         ----------
-        data_loader : ``torch.utils.data.DataLoader``
+        data_loader : :class:`torch.utils.data.DataLoader`
             The data loader.
 
-        rep_layer : ``bulkDGD.core.latent.RepresentationLayer``
+        rep_layer : :class:`bulkDGD.core.latent.RepresentationLayer`
             The representation layer containing the representations
             found for the samples.
 
-        n_rep_per_comp : ``int``
+        n_rep_per_comp : :class:`int`
             The number of new representations that were taken per
             sample per component of the Gaussian mixture model.
 
         Returns
         -------
-        rep : ``torch.Tensor``
+        rep : :class:`torch.Tensor`
             A tensor containing the best representations found for the
             given samples (one representation per sample).
 
@@ -1208,10 +1198,11 @@ class DGDModel(nn.Module):
             # are not learned
             if isinstance(\
                 self.dec.nb,
-                outputmodules.OutputModuleNBFeatureDispersion):
+                (outputmodules.OutputModuleNBFeatureDispersion,
+                 outputmodules.OutputModulePoisson)):
                 
-                # Get the predicted scaled means of the negative
-                # binomials.
+                # Get the predicted scaled means of the distributions
+                # modelling the genes' counts.
                 #
                 # The output is a 2D tensor with:
                 #
@@ -1237,7 +1228,7 @@ class DGDModel(nn.Module):
                 outputmodules.OutputModuleNBFullDispersion):
 
                 # Get the predicted scaled means and r-values of the
-                # negative binomials.
+                # negative binomial distributions.
                 #
                 # Both outputs are 2D tensors with:
                 #
@@ -1360,7 +1351,8 @@ class DGDModel(nn.Module):
             # are not learned
             if isinstance(\
                 self.dec.nb,
-                outputmodules.OutputModuleNBFeatureDispersion):
+                (outputmodules.OutputModuleNBFeatureDispersion,
+                 outputmodules.OutputModulePoisson)):
 
                 # Set the options to compute the reconstruction
                 # loss.
@@ -1566,36 +1558,43 @@ class DGDModel(nn.Module):
         dataset : ``bulkDGD.core.dataclasses.GeneExpressionDataset``
             The dataset from which the data loader should be created.
 
-        config : ``dict``
+        config : :class:`dict`
             A dictionary with the following keys:
 
             * ``"n_rep_per_comp", whose associated value should be
               the he number of new representations to be taken per
               component per sample.
-            
-            * ``"epochs"``, whose associated value should be the
-              number of epochs the optimizations is run for.
-            
-            * ``"opt1"``, whose associated value should be a dictionary
+
+            * ``"loss"``, whose associated value should be a dictionary
               with the following keys:
 
-                * ``"optimizer"``, whose associated value should be a
+                * ``"gmm"``, whose associated value should be a
                   dictionary with the following keys:
 
-                    * ``"name"``, whose associated value should be the
-                      name of the optimizer to be used. The names of
-                      the available optimizers are stored into the
-                      ``OPTIMIZERS`` class attribute.
+                    * ``"norm_method"``, whose associated value should
+                      be the name of the method that will be used to
+                      normalize the GMM loss reported for each epoch.
 
-                    The following optional key may also be present:
+                * ``"recon"``, whose associated value should be a
+                  dictionary with the following keys:
 
-                    * ``"options`", whose associated value should be a
-                      dictionary whose key-value pairs correspond to
-                      the options needed to set up the optimizer. The
-                      options available depend on the chosen optimizer.
+                    * ``"norm_method"``, whose associated value should
+                      be the name of the method that will be used to
+                      normalize the reconstruction loss reported for
+                      each epoch.
 
-            * ``"opt2"``, whose associated value should be a dictionary
+                * ``"total"``, whose associated value should be a
+                  dictionary with the following keys:
+
+                    * ``"norm_method"``, whose associated value should
+                      be the name of the method that will be used to
+                      normalize the total loss reported for each epoch.
+            
+            * ``"opt"``, whose associated value should be a dictionary
               with the following keys:
+
+                * ``"epochs"``, whose associated value should be the
+                  number of epochs the optimization is run for.
 
                 * ``"optimizer"``, whose associated value should be a
                   dictionary with the following keys:
@@ -1614,7 +1613,7 @@ class DGDModel(nn.Module):
 
         Returns
         -------
-        rep : ``torch.Tensor``
+        rep : :class:`torch.Tensor`
             A tensor containing the optimized representations.
 
             This is a 2D tensor where:
@@ -1626,9 +1625,9 @@ class DGDModel(nn.Module):
               dimensionality of the latent space where the
               representations live.
 
-        pred_means : ``torch.Tensor``
-            A tensor containing the predicted scaled means of the
-            negatuve binomials.
+        pred_means : :class:`torch.Tensor`
+            A tensor containing the predicted means of the
+            distributions modelling the genes' counts.
 
             This is a 2D tensor where:
 
@@ -1638,9 +1637,14 @@ class DGDModel(nn.Module):
             - The second dimension has a length equal to the
               dimensionality of the gene space.
 
-        pred_r_values : ``torch.Tensor``
+            If the genes counts are modelled using negative binomial
+            distributions, the predicted means are scaled by the
+            corresponding distributions' r-values.
+
+        pred_r_values : :class:`torch.Tensor` or ``None``
             A tensor containing the predicted r-values of the negative
-            binomials.
+            binomial distributions modelling the genes' counts, if
+            the counts are modelled by negative binomial distributions.
 
             This is a 2D tensor where:
 
@@ -1650,7 +1654,10 @@ class DGDModel(nn.Module):
             - The second dimension has a length equal to the
               dimensionality of the gene space.
 
-        time_opt : ``list``
+            ``pred_r_values`` is ``None`` if the counts are modelled
+            by Poisson distributions.
+
+        time_opt : :class:`list`
             A list of tuples storing, for each epoch, information
             about the CPU and wall clock time used by the entire
             epoch and by the backpropagation step run within the
@@ -1665,6 +1672,9 @@ class DGDModel(nn.Module):
 
         # Get the number of representations per component per sample.
         n_rep_per_comp = config["n_rep_per_comp"]
+
+        # Get the configuration for the reporting of the loss.
+        config_loss = config["loss"]
 
         #-------------------------------------------------------------#
 
@@ -1743,7 +1753,10 @@ class DGDModel(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Get the optimized representations.
+        # Get the optimized representations, the predicted means of
+        # the distributions modelling the counts, the predicted
+        # r-values of the distributions modelling the counts (if any),
+        # and the time data.
         rep, pred_means, pred_r_values, time = \
             self._optimize_rep(\
                 data_loader = data_loader,
@@ -1751,6 +1764,7 @@ class DGDModel(nn.Module):
                 optimizer = optimizer,
                 n_comp = 1,
                 n_rep_per_comp = 1,
+                config_loss = config_loss,
                 epochs = epochs,
                 opt_num = 1)
 
@@ -1761,8 +1775,8 @@ class DGDModel(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Return the representations, the predicted scaled means and
-        # r-values, and the time of the optimization.
+        # Return the representations, the predicted means and r-values,
+        # the time data.
         return rep, pred_means, pred_r_values, time
 
 
@@ -1780,18 +1794,64 @@ class DGDModel(nn.Module):
         dataset : ``bulkDGD.core.dataclasses.GeneExpressionDataset``
             The dataset from which the data loader should be created.
     
-        config : ``dict``
+        config : :class:`dict`
             A dictionary with the following keys:
 
             * ``"n_rep_per_comp", whose associated value should be
               the he number of new representations to be taken per
               component per sample.
-            
-            * ``"epochs"``, whose associated value should be the
-              number of epochs the optimizations is run for.
-            
-            * ``"opt"``, whose associated value should be a dictionary
+
+            * ``"loss"``, whose associated value should be a dictionary
               with the following keys:
+
+                * ``"gmm"``, whose associated value should be a
+                  dictionary with the following keys:
+
+                    * ``"norm_method"``, whose associated value should
+                      be the name of the method that will be used to
+                      normalize the GMM loss reported for each epoch.
+
+                * ``"recon"``, whose associated value should be a
+                  dictionary with the following keys:
+
+                    * ``"norm_method"``, whose associated value should
+                      be the name of the method that will be used to
+                      normalize the reconstruction loss reported for
+                      each epoch.
+
+                * ``"total"``, whose associated value should be a
+                  dictionary with the following keys:
+
+                    * ``"norm_method"``, whose associated value should
+                      be the name of the method that will be used to
+                      normalize the total loss reported for each epoch.
+            
+            * ``"opt1"``, whose associated value should be a dictionary
+              with the following keys:
+
+                * ``"epochs"``, whose associated value should be the
+                  number of epochs the optimization is run for.
+
+                * ``"optimizer"``, whose associated value should be a
+                  dictionary with the following keys:
+
+                    * ``"name"``, whose associated value should be the
+                      name of the optimizer to be used. The names of
+                      the available optimizers are stored into the
+                      ``OPTIMIZERS`` class attribute.
+
+                    The following optional key may also be present:
+
+                    * ``"options`", whose associated value should be a
+                      dictionary whose key-value pairs correspond to
+                      the options needed to set up the optimizer. The
+                      options available depend on the chosen optimizer.
+
+            * ``"opt2"``, whose associated value should be a dictionary
+              with the following keys:
+
+                * ``"epochs"``, whose associated value should be the
+                  number of epochs the optimization is run for.
 
                 * ``"optimizer"``, whose associated value should be a
                   dictionary with the following keys:
@@ -1810,7 +1870,7 @@ class DGDModel(nn.Module):
 
         Returns
         -------
-        rep : ``torch.Tensor``
+        rep : :class:`torch.Tensor`
             A tensor containing the optimized representations.
 
             This is a 2D tensor where:
@@ -1822,9 +1882,9 @@ class DGDModel(nn.Module):
               dimensionality of the latent space where the
               representations live.
 
-        pred_means : ``torch.Tensor``
-            A tensor containing the predicted scaled means of the
-            negative binomials.
+        pred_means : :class:`torch.Tensor`
+            A tensor containing the predicted means of the
+            distributions modelling the genes' counts.
 
             This is a 2D tensor where:
 
@@ -1834,9 +1894,14 @@ class DGDModel(nn.Module):
             - The second dimension has a length equal to the
               dimensionality of the gene space.
 
-        pred_r_values : ``torch.Tensor``
+            If the genes counts are modelled using negative binomial
+            distributions, the predicted means are scaled by the
+            corresponding distributions' r-values.
+
+        pred_r_values : :class:`torch.Tensor` or ``None``
             A tensor containing the predicted r-values of the negative
-            binomials.
+            binomial distributions modelling the genes' counts, if
+            the counts are modelled by negative binomial distributions.
 
             This is a 2D tensor where:
 
@@ -1846,7 +1911,10 @@ class DGDModel(nn.Module):
             - The second dimension has a length equal to the
               dimensionality of the gene space.
 
-        time_opt : ``list``
+            ``pred_r_values`` is ``None`` if the counts are modelled
+            by Poisson distributions.
+
+        time_opt : :class:`list`
             A list of tuples storing, for each epoch, information
             about the CPU and wall clock time used by the entire
             epoch and by the backpropagation step run within the
@@ -1861,6 +1929,9 @@ class DGDModel(nn.Module):
 
         # Get the number of representations per component per sample.
         n_rep_per_comp = config["n_rep_per_comp"]
+
+        # Get the configuration for reporting the loss.
+        config_loss = config["loss"]
 
         #-------------------------------------------------------------#
 
@@ -1939,9 +2010,10 @@ class DGDModel(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Get the optimized representations, the corresponding
-        # predicted scaled means and r-values, and the time
-        # information about the optimization's epochs.
+        # Get the optimized representations, the predicted means of
+        # the distributions modelling the counts, the predicted
+        # r-values of the distributions modelling the counts (if any),
+        # and the time data.
         rep_1, pred_means_1, pred_r_values_1, time_1 = \
             self._optimize_rep(\
                 data_loader = data_loader,
@@ -1949,6 +2021,7 @@ class DGDModel(nn.Module):
                 optimizer = optimizer_1,
                 n_comp = self.gmm.n_comp,
                 n_rep_per_comp = n_rep_per_comp,
+                config_loss = config_loss,
                 epochs = epochs_1,
                 opt_num = 1)
 
@@ -1991,9 +2064,10 @@ class DGDModel(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Get the optimized representations, the corresponding
-        # predicted scaled means and r-values, and the time
-        # information about the optimization's epochs.
+        # Get the optimized representations, the predicted means of
+        # the distributions modelling the counts, the predicted
+        # r-values of the distributions modelling the counts (if any),
+        # and the time data.
         rep_2, pred_means_2, pred_r_values_2, time_2 = \
             self._optimize_rep(\
                 data_loader = data_loader,
@@ -2001,6 +2075,7 @@ class DGDModel(nn.Module):
                 optimizer = optimizer_2,
                 n_comp = 1,
                 n_rep_per_comp = n_rep_per_comp,
+                config_loss = config_loss,
                 epochs = epochs_2,
                 opt_num = 2)
 
@@ -2017,8 +2092,8 @@ class DGDModel(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Return the representations, the predicted scaled means and
-        # r-values, and the time information for both rounds.
+        # Return the representations, the predicted means and r-values,
+        # the time information for both rounds of optimization.
         return rep_2, pred_means_2, pred_r_values_2, time
 
 
@@ -2029,7 +2104,7 @@ class DGDModel(nn.Module):
 
         Parameters
         ----------
-        time_list : ``list``
+        time_list : :class:`list`
             A list of tuples storing, for each epoch, information
             about the CPU and wall clock time used by the entire
             epoch and by the backpropagation step run within the
@@ -2086,7 +2161,7 @@ class DGDModel(nn.Module):
 
         Parameters
         ----------
-        rep : ``torch.Tensor``
+        rep : :class:`torch.Tensor`
             A tensor containing the optimized representations.
 
             This is a 2D tensor where:
@@ -2098,9 +2173,9 @@ class DGDModel(nn.Module):
               dimensionality of the latent space where the
               representations live.
 
-        pred_means : ``torch.Tensor``
-            A tensor containing the predicted scaled means of the
-            negative binomials.
+        pred_means : :class:`torch.Tensor`
+            A tensor containing the predicted means of the
+            distributions modelling the genes' counts.
 
             This is a 2D tensor where:
 
@@ -2110,9 +2185,14 @@ class DGDModel(nn.Module):
             - The second dimension has a length equal to the
               dimensionality of the gene space.
 
-        pred_r_values : ``torch.Tensor``
+            If the genes counts are modelled using negative binomial
+            distributions, the predicted means are scaled by the
+            corresponding distributions' r-values.
+
+        pred_r_values : :class:`torch.Tensor` or ``None``
             A tensor containing the predicted r-values of the negative
-            binomials.
+            binomial distributions modelling the genes' counts, if
+            the counts are modelled by negative binomial distributions.
 
             This is a 2D tensor where:
 
@@ -2122,16 +2202,19 @@ class DGDModel(nn.Module):
             - The second dimension has a length equal to the
               dimensionality of the gene space.
 
-        time_opt : ``list``
+            ``pred_r_values`` is ``None`` if the counts are modelled
+            by Poisson distributions.
+
+        time_opt : :class:`list`
             A list of tuples storing, for each epoch, information
             about the CPU and wall clock time used by the entire
             epoch and by the backpropagation step run within the
             epoch.
 
-        samples_names : ``list``
+        samples_names : :class:`list`
             A list containing the samples' names.
 
-        genes_names : ``list``
+        genes_names : :class:`list`
             A list containing the genes' names.
         
         Returns
@@ -2140,12 +2223,17 @@ class DGDModel(nn.Module):
             A data frame containing the representations.
 
         df_pred_means : ``pandas.DataFrame``
-            A data frame containing the predicted scaled means of the
-            negative binomials.
+            A data frame containing the predicted means of the
+            distributions modelling the genes' counts.
 
-        df_pred_r_values : ``pandas.DataFrame``
+            If the genes counts are modelled using negative binomial
+            distributions, the predicted means are scaled by the
+            corresponding distributions' r-values.
+
+        df_pred_r_values : ``pandas.DataFrame`` or ``None``
             A data frame containing the predicted r-values of the
-            negative binomials.
+            negative binomials. It is ``None`` if the genes' counts
+            are modelled by Poisson distributions.
 
         df_time_opt : ``pandas.DataFrame``
             A data frame containing data about the optimization time.
@@ -2171,30 +2259,40 @@ class DGDModel(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Convert the tensor containing the predicted r-values into an
-        # array.
-        pred_r_values_array = pred_r_values.detach().cpu().numpy()
+        # If the predicted r-values were passed
+        if pred_r_values is not None:
+            
+            # Convert the tensor containing the predicted r-values into
+            # an array.
+            pred_r_values_array = pred_r_values.detach().cpu().numpy()
 
-        # If the array is one-dimensional (one r-value per gene for
-        # all samples)
-        if len(pred_r_values_array.shape) == 1:
+            # If the array is one-dimensional (one r-value per gene for
+            # all samples)
+            if len(pred_r_values_array.shape) == 1:
 
-            # Convert it into a two-dimensional array by repeating the
-            # r-values for as many samples we have.
-            pred_r_values_array = np.tile(pred_r_values_array,
-                                          (len(samples_names), 1))
+                # Convert it into a two-dimensional array by repeating
+                # the r-values for as many samples we have.
+                pred_r_values_array = np.tile(pred_r_values_array,
+                                              (len(samples_names), 1))
 
-        # Get a data frame containing the predicted r-values for all
-        # samples.
-        df_pred_r_values = pd.DataFrame(pred_r_values_array.tolist())
+            # Get a data frame containing the predicted r-values for
+            # all samples.
+            df_pred_r_values = \
+                pd.DataFrame(pred_r_values_array.tolist())
 
-        # Set the names of the rows of the data frame to be the
-        # names/IDs/indexes of the samples.
-        df_pred_r_values.index = samples_names
+            # Set the names of the rows of the data frame to be the
+            # names/IDs/indexes of the samples.
+            df_pred_r_values.index = samples_names
 
-        # Set the names of the columns of the data frame to be the
-        # names of the genes.
-        df_pred_r_values.columns = genes_names
+            # Set the names of the columns of the data frame to be the
+            # names of the genes.
+            df_pred_r_values.columns = genes_names
+
+        # Otherwise
+        else:
+
+            # The data frame containing the r-values will be None.
+            df_pred_r_values = None
 
         #-------------------------------------------------------------#
 
@@ -2246,7 +2344,7 @@ class DGDModel(nn.Module):
 
         Parameters
         ----------
-        rep_train : ``torch.Tensor``
+        rep_train : :class:`torch.Tensor`
             A tensor containing the optimized representations for the
             training samples.
 
@@ -2259,7 +2357,7 @@ class DGDModel(nn.Module):
               dimensionality of the latent space, where the
               representations live.
 
-        rep_test : ``torch.Tensor``
+        rep_test : :class:`torch.Tensor`
             A tensor containing the optimized representations for the
             testing samples.
 
@@ -2272,20 +2370,20 @@ class DGDModel(nn.Module):
               dimensionality of the latent space, where the
               representations live.
 
-        losses_list : ``list``
+        losses_list : :class:`list`
             A list containing the losses calculated during each
             training epoch.
         
-        time_train : ``list``
+        time_train : :class:`list`
             A list of tuples storing, for each epoch, information
             about the CPU and wall clock time used by the entire
             epoch and by the backpropagation step run within the
             epoch.
 
-        samples_names_train : ``list``
+        samples_names_train : :class:`list`
             A list containing the training samples' names.
 
-        samples_names_test : ``list``
+        samples_names_test : :class:`list`
             A list containing the testing samples' names.
 
         Returns
@@ -2376,6 +2474,62 @@ class DGDModel(nn.Module):
 
         # Return the data frames.
         return df_rep_train, df_rep_test, df_loss, df_time
+
+
+    def _normalize_loss(self,
+                        loss,
+                        loss_type,
+                        loss_norm_method,
+                        loss_norm_options):
+        """Normalize the loss per epoch.
+
+        Parameters
+        ----------
+        loss : :class:`torch.Tensor`
+            The loss to be normalized.
+
+        loss_type : :class:`str`, {``"gmm"``, ``"recon"``, ``"total"``}
+            The type of loss.
+
+        loss_norm_method : :class:`str`
+            The name of the normalization method.
+
+        loss_norm_options : :class:`dict`
+            A dictionary of options for the normalization method.
+        """
+
+        # If the normalization method is not supported
+        if loss_norm_method not in self._LOSS_NORM_METHODS[loss_type]:
+
+            # Get the available normalization methods for the current
+            # type of loss.
+            supported_methods = \
+                ", ".join([f"'{m}'" for m \
+                           in self._LOSS_NORM_METHODS[loss_type]])
+
+            # Raise an error.
+            errstr = \
+                "Unsupported normalization method " \
+                f"'{loss_norm_method}' for the '{loss_type}' loss. " \
+                "Available normalization methods are: " \
+                f"{supported_methods}."
+            raise ValueError(errstr)
+
+        #-------------------------------------------------------------#
+
+        # If the normalization method is 'none'
+        if loss_norm_method == "none":
+
+            # Simply return the loss.
+            return loss
+
+        # If the loss should be normalized by the total number of
+        # samples
+        elif loss_norm_method == "n_samples":
+
+            # Return the loss normalized by the total number of
+            # samples.
+            return loss / loss_norm_options["n_samples"]
 
 
     ######################### PUBLIC METHODS #########################
@@ -2514,7 +2668,7 @@ class DGDModel(nn.Module):
         df_samples : ``pandas.DataFrame``
             A data frame containing the samples.
 
-        config_rep : ``dict``
+        config_rep : :class:`dict`
             A dictionary of options for the optimization(s). It varies
             according to the selected ``method``.
 
@@ -2535,20 +2689,26 @@ class DGDModel(nn.Module):
             appear last in the data frame.
 
         df_pred_means : ``pandas.DataFrame``
-            A data frame containing the predicted scaled means of
-            the negative binomials for the representations found.
+            A data frame containing the predicted means of the
+            distrbutions modelling the genes' counts for the
+            representations found.
 
-            Here, each row contains the predicted scaled means for a
+            Here, each row contains the predicted means for a
             given representation, and the columns contain either the
-            mean of a negative binomial or additional information
-            about the input samples found in the input
-            data frame. Columns containing additional
-            information, if present in the input data frame, will
-            appear last in the data frame.
+            mean of a distribution or additional information about the
+            input samples found in the input data frame. Columns
+            containing additional information, if present in the input
+            data frame, will appear last in the data frame.
 
-        df_pred_r_values : ``pandas.DataFrame``
+            If the genes counts are modelled using negative binomial
+            distributions, the predicted means are scaled by the
+            corresponding distributions' r-values.
+
+        df_pred_r_values : ``pandas.DataFrame`` or ``None``
             A data frame containing the predicted r-values of the
-            negative binomials for the representations found.
+            negative binomials for the representations found, if the
+            genes' counts are modelled by negative binomial
+            distributions
 
             Here, each row contains the predicted r-values for a given
             representation, and the columns contain either the
@@ -2557,6 +2717,9 @@ class DGDModel(nn.Module):
             data frame. Columns containing additional
             information, if present in the input data frame, will
             appear last in the data frame.
+
+            ``df_pred_r_values`` is ``None`` if the genes' counts are
+            modelled by Poisson distributions.
 
         df_time : ``pandas.DataFrame``
             A data frame containing data about the CPU and wall
@@ -2614,6 +2777,11 @@ class DGDModel(nn.Module):
 
         #-------------------------------------------------------------#
 
+        # Check the configuration of the model.
+        config_rep = util.check_config_rep(config = config_rep)
+
+        #-------------------------------------------------------------#
+
         # Get the optimization scheme from the configuration.
         opt_scheme = config_rep["scheme"]
 
@@ -2633,9 +2801,9 @@ class DGDModel(nn.Module):
 
         #-------------------------------------------------------------#
             
-        # Get the representations, the corresponding predicted scaled
-        # means and r-values of the negative binomials, and the time
-        # data.
+        # Get the representations, the corresponding predicted means
+        # of the distributions, the r-values of the distributions (if
+        # any), and the time data.
         rep, pred_means, pred_r_values, time_opt = \
             opt_method(dataset = dataset,
                        config = config_rep)
@@ -2662,12 +2830,16 @@ class DGDModel(nn.Module):
         # Add the extra data found in the input data frame to the
         # predicted scaled means' data frame.
         df_pred_means = pd.concat([df_pred_means, df_other_data],
-                                   axis = 1)
+                                  axis = 1)
 
-        # Add the extra data found in the input data frame to the
-        # predicted r-values' data frame.
-        df_pred_r_values = pd.concat([df_pred_r_values, df_other_data],
-                                      axis = 1)
+        # If there is a data frame containing the predicted r-values
+        if df_pred_r_values is not None:
+
+            # Add the extra data found in the input data frame to the
+            # predicted r-values' data frame.
+            df_pred_r_values = \
+                pd.concat([df_pred_r_values, df_other_data],
+                          axis = 1)
 
         #-------------------------------------------------------------#
 
@@ -2786,7 +2958,7 @@ class DGDModel(nn.Module):
                 max_for_comp_rep = \
                     [str(i) for i in max_for_comp.index.tolist()]
                 warnstr = \
-                    f"Multiple representations have the highest " \
+                    "Multiple representations have the highest " \
                     f"probability density for component {comp} " \
                     f"({sub_df[MAX_PROB_COL].max()}): " \
                     f"{', '.join(max_for_comp_rep)}."
@@ -2840,19 +3012,19 @@ class DGDModel(nn.Module):
             sample (if the column is named after the gene's Ensembl
             ID) or additional information about the sample.
 
-        config_train : ``dict``
+        config_train : :class:`dict`
             A dictionary of options for the training.
 
-        gmm_pth_file : ``str``, ``"gmm.pth"``
+        gmm_pth_file : :class:`str`, ``"gmm.pth"``
             The .pth file where to save the GMM's trained parameters
             (means of the components, weights of the components,
             and log-variance of the components).
 
-        dec_pth_file : ``str``, ``"gmm.pth"``
+        dec_pth_file : :class:`str`, ``"gmm.pth"``
             The .pth file where to save the decoder's trained
             parameters (weights and biases).
 
-        rep_pth_file : ``str``, ``"rep.pth"``
+        rep_pth_file : :class:`str`, ``"rep.pth"``
             The .pth file where to save the representations found
             for the training samples. 
 
@@ -2987,9 +3159,19 @@ class DGDModel(nn.Module):
 
         #-------------------------------------------------------------#
 
+        # Check the configuration that will be used for training.
+        config_train = util.check_config_train(config = config_train)
+
+        #-------------------------------------------------------------#
+
         # Get the number of epochs.
         n_epochs = config_train["epochs"]
 
+        # Get the methods that will be used to normalize the losses.
+        loss_norm_methods = \
+            {item : config_train["loss"].get(item).get("norm_method") \
+             for item in ["gmm", "recon", "total"]}
+        
         # Get the optimizer for the Gaussian mixture model.
         optimizer_gmm = \
             self._get_optimizer(\
@@ -3108,10 +3290,11 @@ class DGDModel(nn.Module):
                     # r-values are not learned
                     if isinstance(\
                         self.dec.nb,
-                        outputmodules.OutputModuleNBFeatureDispersion):
+                        (outputmodules.OutputModuleNBFeatureDispersion,
+                         outputmodules.OutputModulePoisson)):
                         
-                        # Get the predicted means of the negative
-                        # binomials.
+                        # Get the predicted means of the distributions
+                        # modelling the genes' counts.
                         #
                         # The output is a 2D tensor with:
                         #
@@ -3169,7 +3352,8 @@ class DGDModel(nn.Module):
                     # r-values are not learned
                     if isinstance(\
                         self.dec.nb,
-                        outputmodules.OutputModuleNBFeatureDispersion):
+                        (outputmodules.OutputModuleNBFeatureDispersion,
+                         outputmodules.OutputModulePoisson)):
 
                         # Set the options to compute the reconstruction
                         # loss.
@@ -3244,19 +3428,34 @@ class DGDModel(nn.Module):
                     # Get the loss for the Gaussian mixture model for
                     # the current epoch.
                     gmm_loss_epoch = \
-                        gmm_loss.item() / \
-                        (n_samples * self.gmm.dim * self.gmm.n_comp)
+                        self._normalize_loss(\
+                            loss = gmm_loss.item(),
+                            loss_type = "gmm",
+                            loss_norm_method = \
+                                loss_norm_methods["gmm"],
+                            loss_norm_options = \
+                                {"n_samples" : n_samples})
 
                     # Get the reconstruction loss for the current
                     # epoch.
                     recon_loss_epoch = \
-                        recon_loss.item() / \
-                        (n_samples * n_genes)
+                        self._normalize_loss(\
+                            loss = recon_loss.item(),
+                            loss_type = "recon",
+                            loss_norm_method = \
+                                loss_norm_methods["recon"],
+                            loss_norm_options = \
+                                {"n_samples" : n_samples})
 
                     # Get the overall loss for the current epoch.
                     loss_epoch = \
-                        loss.item() / \
-                        (n_samples * n_genes)
+                        self._normalize_loss(\
+                            loss = loss.item(),
+                            loss_type = "total",
+                            loss_norm_method = \
+                                loss_norm_methods["total"],
+                            loss_norm_options = \
+                                {"n_samples" : n_samples})
 
                     #-------------------------------------------------#
 
@@ -3323,7 +3522,7 @@ class DGDModel(nn.Module):
 
         # Save the GMM's parameters.
         torch.save(self.gmm.state_dict(),
-                   uniquify_file_path(gmm_pth_file))
+                   util.uniquify_file_path(gmm_pth_file))
 
         # Inform the user that the parameters were saved.
         infostr = \
@@ -3335,7 +3534,7 @@ class DGDModel(nn.Module):
 
         # Save the decoder's parameters.
         torch.save(self.dec.state_dict(),
-                   uniquify_file_path(dec_pth_file))
+                   util.uniquify_file_path(dec_pth_file))
 
         # Inform the user that the parameters were saved.
         infostr = \

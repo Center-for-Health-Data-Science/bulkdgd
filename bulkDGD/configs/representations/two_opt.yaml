@@ -1,0 +1,187 @@
+# Configuration file specifying the options to get the representations
+# with two rounds of optimization.
+
+
+#######################################################################
+
+
+# Set the name of the optimization scheme the configuration refers to.
+#
+# Type: str.
+#
+# Options:
+# - 'one_opt' for the optimization scheme with only one round of
+#   optimization.
+# - 'two_opt' for the optimization scheme with two rounds of
+#   optimization.
+scheme: two_opt
+
+
+#######################################################################
+
+
+# Set how many representations to initialize per sample per component
+# of the Gaussian mixture model.
+#
+# Type: int.
+n_rep_per_comp: 1
+
+
+#######################################################################
+
+
+# Set the options for the data loader. They are passed to the
+# 'torch.utils.data.DataLoader' construction.
+data_loader:
+
+  # Set how many samples per batch to load.
+  #
+  # Type: int.
+  batch_size: 8
+
+
+#######################################################################
+
+
+# Set the options to output the loss.
+loss:
+
+  # Set the options to output the GMM loss.
+  gmm:
+
+    # Set the method used to normalize the loss when reporting it per
+    # epoch.
+    #
+    # Type: str.
+    #
+    # Options:
+    # - 'none' means that the loss will not be normalized.
+    # - 'n_samples' means that the loss will be normalized by the
+    #   number of samples.
+    norm_method: n_samples
+
+  #-------------------------------------------------------------------#
+
+  # Set the options to output the reconstruction loss.
+  recon:
+    
+    # Set the method used to normalize the loss when reporting it per
+    # epoch.
+    #
+    # Type: str.
+    #
+    # Options:
+    # - 'none' means that the loss will not be normalized.
+    # - 'n_samples' means that the loss will be normalized by the
+    #   number of samples.
+    norm_method: n_samples
+
+  #-------------------------------------------------------------------#
+
+  # Set the options to output the total loss.
+  total:
+
+    # Set the method used to normalize the loss when reporting it per
+    # epoch.
+    #
+    # Type: str.
+    #
+    # Options:
+    # - 'none' means that the loss will not be normalized.
+    # - 'n_samples' means that the loss will be normalized by the
+    #   number of samples.
+    norm_method: n_samples
+
+
+#######################################################################
+
+
+# Set the options for the first optimization round.
+opt1:
+
+  # Set the number of epochs the optimization should be run for.
+  #
+  # Type: int.
+  epochs: 10
+
+  # Set the options for the optimizer.
+  optimizer:
+
+    # Set the name of the optimizer to be used.
+    #
+    # Type: str.
+    #
+    # Options:
+    # - 'adam' for the Adam optimizer.
+    name: adam
+
+    # Set the options for the optimizer (they vary according to the
+    # optimizer defined by 'optimizer_name').
+    #
+    # For the 'adam' optimizer, they will be passed to the
+    # 'torch.optim.Adam' constructor.
+    options:
+
+      # Set these options if 'optimizer_name' is 'adam'.
+
+      # Set the learning rate.
+      #
+      # Type: float.
+      lr: 0.01
+
+      # Set the weight decay.
+      #
+      # Type: float.
+      weight_decay: 0.0
+
+      # Set the betas.
+      #
+      # Type: list of float.
+      betas: [0.5, 0.9]
+
+
+#######################################################################
+
+
+# Set the options for the second optimization round.
+opt2:
+
+  # Set the number of epochs the optimization should be run for.
+  #
+  # Type: int.
+  epochs: 50
+
+  # Set the options for the optimizer.
+  optimizer:
+
+    # Set the name of the optimizer to be used.
+    #
+    # Type: str.
+    #
+    # Options:
+    # - 'adam' for the Adam optimizer.
+    name: adam
+
+    # Set the options for the optimizer (they vary according to the
+    # optimizer defined by 'optimizer_name').
+    #
+    # For the 'adam' optimizer, they will be passed to the
+    # 'torch.optim.Adam' constructor.
+    options:
+
+      # Set these options if 'optimizer_name' is 'adam'.
+
+      # Set the learning rate.
+      #
+      # Type: float.
+      lr: 0.01
+
+      # Set the weight decay.
+      #
+      # Type: float.
+      weight_decay: 0.0
+
+      # Set the betas.
+      #
+      # Type: list of float.
+      betas: [0.5, 0.9]

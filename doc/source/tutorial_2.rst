@@ -74,7 +74,7 @@ Then, we load the predicted scaled means using the :func:`ioutil.load_decoder_ou
    # Get only the first ten rows.
    df_dec_out = df_dec_out.iloc[:10,:]
 
-Finally, we load the predicted r-values using the :func:`ioutil.load_decoder_output` function.
+Finally, we load the predicted r-values using the :func:`ioutil.load_decoder_output` function. If we used an instance of the bulkDGD model using Poisson distributions instead of negative binomial distributions to model the predicted genes' counts, we would not have an output file with the r-values and we would not need to load them.
 
 .. code-block:: python
 

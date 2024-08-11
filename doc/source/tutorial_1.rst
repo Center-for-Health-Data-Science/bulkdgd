@@ -84,9 +84,9 @@ The function returns three objects:
 Step 2 - Get the trained DGD model
 ----------------------------------
 
-In order to set up the DGD model and load its trained parameters, we need a configuration file specifying the options to initialize the model and the path to the files containing the parameters of the trained model.
+In order to set up the DGD model and load its trained parameters, we need a configuration file specifying the options to initialize the model and the path to the files containing the parameters of the trained model. Here, we model the genes' counts using negative binomial distributions.
 
-In this case, we will use the ``bulkDGD/ioutil/configs/model/model.yaml`` file. We can refer to this file using only the file's name (without extension) since it is located in the ``bulkDGD/ioutil/configs/model`` directory.
+In this case, we will use the ``bulkDGD/configs/model/model.yaml`` file. We can refer to this file using only the file's name (without extension) since it is located in the ``bulkDGD/configs/model`` directory.
 
 We can load the configuration using the :func:`ioutil.load_config_model` function.
 
@@ -94,6 +94,9 @@ We can load the configuration using the :func:`ioutil.load_config_model` functio
    
    # Load the configuration.
    config_model = ioutil.get_config_model("model")
+
+   # Check the configuration.
+   config_model = util.check_config_model(config = config_model)
 
 Once loaded, the configuration consists of a dictionary of options, which maps to the arguments required by the :class:`core.model.DGDModel` constructor.
 
@@ -117,7 +120,7 @@ Before finding the representations, we need to define the scheme that will be us
 
 The scheme is contained in a YAML configuration file similar to that containing the DGD model's configuration.
 
-In this case, we will use the ``bulkDGD/ioutil/configs/representations/two_opt.yaml`` file. We can refer to this file using only the file's name (without extension) since it is located in the ``bulkDGD/ioutil/configs/representations`` directory.
+In this case, we will use the ``bulkDGD/configs/representations/two_opt.yaml`` file. We can refer to this file using only the file's name (without extension) since it is located in the ``bulkDGD/configs/representations`` directory.
 
 We can load the configuration using the :func:`ioutil.load_config_rep` function.
 
@@ -129,6 +132,9 @@ You can find more information about the supported optimization schemes and corre
    
    # Load the configuration.
    config_rep = ioutil.load_config_rep("two_opt")
+
+   # Check the configuration.
+   config_rep = util.check_config_rep(config = config_rep)
 
 Step 4 - Find and optimize the representations
 ----------------------------------------------
@@ -154,7 +160,7 @@ The method returns four objects:
 
 * ``df_pred_means`` is a ``pandas.DataFrame`` containing the predicted scaled means of the negative binomials used to model the RNA-seq genes' counts in the in silico samples corresponding to the best representations found. In this data frame, each row represents a different sample, and each column represents either the scaled mean of the negative binomial for a specific gene (in the columns named after the genes' Ensembl IDs) or additional information about the original samples (in our case, the ``tissue`` column).
 
-* ``df_pred_r_values`` is a ``pandas.DataFrame`` containing the predicted r-values of the negative binomials used to model the RNA-seq genes' counts in the in silico samples corresponding to the best representations found. In this data frame, each row represents a different sample, and each column represents either the r-value of the negative binomial for a specific gene (in the columns named after the genes' Ensembl IDs) or additional information about the original samples (in our case, the ``tissue`` column).
+* ``df_pred_r_values`` is a ``pandas.DataFrame`` containing the predicted r-values of the negative binomials used to model the RNA-seq genes' counts in the in silico samples corresponding to the best representations found. In this data frame, each row represents a different sample, and each column represents either the r-value of the negative binomial for a specific gene (in the columns named after the genes' Ensembl IDs) or additional information about the original samples (in our case, the ``tissue`` column). If we had used Poisson distributions to model the genes' counts instead of negative binomial distributions, ``df_pred_r_values`` would have been ``None``-
 
 * ``df_time`` is a ``pandas.DataFrame`` containing information about the CPU and wall clock time used by each optimization epoch and each backpropagation step through the decoder (one per epoch).
 

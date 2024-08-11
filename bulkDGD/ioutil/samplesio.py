@@ -39,7 +39,7 @@ import re
 # Import from third-party packages.
 import pandas as pd
 # Import from 'bulkDGD'.
-from . import defaults
+from bulkDGD import defaults, util
 
 
 #######################################################################
@@ -49,32 +49,7 @@ from . import defaults
 logger = log.getLogger(__name__)
 
 
-########################## PRIVATE FUNCTIONS ##########################
-
-
-def _load_list(list_file):
-    """Load a list of newline-separated entities from a plain text
-    file.
-
-    Parameters
-    ----------
-    list_file : ``str``
-        The plain text file containing the entities of interest.
-
-    Returns
-    -------
-    list_entities : ``list``
-        The list of entities.
-    """
-
-    # Return the list of entities from the file (exclude blank
-    # and comment lines).
-    return \
-        [l.rstrip("\n") for l in open(list_file, "r") \
-         if (not l.startswith("#") and not re.match(r"^\s*$", l))]
-
-
-########################## PUBLIC FUNCTIONS ###########################
+#######################################################################
 
 
 def load_samples(csv_file,
@@ -86,7 +61,7 @@ def load_samples(csv_file,
 
     Parameters
     ----------
-    csv_file : `str``
+    csv_file : :class:`str`
         A CSV file containing a data frame with the samples' data.
 
         The rows of the data frame should represent the samples,
@@ -96,17 +71,17 @@ def load_samples(csv_file,
         Each column containing gene expression data must be named
         after the gene's Ensembl ID.
 
-    sep : ``str``, ``","``
+    sep : :class:`str`, ``","``
         The column separator in the input CSV file.
 
-    keep_samples_names : ``bool``, ``True``
+    keep_samples_names : :class:`bool`, ``True``
         Whether to keep the names/IDs/indexes assigned to the
         samples in the input data frame.
 
         If ``True``, the samples' names/IDs/indexes are assumed
         to be in the first column of the input data frame.
 
-    split : ``bool``, ``True``
+    split : :class:`bool`, ``True``
         Whether to split the input data frame into two data frames,
         one with only the columns containing the gene expression
         data and the other containing only the columns with
@@ -114,7 +89,7 @@ def load_samples(csv_file,
 
     Returns
     -------
-    df_data : ``pandas.DataFrame``
+    df_data : :class:`pandas.DataFrame`
         A data frame containing the gene expression data.
 
         Here, the rows represent the samples and the columns represent
@@ -125,7 +100,7 @@ def load_samples(csv_file,
         the columns containing additional information about the
         samples, if any were found.
 
-    df_other_data : ``pandas.DataFrame``
+    df_other_data : :class:`pandas.DataFrame`
         A data frame containing the additional information about the
         samples found in the input data frame.
 
@@ -229,13 +204,13 @@ def save_samples(df,
 
     Parameters
     ----------
-    df : ``pandas.DataFrame``
+    df : :class:`pandas.DataFrame`
         A data frame containing the samples.
 
-    csv_file : ``str``
+    csv_file : :class:`str`
         The output CSV file.
 
-    sep : ``str``, ``","``
+    sep : :class:`str`, ``","``
         The column separator in the output CSV file.
     """
 
@@ -252,14 +227,14 @@ def preprocess_samples(df_samples,
 
     Parameters
     ----------
-    df_samples : ``pandas.DataFrame``
+    df_samples : :class:`pandas.DataFrame`
         A data frame containing the samples to be preprocessed.
 
         The rows of the data frame should represent the samples,
         while the columns should represent the genes and any
         additional information about the samples.
 
-    genes_txt_file : ``str``, optional
+    genes_txt_file : :class:`str`, optional
         A plain text file containing the list of genes (identified
         by their Ensembl IDs) included in the DGD model.
 
@@ -268,17 +243,17 @@ def preprocess_samples(df_samples,
 
     Returns
     -------
-    df_preproc : ``pandas.DataFrame``
+    df_preproc : :class:`pandas.DataFrame`
         The data frame with the preprocessed samples.
 
-    genes_excluded : ``list``
+    genes_excluded : :class:`list`
         The list of genes found in the input data frame but not
         included in the DGD model.
 
         These genes are dropped from the ``df_preproc`` data
         frame.
 
-    genes_missing : ``list``
+    genes_missing : :class:`list`
         A list of genes included in the DGD model but not found
         in the input data frame.
 
@@ -466,7 +441,7 @@ def preprocess_samples(df_samples,
         genes_txt_file = defaults.GENES_FILE
 
     # Load the list of genes
-    genes_list_dgd = _load_list(list_file = genes_txt_file)
+    genes_list_dgd = util.load_list(list_file = genes_txt_file)
 
     # Warn the user that the genes' columns will be rearranged.
     infostr = \

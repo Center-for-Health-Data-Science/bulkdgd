@@ -10,11 +10,11 @@ Step 1 - Set the DGD model
 
 In this tutorial, we are going to train the DGD model using a new set of samples.
 
-First, we create a new instance of the DGD model with the desired options.
+First, we create a new instance of the DGD model with the desired options. We model the genes' counts using negative binomial distributions.
 
 To do so, we need a configuration file with these options.
 
-In this case, we will use the ``model_untrained.yaml`` file already present in the tutorial's directory.
+In this case, we will use the ``model_untrained.yaml`` file already present in the tutorial's directory. 
 
 First, we set the logging so that every message above and including the ``INFO`` level gets reported to have a better idea of what the program is doing. By default, only messages associated with a ``WARNING`` level or above get reported.
 
@@ -36,7 +36,10 @@ Then, we can load the configuration for the DGD model using the :func:`ioutil.lo
    # Load the configuration.
    config_model = ioutil.get_config_model("model.yaml")
 
-Once loaded, the configuration consists of a dictionary of options, which maps to the arguments required by the :class:`core.model.DGDModel` constructor. One of these options is the ``genes_txt_file``, which maps to the path to a plain text file containing a list of Ensembl IDs representing the genes that should be included in the DGD model. If this option is set to ``"default"``, the list of genes defined in ``bulkDGD/ioutil/data/genes.txt`` is used.
+   # Check the configuration.
+   config_model = util.check_config_model(config = config_model)
+
+Once loaded, the configuration consists of a dictionary of options, which maps to the arguments required by the :class:`core.model.DGDModel` constructor. One of these options is the ``genes_txt_file``, which maps to the path to a plain text file containing a list of Ensembl IDs representing the genes that should be included in the DGD model. If this option is set to ``"default"``, the list of genes defined in ``bulkDGD/data/model/genes/genes.txt`` is used.
 
 Here, we use the custom list contained in the ``custom_genes.txt`` file (in the ``model_untrained.yaml`` configuration file, ``genes_txt_file`` is set to ``custom_genes.txt``).
 
@@ -160,7 +163,7 @@ The function returns three objects:
 Step 3 - Get the training options
 ---------------------------------
 
-Before training the DGD model, we need to obtain the configuration for the training procedure (which optimizers to use, for how many epochs to train, etc.). Here, we load the configuration from the ``bulkDGD/ioutil/configs/training/training.yaml`` configuration file. We can refer to this file using its name (without extension) because the file is stored in the ``bulkDGD/ioutil/configs/training`` directory.
+Before training the DGD model, we need to obtain the configuration for the training procedure (which optimizers to use, for how many epochs to train, etc.). Here, we load the configuration from the ``bulkDGD/configs/training/training.yaml`` configuration file. We can refer to this file using its name (without extension) because the file is stored in the ``bulkDGD/configs/training`` directory.
 
 The configuration can also be stored in a dictionary whose structure is described :doc:`here <train_config_options>`.
 
@@ -168,6 +171,9 @@ The configuration can also be stored in a dictionary whose structure is describe
    
    # Load the configuration for training the DGD model.
    config_train = ioutil.load_config_train("training")
+
+   # Check the configuration.
+   config_train = util.check_config_train(config = config_train)
 
 Step 4 - Train the DGD model
 ----------------------------

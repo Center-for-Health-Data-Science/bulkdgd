@@ -37,7 +37,7 @@ copyright = "2024, Valentina Sora"
 # Set the name(s) of the project's author(s).
 author = \
    "Valentina Sora, Viktoria Schuster, Inigo Prada Luengo, " \
-   "Anders Krogh"
+   "Anders Lykkebo-Valløe, Andreas Bjerregaard,, Anders Krogh"
 
 #---------------------------------------------------------------------#
 
@@ -61,12 +61,26 @@ author = \
 #
 # - 'sphinxcontrib.bibtex' is needed for the bibliography.
 #   Install it with 'pip install sphinxcontrib-bibtex'.
+#
+# - 'sphinx.ext.intersphinx' is needed for cross-referencing with the
+#   documentations of other packages.
 extensions = \
    ["myst_parser",
     "sphinx.ext.autodoc",
     "numpydoc",
     "sphinx_design",
-    "sphinxcontrib.bibtex"]
+    "sphinxcontrib.bibtex",
+    "sphinx.ext.intersphinx"]
+
+# Set the mapping so that intersphinx can work out the cross-references
+# to other packages.
+intersphinx_mapping = \
+   {"python": ("https://docs.python.org/3", None),
+    "torch": ("https://pytorch.org/docs/stable/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
+    "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
+    "sklearn": ("https://scikit-learn.org/stable/", None)}
 
 # Set the file extensions of source files. Sphinx considers the files
 # with this suffix as sources. The value can be a dictionary mapping
@@ -146,6 +160,8 @@ myst_footnote_transition = False
 html_static_path = ["_static"]
 
 # Set the HTML theme to be used.
+# If 'sphinx_rtd_theme', install it first by running
+# 'pip install sphinx-rtd-theme'.
 html_theme = "sphinx_rtd_theme"
 
 # Set a dictionary of values to pass into the template engine’s context

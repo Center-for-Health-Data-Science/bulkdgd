@@ -3,9 +3,9 @@ Configuration for the optimization scheme
 
 So far, bulkDGD implements two optimization schemes:
 
-* ``one_opt``, which consists of only one round of optimization for the best representations found for the samples in latent space. The ``one_opt`` scheme is implemented in the YAML file ``bulkDGD/ioutil/configs/representations/one_opt.yaml``.
+* ``one_opt``, which consists of only one round of optimization for the best representations found for the samples in latent space. The ``one_opt`` scheme is implemented in the YAML file ``bulkDGD/configs/representations/one_opt.yaml``.
 
-* ``two_opt``, which consists of two consecutive rounds of optimizations. Indeed, multiple candidate representations per sample are found, optimized, and the best one for each sample is picked from the pool. Then, a second round of optimization (similar to the one run under the ``one_opt`` scheme) is performed on these selected representations. The ``two_opt`` scheme is implemented in the YAML file ``bulkDGD/ioutil/configs/representations/two_opt.yaml``.
+* ``two_opt``, which consists of two consecutive rounds of optimizations. Indeed, multiple candidate representations per sample are found, optimized, and the best one for each sample is picked from the pool. Then, a second round of optimization (similar to the one run under the ``one_opt`` scheme) is performed on these selected representations. The ``two_opt`` scheme is implemented in the YAML file ``bulkDGD/configs/representations/two_opt.yaml``.
 
 ``one_opt`` scheme
 ------------------
@@ -40,6 +40,51 @@ When running :meth:`core.model.DGDModel.get_representations` the ``config`` argu
        #
        # Type: int.
        "batch_size" : 8},
+
+    # Set the options to output the loss.
+    "loss" : \
+
+      {# Set the options to output the GMM loss.
+       "gmm" : \
+         
+         # Set the method used to normalize the loss when reporting it
+         # per epoch.
+         #
+         # Type: str.
+         #
+         # Options:
+         # - 'none' means that the loss will not be normalized.
+         # - 'n_samples' means that the loss will be normalized by the
+         #   number of samples.
+         {"norm_method" : "n_samples"},
+
+       # Set the options to output the reconstruction loss.
+       "recon" : \
+         
+         # Set the method used to normalize the loss when reporting it
+         # per epoch.
+         #
+         # Type: str.
+         #
+         # Options:
+         # - 'none' means that the loss will not be normalized.
+         # - 'n_samples' means that the loss will be normalized by the
+         #   number of samples.
+         {"norm_method" : "n_samples"},
+
+       # Set the options to output the total loss.
+       "total" : \
+
+         # Set the method used to normalize the loss when reporting it
+         # per epoch.
+         #
+         # Type: str.
+         #
+         # Options:
+         # - 'none' means that the loss will not be normalized.
+         # - 'n_samples' means that the loss will be normalized by the
+         #   number of samples.
+         {"norm_method" : "n_samples"}},
 
    # Set the options for the optimization.
    "opt":
@@ -122,6 +167,51 @@ When running :meth:`core.model.DGDModel.get_representations` the ``config`` argu
        #
        # Type: int.
        "batch_size" : 8},
+
+    # Set the options to output the loss.
+    "loss" : \
+
+      {# Set the options to output the GMM loss.
+       "gmm" : \
+         
+         # Set the method used to normalize the loss when reporting it
+         # per epoch.
+         #
+         # Type: str.
+         #
+         # Options:
+         # - 'none' means that the loss will not be normalized.
+         # - 'n_samples' means that the loss will be normalized by the
+         #   number of samples.
+         {"norm_method" : "n_samples"},
+
+       # Set the options to output the reconstruction loss.
+       "recon" : \
+         
+         # Set the method used to normalize the loss when reporting it
+         # per epoch.
+         #
+         # Type: str.
+         #
+         # Options:
+         # - 'none' means that the loss will not be normalized.
+         # - 'n_samples' means that the loss will be normalized by the
+         #   number of samples.
+         {"norm_method" : "n_samples"},
+
+       # Set the options to output the total loss.
+       "total" : \
+
+         # Set the method used to normalize the loss when reporting it
+         # per epoch.
+         #
+         # Type: str.
+         #
+         # Options:
+         # - 'none' means that the loss will not be normalized.
+         # - 'n_samples' means that the loss will be normalized by the
+         #   number of samples.
+         {"norm_method" : "n_samples"}},
 
    # Set the options for the first optimization.
    "opt1":

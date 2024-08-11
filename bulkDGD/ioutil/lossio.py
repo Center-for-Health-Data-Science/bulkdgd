@@ -55,15 +55,15 @@ def load_loss(csv_file,
 
     Parameters
     ----------
-    csv_file : ``str``
+    csv_file : :class:`str`
         A CSV file containing the loss(es).
 
-    sep : ``str``, ``","``
+    sep : :class:`str`, ``","``
         The column separator in the input CSV file.
 
     Returns
     -------
-    df_time : ``pandas.DataFrame``
+    df_time : :class:`pandas.DataFrame`
         A data frame containing the loss(es).
     """
 
@@ -84,13 +84,13 @@ def save_loss(df,
 
     Parameters
     ----------
-    df : ``pandas.DataFrame``
+    df : :class:`pandas.DataFrame`
         A data frame containing the time data.
 
-    csv_file : ``str``
+    csv_file : :class:`str`
         The output CSV file.
 
-    sep : ``str``, ``","``
+    sep : :class:`str`, ``","``
         The column separator in the output CSV file.
     """
 

@@ -24,7 +24,6 @@
 
 
 # Import everything from all modules, apart from the private ones.
-from .defaults import *
 from .configio import *
 from .decoutio import *
 from .lossio import *

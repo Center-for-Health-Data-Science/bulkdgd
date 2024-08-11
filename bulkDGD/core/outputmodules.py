@@ -70,7 +70,11 @@ logger = log.getLogger(__name__)
 ########################### PUBLIC CLASSES ############################
 
 
-class OutputModuleNB(nn.Module):
+class OutputModuleBase(nn.Module):
+
+    """
+    Base class for the decoder's output modules.
+    """
 
 
     ######################## PUBLIC ATTRIBUTES ########################
@@ -91,13 +95,13 @@ class OutputModuleNB(nn.Module):
 
         Parameters
         ----------
-        input_dim : ``int``
+        input_dim : :class:`int`
             The dimensionality of the input.
 
-        output_dim : ``int``
+        output_dim : :class:`int`
             The dimensionality of the output.
 
-        activation : ``str``, {``"sigmoid"``, ``"softplus"``}, \
+        activation : :class:`str`, {``"sigmoid"``, ``"softplus"``}, \
             ``"softplus"``
             The name of the activation function to be used.
         """
@@ -123,7 +127,7 @@ class OutputModuleNB(nn.Module):
 
         Parameters
         ----------
-        activation : ``str``
+        activation : :class:`str`
             The name of the activation function to be used.
         """
         
@@ -219,18 +223,17 @@ class OutputModuleNB(nn.Module):
     @staticmethod
     def rescale(means,
                 scaling_factors):
-        """Rescale the means of the negative binomial distributions.
+        """Rescale the means of the distributions.
 
         Parameters
         ----------
-        means : ``torch.Tensor``
-            A 1D tensor containing the means of the negative binomials
-            to be rescaled.
+        means : :class:`torch.Tensor`
+            A 1D tensor containing the means of the distributions.
 
             In the tensor, each value represents the mean of a
-            different negative binomial distribution.
+            different distribution.
 
-        scaling_factors : ``torch.Tensor``
+        scaling_factors : :class:`torch.Tensor`
             The scaling factors.
 
             This is a 1D tensor whose length is equal to the number of
@@ -238,16 +241,389 @@ class OutputModuleNB(nn.Module):
 
         Returns
         -------
-        ``torch.Tensor``
+        rescaled_means : :class:`torch.Tensor`
             The rescaled means.
 
             This is a 1D tensor whose length is equal to the number
-            of negative binomials whose means were rescaled.
+            of distributions whose means were rescaled.
         """
         
         # Return the rescaled values by multiplying the means by the
         # scaling factors.
         return means * scaling_factors
+
+
+class OutputModulePoisson(OutputModuleBase):
+
+
+    ######################### INITIALIZATION ##########################
+
+
+    def __init__(self,
+                 input_dim,
+                 output_dim,
+                 activation = "softplus"):
+        """Initialize an instance of the class.
+
+        Parameters
+        ----------
+        input_dim : :class:`int`
+            The dimensionality of the input.
+
+        output_dim : :class:`int`
+            The dimensionality of the output.
+
+        activation : :class:`str`, {``"sigmoid"``, ``"softplus"``}, \
+            ``"softplus"``
+            The name of the activation function to be used.
+        """
+        
+        # Initialize the instance.
+        super().__init__(input_dim = input_dim,
+                         output_dim = output_dim,
+                         activation = activation)
+
+        # Set the layer that will contain the means of the Poisson
+        # distributions.
+        self._layer_means = \
+            nn.Linear(in_features = input_dim,
+                      out_features = output_dim)
+
+
+    ######################### STATIC METHODS ##########################
+
+
+    @staticmethod
+    def log_prob_mass(k,
+                      m):
+        """Compute the natural logarithm of the probability mass for a
+        set of Poisson distributions.
+
+        The formula used to compute the logarithm of the probability
+        mass is:
+
+        .. math::
+
+           logPDF_{Poisson(k,m)} &=
+           k * log(m + \\epsilon) - m - log\\Gamma(k+1)
+
+        Where :math:`\\epsilon` is a small value to prevent underflow/
+        overflow.
+
+        The derivation of this formula from the non-logarithmic
+        formulation of the probability mass function of the Poisson
+        distribution can be found below.
+
+        Parameters
+        ----------
+        k : :class:`torch.Tensor`
+            A one-dimensional tensor containing he "number of
+            successes" seen before stopping the trials.
+
+            Each value in the tensor corresponds to the number of
+            successes in a different Poisson distribution.
+
+        m : :class:`torch.Tensor`
+            A one-dimensional tensor containing the means of the
+            Poisson distributions.
+
+            Each value in the tensor corresponds to the mean of a
+            different Poisson distribution.
+
+        Returns
+        -------
+        x : :class:`torch.Tensor`
+            A one-dimensional tensor containing the lhe log-probability
+            mass of each Poisson distribution.
+
+            Each value in the tensor corresponds to the log-probability
+            mass of a different Poisson distribution.
+
+        Notes
+        -----
+        Here, we show how we derived the formula for the logarithm of
+        the probability mass of the Poisson distribution.
+
+        We start from the non-logarithmic version of the probability
+        mass for the Poisson distribution, which is:
+
+        .. math::
+
+           PDF_{Poisson(k,m)} = \
+           \\frac{m^{k}e^{-m}}{k!}
+
+        However, since:
+
+        * :math:`k!` can be rewritten in terms of the
+          gamma function as :math:`\\Gamma(k+1)`
+
+        The formula becomes:
+
+        .. math::
+
+           PDF_{Poisson(k,m)} = \
+           \\frac{m^{k}e^{-m}}{\\Gamma(k+1)}
+
+        Then, we get the natural logarithm of both sides:
+        
+        .. math::
+
+           logPDF_{Poisson(k,m)} &= \
+           k * log(m) - m - log\\Gamma(k+1)
+        
+        Finally, we add a small value :math:`\\epsilon` to prevent
+        underflow/overflow:
+
+        .. math::
+
+           logPDF_{Poisson(k,m)} &= \
+           k * log(m + \\epsilon) - m - log\\Gamma(k+1)
+        """
+
+        # Convert the "number of successes" to a double-precision
+        # floating point number.
+        k = k.double()
+        
+        # Set a small value used to prevent underflow and overflow.
+        eps = 1.e-10
+        
+        # Get the log-probability mass of the Poisson distributions.
+        x =  k * torch.log(m + eps) - m - torch.lgamma(k + 1)
+        
+        # Return the log-probability mass for the Poisson
+        # distributions.
+        return x
+
+
+    ######################### PUBLIC METHODS ##########################
+
+
+    def forward(self,
+                x):
+        """Forward pass.
+
+        Parameters
+        ----------
+        x : :class:`torch.Tensor`
+            The input tensor.
+
+        Returns
+        -------
+        m : :class:`torch.Tensor`
+            A tensor containing the means of the Poisson distributions.
+        """
+
+        # Pass the input through the layer.
+        _m = self._layer_means(x)
+
+        #-------------------------------------------------------------#
+
+        # If the activation function is a sigmoid
+        if self.activation == "sigmoid":
+            
+            # Get the predicted means of the Poisson distributions.
+            m = torch.sigmoid(_m)
+        
+        # If the activation function is a softplus
+        elif self.activation == "softplus":
+
+            # Get the predicted means of the Poisson distributions.
+            m = F.softplus(_m)
+
+        #-------------------------------------------------------------#
+
+        # Return the means of the Poisson distributions.
+        return m
+
+
+    def log_prob(self,
+                 obs_counts,
+                 pred_means,
+                 scaling_factors):
+        """Get the log-probability mass of the Poisson distributions.
+
+        Parameters
+        ----------
+        obs_counts : :class:`torch.Tensor`
+            The observed gene counts.
+
+            The first dimension of this tensor must have a length
+            equal to the number of samples whose counts are
+            reported.
+
+        pred_means : :class:`torch.Tensor`
+            The predicted means of the Poisson distributions.
+
+            This is a tensor whose shape must match that of
+            ``obs_counts``.
+
+        scaling_factors : :class:`torch.Tensor`
+            The scaling factors.
+
+            This is a 1D tensor whose length must match that
+            of the first dimension of ``obs_counts`` and
+            ``pred_means``.
+        
+        Returns
+        -------
+        log_prob_mass : :class:`torch.Tensor`
+            The log-probability mass of the Poisson distributions.
+
+            This is a 2D tensor where:
+
+            * The first dimension has a length equal to the length
+              of the first dimension of ``obs_counts`` and
+              ``pred_means``.
+
+            * The second dimension has a length equal to the length
+              of the second dimension of ``obs_counts`` and
+              ``pred_means``.
+        """
+
+        # Get the rescaled means of the Poisson distributions.
+        m = self.__class__.rescale(means = pred_means,
+                                   scaling_factors = scaling_factors)
+        
+        # Return the log-probability mass for the Poisson
+        # distributions.
+        return self.__class__.log_prob_mass(k = obs_counts,
+                                            m = m)
+
+    def loss(self,
+             obs_counts,
+             pred_means,
+             scaling_factors):
+        """Compute the loss given observed the means ``obs_counts``
+        and predicted means ``pred_means``, the latter rescaled by
+        ``scaling_factors``.
+
+        The loss corresponds to the negative log-probability mass of
+        the Poisson distributions.
+
+        Parameters
+        ----------
+        obs_counts : :class:`torch.Tensor`
+            The observed gene counts.
+
+        pred_means : :class:`torch.Tensor`
+            The predicted means of the Poisson distributions.
+
+            This is a tensor whose shape must match that of
+            ``obs_counts``.
+
+        scaling_factors : :class:`torch.Tensor`
+            The scaling factors.
+
+            This is a 1D tensor whose length must match that of the
+            first dimension of ``obs_counts`` and ``pred_means``.
+
+        Returns
+        -------
+        loss : :class:`torch.Tensor`
+            The loss associated with the input ``x``.
+
+            This is a 2D tensor where:
+
+            * The first dimension has a length equal to the length
+              of the first dimension of ``obs_counts`` and
+              ``pred_means``.
+
+            * The second dimension has a length equal to the length
+              of the second dimension of ``obs_counts`` and
+              ``pred_means``.
+        """  
+            
+        # Return a tensor with as many values as the dimensions of the
+        # input 'x' (the loss for each of the Poisson distributions
+        # associated with 'x').
+        return - self.log_prob(obs_counts = obs_counts,
+                               pred_means = pred_means,
+                               scaling_factors = scaling_factors)
+
+
+    def sample(self,
+               n,
+               pred_means,
+               scaling_factors):
+        """Get samples from the Poisson distributions.
+
+        Parameters
+        ----------
+        n : :class:`int`
+            The number of samples to get.
+
+        pred_means : :class:`torch.Tensor`
+            The predicted means of the Poisson distributions.
+
+        scaling_factors : :class:`torch.Tensor`
+            A tensor containing the scaling factors.
+
+            This is a 1D tensor whose length must match that
+            of the first dimension of ``pred_means``.
+        
+        Returns
+        -------
+        samples : :class:`torch.Tensor`
+            The samples drawn from the Poisson distributions.
+            
+            The shape of this tensor depends on the shape of ``n``
+            and ``pred_means``, but the first dimension always has
+            a length equal to the number of samples drawn from the
+            Poisson distribution.
+        """
+        
+        # Disable the gradient calculation.
+        with torch.no_grad():
+            
+            # Get the rescaled means of the Poisson distributions.
+            m = self.__class__.rescale(\
+                    means = pred_means,
+                    scaling_factors = scaling_factors)
+
+            # Sample from the Poisson distributions.
+            poisson = dist.Poisson(rate = m)
+            
+            # Get 'n' samples from the distributions.
+            return poisson.sample([n]).squeeze()
+
+
+class OutputModuleNB(OutputModuleBase):
+
+    """
+    Base class for the decoder's output modules modelling negative
+    binomial distributions.
+    """
+
+
+    ######################### INITIALIZATION ##########################
+
+
+    def __init__(self,
+                 input_dim,
+                 output_dim,
+                 activation = "softplus"):
+        """Initialize an instance of the class.
+
+        Parameters
+        ----------
+        input_dim : :class:`int`
+            The dimensionality of the input.
+
+        output_dim : :class:`int`
+            The dimensionality of the output.
+
+        activation : :class:`str`, {``"sigmoid"``, ``"softplus"``}, \
+            ``"softplus"``
+            The name of the activation function to be used.
+        """
+        
+        # Initialize the instance.
+        super().__init__(input_dim = input_dim,
+                         output_dim = output_dim,
+                         activation = activation)
+
+
+    ######################### STATIC METHODS ##########################
 
 
     @staticmethod
@@ -277,21 +653,21 @@ class OutputModuleNB(nn.Module):
 
         Parameters
         ----------
-        k : ``torch.Tensor``
+        k : :class:`torch.Tensor`
             A one-dimensional tensor containing he "number of
             successes" seen before stopping the trials.
 
             Each value in the tensor corresponds to the number of
             successes in a different negative binomial.
 
-        m : ``torch.Tensor``
+        m : :class:`torch.Tensor`
             A one-dimensional tensor containing the means of the
-            negative binomials.
+            negative binomial distributions.
 
             Each value in the tensor corresponds to the mean of a
             different negative binomial.
 
-        r : ``torch.Tensor``
+        r : :class:`torch.Tensor`
             A one-dimensional tensor containing the "number of
             failures" after which the trials end.
 
@@ -300,9 +676,9 @@ class OutputModuleNB(nn.Module):
 
         Returns
         -------
-        x : ``torch.Tensor``
+        x : :class:`torch.Tensor`
             A one-dimensional tensor containing the lhe log-probability
-            mass of each negative binomials.
+            mass of each negative binomial distributions.
 
             Each value in the tensor corresponds to the log-probability
             mass of a different negative binomial.
@@ -396,7 +772,8 @@ class OutputModuleNB(nn.Module):
         # log-probability mass.
         c = 1.0 / (r + m + eps)
         
-        # Get the log-probability mass of the negative binomials.
+        # Get the log-probability mass of the negative binomial
+        # distributions.
         #
         # The non-log version would be:
         #
@@ -438,7 +815,8 @@ class OutputModuleNB(nn.Module):
             torch.lgamma(k+1) + k*torch.log(m*c+eps) + \
             r*torch.log(r*c)
         
-        # Return the log-probability mass for the negative binomials.
+        # Return the log-probability mass for the negative binomial
+        # distributions.
         return x
 
 
@@ -464,16 +842,16 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
 
         Parameters
         ----------
-        input_dim : ``int``
+        input_dim : :class:`int`
             The dimensionality of the input.
 
-        output_dim : ``int``
+        output_dim : :class:`int`
             The dimensionality of the output.
 
-        r_init : ``float``
+        r_init : :class:`float`
             The initial 'r' value.
 
-        activation : ``str``, {``"sigmoid"``, ``"softplus"``}, \
+        activation : :class:`str`, {``"sigmoid"``, ``"softplus"``}, \
             ``"softplus"``
             The name of the activation function to be used.
         """
@@ -505,16 +883,16 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
 
         Parameters
         ----------
-        r_init : ``int``
+        r_init : :class:`int`
             The initial value for 'r', representing the "number
             of failures" after which the "trials" stop.
 
-        output_dim : ``int``
+        output_dim : :class:`int`
             The dimensionality of the output.
 
         Returns
         -------
-        log_r : ``torch.Tensor``
+        log_r : :class:`torch.Tensor`
             A tensor containing the ``r_init`` value as many times
             as the number of dimensions of the space the negative
             binomials live in.
@@ -565,35 +943,38 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
 
         Parameters
         ----------
-        x : ``torch.Tensor``
+        x : :class:`torch.Tensor`
             The input tensor.
 
         Returns
         -------
-        m : ``torch.Tensor``
-            A tensor containing the means of the negative binomials.
+        m : :class:`torch.Tensor`
+            A tensor containing the means of the negative binomial
+            distributions.
         """
 
         # Pass the input through the layer.
-        x = self._layer_means(x)
+        _m = self._layer_means(x)
 
         #-------------------------------------------------------------#
 
         # If the activation function is a sigmoid
         if self.activation == "sigmoid":
             
-            # Get the predicted means of the negative binomials.
-            m = torch.sigmoid(x)
+            # Get the predicted means of the negative binomial
+            # distributions.
+            m = torch.sigmoid(_m)
         
         # If the activation function is a softplus
         elif self.activation == "softplus":
 
-            # Get the predicted means of the negative binomials.
-            m = F.softplus(x)
+            # Get the predicted means of the negative binomial
+            # distributions.
+            m = F.softplus(_m)
 
         #-------------------------------------------------------------#
 
-        # Return the means of the negative binomials.
+        # Return the means of the negative binomial distributions.
         return m
     
 
@@ -601,24 +982,25 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
                  obs_counts,
                  pred_means,
                  scaling_factors):
-        """Get the log-probability mass of the negative binomials.
+        """Get the log-probability mass of the negative binomial
+        distributions.
 
         Parameters
         ----------
-        obs_counts : ``torch.Tensor``
+        obs_counts : :class:`torch.Tensor`
             The observed gene counts.
 
             The first dimension of this tensor must have a length
             equal to the number of samples whose counts are
             reported.
 
-        pred_means : ``torch.Tensor``
-            The predicted means of the negative binomials.
+        pred_means : :class:`torch.Tensor`
+            The predicted means of the negative binomial distributions.
 
             This is a tensor whose shape must match that of
             ``obs_counts``.
 
-        scaling_factors : ``torch.Tensor``
+        scaling_factors : :class:`torch.Tensor`
             The scaling factors.
 
             This is a 1D tensor whose length must match that
@@ -627,8 +1009,9 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
         
         Returns
         -------
-        log_prob_mass : ``torch.Tensor``
-            The log-probability mass.
+        log_prob_mass : :class:`torch.Tensor`
+            The log-probability mass of the negative binomial
+            distributions.
 
             This is a 2D tensor where:
 
@@ -641,14 +1024,16 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
               ``pred_means``.
         """
 
-        # Get the rescaled means of the negative binomials.
+        # Get the rescaled means of the negative binomial
+        # distributions.
         m = self.__class__.rescale(means = pred_means,
                                    scaling_factors = scaling_factors)
 
-        # Get the 'r' values of the negative binomials.
+        # Get the 'r' values of the negative binomial distributions.
         r = torch.exp(self.log_r)
         
-        # Return the log-probability mass for the negative binomials.
+        # Return the log-probability mass for the negative binomial
+        # distributions.
         return self.__class__.log_prob_mass(k = obs_counts,
                                             m = m,
                                             r = r)
@@ -661,20 +1046,21 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
         and predicted means ``pred_means``, the latter rescaled by
         ``scaling_factors``.
 
-        The loss corresponds to the negative log-probability mass.
+        The loss corresponds to the negative log-probability mass of
+        the binomial distributions.
 
         Parameters
         ----------
-        obs_counts : ``torch.Tensor``
+        obs_counts : :class:`torch.Tensor`
             The observed gene counts.
 
-        pred_means : ``torch.Tensor``
-            The predicted means of the negative binomials.
+        pred_means : :class:`torch.Tensor`
+            The predicted means of the negative binomial distributions.
 
             This is a tensor whose shape must match that of
             ``obs_counts``.
 
-        scaling_factors : ``torch.Tensor``
+        scaling_factors : :class:`torch.Tensor`
             The scaling factors.
 
             This is a 1D tensor whose length must match that of the
@@ -682,7 +1068,7 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
 
         Returns
         -------
-        loss : ``torch.Tensor``
+        loss : :class:`torch.Tensor`
             The loss associated with the input ``x``.
 
             This is a 2D tensor where:
@@ -697,8 +1083,8 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
         """  
             
         # Return a tensor with as many values as the dimensions of the
-        # input 'x' (the loss for each of the negative binomials
-        # associated with 'x')
+        # input 'x' (the loss for each of the negative binomial
+        # distributions associated with 'x')
         return - self.log_prob(obs_counts = obs_counts,
                                pred_means = pred_means,
                                scaling_factors = scaling_factors)
@@ -708,17 +1094,17 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
                n,
                pred_means,
                scaling_factors):
-        """Get samples from the negative binomials.
+        """Get samples from the negative binomial distributions.
 
         Parameters
         ----------
-        n : ``int``
+        n : :class:`int`
             The number of samples to get.
 
-        pred_means : ``torch.Tensor``
-            The predicted means of the negative binomials.
+        pred_means : :class:`torch.Tensor`
+            The predicted means of the negative binomial distributions.
 
-        scaling_factors : ``torch.Tensor``
+        scaling_factors : :class:`torch.Tensor`
             A tensor containing the scaling factors.
 
             This is a 1D tensor whose length must match that
@@ -726,7 +1112,7 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
         
         Returns
         -------
-        samples : ``torch.Tensor``
+        samples : :class:`torch.Tensor`
             The samples drawn from the negative binomial distributions.
             
             The shape of this tensor depends on the shape of ``n``
@@ -738,20 +1124,21 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
         # Disable the gradient calculation.
         with torch.no_grad():
             
-            # Get the rescaled means.
+            # Get the rescaled means of the negative binomial
+            # distributions.
             m = self.__class__.rescale(\
                     means = pred_means,
                     scaling_factors = scaling_factors)
 
-            # Get the r-values.
+            # Get the r-values of the negative binomial distributions.
             r = torch.exp(self.log_r)
             
             # Get the probabilities from the means using the formula:
             # m = p * r / (1-p), so p = m / (m+r)
             probs = m / (m + r)
 
-            # Sample from the negative binomials with the calculated
-            # probabilities.
+            # Sample from the negative binomial distributions with the
+            # calculated probabilities.
             nb = dist.NegativeBinomial(total_count = r,
                                        probs = probs)
             
@@ -780,13 +1167,13 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
 
         Parameters
         ----------
-        input_dim : ``int``
+        input_dim : :class:`int`
             The dimensionality of the input.
 
-        output_dim : ``int``
+        output_dim : :class:`int`
             The dimensionality of the output.
 
-        activation : ``str``, {``"sigmoid"``, ``"softplus"``}, \
+        activation : :class:`str`, {``"sigmoid"``, ``"softplus"``}, \
             ``"softplus"``
             The name of the activation function to be used.
         """
@@ -797,13 +1184,13 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
                          activation = activation)
 
         # Set the layer that will contain the means of the negative
-        # binomials.
+        # binomial distributions.
         self._layer_means = \
             nn.Linear(in_features = input_dim,
                       out_features = output_dim)
 
         # Set the layer that will contain the predicted logaritm of
-        # the 'r' values of the negative binomials.
+        # the 'r' values of the negative binomial distributions.
         self._layer_r_values = \
             nn.Linear(in_features = input_dim,
                       out_features = output_dim)
@@ -818,20 +1205,21 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
 
         Parameters
         ----------
-        x : ``torch.Tensor``
+        x : :class:`torch.Tensor`
             The input tensor.
 
         Returns
         -------
-        m : ``torch.Tensor``
-            A tensor containing the means of the negative binomials.
+        m : :class:`torch.Tensor`
+            A tensor containing the means of the negative binomial
+            distributions.
 
-        log_r : ``torch.Tensor``
+        log_r : :class:`torch.Tensor`
             A tensor containing the logarithm of the 'r' values of
-            the negative binomials.
+            the negative binomial distributions.
         """
             
-        # Pass the input through the layer.
+        # Pass the input through the first output layer.
         _m = self._layer_means(x)
 
         #-------------------------------------------------------------#
@@ -839,19 +1227,20 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
         # If the activation function is a sigmoid
         if self.activation == "sigmoid":
             
-            # Get the predicted means of the negative binomials.
+            # Get the predicted means of the negative binomial
+            # distributions.
             m = torch.sigmoid(_m)
         
         # If the activation function is a softplus
         elif self.activation == "softplus":
 
-            # Get the predicted means of the negative binomials.
+            # Get the predicted means of the negative binomial
+            # distributions.
             m = F.softplus(_m)
 
         #-------------------------------------------------------------#
 
-        # Get the logarithm of the 'r' values of the negative
-        # binomials.
+        # Pass the input through the second output layer.
         _log_r = self._layer_r_values(x)
 
         #-------------------------------------------------------------#
@@ -859,19 +1248,21 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
         # If the activation function is a sigmoid
         if self.activation == "sigmoid":
             
-            # Get the predicted means of the negative binomials.
+            # Get the predicted means of the negative binomial
+            # distributions.
             log_r = torch.sigmoid(_log_r)
         
         # If the activation function is a softplus
         elif self.activation == "softplus":
 
-            # Get the predicted means of the negative binomials.
+            # Get the predicted means of the negative binomial
+            # distributions
             log_r = F.softplus(_log_r)
 
         #-------------------------------------------------------------#
 
         # Return the means and the logarithm of the 'r' values of the
-        # negative binomials.
+        # negative binomial distributions.
         return m, log_r
 
 
@@ -880,31 +1271,32 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
                  pred_means,
                  pred_log_r_values,
                  scaling_factors):
-        """Get the log-probability mass of the negative binomials.
+        """Get the log-probability mass of the negative binomial
+        distributions.
 
         Parameters
         ----------
-        obs_counts : ``torch.Tensor``
+        obs_counts : :class:`torch.Tensor`
             The observed gene counts.
 
             The first dimension of this tensor must have a length
             equal to the number of samples whose counts are
             reported.
 
-        pred_means : ``torch.Tensor``
-            The predicted means of the negative binomials.
+        pred_means : :class:`torch.Tensor`
+            The predicted means of the negative binomial distributions.
 
             This is a tensor whose shape must match that of
             ``obs_counts``.
 
-        pred_log_r_values : ``torch.Tensor``
-            The predicted logarithm of the 'r' values of the negative
-            binomials.
+        pred_log_r_values : :class:`torch.Tensor`
+            The predicted logarithm of the r-values of the negative
+            binomial distributions.
 
             This is a tensor whose shape must match that of
             ``obs_counts`` and. ``pred_means``.   
 
-        scaling_factors : ``torch.Tensor``
+        scaling_factors : :class:`torch.Tensor`
             The scaling factors.
 
             This is a 1D tensor whose length must match that of the
@@ -913,7 +1305,7 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
         
         Returns
         -------
-        log_prob_mass : ``torch.Tensor``
+        log_prob_mass : :class:`torch.Tensor`
             The log-probability mass.
 
             This is a 2D tensor where:
@@ -927,14 +1319,16 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
               and ``pred_log_r_values``.
         """
 
-        # Get the rescaled means of the negative binomials.
+        # Get the rescaled means of the negative binomial
+        # distributions.
         m = self.__class__.rescale(means = pred_means,
                                    scaling_factors = scaling_factors)
 
-        # Get the 'r' values of the negative binomials.
+        # Get the r-values of the negative binomial distributions.
         r = torch.exp(pred_log_r_values)
 
-        # Return the log-probability mass for the negative binomials.
+        # Return the log-probability mass for the negative binomial
+        # distributions.
         return self.__class__.log_prob_mass(k = obs_counts,
                                             m = m,
                                             r = r)
@@ -947,29 +1341,31 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
         """Compute the loss given observed the means ``obs_counts``,
         the predicted means ``pred_means`` (rescaled by
         ``scaling_factors``), and the predicted logarithm of the
-        r-values (``pred_log_r_values``).
+        r-values (``pred_log_r_values``) of the negative binomial
+        distributions
 
-        The loss corresponds to the negative log-probability mass.
+        The loss corresponds to the negative log-probability mass of
+        the negative binomial distributions.
 
         Parameters
         ----------
-        obs_counts : ``torch.Tensor``
+        obs_counts : :class:`torch.Tensor`
             The observed gene counts.
 
-        pred_means : ``torch.Tensor``
-            The predicted means of the negative binomials.
+        pred_means : :class:`torch.Tensor`
+            The predicted means of the negative binomial distributions.
 
             This is a tensor whose shape must match that of
             ``obs_counts``.
 
-        pred_log_r_values : ``torch.Tensor``
-            The predicted logarithm of the 'r' values of the negative
-            binomials.
+        pred_log_r_values : :class:`torch.Tensor`
+            The predicted logarithm of the r-values of the negative
+            binomial distributions.
 
             This is a tensor whose shape must match that of
             ``obs_counts`` and. ``pred_means``.   
 
-        scaling_factors : ``torch.Tensor``
+        scaling_factors : :class:`torch.Tensor`
             The scaling factors.
 
             This is a 1D tensor whose length must match that of the
@@ -978,7 +1374,7 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
 
         Returns
         -------
-        loss : ``torch.Tensor``
+        loss : :class:`torch.Tensor`
             The loss associated with the input ``x``.
 
             This is a 2D tensor where:
@@ -993,8 +1389,8 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
         """  
             
         # Return a tensor with as many values as the dimensions of the
-        # input 'x' (the loss for each of the negative binomials
-        # associated with 'x')
+        # input 'x' (the loss for each of the negative binomial
+        # distributions associated with 'x').
         return - self.log_prob(obs_counts = obs_counts,
                                pred_means = pred_means,
                                pred_log_r_values = pred_log_r_values,
@@ -1006,24 +1402,24 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
                pred_means,
                pred_log_r_values,
                scaling_factors):
-        """Get samples from the negative binomials.
+        """Get samples from the negative binomial distributions.
 
         Parameters
         ----------
-        n : ``int``
+        n : :class:`int`
             The number of samples to get.
 
-        pred_means : ``torch.Tensor``
-            The predicted means of the negative binomials.
+        pred_means : :class:`torch.Tensor`
+            The predicted means of the negative binomial distributions.
 
-        pred_log_r_values : ``torch.Tensor``
+        pred_log_r_values : :class:`torch.Tensor`
             The predicted logarithm of the r-values of the negative
-            binomials.
+            binomial distributions.
 
             This is a 2D tensor whose shape must match that of
             ``pred_means``.
 
-        scaling_factors : ``torch.Tensor``
+        scaling_factors : :class:`torch.Tensor`
             A tensor containing the scaling factors.
 
             This is a 1D tensor whose length must match that
@@ -1032,7 +1428,7 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
         
         Returns
         -------
-        samples : ``torch.Tensor``
+        samples : :class:`torch.Tensor`
             The samples drawn from the negative binomial distributions.
             
             The shape of this tensor depends on the shape of ``n``
@@ -1044,20 +1440,21 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
         # Disable the gradient calculation.
         with torch.no_grad():
             
-            # Get the rescaled means.
+            # Get the rescaled means of the negative binomial
+            # distributions.
             m = self.__class__.rescale(\
                     means = pred_means,
                     scaling_factors = scaling_factors)
 
-            # Get the r-values.
+            # Get the r-values of the negative binomial distributions.
             r = torch.exp(pred_log_r_values)
             
             # Get the probabilities from the means using the formula:
             # m = p * r / (1-p), so p = m / (m+r)
             probs = m / (m + r)
 
-            # Sample from the negative binomials with the calculated
-            # probabilities.
+            # Sample from the negative binomial distributions with the
+            # calculated probabilities.
             nb = dist.NegativeBinomial(total_count = r,
                                        probs = probs)
             

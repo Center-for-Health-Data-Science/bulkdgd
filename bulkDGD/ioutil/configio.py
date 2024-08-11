@@ -41,8 +41,7 @@ import os
 import matplotlib.font_manager as fm
 import yaml
 # Import from 'bulkDGD'.
-from . import defaults
-from . import _util
+from bulkDGD import defaults, util
 
 
 #######################################################################
@@ -52,137 +51,26 @@ from . import _util
 logger = log.getLogger(__name__)
 
 
-########################## PRIVATE CONSTANTS ##########################
+########################## PRIVATE FUNCTIONS ##########################
 
 
-# Set the template against which to check the model's configuration.
-_CONFIG_MODEL_TEMPLATE = \
-    {# Set the dimensionality of the input.
-     "input_dim" : int,
-
-     # Set the options for the Gaussian mixture model.
-     "gmm_options" : None,
-     "gmm_pth_file" : str,
-
-     # Set the options for the decoder.
-     "dec_options" : None,
-     "dec_pth_file" : str,
-    
-     # Set the file containing the genes included in the model.
-     "genes_txt_file" : str}
-
-
-# Set the templates against which to check the configuration for
-# the different types of optimization schemes that can be used
-# when finding the representations for new samples.
-_CONFIG_REP_TEMPLATE = \
-    {# Set the template for the 'one_opt' scheme.
-     "one_opt" : \
-        {# Set the number of representations to get per component
-         # of the Gaussian mixture model per sample.
-         "n_rep_per_comp" : int,
-
-         # Set the options to configure the data loader.
-         "data_loader" : None,
-
-         # Set the optimization scheme.
-         "scheme" : str,
-
-         # Set the options for the optimization.
-         "opt" : \
-            {# Set the number of epochs.
-             "epochs" : int,
-            # Set the optimizer
-             "optimizer" : \
-                {"name" : str,
-                 "options" : None}}},
-
-    # Set the template for the 'two_opt' scheme.
-    "two_opt" : \
-        {# Set the number of representations to get per component
-         # of the Gaussian mixture model per sample.
-         "n_rep_per_comp" : int,
-
-         # Set the options to configure the data loader.
-         "data_loader" : None,
-
-         # Set the optimization scheme.
-         "scheme" : str,
-
-         # Set the options for the first optimization.
-         "opt1" : \
-            {# Set the number of epochs.
-             "epochs" : int,
-            # Set the optimizer
-             "optimizer" : \
-                {"name" : str,
-                 "options" : None}},
-         
-         # Set the options for the second optimization.
-         "opt2" : \
-            {# Set the number of epochs.
-             "epochs" : int,
-            # Set the optimizer
-             "optimizer" : \
-                {"name" : str,
-                 "options" : None}}}}
-
-
-# Set the template against which to check the training configuration.
-_CONFIG_TRAIN_TEMPLATE = \
-    {# Set the number of epochs.
-     "epochs" : int,
-
-     # Set the options to configure the data loader.
-     "data_loader" : None,
-
-     # Set the options to train the Gaussian mixture model.
-     "gmm" : \
-        {"optimizer" : \
-            {"name" : str,
-             "options" : None}},
-     
-     # Set the options to train the decoder.
-     "dec" : \
-        {"optimizer" : \
-            {"name" : str,
-             "options" : None}},
-
-    # Set the options to optimize the representations.
-    "rep" : \
-        {"optimizer" : \
-            {"name" : str,
-             "options" : None}},}
-
-
-########################## PUBLIC FUNCTIONS ###########################
-
-
-def load_config_model(config_file):
-    """Load the configuration specifying the DGD model's parameters
-    and, possibly, the path to the files containing the trained model
-    from a YAML file.
+def _load_config(config_file,
+                 config_type):
+    """Load a configuration from a YAML configuration file.
 
     Parameters
     ----------
-    config_file : ``str``
+    config_file : :class:`str`
         The YAML configuration file.
+
+    config_type : :class:`str`
+        The type of configuration to load from the file.
 
     Returns
     -------
-    config : ``dict``
-        A dictionary containing the configuration.
+    config : :class:`dict`
+        The configuration.
     """
-
-    # Set the fields that can be missing from the configuration,
-    # so that they do not raise an exception if they are not found.
-    ignore_if_missing = {"gmm_pth_file", "dec_pth_file"}
-
-    # Set the fields that can vary in the configuration, so that they
-    # do not raise an exception if they are different than expected.
-    ignore_if_varying = {"gmm_options", "dec_options"}
-
-    #-----------------------------------------------------------------#
 
     # Get the name of the configuration file.
     config_file_name = \
@@ -194,8 +82,8 @@ def load_config_model(config_file):
     if config_file == config_file_name:
 
         # Assume it is a configuration file in the directory storing
-        # configuration files for the model.
-        config_file = os.path.join(defaults.CONFIG_MODEL_DIR,
+        # configuration files for the given type of configuration.
+        config_file = os.path.join(defaults.CONFIG_DIRS[config_type],
                                    config_file_name + ".yaml")
 
     # Otherwise
@@ -211,97 +99,83 @@ def load_config_model(config_file):
 
     #-----------------------------------------------------------------#
 
+    # Return the configuration.
+    return config
+
+
+########################## PUBLIC FUNCTIONS ###########################
+
+
+def load_config_model(config_file):
+    """Load the configuration specifying the DGD model's parameters
+    and, possibly, the path to the files containing the trained model
+    from a YAML file.
+
+    Parameters
+    ----------
+    config_file : :class:`str`
+        The YAML configuration file.
+
+    Returns
+    -------
+    config : :class:`dict`
+        A dictionary containing the configuration.
+    """
+
+    # Load the configuration from the file.
+    config = _load_config(config_file = config_file,
+                          config_type = "model")
+
+    #-----------------------------------------------------------------#
+
     # Split the path into its 'head' (path to the file without the
     # file's name) and its 'tail' (the file's name).
     path_head, path_tail = os.path.split(config_file)
 
     #-----------------------------------------------------------------#
 
-    # Check the configuration against the template.
-    config = _util.check_config_against_template(\
-                config = config,
-                template = _CONFIG_MODEL_TEMPLATE,
-                ignore_if_missing = ignore_if_missing,
-                ignore_if_varying = ignore_if_varying)
+    # Check the configuration.
+    config = check_config_model(config = config)
 
     #-----------------------------------------------------------------#
 
-    # Get the PyTorch file containing the trained Gaussian mixture
-    # model.
-    gmm_pth_file = config.get("gmm_pth_file")
+    # For each model's component
+    for comp in \
+        ("gmm_pth_file", "dec_pth_file", "genes_txt_file"):
 
-    # If the file is not None
-    if gmm_pth_file is not None:
+        # Get the PyTorch file containing the trained component of the
+        # model.
+        comp_file = config.get(comp)
 
-        # If the default file should be used
-        if gmm_pth_file == "default":
+        # If the file is not None
+        if comp_file is not None:
 
-            # Get the path to the default file.
-            config["gmm_pth_file"] = \
-                os.path.normpath(defaults.GMM_FILE)
+            # If the default file should be used
+            if comp_file == "default":
 
+                # Get the path to the default file.
+                config[comp] = \
+                    os.path.normpath(\
+                        defaults.DATA_FILES_MODEL[comp.split("_")[0]])
+
+            # Otherwise
+            else:
+
+                # Get the path to the file.
+                config[comp] = \
+                    os.path.normpath(os.path.join(path_head,
+                                                  comp_file))
         # Otherwise
         else:
 
-            # Get the path to the file.
-            config["gmm_pth_file"] = \
-                os.path.normpath(os.path.join(path_head,
-                                              gmm_pth_file))
+            # If the component is the list of genes
+            if comp == "genes_txt_file":
 
-    #-----------------------------------------------------------------#
-
-    # Get the PyTorch file containing the trained decoder.
-    dec_pth_file = config.get("dec_pth_file")
-
-    # If the file is not None
-    if dec_pth_file is not None:
-
-        # If the default file should be used
-        if dec_pth_file == "default":
-
-            # Get the path to the default file.
-            config["dec_pth_file"] = \
-                os.path.normpath(defaults.DEC_FILE)
-
-        # Otherwise
-        else:
-
-            # Get the path to the file.
-            config["dec_pth_file"] = \
-                os.path.normpath(os.path.join(path_head,
-                                              dec_pth_file))
-
-    #-----------------------------------------------------------------#
-
-    # Get the plain text file containing the genes
-    genes_txt_file = config.get("genes_txt_file")
-
-    # If the file is not None
-    if genes_txt_file is not None:
-
-        # If the default file should be used
-        if genes_txt_file == "default":
-
-            # Get the path to the default file.
-            config["genes_txt_file"] = \
-                os.path.normpath(defaults.GENES_FILE)
-
-        # Otherwise
-        else:
-
-            # Get the path to the file.
-            config["genes_txt_file"] = \
-                os.path.normpath(os.path.join(path_head,
-                                              genes_txt_file))
-
-    # Otherwise
-    else:
-
-        # Raise an exception.
-        errstr = \
-            "A 'genes_txt_file' must be specified in the " \
-            "model's configuration."
-        raise ValueError(errstr)
+                # Raise an exception.
+                errstr = \
+                    f"A '{comp}' must be specified in the " \
+                    "model's configuration."
+                raise ValueError(errstr)
 
     #-----------------------------------------------------------------#
 
@@ -316,80 +190,23 @@ def load_config_rep(config_file):
 
     Parameters
     ----------
-    config_file : ``str``
+    config_file : :class:`str`
         The YAML configuration file.
 
     Returns
     -------
-    config : ``dict``
+    config : :class:`dict`
         A dictionary containing the configuration.
     """
 
-    # Set the names of the supported optimization schemes.
-    optimization_schemes = ["one_opt", "two_opt"]
-
-    #-----------------------------------------------------------------#
-
-    # Get the name of the configuration file.
-    config_file_name = \
-        os.path.splitext(os.path.basename(config_file))[0]
-
-    #-----------------------------------------------------------------#
-
-    # If the configuration file is a name without extension
-    if config_file == config_file_name:
-        
-        # Assume it is a configuration file in the directory storing
-        # configuration files for the optimization rounds.
-        config_file = os.path.join(defaults.CONFIG_REP_DIR,
-                                   config_file_name + ".yaml")
-
-    # Otherwise
-    else:
-        
-        # Assume it is a file name/file path.
-        config_file = os.path.abspath(config_file)
-
-    #-----------------------------------------------------------------#
-
     # Load the configuration from the file.
-    config = yaml.safe_load(open(config_file, "r"))
+    config = _load_config(config_file = config_file,
+                          config_type = "representations")
 
     #-----------------------------------------------------------------#
 
-    # Get the optimization scheme from the configuration.
-    opt_scheme = config.get("scheme")
-
-    # If no scheme was defined
-    if not opt_scheme:
-
-        # Raise an error.
-        errstr = \
-            "The configuration must include a 'scheme' key " \
-            "associated with the name of the optimization " \
-            "scheme the configuration refers to."
-        raise KeyError(errstr)
-
-    # If the optimization scheme is not supported
-    if opt_scheme not in optimization_schemes:
-
-        # Raise an error.
-        supported_schemes = \
-            ", ".join([f"'{s}'" for s in optimization_schemes])
-        errstr = \
-            f"Unsupported optimization scheme '{opt_scheme}'. " \
-            "Supported optimization schemes are: " \
-            f"'{supported_schemes}."
-        raise ValueError(errstr)
-
-    #-----------------------------------------------------------------#
-
-    # Check the configuration against the template.
-    config = _util.check_config_against_template(\
-                config = config,
-                template = _CONFIG_REP_TEMPLATE[opt_scheme],
-                ignore_if_missing = set(),
-                ignore_if_varying = set())
+    # Check the configuration.
+    config = check_config_rep(config = config)
 
     #-----------------------------------------------------------------#
 
@@ -403,48 +220,23 @@ def load_config_train(config_file):
 
     Parameters
     ----------
-    config_file : ``str``
+    config_file : :class:`str`
         The YAML configuration file.
 
     Returns
     -------
-    config : ``dict``
+    config : :class:`dict`
         A dictionary containing the configuration.
     """
 
-    # Get the name of the configuration file.
-    config_file_name = \
-        os.path.splitext(os.path.basename(config_file))[0]
-
-    #-----------------------------------------------------------------#
-
-    # If the configuration file is a name without extension
-    if config_file == config_file_name:
-        
-        # Assume it is a configuration file in the directory storing
-        # configuration files for training the model.
-        config_file = os.path.join(defaults.CONFIG_TRAIN_DIR,
-                                   config_file_name + ".yaml")
-
-    # Otherwise
-    else:
-        
-        # Assume it is a file name/file path.
-        config_file = os.path.abspath(config_file)
-
-    #-----------------------------------------------------------------#
-
     # Load the configuration from the file.
-    config = yaml.safe_load(open(config_file, "r"))
+    config = _load_config(config_file = config_file,
+                          config_type = "training")
 
     #-----------------------------------------------------------------#
 
-    # Check the configuration against the template.
-    config = _util.check_config_against_template(\
-                config = config,
-                template = _CONFIG_TRAIN_TEMPLATE,
-                ignore_if_missing = set(),
-                ignore_if_varying = set())
+    # Check the configuration.
+    config = check_config_train(config = config)
 
     #-----------------------------------------------------------------#
 
@@ -457,45 +249,29 @@ def load_config_plot(config_file):
 
     Parameters
     ----------
-    config_file : ``str``
+    config_file : :class:`str`
         A YAML configuration file.
 
     Returns
     -------
-    config : ``dict``
+    config : :class:`dict`
         A dictionary containing the configuration.
     """
 
-    # Get the name of the configuration file.
-    config_file_name = \
-        os.path.splitext(os.path.basename(config_file))[0]
-
-    #-----------------------------------------------------------------#
-
-    # If the configuration file is a name without extension
-    if config_file == config_file_name:
-        
-        # Assume it is a configuration file in the directory storing
-        # configuration files for plotting.
-        config_file = os.path.join(defaults.CONFIG_PLOT_DIR,
-                                   config_file_name + ".yaml")
-
-    # Otherwise
-    else:
-        
-        # Assume it is a file name/file path.
-        config_file = os.path.abspath(config_file)
-
-    #-----------------------------------------------------------------#
-
     # Load the configuration from the file.
-    config = yaml.safe_load(open(config_file, "r"))
+    config = _load_config(config_file = config_file,
+                          config_type = "plotting")
+
+    #-----------------------------------------------------------------#
+
+    # Check the configuration.
+    config = check_config_plot(config = config)
 
     #-----------------------------------------------------------------#
     
     # Substitute the font properties definitions with the corresponding
     # 'FontProperties' instances.
-    new_config = _util.recursive_map_dict(\
+    new_config = util.recursive_map_dict(\
         d = config,
         func = fm.FontProperties,
         keys = {"fontproperties", "prop", "title_fontproperties"})
@@ -507,53 +283,28 @@ def load_config_plot(config_file):
 
 
 def load_config_genes(config_file):
-    """Load a configuration for creating a new list of genes from a
+    """Load the configuration for creating a new list of genes from a
     YAML file.
 
     Parameters
     ----------
-    config_file : ``str``
+    config_file : :class:`str`
         A YAML configuration file.
 
     Returns
     -------
-    config : ``dict``
+    config : :class:`dict`
         A dictionary containing the configuration.
     """
 
-    # Get the name of the configuration file.
-    config_file_name = \
-        os.path.splitext(os.path.basename(config_file))[0]
-
-    #-----------------------------------------------------------------#
-
-    # If the configuration file is a name without extension
-    if config_file == config_file_name:
-        
-        # Assume it is a configuration file in the directory storing
-        # configuration files for plotting.
-        config_file = os.path.join(defaults.CONFIG_GENES_DIR,
-                                   config_file_name + ".yaml")
-
-    # Otherwise
-    else:
-        
-        # Assume it is a file name/file path.
-        config_file = os.path.abspath(config_file)
-
-    #-----------------------------------------------------------------#
-
     # Load the configuration from the file.
-    config = yaml.safe_load(open(config_file, "r"))
+    config = _load_config(config_file = config_file,
+                          config_type = "genes")
 
     #-----------------------------------------------------------------#
-    
-    # Substitute the font properties definitions with the corresponding
-    # 'FontProperties' instances.
-    new_config = _util.recursive_map_dict(\
-        d = config,
-        func = fm.FontProperties,
-        keys = {"fontproperties", "prop", "title_fontproperties"})
+
+    # Check the configuration.
+    config = check_config_genes(config = config)
 
     #-----------------------------------------------------------------#
 

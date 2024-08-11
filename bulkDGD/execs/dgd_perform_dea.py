@@ -78,8 +78,8 @@ def main():
 
     im_help = \
         "The input CSV file containing the data frame with the " \
-        "predicted scaled means of the negative binomials for each " \
-        "in silico control sample."
+        "predicted means of the distributions used to model the " \
+        "genes' counts for each in silico control sample."
     parser.add_argument("-im", "--input-csv-means",
                         type = str,
                         required = True,
@@ -89,11 +89,12 @@ def main():
 
     iv_help = \
         "The input CSV file containing the data frame with the " \
-        "predicted r-values of the negative binomials for each " \
-        "in silico control sample."
+        "predicted r-values of the negative binomial distributions " \
+        "for each in silico control sample, if negative binomial " \
+        "distributions were used to model the genes' counts."
     parser.add_argument("-iv", "--input-csv-rvalues",
                         type = str,
-                        required = True,
+                        default = None,
                         help = iv_help)
 
     #-----------------------------------------------------------------#
@@ -327,31 +328,41 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Try to load the predicted r-values.
-    try:
+    # If r-values were passed
+    if input_csv_rvalues is not None:
 
-        # Get the predicted r-values.
-        r_values = \
-            ioutil.load_decoder_outputs(csv_file = input_csv_rvalues,
-                                        sep = ",",
-                                        split = False)
+        # Try to load the predicted r-values.
+        try:
 
-    # If something went wrong
-    except Exception as e:
+            # Get the predicted r-values.
+            r_values = \
+                ioutil.load_decoder_outputs(\
+                    csv_file = input_csv_rvalues,
+                    sep = ",",
+                    split = False)
 
-        # Warn the user and exit.
-        errstr = \
-            "It was not possible to load the predicted r-values " \
-            f"from '{input_csv_rvalues}'. Error: {e}"
-        log.exception(errstr)
-        sys.exit(errstr)
+        # If something went wrong
+        except Exception as e:
 
-    # Inform the user that the predicted r-values were successfully
-    # loaded.
-    infostr = \
-        "The predicted r-values were successfully loaded from " \
-        f"'{input_csv_rvalues}'."
-    log.info(infostr)
+            # Warn the user and exit.
+            errstr = \
+                "It was not possible to load the predicted r-values " \
+                f"from '{input_csv_rvalues}'. Error: {e}"
+            log.exception(errstr)
+            sys.exit(errstr)
+
+        # Inform the user that the predicted r-values were successfully
+        # loaded.
+        infostr = \
+            "The predicted r-values were successfully loaded from " \
+            f"'{input_csv_rvalues}'."
+        log.info(infostr)
+
+    # Otherwise
+    else:
+
+        # The r-values will be None.
+        r_values = None
 
     #-----------------------------------------------------------------#
 
@@ -386,26 +397,26 @@ def main():
     # For each sample
     for sample_name in obs_counts_names:
 
-        # Get the observed counts.
-        obs_counts_sample = obs_counts.loc[sample_name,:]
+        # Set the options to perform the analysis.
+        dea_options = \
+            {"obs_counts" : obs_counts.loc[sample_name,:],
+             "pred_means" : pred_means.loc[sample_name,:],
+             "sample_name" : sample_name,
+             "statistics" : statistics,
+             "resolution" : p_values_resolution,
+             "alpha" : q_values_alpha,
+             "method" : q_values_method}
 
-        # Get the predicted means.
-        pred_means_sample = pred_means.loc[sample_name,:]
+        # If r-values were passed
+        if r_values is not None:
 
-        # Get the r-values.
-        r_values_sample = r_values.loc[sample_name,:]
+            # Add the r-values for the current sample.
+            dea_options["r_values"] = r_values.loc[sample_name,:]
 
         # Submit the calculation to the cluster.
         futures.append(\
             client.submit(dea.perform_dea,
-                          obs_counts = obs_counts_sample,
-                          pred_means = pred_means_sample,
-                          sample_name = sample_name,
-                          statistics = statistics,
-                          r_values = r_values_sample,
-                          resolution = p_values_resolution,
-                          alpha = q_values_alpha,
-                          method = q_values_method))
+                          **dea_options))
 
     #-----------------------------------------------------------------#
 
@@ -416,10 +427,22 @@ def main():
         # Get the data frame containing the DEA results for the
         # current sample and the name of the sample.
         df_stats, sample_name = result
+
+        # Add a column containing the observed counts.
         df_stats["obs_counts"] = obs_counts.loc[sample_name,:]
+
+        # Add a column containing the predicted means.
         df_stats["dgd_mean"] = pred_means.loc[sample_name,:]
-        df_stats["dgd_r"] = r_values.loc[sample_name,:]
+
+        #-------------------------------------------------------------#
+
+        # If the r-values were passed
+        if r_values is not None:
+            
+            # Add a column containing the r-values
+            df_stats["dgd_r"] = r_values.loc[sample_name,:]
         
+        #-------------------------------------------------------------#
 
         # Set the path to the output file.
         output_csv_path = \

@@ -102,7 +102,9 @@ def main():
         "with the predicted r-values of the negative binomials for " \
         "the in silico samples obtained from the best " \
         "representations found. The file will be written in the " \
-        f"working directory. The default file name is '{ov_default}'."
+        "working directory. The default file name is " \
+        f"'{ov_default}'. The file is produced only if negative' " \
+        "binomial distributions are used to model the genes' counts."
     parser.add_argument("-ov", "--output-csv-rvalues",
                         type = str,
                         default = ov_default,
@@ -129,7 +131,7 @@ def main():
         "DGD model's parameters and files containing " \
         "the trained model. If it is a name without an " \
         "extension, it is assumed to be the name of a " \
-        f"configuration file in '{ioutil.CONFIG_MODEL_DIR}'."
+        f"configuration file in '{defaults.CONFIG_MODEL_DIR}'."
     parser.add_argument("-cm", "--config-file-model",
                         type = str,
                         required = True,
@@ -142,7 +144,7 @@ def main():
         "options for the optimization step(s) when " \
         "finding the best representations. If it is a name " \
         "without an extension, it is assumed to be the name of " \
-        f"a configuration file in '{ioutil.CONFIG_REP_DIR}'."
+        f"a configuration file in '{defaults.CONFIG_REP_DIR}'."
     parser.add_argument("-cr", "--config-file-rep",
                         type = str,
                         required = True,
@@ -426,33 +428,37 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Set the path to the output file.
-    output_csv_rvalues_path = os.path.join(wd, output_csv_rvalues)
+    # If the r-values were returned
+    if df_pred_r_values is not None:
 
-    # Try to write the predicted r-values in the dedicated CSV file.
-    try:
+        # Set the path to the output file.
+        output_csv_rvalues_path = os.path.join(wd, output_csv_rvalues)
 
-        ioutil.save_decoder_outputs(\
-            df = df_pred_r_values,
-            csv_file = output_csv_rvalues_path,
-            sep = ",")
+        # Try to write the predicted r-values in the dedicated CSV
+        # file.
+        try:
 
-    # If something went wrong
-    except Exception as e:
+            ioutil.save_decoder_outputs(\
+                df = df_pred_r_values,
+                csv_file = output_csv_rvalues_path,
+                sep = ",")
 
-        # Warn the user and exit.
-        errstr = \
-            "It was not possible to write the predicted r-values " \
-            f"in '{output_csv_rvalues_path}'. Error: {e}"
-        log.exception(errstr)
-        sys.exit(errstr)
+        # If something went wrong
+        except Exception as e:
 
-    # Inform the user that the predicted r-values were successfully
-    # written in the output file.
-    infostr = \
-        "The predicted r-values were successfully written in " \
-        f"'{output_csv_rvalues_path}'."
-    log.info(infostr)
+            # Warn the user and exit.
+            errstr = \
+                "It was not possible to write the predicted " \
+                f"r-values in '{output_csv_rvalues_path}'. Error: {e}"
+            log.exception(errstr)
+            sys.exit(errstr)
+
+        # Inform the user that the predicted r-values were successfully
+        # written in the output file.
+        infostr = \
+            "The predicted r-values were successfully written in " \
+            f"'{output_csv_rvalues_path}'."
+        log.info(infostr)
 
     #-----------------------------------------------------------------#
 

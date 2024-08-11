@@ -25,7 +25,7 @@ dgd_get_genes_list [-h] [-ol OUTPUT_TXT_LIST] [-oa OUTPUT_CSV_ATTRIBUTES] -cg CO
 | `-h`, `--help`                   | Show the help message and exit.                              |
 | `-ol`, `--output-txt-list`       | The name of the output plain text file containing the list of genes of interest, identified using their Ensembl IDs. The file will be written in the working directory. The default file name is `genes_list.txt`. |
 | `-oa`, `--output-csv-attributes` | The name of the output CSV file containing the attributes retrieved from the Ensembl database for the genes of interest. The file will be written in the working directory. The default file name is `genes_attributes.txt`. |
-| `-cg`, `--config-file-genes`     | The YAML configuration file containing the options used to query the Ensembl database for the genes of interest. If it is a name without an extension, it is assumed to be the name of a configuration file in `$INSTALLDIR/bulkDGD/ioutil/configs/genes`. |
+| `-cg`, `--config-file-genes`     | The YAML configuration file containing the options used to query the Ensembl database for the genes of interest. If it is a name without an extension, it is assumed to be the name of a configuration file in `$INSTALLDIR/bulkDGD/configs/genes`. |
 | `-d`, `--work-dir`               | The working directory. The default is the current working directory. |
 | `-lf`, `--log-file`              | The name of the log file. The file will be written in the working directory. The default file name is `dgd_get_genes_list.log`. |
 | `-lc`, `--log-console`           | Show log messages also on the console.                       |

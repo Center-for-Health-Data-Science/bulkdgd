@@ -58,27 +58,27 @@ def perform_2d_pca(df_rep,
 
     Parameters
     ----------
-    df_rep : ``pandas.DataFrame``
+    df_rep : :class:`pandas.DataFrame`
         A data frame containing the representations.
 
         The rows of the data frame should represent the samples, while
         the columns should represent the dimensions of the space
         where the representations live.
 
-    pc_columns : ``list``, ``["PC1", "PC2"]``
+    pc_columns : :class:`list`, ``["PC1", "PC2"]``
         A list with the names of the two columns that will contain
         the values of the first two principal components.
 
-    pca : ``sklearn.decomposition.PCA``, optional
+    pca : :class:`sklearn.decomposition.PCA`, optional
         An already fitted PCA model onto which the data contained
         in ``df_rep`` should be projected. 
 
     Returns
     -------
-    ``pca`` : ``sklearn.decomposition.PCA``
+    pca : :class:`sklearn.decomposition.PCA`
         The fitted PCA model.
 
-    ``pandas.DataFrame``
+    df_pca: :class:`pandas.DataFrame`
         A data frame containing the results of the PCA.
 
         The rows will contain the representations, while the columns

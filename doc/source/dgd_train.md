@@ -6,7 +6,7 @@ This executable allows you to train the DGD model.
 
 It is recommended that this preprocessing step be performed with [`dgd_preprocess_samples`](#dgd_preprocess_samples).
 
-`dgd_train` also needs a YAML configuration file specifying the DGD model's parameters. An example can be found in `bulkDGD/ioutil/configs/model` (`model_untrained.yaml`).
+`dgd_train` also needs a YAML configuration file specifying the DGD model's parameters. An example can be found in `bulkDGD/configs/model` (`model_untrained.yaml`).
 
 `dgd_train` also needs a configuration file defining the options used for the training process (such as the optimizers for each model's component).
 
@@ -34,8 +34,8 @@ dgd_train [-h] -it INPUT_CSV_TRAIN -ie INPUT_CSV_TEST [-ort OUTPUT_CSV_REP_TRAIN
 | `-ore`, `--output-csv-rep-test`  | The name of the output CSV file containing the data frame with the representation of each test sample in latent space. The file will be written in the working directory. The default file name is `representations_test.csv`. |
 | `-ol`, `--output-csv-loss`       | The name of the output CSV file containing the data frame with the per-epoch loss(es) for training and test samples. The file will be written in the working directory. The default file name is `loss.csv`. |
 | `-ot`, `--output-csv-time`       | The name of the output CSV file containing the data frame with information about the CPU and wall clock time spent for each training epoch and the backpropagation steps through the decoder. The file will be written in the working directory. The default file name is `train_time.csv`. |
-| `-cm`, `--config-file-model`     | The YAML configuration file specifying the DGD model's parameters. If it is a name without an extension, it is assumed to be the name of a configuration file in `$INSTALLDIR/bulkDGD/ioutil/configs/model`. |
-| `-ct`, `--config-file-train`     | The YAML configuration file containing the options for training the DGD model. If it is a name without an extension, it is assumed to be the name of a configuration file in `$INSTALLDIR/bulkDGD/ioutil/configs/training`. |
+| `-cm`, `--config-file-model`     | The YAML configuration file specifying the DGD model's parameters. If it is a name without an extension, it is assumed to be the name of a configuration file in `$INSTALLDIR/bulkDGD/configs/model`. |
+| `-ct`, `--config-file-train`     | The YAML configuration file containing the options for training the DGD model. If it is a name without an extension, it is assumed to be the name of a configuration file in `$INSTALLDIR/bulkDGD/configs/training`. |
 | `-d`, `--work-dir`               | The working directory. The default is the current working directory. |
 | `-dev`, `--device`               | The device to use. If not provided, the GPU will be used if it is available. Available devices are: `"cpu"`, `"cuda"`. |
 | `-lf`, `--log-file`              | The name of the log file. The file will be written in the working directory. The default file name is `dgd_train.log`. |

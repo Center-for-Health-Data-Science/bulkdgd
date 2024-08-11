@@ -127,6 +127,17 @@ dec_options:
 
   #-------------------------------------------------------------------#
 
+  # Set the activation function for each hidden layer.
+  #
+  # Type: list of str.
+  #
+  # Options:
+  # - "relu" for the ReLU function.
+  # - "elu" for the ELU function.
+  activations: ["relu", "relu"]
+
+  #-------------------------------------------------------------------#
+
   # Set the name of the decoder's output module.
   #
   # Type: str.
@@ -136,6 +147,7 @@ dec_options:
   #   means learned per gene per sample and r-values learned per gene.
   # - 'nb_full_dispersion' for negative binomial distributions with
   #   both means and r-values learned per gene per sample.
+  # - 'poisson' for Poisson distributions.
   output_module_name: nb_feature_dispersion
 
   # Set the options for the output module.

@@ -67,10 +67,10 @@ def _get_metadata_fields(project_name,
 
     Parameters
     ----------
-    project_name : ``str``, {``"gtex"``, ``"tcga"``, ``"sra"``}
+    project_name : :class:`str`, {``"gtex"``, ``"tcga"``, ``"sra"``}
         The name of the project of interest.
 
-    df : ``pandas.DataFrame``, optional
+    df : :class:`pandas.DataFrame`, optional
         The data frame containing the samples.
 
         If provided, and ``project_name`` is ``"sra"``, the function
@@ -79,7 +79,7 @@ def _get_metadata_fields(project_name,
 
     Returns
     -------
-    metadata_fields : ``list``
+    metadata_fields : :class:`list`
         The list of metadata fields.
     """
 
@@ -140,12 +140,12 @@ def _load_samples_batches_csv(csv_file):
 
     Parameters
     ----------
-    yaml_file : ``str``
+    yaml_file : :class:`str`
         The CSV file.
 
     Returns
     -------
-    df : ``pandas.DataFrame``
+    df : :class:`pandas.DataFrame`
         A data frame containing the information for the batches of
         samples.
     """
@@ -216,12 +216,12 @@ def _load_samples_batches_yaml(yaml_file):
 
     Parameters
     ----------
-    yaml_file : ``str``
+    yaml_file : :class:`str`
         The YAML file.
 
     Returns
     -------
-    df : ``pandas.DataFrame``
+    df : :class:`pandas.DataFrame`
         A data frame containing the information for the batches of
         samples.
     """
@@ -314,12 +314,12 @@ def load_samples_batches(samples_file):
 
     Parameters
     ----------
-    samples_file : ``str``
+    samples_file : :class:`str`
         The input file.
 
     Returns
     -------
-    df : ``pandas.DataFrame``
+    df : :class:`pandas.DataFrame`
         A data frame containing the information parsed from the
         file.
 
@@ -501,13 +501,13 @@ def get_query_string(query_string):
 
     Parameters
     ----------
-    query_str : ``str``
+    query_str : :class:`str`
         The query string or the path to a plain text file containing
         the query string.
 
     Returns
     -------
-    query_str : ``str``
+    query_str : :class:`str`
         The query string.
     """
 
@@ -571,20 +571,20 @@ def get_gene_sums(project_name,
 
     Parameters
     ----------
-    project_name : ``str``, {``"gtex"``, ``"tcga"``, ``"sra"``}
+    project_name : :class:`str`, {``"gtex"``, ``"tcga"``, ``"sra"``}
         The name of the project of interest.
 
-    samples_category : ``str``
+    samples_category : :class:`str`
         The category of samples requested.
 
-    save_gene_sums : ``bool``, ``True``
+    save_gene_sums : :class:`bool`, ``True``
         If ``True``, save the original RNA-seq data file in the
         working directory.
 
         The file name will be 
         ``"{project_name}_{samples_category}_gene_sums.gz"``.
 
-    wd : ``str``, optional
+    wd : :class:`str`, optional
         The working directory where the original RNA-seq data
         file will be saved, if ``save_gene_sums`` is ``True``.
 
@@ -592,7 +592,7 @@ def get_gene_sums(project_name,
 
     Returns
     -------
-    df_gene_sums : ``pandas.DataFrame``
+    df_gene_sums : :class:`pandas.DataFrame`
         A data frame containing the RNA-seq counts for the samples
         associated with the given category.
     """
@@ -735,17 +735,17 @@ def get_metadata(project_name,
 
     Parameters
     ----------
-    project_name : ``str``, {``"gtex"``, ``"tcga"``, ``"sra"``}
+    project_name : :class:`str`, {``"gtex"``, ``"tcga"``, ``"sra"``}
         The name of the project of interest.
 
-    samples_category : ``str``
+    samples_category : :class:`str`
         The category of samples requested.
 
-    save_metadata : ``bool``, ``True``
+    save_metadata : :class:`bool`, ``True``
         If ``True``, save the original metadata file in the working
         directory.
 
-    wd : ``str``, optional
+    wd : :class:`str`, optional
         The working directory where the original metadata file will be
         saved, if ``save_metadata`` is ``True``.
 
@@ -753,7 +753,7 @@ def get_metadata(project_name,
 
     Returns
     -------
-    df_metadata : ``pandas.DataFrame``
+    df_metadata : :class:`pandas.DataFrame`
         A data frame containing the metadata for the samples associated
         with the given category.
 
@@ -1035,15 +1035,15 @@ def merge_gene_sums_and_metadata(df_gene_sums,
 
     Parameters
     ----------
-    df_gene_sums : ``pandas.DataFrame``
+    df_gene_sums : :class:`pandas.DataFrame`
         The data frame containing the RNA-seq counts for the samples.
 
-    df_metadata : ``pandas.DataFrame``
+    df_metadata : :class:`pandas.DataFrame`
         The data frame containing the metadata for the samples.
 
     Returns
     -------
-    df_merged : ``pandas.DataFrame``
+    df_merged : :class:`pandas.DataFrame`
         The data frame containing both RNA-seq counts and metadata
         for the samples.
     """
@@ -1065,16 +1065,16 @@ def filter_by_metadata(df,
 
     Parameters
     ----------
-    df : ``pandas.DataFrame``
+    df : :class:`pandas.DataFrame`
         A data frame containing both RNA-seq counts and metadata for
         a set of samples.
 
-    query_string : ``str``
+    query_string : :class:`str`
         A string to query the data frame with.
 
     Returns
     -------
-    df_filtered : ``pandas.DataFrame``
+    df_filtered : :class:`pandas.DataFrame`
         The filtered data frame.
     """
 

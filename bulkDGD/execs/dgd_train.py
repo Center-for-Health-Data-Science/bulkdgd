@@ -134,7 +134,7 @@ def main():
         "The YAML configuration file specifying the " \
         "DGD model's parameters. If it is a name without an " \
         "extension, it is assumed to be the name of a " \
-        f"configuration file in '{ioutil.CONFIG_MODEL_DIR}'."
+        f"configuration file in '{defaults.CONFIG_MODEL_DIR}'."
     parser.add_argument("-cm", "--config-file-model",
                         type = str,
                         required = True,
@@ -146,7 +146,7 @@ def main():
         "The YAML configuration file containing the " \
         "options for training the model. If it is a name " \
         "without an extension, it is assumed to be the name of " \
-        f"a configuration file in '{ioutil.CONFIG_TRAIN_DIR}'."
+        f"a configuration file in '{defaults.CONFIG_TRAIN_DIR}'."
     parser.add_argument("-ct", "--config-file-train",
                         type = str,
                         required = True,

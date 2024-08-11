@@ -95,13 +95,13 @@ class SoftballPrior:
 
         Parameters
         ----------
-        dim : ``int``
+        dim : :class:`int`
             The dimensionality of the distribution.
 
-        radius : ``float``
+        radius : :class:`float`
             The radius of the soft ball.
 
-        sharpness : ``int``
+        sharpness : :class:`int`
             The sharpness of the soft boundary of the ball.
         """
         
@@ -196,12 +196,12 @@ class SoftballPrior:
         
         Parameters
         ----------
-        n_samples : ``int``
+        n_samples : :class:`int`
             The number of samples to be drawn.
 
         Returns
         -------
-        samples : ``torch.Tensor``
+        samples : :class:`torch.Tensor`
             The samples drawn from the softball distribution.
         """
 
@@ -242,12 +242,12 @@ class SoftballPrior:
 
         Parameters
         ----------
-        x : ``torch.Tensor``
+        x : :class:`torch.Tensor`
             The input tensor.
 
         Returns
         -------
-        log_prob : ``torch.Tensor``
+        log_prob : :class:`torch.Tensor`
             The log of the probability density function evaluated at
             ``x``.
         """
@@ -285,13 +285,13 @@ class GaussianPrior:
 
         Parameters
         ----------
-        dim : ``int``
+        dim : :class:`int`
             The dimensionality of the distribution.
         
-        mean : ``float``
+        mean : :class:`float`
             The mean of the Gaussian distribution.
 
-        stddev : ``float``
+        stddev : :class:`float`
             The standard deviation of the Gaussian distribution.
         """
 
@@ -392,12 +392,12 @@ class GaussianPrior:
 
         Parameters
         ----------
-        n_samples : ``int``
+        n_samples : :class:`int`
             The number of samples to be drawn.
 
         Returns
         -------
-        samples : ``torch.Tensor``
+        samples : :class:`torch.Tensor`
             The samples drawn from the Gaussian distribution.
         """
         
@@ -412,12 +412,12 @@ class GaussianPrior:
 
         Parameters
         ----------
-        x : ``torch.Tensor``
+        x : :class:`torch.Tensor`
             The input tensor.
 
         Returns
         -------
-        log_prob : ``torch.Tensor``
+        log_prob : :class:`torch.Tensor`
             The log of the probability density function evaluated
             at ``x``.
         """

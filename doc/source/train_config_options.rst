@@ -26,6 +26,51 @@ The dictionary should be structured as follows:
        # Type: bool.
        shuffle: True},
 
+    # Set the options to output the loss.
+    "loss" : \
+
+      {# Set the options to output the GMM loss.
+       "gmm" : \
+         
+         # Set the method used to normalize the loss when reporting it
+         # per epoch.
+         #
+         # Type: str.
+         #
+         # Options:
+         # - 'none' means that the loss will not be normalized.
+         # - 'n_samples' means that the loss will be normalized by the
+         #   number of samples.
+         {"norm_method" : "n_samples"},
+
+       # Set the options to output the reconstruction loss.
+       "recon" : \
+         
+         # Set the method used to normalize the loss when reporting it
+         # per epoch.
+         #
+         # Type: str.
+         #
+         # Options:
+         # - 'none' means that the loss will not be normalized.
+         # - 'n_samples' means that the loss will be normalized by the
+         #   number of samples.
+         {"norm_method" : "n_samples"},
+
+       # Set the options to output the total loss.
+       "total" : \
+
+         # Set the method used to normalize the loss when reporting it
+         # per epoch.
+         #
+         # Type: str.
+         #
+         # Options:
+         # - 'none' means that the loss will not be normalized.
+         # - 'n_samples' means that the loss will be normalized by the
+         #   number of samples.
+         {"norm_method" : "n_samples"}},
+
     # Set the options to train the Gaussian mixture model.
     "gmm" : \
 

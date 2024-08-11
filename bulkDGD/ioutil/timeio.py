@@ -56,15 +56,15 @@ def load_time(csv_file,
 
     Parameters
     ----------
-    csv_file : ``str``
+    csv_file : :class:`str`
         A CSV file containing the time information.
 
-    sep : ``str``, ``","``
+    sep : :class:`str`, ``","``
         The column separator in the input CSV file.
 
     Returns
     -------
-    df_time : ``pandas.DataFrame``
+    df_time : :class:`pandas.DataFrame`
         A data frame containing the information about the CPU and
         wall clock time.
     """
@@ -87,13 +87,13 @@ def save_time(df,
 
     Parameters
     ----------
-    df : ``pandas.DataFrame``
+    df : :class:`pandas.DataFrame`
         A data frame containing the time data.
 
-    csv_file : ``str``
+    csv_file : :class:`str`
         The output CSV file.
 
-    sep : ``str``, ``","``
+    sep : :class:`str`, ``","``
         The column separator in the output CSV file.
     """
 

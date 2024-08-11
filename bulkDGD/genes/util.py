@@ -60,18 +60,18 @@ def get_genes_attributes(attributes,
 
     Parameters
     ----------
-    attributes : ``list``
+    attributes : :class:`list`
         The attributes to retrieve for the genes.
 
-    filters : ``dict``, optional
+    filters : :class:`dict`, optional
         The filters and corresponding values to filter the genes.
 
-    dataset : ``str``, ``"hsapiens_gene_ensembl"``
+    dataset : :class:`str`, ``"hsapiens_gene_ensembl"``
         The dataset the genes belong to.
 
     Returns
     -------
-    df_annot : ``pandas.DataFrame``
+    df_annot : :class:`pandas.DataFrame`
         A data frame containing the attributes fetched from the Ensembl
         database for the genes of interest.
     """

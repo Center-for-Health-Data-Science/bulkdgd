@@ -10,7 +10,7 @@ import logging as log
 # Import the 'model' module.
 from bulkDGD.core import model
 # Import the 'ioutil' module.
-from bulkDGD import ioutil
+from bulkDGD import ioutil, util
 
 
 #######################################################################
@@ -51,9 +51,15 @@ df_preproc, genes_excluded, genes_missing = \
 # Load the model's configuration.
 config_model = ioutil.load_config_model("model")
 
+# Check the configuration.
+config_model = util.check_config_model(config = config_model)
+
 # Load the configuration with the options to configure the rounds of
 # optimization when searching for the best representations.
 config_rep = ioutil.load_config_rep("two_opt")
+
+# Check the configuration.
+config_rep = util.check_config_rep(config = config_rep)
 
 
 #----------------------- Get the trained model -----------------------#

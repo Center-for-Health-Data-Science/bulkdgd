@@ -98,7 +98,7 @@ def main():
         "to query the Ensembl database for the genes of interest. " \
         "If it is a name without an extension, it is assumed to be " \
         "the name of a configuration file in " \
-        f"'{ioutil.CONFIG_GENES_DIR}'."
+        f"'{defaults.CONFIG_GENES_DIR}'."
     parser.add_argument("-cg", "--config-file-genes",
                         type = str,
                         required = True,

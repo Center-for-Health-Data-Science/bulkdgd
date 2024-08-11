@@ -73,15 +73,15 @@ def reshape_scaling_factors(x,
 
     Parameters
     ----------
-    x : ``torch.Tensor``
+    x : :class:`torch.Tensor`
         The input tensor to be reshaped.
 
-    out_dim : ``int``
+    out_dim : :class:`int`
         The dimensionality of the output tensor.
 
     Returns
     -------
-    x : ``torch.Tensor``
+    x : :class:`torch.Tensor`
         The reshaped tensor.
     """
     
@@ -111,7 +111,11 @@ class Decoder(nn.Module):
 
     # Set the names of the available output modules.
     OUTPUT_MODULES = \
-        ["nb_feature_dispersion", "nb_full_dispersion"]
+        ["nb_feature_dispersion", "nb_full_dispersion", "poisson"]
+
+    # Set the names of the supported activation functions.
+    ACTIVATIONS = \
+        ["relu", "elu"]
 
 
     ######################### INITIALIZATION ##########################
@@ -120,6 +124,7 @@ class Decoder(nn.Module):
     def __init__(self,
                  n_units_input_layer,
                  n_units_hidden_layers,
+                 activations,
                  output_module_name,
                  output_module_options):
         """Initialize an instance of the neural network representing
@@ -127,16 +132,26 @@ class Decoder(nn.Module):
 
         Parameters
         ----------
-        n_units_input_layer : ``int``
+        n_units_input_layer : :class:`int`
             The mumber of neurons in the input layer.
 
-        n_units_hidden_layers : ``list``
+        n_units_hidden_layers : :class:`list`
             The number of units in each of the hidden layers. As many
             hidden layers as the number of items in the list will be
             created.
 
-        output_module_name : ``str``, {``"nb_feature_dispersion"``, \
-            ``"nb_full_dispersion"``}
+        activations : :class:`list`
+            A list containing the names of the activation functions to
+            use in each hidden layer. Available activation functions
+            are:
+
+            - ``"relu"`` for the ReLU function.
+
+            - ``"elu"`` for the ELU function.
+
+        output_module_name : :class:`str`, \
+            {``"nb_feature_dispersion"``, ``"nb_full_dispersion"``, \
+            ``"poisson"``}
             The name of the output module that will be set. Available
             output modules are:
 
@@ -148,28 +163,31 @@ class Decoder(nn.Module):
               distributions with both means and r-values learned per
               gene per sample.
 
-        output_module_options : ``dict``
+            - ``"poisson"`` for Poisson distributions with means
+              learned per gene per sample.
+
+        output_module_options : :class:`dict`
             A dictionary of options for setting up the output module.
 
             For the ``"nb_feature_dispersion"`` output module, the
             following options must be provided:
 
-            - ``"output_dim"``: the dimensionality of each output 
-              layer of the output module.
-
-            - ``"activation"``: the name of the activation function to
+            - ``"activation"`` - the name of the activation function to
               be used in the output module.
 
-            - ``"r_init"``: the initial r-value for the negative
+            - ``"r_init"`` - the initial r-value for the negative
                binomial distributions modeling the genes' counts.
 
             For the ``"nb_full_dispersion"`` output module, the
             following options must be provided:
 
-            - ``"output_dim"``: the dimensionality of each output 
-              layer of the output module.
+            - ``"activation"`` - the name of the activation function to
+              be used in the output module.
 
-            - ``"activation"``: the name of the activation function to
+            For the ``"poisson"`` output module, the following options
+            must be provided:
+
+            - ``"activation"`` - the name of the activation function to
               be used in the output module.
         """
 
@@ -182,13 +200,14 @@ class Decoder(nn.Module):
         self.main = \
             self._get_layers(\
                 n_units_input_layer = n_units_input_layer,
-                n_units_hidden_layers = n_units_hidden_layers)
+                n_units_hidden_layers = n_units_hidden_layers,
+                activations = activations)
 
         #-------------------------------------------------------------#
 
         # Set the output module.
         self.nb = \
-            self._get_nb(\
+            self._get_output_module(\
                 n_units_last_hidden = n_units_hidden_layers[-1],
                 output_module_name = output_module_name,
                 output_module_options = output_module_options)
@@ -196,103 +215,154 @@ class Decoder(nn.Module):
 
     def _get_layers(self,
                     n_units_input_layer,
-                    n_units_hidden_layers):
+                    n_units_hidden_layers,
+                    activations):
         """Get the decoder's layers.
 
         Parameters
         ----------
-        n_units_input_layer : ``int``
+        n_units_input_layer : :class:`int`
             The mumber of neurons in the input layer.
 
-        n_units_hidden_layers : ``list``
+        n_units_hidden_layers : :class:`list`
             The number of units in each of the hidden layers. As many
             hidden layers as the number of items in the list will be
             created.
 
+        activations : :class:`list`
+            A list containing the names of the activation functions to
+            use in each hidden layer. Available activation functions
+            are:
+
+            - ``"relu"`` for the ReLU function.
+
+            - ``"elu"`` for the ELU function.
+
         Returns
         -------
-        list_layers : ``torch.nn.ModuleList``
+        list_layers : :class:`torch.nn.ModuleList`
             The list of layers.
         """
+
+        # If the number of hidden layers does not correspond to the
+        # length of activation functions
+        if len(n_units_hidden_layers) != len(activations):
+
+            # Raise an error.
+            errstr = \
+                "The number of hidden layers should be equal to " \
+                "the number of activation funtions passed."
+            raise ValueError(errstr)
+
+        #-------------------------------------------------------------#
 
         # Create a 'ModuleList' to store the layers.
         layers = nn.ModuleList()
 
-        # Get number of groups of connections (one group of connections
-        # connect two layers, so they are one less than the total
-        # number of layers).
-        n_connects = len(n_units_hidden_layers)
+        # Get the number of linear modules.
+        n_modules = len(n_units_hidden_layers)
 
         #-------------------------------------------------------------#
 
-        # For each group of connections
-        for n_connect in range(n_connects):
+        # For each linear module
+        for n_module in range(len(n_units_hidden_layers)):
 
-            # If it is the first hidden layer
-            if n_connect == 0:
-
-                # Add full connections between the input layer and
-                # the first hidden layer using the 'ReLu' activation
-                # function.
-                layers.extend(\
-                    [nn.Linear(n_units_input_layer,
-                               n_units_hidden_layers[n_connect]),
-                     nn.ReLU(True)])
+            # If we are at the first module
+            if n_module == 0:
                 
-                # Set the previous number of units (used in the
-                # next step of the loop) as the number of units in
-                # the first hidden layer.
-                prev_n_units = n_units_hidden_layers[n_connect]
+                # The number of input units will be the number of
+                # units in the input layer.
+                n_units_in = n_units_input_layer
 
-                # Go to the next step.
-                continue
-
-            #---------------------------------------------------------#
-
-            # If it is the last hidden layer
-            elif n_connect == n_connects-1:
-
-                # Add a linear layer.
-                layers.append(\
-                    nn.Linear(\
-                        prev_n_units,
-                        n_units_hidden_layers[n_connect]))
-
-                # Return the list of layers.
-                return layers
-
-            #---------------------------------------------------------#
-
-            # If it is an intermediate hidden layer
+            # Otherwise
             else:
-                
-                # Add full connections between the previous hidden
-                # layer and the current hidden layer using the 'ReLu'
-                # activation function.
-                layers.extend(\
-                    [nn.Linear(\
-                        prev_n_units,
-                        n_units_hidden_layers[n_connect]),
-                     nn.ReLU(True)])
 
-                # Set the previous number of units (used in the next
-                # step of the loop) as the number of units in the
-                # current hidden layer.
-                prev_n_units = n_units_hidden_layers[n_connect]
+                # The number of input units will be the number of
+                # units in the previous hidden layer.
+                n_units_in = prev_n_units
+
+            #---------------------------------------------------------#
+
+            # The number of output units will be the ones in the
+            # first hidden layer.
+            n_units_out = n_units_hidden_layers[n_module]
+
+            #---------------------------------------------------------#
+
+            # Get the name of the activation function to be used in the
+            # current module.
+            activation_name = activations[n_module]
+
+            # If the activation function is a ReLU
+            if activation_name == "relu":
+
+                # Set it.
+                activation = nn.ReLU(inplace = True)
+
+            # If the activation function is an ELU
+            elif activation_name == "elu":
+
+                # Set it.
+                activation = nn.ELU(inplace = True)
+
+            # Otherwise
+            else:
+
+                # Get the names of the supported activation functions.
+                supported_activations = \
+                    ", ".join([f"'{a}'" for a in self.ACTIVATIONS])
+
+                # Raise an error.
+                errstr = \
+                    "Unsupported activation function " \
+                    f"'{activation}' provided. Supported " \
+                    "activation functions are: " \
+                    f"{supported_activations}."
+                raise ValueError(errstr)
+
+            #---------------------------------------------------------#
+
+            # Add the linear module and corresponding activation
+            # function to the list of modules.
+            layers.extend(\
+                [nn.Linear(in_features = n_units_in,
+                           out_features = n_units_out,
+                           bias = True),
+                 activation])
+
+            # Inform the user about the decoder's hidden layers.
+            infostr = \
+                f"The decoder's hidden layer # {n_module+1} was " \
+                f"set. Input features: {n_units_in}. Output " \
+                f"features: {n_units_out}. Activation function: " \
+                f"'{activation.__class__.__name__}'."
+            logger.info(infostr)
+
+            #---------------------------------------------------------#
+
+            # Set the previous number of units (used in the next
+            # step of the loop) as the number of units in the
+            # current hidden layer.
+            prev_n_units = n_units_hidden_layers[n_module]
+
+        #-------------------------------------------------------------#
+
+        # Return the modules/layers.
+        return layers
 
 
-    def _get_nb(self,
-                n_units_last_hidden,
-                output_module_name,
-                output_module_options):
-        """Get the 'negative binomial' layer.
+    def _get_output_module(self,
+                           n_units_last_hidden,
+                           output_module_name,
+                           output_module_options):
+        """Get the decoder's output module.
 
         Parameters
         ----------
-        n_units_last_hidden : ``int``
+        n_units_last_hidden : :class:`int`
             The number of units in the last hidden layer.
 
-        output_module_name : ``str``
+        output_module_name : :class:`str`
             The name of the output module that will be set. Available
             output modules are:
 
@@ -304,55 +374,66 @@ class Decoder(nn.Module):
               distributions with both means and r-values learned per
               gene per sample.
 
-        output_module_options : ``dict``
+            - ``"poisson"`` for Poisson distributions with means
+              learned per gene per sample.
+
+        output_module_options : :class:`dict`
             A dictionary of options for setting up the output module.
 
             For the ``"nb_feature_dispersion"`` output module, the
             following options must be provided:
 
-            - ``"dim"``: the dimensionality of each output layer of
-              the output module.
-
-            - ``"activation"``: the name of the activation function to
+            - ``"activation"`` - the name of the activation function to
               be used in the output module.
 
-            - ``"r_init"``: the initial r-value for the negative
+            - ``"r_init"`` - the initial r-value for the negative
                binomial distributions modeling the genes' counts.
 
             For the ``"nb_full_dispersion"`` output module, the
             following options must be provided:
 
-            - ``"dim"``: the dimensionality of each output layer of
-              the output module.
+            - ``"activation"`` - the name of the activation function to
+              be used in the output module.
 
-            - ``"activation"``: the name of the activation function to
+            For the ``"poisson"`` output module, the following options
+            must be provided:
+
+            - ``"activation"`` - the name of the activation function to
               be used in the output module.
 
         Returns
         -------
-        nb : ``bulkDGD.core.outputmodules.OutputModuleNB``
+        out_module : \
+            :class:`bulkDGD.core.outputmodules.OutputModuleBase`
             An instance of a subclass of
-            :class:`core.outputmodules.OutputModuleNB` depending on the
-            chosen output module.
+            :class:`core.outputmodules.OutputModuleBase` depending on
+            the chosen output module.
         """
 
         # If the output module is 'nb_feature_dispersion'
         if output_module_name == "nb_feature_dispersion":
 
-            # Return it.
-            return outputmodules.OutputModuleNBFeatureDispersion(\
-                        input_dim = n_units_last_hidden,
-                        **output_module_options)
+            # Get the output module's class.
+            out_module_class = \
+                outputmodules.OutputModuleNBFeatureDispersion
 
         #-------------------------------------------------------------#
 
         # If the output module is 'nb_full_dispersion'
         elif output_module_name == "nb_full_dispersion":
 
-            # Return it.
-            return outputmodules.OutputModuleNBFullDispersion(\
-                        input_dim = n_units_last_hidden,
-                        **output_module_options)
+            # Get the output module's class.
+            out_module_class = \
+                outputmodules.OutputModuleNBFullDispersion
+
+        #-------------------------------------------------------------#
+
+        # If the output module is 'poisson'
+        elif output_module_name == "poisson":
+
+            # Get the output module's class.
+            out_module_class = \
+                outputmodules.OutputModulePoisson
 
         #-------------------------------------------------------------#
 
@@ -365,10 +446,38 @@ class Decoder(nn.Module):
 
             # Raise an error.
             errstr = \
-                "Invalid name for the output module passed: " \
+                "An invalid name for the output module was passed: " \
                 f"'{output_module_name}'. Available output modules " \
                 f"are: '{output_modules}'."
             raise ValueError(errstr)
+
+        #-------------------------------------------------------------#
+
+        # Set the output module.
+        out_module = \
+            out_module_class(input_dim = n_units_last_hidden,
+                             **output_module_options)
+
+        #-------------------------------------------------------------#
+
+        # Set a string with the options used for the output module.
+        out_module_opts_str = \
+            ", ".join([f"{opt} = '{val}'" \
+                       if isinstance(val, str) \
+                       else f"{opt} = {val}" \
+                       for opt, val in output_module_options.items()])
+
+        # Inform the user about the output module.
+        infostr = \
+            "The decoder's output module was set. Module " \
+            f"'{out_module.__class__.__name__}' " \
+            f"({out_module_opts_str})."
+        logger.info(infostr)
+
+        #-------------------------------------------------------------#
+
+        # Return the output module.
+        return out_module
 
 
     ######################### PUBLIC METHODS ##########################
@@ -380,13 +489,13 @@ class Decoder(nn.Module):
 
         Parameters
         ----------
-        z : ``torch.Tensor``
+        z : :class:`torch.Tensor`
             A tensor holding the representations to pass through the
             decoder.
 
         Returns
         -------
-        y : ``torch.Tensor``
+        y : :class:`torch.Tensor`
             A tensor holding the outputs of the decoder for the
             given representations.
         """
