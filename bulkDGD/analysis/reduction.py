@@ -57,7 +57,7 @@ logger = log.getLogger(__name__)
 _modname2modclass = \
     {# PCA
      "pca" : decomposition.PCA,
-     # KPCS
+     # KPCA
      "kpca" : decomposition.KernelPCA,
      # MDS
      "mds" : manifold.MDS,
@@ -475,7 +475,7 @@ def perform_tsne(df,
 
     # If the perplexity is not defined and the number of samples is
     # less than 30
-    if not "perplexity" in options and len(df) <= 30:
+    if "perplexity" not in options and len(df) <= 30:
 
         # Set the new perplexity.
         perplexity = float(len(df) - 1)
