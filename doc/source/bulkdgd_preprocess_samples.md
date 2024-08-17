@@ -26,10 +26,18 @@ The Ensembl IDs of the genes found in the input samples but not present in the g
 
 Furthermore, if any gene present in the gene set used to train the bulkDGD model is not found in the genes for which counts are available in the input samples, the gene will be written to the output CSV file containing the preprocessed samples with a count of 0 for all samples. These "missing" genes are also written in a separate plain text file containing one gene per line.
 
+## Parallelization
+
+If the command is parallelized over several input files, each is assumed to be identically named and placed in a different directory. The paths to such directories must be specified using the `-ds`, `--dirs` option (see the full description in the [Options](#Options) section below) and must be relative to the specified working directory (`-d`, `--work-dir` option).
+
+The input files must be placed in different directories and referenced by their corresponding options by name (not path).
+
+The output and log files for each run will be written in the directory where the corresponding input/configuration files were placed. If the command is not parallelized, these files will be written in the working directory.
+
 ## Command line
 
 ```
-bulkdgd preprocess samples [-h] -is INPUT_SAMPLES [-os OUTPUT_SAMPLES] [-oe OUTPUT_GENES_EXCLUDED] [-om OUTPUT_GENES_MISSING] [-d WORK_DIR] [-lf LOG_FILE] [-lc] [-v] [-vv]
+bulkdgd preprocess samples [-h] -is INPUT_SAMPLES [-os OUTPUT_SAMPLES] [-oe OUTPUT_GENES_EXCLUDED] [-om OUTPUT_GENES_MISSING] [-d WORK_DIR] [-lf LOG_FILE] [-lc] [-v] [-vv]  [-p] [-n N_PROC] [-ds DIRS [DIRS ...]]
 ```
 
 ## Options
@@ -50,9 +58,9 @@ bulkdgd preprocess samples [-h] -is INPUT_SAMPLES [-os OUTPUT_SAMPLES] [-oe OUTP
 
 | Option                           | Description                                                  |
 | -------------------------------- | ------------------------------------------------------------ |
-| `-os`, `--output-samples`        | The name of the output CSV file containing the data frame with the preprocessed samples. The file will be written in the working directory. The default file name is `samples_preprocessed.csv`. |
-| `-oe`, `--output-genes-excluded` | The name of the output plain text file containing the list of genes whose expression data are excluded from the data frame with the preprocessed samples. The file will be written in the working directory. The default file name is `genes_excluded.txt`. |
-| `-om`, `--output-genes-missing`  | The name of the output plain text file containing the list of genes for which no expression data are found in the input data frame. A default count of 0 is assigned to these genes in the output data frame with the preprocessed samples. The file will be written in the working directory. The default file name is `genes_missing.txt`. |
+| `-os`, `--output-samples`        | The name of the output CSV file containing the data frame with the preprocessed samples. The default file name is `samples_preprocessed.csv`. |
+| `-oe`, `--output-genes-excluded` | The name of the output plain text file containing the list of genes whose expression data are excluded from the data frame with the preprocessed samples. The default file name is `genes_excluded.txt`. |
+| `-om`, `--output-genes-missing`  | The name of the output plain text file containing the list of genes for which no expression data are found in the input data frame. A default count of 0 is assigned to these genes in the output data frame with the preprocessed samples. The default file name is `genes_missing.txt`. |
 
 ### Working directory options
 
@@ -64,7 +72,15 @@ bulkdgd preprocess samples [-h] -is INPUT_SAMPLES [-os OUTPUT_SAMPLES] [-oe OUTP
 
 | Option                    | Description                                                  |
 | ------------------------- | ------------------------------------------------------------ |
-| `-lf`, `--log-file`       | The name of the log file. The file will be written in the working directory. The default file name is `bulkdgd_preprocess_samples.log`. |
+| `-lf`, `--log-file`       | The name of the log file. The default file name is `bulkdgd_preprocess_samples.log`. |
 | `-lc`, `--log-console`    | Show log messages also on the console.                       |
 | `-v`, `--logging-verbose` | Enable verbose logging (INFO level).                         |
 | `-vv`, `--logging-debug`  | Enable maximally verbose logging for debugging purposes (DEBUG level). |
+
+### Parallelization options
+
+| Option                | Description                                                  |
+| --------------------- | ------------------------------------------------------------ |
+| `-p`, `--parallelize` | Whether to run the command in parallel.                      |
+| `-n`, `--n-proc`      | The number of processes to start. The default number of processes started is 1. |
+| `-ds`, `--dirs`       | The directories containing the input/configuration files. It can be either a list of names or paths, a pattern that the names or paths match, or a plain text file containing the names of or the paths to the directories. If names are given, the directories are assumed to be inside the working directory. If paths are given, they are assumed to be relative to the working directory. |

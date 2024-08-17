@@ -96,8 +96,11 @@ entry_points = \
 
          # "Private" executables - not intended to be called
          # directly by end users
-         "_bulkdgd_recount3_single_batch = " \
-         f"{name}.execs._bulkdgd_recount3_single_batch:main"],
+         "_bulkdgd_get_recount3_single_batch = " \
+         f"{name}.execs._bulkdgd_get_recount3_single_batch:main",
+         
+         "_bulkdgd_exec = " \
+         f"{name}.execs._bulkdgd_exec:main",],
     }
 
 # Set any required dependencies.

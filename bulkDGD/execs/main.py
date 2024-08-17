@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- Mode: python; tab-width: 4; indent-tabs-mode:nil; coding:utf-8 -*-
 
-#    bulkdgd.py
+#    main.py
 #
 #    Main command.
 #
@@ -34,238 +34,27 @@ __doc__ = "Main command."
 
 
 # Import from the standard library.
-import argparse
 import logging as log
-import logging.handlers as loghandlers
-import os
-# Import from third-party packages.
-import dask
+import sys
 # Import from 'bulkDGD'.
 from . import (
-    bulkdgd_get,
-    bulkdgd_get_genes,
-    bulkdgd_get_recount3,
-    bulkdgd_find,
-    bulkdgd_find_probability_density,
-    bulkdgd_find_representations,
-    bulkdgd_dea,
-    bulkdgd_preprocess,
-    bulkdgd_preprocess_samples,
-    bulkdgd_reduction,
-    bulkdgd_train,
-    util,
-    defaults)
+    parsers,
+    util)
 
 
 #######################################################################
 
 
-# Set a mapping between the commands and their modules, 'main'
-# functions, and sub-commands.
-COMMANDS = \
-    {# Set the options for the 'get' command.
-     "get" : \
-         # Set the module corresponding to the command.
-        {"module" : bulkdgd_get,
-         # Set the sub-commands.
-         "commands" :
-            {# Set the 'get recount3' command.
-             "recount3" : \
-                 # Set the module corresponding to the command.
-                {"module" : bulkdgd_get_recount3,
-                 # Set the 'main' function corresponding to the
-                 # command.
-                 "main" : bulkdgd_get_recount3.main},
-              # Set the 'get genes' command.
-             "genes" : \
-                {# Set the module corresponding to the command.
-                 "module" : bulkdgd_get_genes,
-                 # Set the 'main' function corresponding to the
-                 # command.
-                 "main" : bulkdgd_get_genes.main}}},
-     
-     # Set the options for the 'get' command.
-     "find" : \
-        {# Set the module corresponding to the command.
-         "module" : bulkdgd_find,
-         # Set the sub-commands.
-         "commands" :
-            {# Set the 'find representations' command.
-             "representations" : 
-                {# Set the module corresponding to the command.
-                 "module" : bulkdgd_find_representations,
-                 # Set the 'main' function corresponding to the
-                 # command.
-                 "main" : bulkdgd_find_representations.main},
-             # Set the 'find probability_density' command.
-             "probability_density" : \
-                {# Set the module corresponding to the command.
-                 "module" : bulkdgd_find_probability_density,
-                 # Set the 'main' function corresponding to the
-                 # command.
-                 "main" : bulkdgd_find_probability_density.main}}},
-
-     # Set the options for the 'preprocess' command.
-     "preprocess": \
-        {# Set the module corresponding to the command.
-         "module" : bulkdgd_preprocess,
-         # Set the sub-commands.
-         "commands" : \
-            {# Set the 'preprocess samples' command.
-             "samples" : \
-                {# Set the module corresponding to the command.
-                 "module" : bulkdgd_preprocess_samples,
-                 # Set the 'main' function corresponding to the
-                 # command.
-                 "main" : bulkdgd_preprocess_samples.main}}},
-
-     # Set the options for the 'reduction' command.
-     "reduction" : \
-        {# Set the module corresponding to the command.
-         "module" : bulkdgd_reduction,
-         # Set the sub-commands.
-         "commands" : \
-             {# Set the 'reduction pca' command.
-              "pca" : \
-                 {# Set the module corresponding to the command.
-                  "module" : bulkdgd_reduction,
-                  # Set the 'main' function corresponding to the
-                  # command.
-                  "main" : bulkdgd_reduction.main,
-                  # Set the options to use in the 'main' function.
-                  "main_options" : \
-                    {"dim_red_name" : "pca"},
-                  # Set the options to use for the argument parser.
-                  "parser_options" : \
-                    {"dim_red_name" : "pca"}},
-              # Set the 'reduction kpca' command.
-              "kpca" : \
-                 {# Set the module corresponding to the command.
-                  "module" : bulkdgd_reduction,
-                  # Set the 'main' function corresponding to the
-                  # command.
-                  "main" : bulkdgd_reduction.main,
-                  # Set the options to use in the 'main' function.
-                  "main_options" : \
-                    {"dim_red_name" : "kpca"},
-                  # Set the options to use for the argument parser.
-                  "parser_options" : \
-                    {"dim_red_name" : "kpca"}},
-              # Set the 'reduction mds' command.
-              "mds" : \
-                 {# Set the module corresponding to the command.
-                  "module" : bulkdgd_reduction,
-                  # Set the 'main' function corresponding to the
-                  # command.
-                  "main" : bulkdgd_reduction.main,
-                  # Set the options to use in the 'main' function.
-                  "main_options" : \
-                    {"dim_red_name" : "mds"},
-                  # Set the options to use for the argument parser.
-                  "parser_options" : \
-                    {"dim_red_name" : "mds"}},
-              # Set the 'reduction tsne' command.
-              "tsne" : \
-                 {# Set the module corresponding to the command.
-                  "module" : bulkdgd_reduction,
-                  # Set the 'main' function corresponding to the
-                  # command.
-                  "main" : bulkdgd_reduction.main,
-                  # Set the options to use in the 'main' function.
-                  "main_options" : \
-                    {"dim_red_name" : "tsne"},
-                  # Set the options to use for the argument parser.
-                  "parser_options" : \
-                    {"dim_red_name" : "tsne"}}}},
-
-     # Set the options for the 'dea' command.
-     "dea" : \
-        {# Set the module corresponding to the command.
-         "module" : bulkdgd_dea,
-         # Set the 'main' function corresponding to the command.
-         "main" : bulkdgd_dea.main},
-
-     # Set the options for the 'train' command.
-     "train" : \
-        {# Set the module corresponding to the command.
-         "module" : bulkdgd_train,
-         # Set the 'main' function corresponding to the command.
-         "main" : bulkdgd_train.main}
-    }
+# Get the module's logger.
+logger = log.getLogger(__name__)
 
 
 #######################################################################
 
-
-# Define the 'main' function.
 def main():
 
-    # Create the main parser.
-    parser = \
-        argparse.ArgumentParser(\
-            description = __doc__,
-            formatter_class = util.CustomHelpFormatter)
-
-    #-----------------------------------------------------------------#
-
-    # Add the sub-parsers to the main parser.
-    sub_parsers = parser.add_subparsers(dest = "command")
-
-    # For each command and the associated options
-    for command_name, command_options in COMMANDS.items():
-
-        # Get the module corresponding to the command.
-        module = command_options.get("module")
-
-        # Get the options to be used to set up the command's parser.
-        parser_options = command_options.get("parser_options", {})
-
-        # Get sub-commands of the current command.
-        sub_commands = command_options.get("commands")
-
-        # Add the parser for the command.
-        command_parser = \
-            module.set_parser(sub_parsers = sub_parsers,
-                              **parser_options)
-
-        # If there are sub-commands
-        if sub_commands is not None:
-
-            # Create sub-sub-parsers.
-            sub_sub_parsers = \
-                command_parser.add_subparsers(dest = "sub_command")
-
-            # For each sub-command
-            for sub_command_name, sub_command_options \
-                in sub_commands.items():
-
-                # Get the module corresponding to the sub-command.
-                sub_module = sub_command_options.get("module")
-
-                # Get the options to be used to set up the
-                # sub-command's parser.
-                sub_parser_options = \
-                    sub_command_options.get("parser_options", {})
-
-                # Add the parser for the sub-command.
-                sub_command_parser = \
-                    sub_module.set_sub_parser(\
-                        sub_parsers = sub_sub_parsers,
-                        **sub_parser_options)
-
-                # Add the arguments for the working directory and
-                # logging.
-                util.add_wd_and_logging_arguments(\
-                    parser = sub_command_parser,
-                    command_name = \
-                        f"bulkdgd_{command_name}_{sub_command_name}")
-
-        else:
-
-            # Add the arguments for the working directory and logging.
-            util.add_wd_and_logging_arguments(\
-                parser = command_parser,
-                command_name = f"bulkdgd_{command_name}")
+    # Set the main parser.
+    parser = parsers.set_main_parser(description = __doc__)
 
     #-----------------------------------------------------------------#
 
@@ -275,118 +64,143 @@ def main():
     #-----------------------------------------------------------------#
 
     # Get the 'command' argument.
-    command = args.command
+    command = getattr(args, "command", None)
+
+    # Get the 'work_dir' argument.
+    wd = getattr(args, "work_dir", None)
+
+    # Get the 'n_proc' argument.
+    n_proc = getattr(args, "n_proc", None)
 
     #-----------------------------------------------------------------#
 
-    # If the user passed a command
-    if command is not None:
+    # If the user did not pass a command
+    if command is None:
 
-        # If we have a sub-command
-        if hasattr(args, "sub_command"):
+        # Print the help message and exit.
+        parser.print_help()
+        sys.exit(0)
 
-            # Get the 'main' function of the sub-command.
-            main_function = \
-                COMMANDS[command]["commands"][args.sub_command]["main"]
+    #-----------------------------------------------------------------#
 
-            # Get the options to use with the 'main' function.
-            main_options = \
-                COMMANDS[command]["commands"][args.sub_command].get(\
-                    "main_options", {})
+    # Set the logging.
+    util.set_main_logging(args = args)
 
-        # Otherwise
-        else:
+    #-----------------------------------------------------------------#
 
-            # Get the 'main' function of the command.
-            main_function = COMMANDS[command]["main"]
+    # If the execution should be parallelized
+    if args.parallelize:
 
-            # Get the options to use with the 'main' function.
-            main_options = \
-                COMMANDS[command].get(\
-                    "main_options", {})
+        # Create a list to store the futures.
+        futures = []
 
         #-------------------------------------------------------------#
 
-        # Get the log file.
-        log_file = os.path.join(args.work_dir, args.log_file)
+        # Set the 'log_console' argument to False so that the logging
+        # messages generated by the command launched are not printed to
+        # the console.
+        args.log_console = False
 
         #-------------------------------------------------------------#
 
-        # Set WARNING logging level by default.
-        log_level = log.WARNING
-
-        # If the user requested verbose logging
-        if args.log_verbose:
-
-            # The minimal logging level will be INFO.
-            log_level = log.INFO
-
-        # If the user requested logging for debug purposes
-        if args.log_debug:
-
-            # The minimal logging level will be DEBUG.
-            log_level = log.DEBUG
+        # Get the argument corresponding to the directories.
+        work_dirs = \
+            util.get_dirs(dir_names = args.dirs,
+                          wd = wd)
 
         #-------------------------------------------------------------#
 
-        # If the command is run with Dask
-        if (args.command in ("dea",)) or \
-           (args.command in ("get",) \
-             and getattr(args, "sub_command") in ("recount3",)):
+        # Import from 'distributed'.
+        from distributed import LocalCluster, Client, as_completed
 
-            # Get the logging configuration for Dask.
-            dask_logging_config = \
-                util.get_dask_logging_config(\
-                    log_console = args.log_console,
-                    log_file = log_file)
+        # Create the local cluster.
+        cluster = \
+            LocalCluster(# Number of workers
+                         n_workers = n_proc,
+                         # Below which level log messages will
+                         # be silenced
+                         silence_logs = "ERROR",
+                         # Whether to use processes, single-core
+                         # or threads
+                         processes = True,
+                         # How many threads for each worker
+                         # should be used
+                         threads_per_worker = 1)
 
-            # Set the configuration for Dask-specific logging.
-            dask.config.set(\
-                {"distributed.logging" : dask_logging_config})
-
-            # Set the appropriate class for the file handler.
-            log_file_class = loghandlers.RotatingFileHandler
-
-        # Otherwise
-        else:
-
-            # Set the appropriate class for the file handler.
-            log_file_class = log.FileHandler
+        # Open the client from the cluster.
+        client = Client(cluster)
 
         #-------------------------------------------------------------#
+
+        # For each working directory
+        for work_dir in work_dirs:
+
+            # Set the arguments.
+            arguments = util.set_executable_args(args = args,
+                                                 wd = work_dir,
+                                                 main_wd = wd)
+            
+            # Inform the user that we are submitting the calculation.
+            infostr = \
+                f"Submitting the calculation in '{work_dir}' " \
+                "directory. Command line: " \
+                f"{' '.join(arguments)}."
+            logger.info(infostr)
+
+            # Submit the calculation.
+            futures.append(\
+                client.submit(\
+                    util.run_executable,
+                    executable = "_bulkdgd_exec",
+                    arguments = arguments,
+                    extra_return_values = [work_dir]))
         
-        # Configure the logging (for non-Dask operations).
-        handlers = \
-            util.get_handlers(\
-                log_console = args.log_console,
-                log_console_level = log_level,
-                log_file_class = log_file_class,
-                log_file_options = {"filename" : log_file,
-                                    "mode" : "w"},
-                log_file_level = log_level)
-
         #-------------------------------------------------------------#
 
-        # Set the logging configuration.
-        log.basicConfig(level = log_level,
-                        format = defaults.LOG_FMT,
-                        datefmt = defaults.LOG_DATEFMT,
-                        style = defaults.LOG_STYLE,
-                        handlers = handlers)
+        # Get the futures as they are completed.
+        for _, result in as_completed(futures,
+                                      with_results = True):
 
-        #-------------------------------------------------------------#
+            # Get the process and the working directory.
+            process, work_dir = result
 
-        # Add the arguments parsed to the options to be passed to the
-        # 'main' function.
-        main_options["args"] = args
-        
-        # Call the 'main' function of the command.
-        main_function(**main_options)
+            # Check the process' return code.
+            try:
 
+                process.check_returncode()
+
+            # If something went wrong
+            except Exception:
+
+                # Log the error.
+                errstr = \
+                    f"The run in the '{work_dir}' directory failed. " \
+                    "Please the log file in the directory for " \
+                    "more information."
+                logger.error(errstr)
+
+                # Go to the next future.
+                continue
+
+            # Inform the user that the run completed successfully.
+            infostr = \
+                f"The run in the directory '{work_dir}' completed " \
+                "successfully."
+            logger.info(infostr)
+    
     #-----------------------------------------------------------------#
 
     # Otherwise
     else:
 
-        # Print the help message.
-        parser.print_help()
+        # Set the arguments.
+        arguments = util.set_executable_args(args = args,
+                                             wd = wd,
+                                             main_wd = wd)
+
+        # Run the executable.
+        util.run_executable(\
+            executable = "_bulkdgd_exec",
+            arguments = arguments,
+            wd = wd)
+        

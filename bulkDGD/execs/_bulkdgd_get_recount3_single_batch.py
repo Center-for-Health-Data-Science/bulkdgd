@@ -52,7 +52,6 @@ from . import defaults, util
 # Define the 'main' function.
 def main():
 
-
     # Create the argument parser.
     parser = \
         argparse.ArgumentParser(\
@@ -198,7 +197,7 @@ def main():
     # Add arguments for the working directory and logging.
     util.add_wd_and_logging_arguments(\
         parser = parser,
-        command_name = "_recount3_single_batch")
+        command_name = "_get_recount3_single_batch")
 
     #-----------------------------------------------------------------#
 
@@ -223,7 +222,7 @@ def main():
     #-----------------------------------------------------------------#
 
     # Get the module's logger.
-    logger = log.getLogger("get_recount3_data")
+    logger = log.getLogger("recount3")
 
     # Set WARNING logging level by default.
     log_level = log.WARNING

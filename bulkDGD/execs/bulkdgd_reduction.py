@@ -193,8 +193,7 @@ def set_sub_parser(sub_parsers,
     # Set a help message.
     oa_help = \
         "The name of the output CSV file containing the results " \
-        f"of the {dim_red_help}. The file will be written in " \
-        "the working directory. The default file name is " \
+        f"of the {dim_red_help}. The default file name is " \
         f"'{oa_default}'."
     
     # Add the argument to the group.
@@ -212,7 +211,6 @@ def set_sub_parser(sub_parsers,
     om_help = \
         "The name of the output pickle file containing the " \
         f"fitted model used to perform the {dim_red_help}. The " \
-        "file will be written in the working directory. The " \
         f"default file name is '{om_default}'."
 
     # Add the argument to the group.
@@ -229,8 +227,7 @@ def set_sub_parser(sub_parsers,
     # Set a help message.
     op_help = \
         "The name of the output file containing the plot " \
-        f"displaying the results of the {dim_red_help}. This " \
-        "file will be written in the working directory. The " \
+        f"displaying the results of the {dim_red_help}. The " \
         f"default file name is '{op_default}'. The file format and, " \
         "therefore, extension are inferred from the 'output' " \
         "section of the configuration file for plotting."
@@ -376,16 +373,18 @@ def main(args,
     # Get the arguments corresponding to the input files.
     input_data = args.input_data
     input_model = args.input_model
+    
+    # Get the argument corresponding to the input columns.
     input_columns = args.input_columns
+
+    # Get the arguments corresponding to the configuration files.
+    config_file_dim_red = args.config_file_dim_red
+    config_file_plot = args.config_file_plot
 
     # Get the arguments corresponding to the output files.
     output_analysis = os.path.join(wd, args.output_analysis)
     output_model = os.path.join(wd, args.output_model)
     output_plot = os.path.join(wd, args.output_plot)
-
-    # Get the arguments corresponding to the configuration files.
-    config_file_dim_red = args.config_file_dim_red
-    config_file_plot = args.config_file_plot
 
     # Get the arguments corresponding to the pre-processing options.
     fill_pos_inf = args.fill_pos_inf

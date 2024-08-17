@@ -210,14 +210,14 @@ def main(args):
         errstr = \
             "It was not possible to load the samples' batches " \
             f"from '{input_samples_batches}'. Error: {e}"
-        log.exception(errstr)
+        logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the batches were successfully loaded.
     infostr = \
         "The samples' batches were successfully loaded from " \
         f"'{input_samples_batches}'."
-    log.info(infostr)
+    logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
@@ -286,7 +286,7 @@ def main(args):
             f"The results for batch # {num_batch} ('{project_name}' " \
             f"project, '{samples_category}' samples) will be " \
             f"written in '{output_csv_path}'."
-        log.info(infostr)
+        logger.info(infostr)
 
         #-------------------------------------------------------------#
 
@@ -302,7 +302,7 @@ def main(args):
             f"The log messages for batch # {num_batch} " \
             f"('{project_name}' project, '{samples_category}' " \
             f"samples) will be written in '{log_file_path}'."
-        log.info(infostr)
+        logger.info(infostr)
 
         #-------------------------------------------------------------#
 
@@ -397,7 +397,7 @@ def main(args):
                 f"The run for batch # {num_batch} failed. Please " \
                 f"check the log file '{process.args[10]}' for " \
                 f"more details. Error: {e}"
-            log.error(errstr)
+            logger.error(errstr)
 
             # Go to the next future.
             continue
@@ -405,4 +405,4 @@ def main(args):
         # Inform the user that the run completed successfully.
         infostr = \
             f"The run for batch # {num_batch} completed successfully."
-        log.info(infostr)
+        logger.info(infostr)

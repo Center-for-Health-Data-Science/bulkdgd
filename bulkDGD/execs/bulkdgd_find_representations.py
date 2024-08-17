@@ -85,7 +85,7 @@ def set_sub_parser(sub_parsers):
 
     # Set a help message.
     is_help = \
-        "The input CSV file containing a data frame with " \
+        "The input CSV file containing the data frame with " \
         "the gene expression data for the samples for which a " \
         "representation in latent space should be found."
 
@@ -104,8 +104,7 @@ def set_sub_parser(sub_parsers):
     or_help = \
         "The name of the output CSV file containing the data frame " \
         "with the representation of each input sample in latent " \
-        "space. The file will be written in the working directory. " \
-        f"The default file name is '{or_default}'."
+        f"space. The default file name is '{or_default}'."
 
     # Add the argument to the group.
     output_group.add_argument("-or", "--output-rep",
@@ -123,8 +122,8 @@ def set_sub_parser(sub_parsers):
         "The name of the output CSV file containing the data frame " \
         "with the predicted scaled means of the negative  " \
         "binomials for the in silico samples obtained from the best " \
-        "representations found. The file will be written in the " \
-        f"working directory. The default file name is '{om_default}'."
+        "representations found. The default file name is " \
+        f"'{om_default}'."
 
     # Add the argument to the group.
     output_group.add_argument("-om", "--output-means",
@@ -142,8 +141,7 @@ def set_sub_parser(sub_parsers):
         "The name of the output CSV file containing the data frame " \
         "with the predicted r-values of the negative binomials for " \
         "the in silico samples obtained from the best " \
-        "representations found. The file will be written in the " \
-        "working directory. The default file name is " \
+        "representations found. The default file name is " \
         f"'{ov_default}'. The file is produced only if negative' " \
         "binomial distributions are used to model the genes' counts."
 
@@ -163,8 +161,8 @@ def set_sub_parser(sub_parsers):
         "The name of the output CSV file containing the data frame " \
         "with information about the CPU and wall clock time " \
         "spent for each optimization epoch and each backpropagation " \
-        "step through the decoder. The file will be written in the " \
-        f"working directory. The default file name is '{ot_default}'."
+        "step through the decoder. The default file name is " \
+        f"'{ot_default}'."
 
     # Add the argument to the group.
     output_group.add_argument("-ot", "--output-time",
@@ -226,18 +224,18 @@ def main(args):
     # Get the argument corresponding to the working directory.
     wd = args.work_dir
 
-    # Get the arguments corresponding to the input files.
+    # Get the argument corresponding to the input file.
     input_samples = args.input_samples
+
+    # Get the arguments corresponding to the configuration files.
+    config_file_model = args.config_file_model            
+    config_file_rep = args.config_file_rep
 
     # Get the arguments corresponding to the output files.
     output_rep = os.path.join(wd, args.output_rep)
-    output_means = os.path.join(args.output_means)
+    output_means = os.path.join(wd, args.output_means)
     output_rvalues = os.path.join(args.output_rvalues)
     output_time = os.path.join(wd, args.output_time)
-
-    # Get the arguments corresponding to the configuration files.
-    config_file_model = args.config_file_model
-    config_file_rep = args.config_file_rep
 
     #-----------------------------------------------------------------#
 

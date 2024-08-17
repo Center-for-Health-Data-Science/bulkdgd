@@ -35,9 +35,14 @@ __doc__ = "Utilities for the executables."
 
 # Import from the standard library.
 import argparse
+import copy
+import glob
+import logging.handlers as loghandlers
 import logging as log
 import os
 import subprocess
+# Import from third-party packages.
+import dask
 # Import from 'bulkDGD'.
 from . import defaults
 
@@ -533,8 +538,7 @@ def add_wd_and_logging_arguments(parser,
 
     # Set a help message.
     lf_help = \
-        "The name of the log file. The file will be written " \
-        "in the working directory. The default file name is " \
+        "The name of the log file. The default file name is " \
         f"'{lf_default}'."
 
     # Add the argument to the group.
@@ -575,6 +579,124 @@ def add_wd_and_logging_arguments(parser,
                            action = "store_true",
                            help = vv_help)
 
+    #-----------------------------------------------------------------#
+    
+    if command_name not in \
+        ("bulkdgd_dea", "bulkdgd_get_recount3"):
+
+        # Add a group of arguments for the parallelization.
+        parallel_group = \
+            parser.add_argument_group(\
+                title = "Parallelization options")
+
+        # Add the argument for the parallelization.
+        p_help = "Whether to run the command in parallel."
+        parallel_group.add_argument("-p", "--parallelize",
+                                    action = "store_true",
+                                    help = p_help)
+    
+        # Add the argument for the number of processes.
+        n_default = 1
+        n_help = \
+            "The number of processes to start. The default number " \
+            f"of processes started is {n_default}."
+        parallel_group.add_argument("-n", "--n-proc",
+                                    type = int,
+                                    default = n_default,
+                                    help = n_help)
+    
+        # Add the argument for the names of the directories.
+        ds_help = \
+            "The directories containing the input/configuration " \
+            "files. It can be either a list of names or paths, a " \
+            "pattern that the names or paths match, or a plain " \
+            "text file containing the names of or the paths to the " \
+            "directories. If names are given, the directories are " \
+            "assumed to be inside the working directory. If paths " \
+            "are given, they are assumed to be relative to the " \
+            "working directory."
+        parallel_group.add_argument("-ds", "--dirs",
+                                    type = str,
+                                    nargs = "+",
+                                    help = ds_help)
+
+
+def set_main_logging(args):
+
+    # Get the 'command' argument.
+    command = getattr(args, "command", None)
+
+    # Get the 'sub_command' argument.
+    sub_command = getattr(args, "sub_command", None)
+
+    #-----------------------------------------------------------------#
+
+    # Get the log file.
+    log_file = os.path.join(args.work_dir, args.log_file)
+
+    #-----------------------------------------------------------------#
+
+    # Set WARNING logging level by default.
+    log_level = log.WARNING
+
+    # If the user requested verbose logging
+    if args.log_verbose:
+
+        # The minimal logging level will be INFO.
+        log_level = log.INFO
+
+    # If the user requested logging for debug purposes
+    if args.log_debug:
+
+        # The minimal logging level will be DEBUG.
+        log_level = log.DEBUG
+
+    #-----------------------------------------------------------------#
+
+    # If the command is run with Dask
+    if command in ("dea",) \
+    or (command == "get" and sub_command == "recount3"):
+
+        # Get the logging configuration for Dask.
+        dask_logging_config = \
+            get_dask_logging_config(\
+                log_console = args.log_console,
+                log_file = log_file)
+
+        # Set the configuration for Dask-specific logging.
+        dask.config.set(\
+            {"distributed.logging" : dask_logging_config})
+
+        # Set the appropriate class for the file handler.
+        log_file_class = loghandlers.RotatingFileHandler
+
+    # Otherwise
+    else:
+
+        # Set the appropriate class for the file handler.
+        log_file_class = log.FileHandler
+
+    #-----------------------------------------------------------------#
+    
+    # Configure the logging (for non-Dask operations).
+    handlers = \
+        get_handlers(\
+            log_console = args.log_console,
+            log_console_level = log_level,
+            log_file_class = log_file_class,
+            log_file_options = {"filename" : log_file,
+                                "mode" : "w"},
+            log_file_level = log_level)
+
+    #-----------------------------------------------------------------#
+
+    # Set the logging configuration.
+    log.basicConfig(level = log_level,
+                    format = defaults.LOG_FMT,
+                    datefmt = defaults.LOG_DATEFMT,
+                    style = defaults.LOG_STYLE,
+                    handlers = handlers)
+
 
 def process_arg_input_columns(val):
     """Process the value passed to the '-ic', '--input-columns' 
@@ -594,7 +716,6 @@ def process_arg_input_columns(val):
     # Process and return the value.
     return val if (val is None or isinstance(val, str)) else \
            [item.strip() for item in val.split(",")]
-
 
 
 def process_arg_groups_column(val):
@@ -670,3 +791,274 @@ def run_executable(executable,
     # Return the completed process and any other value that was
     # passed.
     return (completed_process, *extra_return_values)
+
+
+def get_dirs(dir_names,
+             wd):
+    """Get the full paths to a list of directories. 
+
+    Parameters
+    ----------
+    dir_names : :class:`list` or :class:`str`
+        The names of the directories. It can be either a list of
+        strings representing the names of the directories, or a
+        string representing a pattern to match the directories or a
+        plain text file containing the names of the directories.
+    
+    wd : :class:`str`
+        The working directory.
+    
+    Returns
+    -------
+    dirs : :class:`list`
+        A list of the full paths to the directories.
+    
+    Raises
+    ------
+    :class:`TypeError`
+        If the argument ``dir_names`` is not a list of strings, a
+        string representing a pattern to match the directories, or a
+        plain text file containing the names of the directories.
+    """
+
+    # If the user passed a list of directory names
+    if isinstance(dir_names, list):
+
+        # Get the full paths to the directories.
+        dirs = \
+            [os.path.abspath(os.path.join(wd, dir_name)) \
+             for dir_name in dir_names]
+    
+    #-----------------------------------------------------------------#
+
+    # If the user passed a pattern or the name of a file
+    elif isinstance(dir_names, str):
+
+        # If the string has a file extension
+        if os.path.splitext(dir_names)[1]:
+
+            # Read the file.
+            with open(dir_names, "r") as f:
+
+                # Make it so if the user passed the directories with
+                # relative paths, they will be interpreted correctly
+                # with respect to the working directory. Skip empty
+                # lines.
+                dirs = \
+                    [os.path.abspath(\
+                        os.path.join(wd, dir_name.strip()))
+                    for dir_name in f.readlines() \
+                    if not dir_name.strip()]
+        
+        #-------------------------------------------------------------#
+        
+        # Otherwise
+        else:
+
+            # Get the full paths to the directories.
+            dirs = \
+                glob.glob(os.path.abspath(os.path.join(wd, dir_names)))
+
+    #-----------------------------------------------------------------#
+
+    # Otherwise
+    else:
+
+        # Raise an error.
+        errstr = \
+            "The argument 'dir_names' must be either a list of " \
+            "directory names, a string representing a pattern to " \
+            "match the directories, or a string representing a " \
+            "file containing the names of the directories."
+        raise TypeError(errstr)
+    
+    #-----------------------------------------------------------------#
+    
+    # Return the full paths to the directories.
+    return dirs
+
+
+def get_file_path(file_name,
+                  wd,
+                  main_wd):
+    """Get the full path to a file.
+
+    Parameters
+    ----------
+    file_name : :class:`str`
+        The name of the file.
+    
+    wd : :class:`str`
+        The working directory.
+    
+    main_wd : :class:`str`
+        The main working directory.
+    
+    Returns
+    -------
+    file_path : :class:`str` or :obj:`None`
+        The full path to the file or :obj:`None` if ``file_name`` is
+        not a file.
+    
+    Raises
+    ------
+    :class:`FileNotFoundError`
+        If the file does not exist in either the working directory or
+        the main working directory.
+    """
+
+    # Get the full path to the file in the working directory.
+    file_path = os.path.abspath(os.path.join(wd, file_name))
+
+    # Get the full path to the file in the main working directory.
+    file_path_main = os.path.abspath(os.path.join(main_wd, file_name))
+
+    # If the file exists in the working directory
+    if os.path.exists(file_path):
+
+        # Return the full path to the file.
+        return file_path
+    
+    #-----------------------------------------------------------------#
+
+    # If the file exists in the main working directory
+    elif os.path.exists(file_path_main):
+
+        # Return the full path to the file.
+        return file_path_main
+    
+    #-----------------------------------------------------------------#
+
+    # Otherwise
+    else:
+
+        # If the file name is not a file
+        if not os.path.isfile(file_path) \
+            and not os.path.isfile(file_path_main):
+
+            # Return None.
+            return None
+
+        # Otherwise
+        else:
+
+            # Raise an error.
+            errstr = \
+                f"The file '{file_name}' does not exist in " \
+                f"either '{wd}' or '{main_wd}'."
+            raise FileNotFoundError(errstr)
+
+
+def set_executable_args(args,
+                        wd,
+                        main_wd):
+    """Set the arguments for an executable.
+
+    Parameters
+    ----------
+    args : :class:`argparse.Namespace`
+        The parsed arguments.
+    
+    wd : :class:`str`
+        The working directory.
+    
+    main_wd : :class:`str`
+        The main working directory.
+
+    Returns
+    -------
+    arguments : :class:`list`
+        The arguments as a list that can be passed to 
+        :func:`subprocess.run`.
+    """
+
+    # Get the arguments as a dictionary.
+    kwargs = copy.deepcopy(vars(args))
+
+    #-----------------------------------------------------------------#
+
+    # Initialize the arguments as an empty list.
+    arguments = []
+
+    #-----------------------------------------------------------------#
+
+    # For each argument
+    for arg, val in kwargs.items():
+        
+        # If the argument starts with 'input_' or 'config_'
+        if arg.startswith("input_") \
+        or arg.startswith("config_"):
+
+            # Get the full path to the file.
+            file_path = \
+                get_file_path(file_name = val,
+                              wd = wd,
+                              main_wd = main_wd)
+
+            # If the file exists
+            if file_path is not None:
+
+                # Set the full path to the file.
+                kwargs[arg] = file_path
+        
+        #-------------------------------------------------------------#
+        
+        # If the argument starts with 'output_' or is 'log_file'
+        elif arg.startswith("output_") \
+        or arg == "log_file":
+            
+            # Set the full path to the file.
+            kwargs[arg] = os.path.abspath(os.path.join(wd, val))
+        
+    #-----------------------------------------------------------------#
+    
+    # Set the argument for the working directory.
+    kwargs["work_dir"] = wd
+
+    # Remove the argument for the directories.
+    kwargs.pop("dirs", None)
+
+    #-----------------------------------------------------------------#
+
+    # For each argument
+    for arg, val in kwargs.items():
+        
+        # If the argument is not 'command' or 'sub_command'
+        if arg not in ("command", "sub_command"):
+
+            # Add the argument to the list of arguments.
+            arguments.append(f"--{arg.replace('_', '-')}")
+
+            # If the value is a list
+            if isinstance(val, list):
+
+                # Add each element of the list to the list of
+                # arguments.
+                arguments.extend(val)
+
+            # If the value is a boolean
+            elif isinstance(val, bool):
+
+                # If the value is False
+                if not val:
+
+                    # Skip it.
+                    arguments.pop()
+            
+            # Otherwise
+            else:
+
+                # Add the value to the list of arguments.
+                arguments.append(str(val))
+        
+        # Otherwise
+        else:
+
+            # Add the argument to the list of arguments.    
+            arguments.append(val)
+
+    #-----------------------------------------------------------------#
+
+    # Return the list of arguments.
+    return arguments
+            

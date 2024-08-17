@@ -91,8 +91,7 @@ def set_sub_parser(sub_parsers):
     ol_help = \
         "The name of the output plain text file containing the " \
         "list of genes of interest, identified using their Ensembl " \
-        "IDs. The file will be written in the working directory. " \
-        f"The default file name is '{ol_default}'."
+        f"IDs. The default file name is '{ol_default}'."
 
     # Add the argument to the group.
     output_group.add_argument("-ol", "--output-list",
@@ -109,8 +108,7 @@ def set_sub_parser(sub_parsers):
     oa_help = \
         "The name of the output CSV file containing the attributes " \
         "retrieved from the Ensembl database for the genes of " \
-        "interest. The file will be written in the working " \
-        f"directory. The default file name is '{oa_default}'."
+        f"interest. The default file name is '{oa_default}'."
 
     # Add the argument to the group.
     output_group.add_argument("-oa", "--output-attributes",
@@ -152,12 +150,12 @@ def main(args):
     # Get the argument corresponding to the working directory.
     wd = args.work_dir
 
+    # Get the arguments corresponding to the configuration files.
+    config_file_genes = args.config_file_genes
+
     # Get the arguments corresponding to the output files.
     output_list = os.path.join(wd, args.output_list)
     output_attributes = os.path.join(wd, args.output_attributes)
-
-    # Get the arguments corresponding to the configuration files.
-    config_file_genes = args.config_file_genes
 
     #-----------------------------------------------------------------#
 

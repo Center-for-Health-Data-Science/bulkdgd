@@ -109,8 +109,7 @@ def set_sub_parser(sub_parsers):
         "representation, its probability density for each of the " \
         "Gaussian mixture model's components, the maximum " \
         "probability density found, and the component the maximum " \
-        "probability density comes from. The file will be " \
-        "written in the working directory. The default file " \
+        "probability density comes from. The default file " \
         f"name is '{opr_default}'."
 
     # Add the argument to the group.
@@ -129,8 +128,7 @@ def set_sub_parser(sub_parsers):
         "The name of the output CSV file containing, for each " \
         "component of the Gaussian mixture model, the " \
         "representation(s) having the maximum probability " \
-        "density with respect to it. The file will be written " \
-        "in the working directory. The default file name is " \
+        "density with respect to it. The default file name is " \
         f"'{opc_default}'."
 
     # Add the argument to the group.
@@ -173,15 +171,15 @@ def main(args):
     # Get the argument corresponding to the working directory.
     wd = args.work_dir
 
-    # Get the arguments corresponding to the input files.
+    # Get the argument corresponding to the input file.
     input_rep = args.input_rep
+
+    # Get the argument corresponding to the configuration file.
+    config_file_model = args.config_file_model
 
     # Get the arguments corresponding to the output files.
     output_prob_rep = os.path.join(wd, args.output_prob_rep)
-    output_prob_comp = os.path.join(args.output_prob_comp)
-
-    # Get the arguments corresponding to the configuration files.
-    config_file_model = args.config_file_model
+    output_prob_comp = os.path.join(wd, args.output_prob_comp)
 
     #-----------------------------------------------------------------#
     

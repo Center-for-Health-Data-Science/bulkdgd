@@ -119,8 +119,7 @@ def set_parser(sub_parsers):
     ort_help = \
         "The name of the output CSV file containing the data frame " \
         "with the representation of each training sample in latent " \
-        "space. The file will be written in the working directory. " \
-        f"The default file name is '{ort_default}'."
+        f"space. The default file name is '{ort_default}'."
 
     # Add the argument to the group.
     output_group.add_argument("-ort", "--output-rep-train",
@@ -137,8 +136,7 @@ def set_parser(sub_parsers):
     ore_help = \
         "The name of the output CSV file containing the data frame " \
         "with the representation of each test sample in latent " \
-        "space. The file will be written in the working directory. " \
-        f"The default file name is '{ore_default}'."
+        f"space. The default file name is '{ore_default}'."
 
     # Add the argument to the group.
     output_group.add_argument("-ore", "--output-rep-test",
@@ -155,8 +153,7 @@ def set_parser(sub_parsers):
     ol_help = \
         "The name of the output CSV file containing the data frame " \
         "with the per-epoch loss(es) for training and test samples. " \
-        "The file will be written in the working directory. The " \
-        f"default file name is '{ol_default}'."
+        f"The default file name is '{ol_default}'."
 
     # Add the argument to the group.
     output_group.add_argument("-ol", "--output-loss",
@@ -174,8 +171,8 @@ def set_parser(sub_parsers):
         "The name of the output CSV file containing the data frame " \
         "with information about the CPU and wall clock time " \
         "spent for each training epoch the backpropagation steps " \
-        "through the decoder. The file will be written in the " \
-        f"working directory. The default file name is '{ot_default}'."
+        "through the decoder. The default file name is " \
+        f"'{ot_default}'."
 
     # Add the argument to the group.
     output_group.add_argument("-ot", "--output-time",
@@ -250,17 +247,17 @@ def main(args):
 
     # Get the arguments corresponding to the input files.
     input_train = args.input_train
-    input_test = args.input_test
+    input_test = args.input_test                        
+
+    # Get the arguments corresponding to the configuration files.
+    config_file_model = args.config_file_model
+    config_file_train = args.config_file_train
 
     # Get the arguments corresponding to the output files.
     output_rep_train = os.path.join(wd, args.output_rep_train)
     output_rep_test = os.path.join(wd, args.output_rep_test)
     output_loss = os.path.join(args.output_loss)
     output_time = os.path.join(args.output_time)
-
-    # Get the arguments corresponding to the configuration files.
-    config_file_model = args.config_file_model
-    config_file_train = args.config_file_train
 
     # Get the arguments corresponding to the run options.
     device = args.device
@@ -279,14 +276,14 @@ def main(args):
         errstr = \
             "It was not possible to load the configuration from " \
             f"'{config_file_model}'. Error: {e}"
-        log.exception(errstr)
+        logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the configuration was successfully loaded.
     infostr = \
         "The configuration was successfully loaded from " \
         f"'{config_file_model}'."
-    log.info(infostr)
+    logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
@@ -302,14 +299,14 @@ def main(args):
         errstr = \
             "It was not possible to load the configuration from " \
             f"'{config_file_train}'. Error: {e}"
-        log.exception(errstr)
+        logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the configuration was successfully loaded.
     infostr = \
         "The configuration was successfully loaded from " \
         f"'{config_file_train}'."
-    log.info(infostr)
+    logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
@@ -329,14 +326,14 @@ def main(args):
         errstr = \
             "It was not possible to load the training samples from " \
             f"'{input_train}'. Error: {e}"
-        log.exception(errstr)
+        logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the data were successfully loaded.
     infostr = \
         "The training samples were successfully loaded from " \
         f"'{input_train}'."
-    log.info(infostr)
+    logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
@@ -356,14 +353,14 @@ def main(args):
         errstr = \
             "It was not possible to load the test samples from " \
             f"'{input_test}'. Error: {e}"
-        log.exception(errstr)
+        logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the data were successfully loaded.
     infostr = \
         "The test samples were successfully loaded from " \
         f"'{input_test}'."
-    log.info(infostr)
+    logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
@@ -378,12 +375,12 @@ def main(args):
         # Warn the user and exit.
         errstr = \
             f"It was not possible to set the bulkDGD model. Error: {e}"
-        log.exception(errstr)
+        logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the model was successfully set.
     infostr = "The bulkDGD model was successfully set."
-    log.info(infostr)
+    logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
@@ -414,14 +411,14 @@ def main(args):
         errstr = \
             "It was not possible to move the bulkDGD model to the " \
             f"'{device}' device. Error: {e}"
-        log.exception(errstr)
+        logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the model was successfully moved.
     infostr = \
         "The bulkDGD model was successfully moved to the " \
         f"'{device}' device."
-    log.info(infostr)
+    logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
@@ -440,12 +437,12 @@ def main(args):
         errstr = \
             "It was not possible to train the bulkDGD model. " \
             f"Error: {e}"
-        log.exception(errstr)
+        logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the bulkDGD model was successfully trained.
     infostr = "The bulkDGD model was successfully trained."
-    log.info(infostr)
+    logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
@@ -466,7 +463,7 @@ def main(args):
             "It was not possible to write the representations " \
             f"for the training samples in '{output_rep_train}'. " \
             f"Error: {e}"
-        log.exception(errstr)
+        logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the representations for the training
@@ -474,7 +471,7 @@ def main(args):
     infostr = \
         "The representations for the training samples were " \
         f"successfully written in '{output_rep_train}'."
-    log.info(infostr)
+    logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
@@ -495,7 +492,7 @@ def main(args):
             "It was not possible to write the representations " \
             f"for the test samples in '{output_rep_test}'. " \
             f"Error: {e}"
-        log.exception(errstr)
+        logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the representations for the test samples
@@ -503,7 +500,7 @@ def main(args):
     infostr = \
         "The representations for the test samples were " \
         f"successfully written in '{output_rep_test}'."
-    log.info(infostr)
+    logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
@@ -522,14 +519,14 @@ def main(args):
         errstr = \
             "It was not possible to write the losses " \
             f"in '{output_loss}'. Error: {e}"
-        log.exception(errstr)
+        logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the losses were successfully written in
     # the output file.
     infostr = \
         f"The losses were successfully written in '{output_loss}'."
-    log.info(infostr)
+    logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
@@ -548,11 +545,11 @@ def main(args):
         errstr = \
             "It was not possible to write the time data " \
             f"in '{output_time}'. Error: {e}"
-        log.exception(errstr)
+        logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the time data was successfully
     # written in the output file.
     infostr = \
         f"The time data were successfully written in '{output_time}'."
-    log.info(infostr)
+    logger.info(infostr)

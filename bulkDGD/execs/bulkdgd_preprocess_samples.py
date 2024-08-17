@@ -29,8 +29,8 @@
 
 # Set the module's description.
 __doc__ = \
-        "Pre-process new samples to use them with the " \
-        ":class:`core.model.BulkDGDModel`."
+    "Pre-process new samples to use them with the " \
+    ":class:`core.model.BulkDGDModel`."
 
 
 #######################################################################
@@ -97,8 +97,7 @@ def set_sub_parser(sub_parsers):
     # Set a help message.
     os_help = \
         "The name of the output CSV file containing the data frame " \
-        "with the preprocessed samples. The file will be written " \
-        "in the working directory. The default file name is " \
+        "with the preprocessed samples. The default file name is " \
         f"'{os_default}'."
 
     # Add the argument to the group.
@@ -116,8 +115,7 @@ def set_sub_parser(sub_parsers):
     oge_help = \
         "The name of the output plain text file containing the " \
         "list of genes whose expression data are excluded from the " \
-        "data frame with the preprocessed samples. The " \
-        "file will be written in the working directory. " \
+        "data frame with the preprocessed samples. " \
         f"The default file name is '{oge_default}'."
 
     # Add the argument to the group.
@@ -137,8 +135,8 @@ def set_sub_parser(sub_parsers):
         "of genes for which no expression data are found in the " \
         "input data frame. A default count of 0 is assigned to " \
         "these genes in the output data frame containing the " \
-        "preprocessed samples. The file will be written in the " \
-        f"working directory. The default file name is '{ogm_default}'."
+        "preprocessed samples. The default file name is " \
+        f"'{ogm_default}'."
 
     # Add the argument to the group.
     output_group.add_argument("-om", "--output-genes-missing",
