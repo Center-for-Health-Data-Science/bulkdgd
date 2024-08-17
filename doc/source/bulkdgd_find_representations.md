@@ -24,7 +24,7 @@ To run the executable, you also need the trained bulkDGD model, which comes in t
 
 ## Parallelization
 
-If the command is parallelized over several input files or configuration files, each is assumed to be identically named and placed in a different directory. The paths to such directories must be specified using the `-ds`, `--dirs` option (see the full description in the [Options](#Options) section below) and must be relative to the specified working directory (`-d`, `--work-dir` option).
+If the command is parallelized over several input files or configuration files, each is assumed to be identically named and placed in a different directory. The paths to such directories must be specified using the `-ds`, `--dirs` option (see the full description in the [Parallelization options](#parallelization-options) section below) and must be relative to the specified working directory (`-d`, `--work-dir` option).
 
 You can also run the command with the same input file using different configuration files and vice versa.
 

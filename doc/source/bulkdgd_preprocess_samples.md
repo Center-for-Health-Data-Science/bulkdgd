@@ -28,7 +28,7 @@ Furthermore, if any gene present in the gene set used to train the bulkDGD model
 
 ## Parallelization
 
-If the command is parallelized over several input files, each is assumed to be identically named and placed in a different directory. The paths to such directories must be specified using the `-ds`, `--dirs` option (see the full description in the [Options](#Options) section below) and must be relative to the specified working directory (`-d`, `--work-dir` option).
+If the command is parallelized over several input files, each is assumed to be identically named and placed in a different directory. The paths to such directories must be specified using the `-ds`, `--dirs` option (see the full description in the [Parallelization options](#parallelization-options) section below) and must be relative to the specified working directory (`-d`, `--work-dir` option).
 
 The input files must be placed in different directories and referenced by their corresponding options by name (not path).
 
