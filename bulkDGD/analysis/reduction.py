@@ -89,13 +89,13 @@ def _perform_dim_red(df,
     mod_class : :obj:`sklearn` model class
         The class of the model that needs to be built.
 
-        It should be ``None`` if ``mod_fitted`` is passed.
+        It should be :obj:`None` if ``mod_fitted`` is passed.
 
     mod_options : :class:`dict`
         A dictionary of options to initialize a model from
         ``mod_class``.
 
-        It should be ``None`` if ``mod_fitted`` is passed.
+        It should be :obj:`None` if ``mod_fitted`` is passed.
 
     input_columns : :class:`str` or :class:`list` or :obj:`None`
         Either a list containing the names of the columns whose
