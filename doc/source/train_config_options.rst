@@ -1,7 +1,7 @@
-Configuration for training the DGD model
-========================================
+Configuration for training the bulkDGD model
+============================================
 
-The :meth:`core.model.DGDModel.train` method requires a ``config_train`` option consisting in a dictionary with the options to train the DGD model.
+The :meth:`core.model.BulkDGDModel.train` method requires a ``config_train`` option consisting in a dictionary with the options to train the bulkDGD model.
 
 The dictionary should be structured as follows:
 

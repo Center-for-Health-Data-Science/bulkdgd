@@ -1,0 +1,8 @@
+# Configuration file to perform a MDS. The full list of available
+# options can be found here: https://scikit-learn.org/stable/modules/
+# generated/sklearn.manifold.MDS.html#mds
+
+# Set the number of components.
+#
+# Type: int.
+n_components: 2

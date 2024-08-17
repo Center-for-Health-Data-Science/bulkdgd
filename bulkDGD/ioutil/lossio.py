@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- Mode: python; tab-width: 4; indent-tabs-mode:nil; coding:utf-8 -*-
 
-#    timeio.py
+#    lossio.py
 #
 #    Utilities to load and save loss-related data.
 #

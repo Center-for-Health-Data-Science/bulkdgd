@@ -4,10 +4,10 @@
 #    latent.py
 #
 #    This module contains the classes implementing the components of
-#    the DGD model's latent space, namely the Gaussian mixture model
+#    the latent space of the :class:`core.model.BulkDGDModel`, namely
+#    the Gaussian mixture model
 #    (:class:`core.latent.GaussianMixtureModel`) and the representation
-#    layer (:class:`core.latent.RepresentationLayer`), which feeds
-#    "the (:class:`core.decoder.Decoder`).
+#    layer (:class:`core.latent.RepresentationLayer`).
 #
 #    The code was originally developed by Viktoria Schuster,
 #    Inigo Prada Luengo, and Anders Krogh.
@@ -45,11 +45,10 @@
 # Set the module's description.
 __doc__ = \
     "This module contains the classes implementing the components " \
-    "of the DGD model's latent space, namely the Gaussian " \
-    "mixture model (:class:`core.latent.GaussianMixtureModel`) " \
-    "and the representation layer " \
-    "(:class:`core.latent.RepresentationLayer`), which feeds " \
-    "the (:class:`core.decoder.Decoder`)."
+    "of the latent space of the :class:`core.model.BulkDGDModel`, " \
+    "namely the Gaussian mixture model " \
+    "(:class:`core.latent.GaussianMixtureModel`) and the " \
+    "representation layer (:class:`core.latent.RepresentationLayer`)."
 
 
 #######################################################################
@@ -79,8 +78,8 @@ logger = log.getLogger(__name__)
 class GaussianMixtureModel(nn.Module):
     
     """
-    A class implementing a mixture of multivariate Gaussians
-    (Gaussian mixture model or GMM).
+    A class implementing a mixture of multivariate Gaussian
+    distributions (Gaussian mixture model or GMM).
     """
 
     # Set the supported priors over the means of the components of
@@ -128,7 +127,7 @@ class GaussianMixtureModel(nn.Module):
             The name of the prior over the negative log-variance of the
             components of the Gaussian mixture.
 
-        means_prior_options : :class:`int`
+        means_prior_options : :class:`dict`
             A dictionary containing the options needed to set up the
             prior over the means of the components of the Gaussian
             mixture model.
@@ -144,7 +143,7 @@ class GaussianMixtureModel(nn.Module):
             * ``"sharpness"``, namely the sharpness of the
               soft boundary of the ball.
 
-        weights_prior_options : :class:`int`
+        weights_prior_options : :class:`dict`
             A dictionary containing the options needed to set up the
             prior over the weights of the components of the Gaussian
             mixture model.
@@ -157,7 +156,7 @@ class GaussianMixtureModel(nn.Module):
             * ``"alpha"``, namely the alpha of the Dirichlet
               distribution.
 
-        log_var_prior_options : :class:`int`
+        log_var_prior_options : :class:`dict`
             A dictionary containing the options needed to set up the
             prior over the negative log-variance of the Gaussian
             mixture model.
@@ -175,7 +174,7 @@ class GaussianMixtureModel(nn.Module):
 
         cm_type : :class:`str`, {``"fixed"``, ``"isotropic"``, \
             ``"diagonal"``}, ``"diagonal"``
-            The shape of the covariance matrix.
+            The type of covariance matrix used.
         """
 
         # Initialize an instance of 'nn.Module'.
@@ -283,12 +282,12 @@ class GaussianMixtureModel(nn.Module):
         means_prior_name : :class:`str`
             The name of the prior.
 
-        means_prior_options : :class:`int`
+        means_prior_options : :class:`dict`
             The options to set up the prior.
 
         Returns
         -------
-        means_prior_dict : :class:`int`
+        means_prior_dict : :class:`dict`
             A dictionary containing the name of the prior and the
             options and distribution associated with it.
         """
@@ -319,11 +318,12 @@ class GaussianMixtureModel(nn.Module):
                 f"Unrecognized prior '{means_prior_name}' passed " \
                 "to 'means_prior_name'. Supported priors are: " \
                 f"{', '.join(self.MEANS_PRIOR)}."
+            raise ValueError(errstr)
 
 
     def _get_means(self):
-        """Return the prior on the means of the Gaussians and the means
-        themselves.
+        """Return the prior on the means of the Gaussian distributions
+        and the means themselves.
 
         Returns
         -------
@@ -364,12 +364,12 @@ class GaussianMixtureModel(nn.Module):
         weights_prior_name : :class:`str`
             The name of the prior.
 
-        weights_prior_options : :class:`int`
+        weights_prior_options : :class:`dict`
             The options to set up the prior.
 
         Returns
         -------
-        weights_prior_dict : :class:`int`
+        weights_prior_dict : :class:`dict`
             A dictionary containing the name of the prior and the
             options associated with it.
         """
@@ -443,12 +443,12 @@ class GaussianMixtureModel(nn.Module):
         log_var_prior_name : :class:`str`
             The name of the prior.
 
-        log_var_prior_options : :class:`int`
+        log_var_prior_options : :class:`dict`
             The options to set up the prior.
 
         Returns
         -------
-        log_var_prior_dict : :class:`int`
+        log_var_prior_dict : :class:`dict`
             A dictionary containing the name of the prior and the
             options and distribution associated with it.
         """
@@ -596,12 +596,12 @@ class GaussianMixtureModel(nn.Module):
                                requires_grad = requires_grad)
 
         # Get the name of the prior.
-        log_var_prior_mame = self.log_var_prior["name"]
+        log_var_prior_name = self.log_var_prior["name"]
 
         #-------------------------------------------------------------#
 
         # If the prior is a Gaussian distribution
-        if log_var_prior_mame == "gaussian":
+        if log_var_prior_name == "gaussian":
 
             # Get the mean of the Gaussian distribution.
             dist_mean = self.log_var_prior["options"]["mean"]
@@ -622,6 +622,7 @@ class GaussianMixtureModel(nn.Module):
                 f"Unrecognized prior '{log_var_prior_name}' " \
                 "passed to 'log_var_prior_name'. Supported " \
                 f"priors are: {', '.join(self.log_var_PRIORS)}."
+            raise ValueError(errstr)
 
         # Return the log-variance.
         return log_var
@@ -907,7 +908,7 @@ class GaussianMixtureModel(nn.Module):
         #             - 0.5 * ((x - means)^2 / var))
         #
         # Since sqrt(var) can be rewritten as var^(1/2) and an exponent
-        # inside a logarithm can be brough out of the logarithm, we
+        # inside a logarithm can be brought out of the logarithm, we
         # can rewrite the equation as:
         #
         # log(p(x)) = - 0.5 * dim * log(2*pi) +
@@ -985,7 +986,7 @@ class GaussianMixtureModel(nn.Module):
         Returns
         -------
         p : :class:`float`
-            The log-probability of the priors.
+            The log-probability of the prior.
         """
 
         # Initialize the probability to 0.0.
@@ -1022,7 +1023,7 @@ class GaussianMixtureModel(nn.Module):
                 f"Unsupported prior '{weights_prior_name}' for " \
                 "the weights of the components of the Gaussian " \
                 "mixture model. Supported priors are: " \
-                f"{', '.join(WEIGHTS_PRIORS)}."
+                f"{', '.join(self.WEIGHTS_PRIORS)}."
 
         #-------------------------------------------------------------#
 
@@ -1047,7 +1048,7 @@ class GaussianMixtureModel(nn.Module):
                 f"Unsupported prior '{means_prior_name}' for " \
                 "the means of the components of the Gaussian " \
                 "mixture model. Supported priors are: " \
-                f"{', '.join(MEANS_PRIOR)}."
+                f"{', '.join(self.MEANS_PRIOR)}."
 
         #-------------------------------------------------------------#
 
@@ -1073,7 +1074,8 @@ class GaussianMixtureModel(nn.Module):
                 f"Unsupported prior '{log_var_prior_name}' for " \
                 "the log-variance of the Gaussian mixture model. " \
                 "Supported priors are: " \
-                f"{', '.join(log_var_PRIORS)}."
+                f"{', '.join(self.LOG_VAR_PRIORS)}."
+            raise ValueError(errstr)
 
         # Return the probability.
         return p
@@ -1213,7 +1215,9 @@ class GaussianMixtureModel(nn.Module):
             of the Gaussian mixture.
 
         sampling_method : :class:`str`, {``"mean"``}, ``"mean"``
-            How to draw the samples for the given data points:
+            How to draw the samples for the given data points.
+
+            Available options are:
 
             * ``"mean"`` means taking the mean of each component as
               the value of each ``n_samples_per_comp`` sample taken
@@ -1337,10 +1341,12 @@ class RepresentationLayer(nn.Module):
             The name of the distribution used to sample the
             representations, if no ``values`` are passed.
 
-            By default, the distribution is a ``"normal"``
-            distribution.
+            Available options are:
 
-        dist_options : :class:`int`, optional
+            * ``"normal"`` : sample the representations from a normal
+              distribution.
+
+        dist_options : :class:`dict`, optional
             A dictionary containing the parameters to sample the
             representations from the distribution, if no ``values``
             are passed.
@@ -1470,7 +1476,7 @@ class RepresentationLayer(nn.Module):
 
         Parameters
         ----------
-        options : :class:`int`
+        options : :class:`dict`
             A dictionary containing the parameters to sample the
             representations from a normal distribution.
 
@@ -1508,7 +1514,7 @@ class RepresentationLayer(nn.Module):
             * The second dimension has a length equal to the
               dimensionality of the representations.
 
-        options : :class:`int`
+        options : :class:`dict`
             A dictionary containing the options used to initialize
             the representations.
         """

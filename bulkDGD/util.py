@@ -35,403 +35,13 @@ __doc__ = "General utilities."
 
 # Import from the standard library.
 import copy
-import functools
-import logging as log
 import os
-import subprocess
+import re
 # Import from bulkDGD.
 from . import defaults
 
 
-########################### PUBLIC CLASSES ############################
-
-
-class LevelContentFilter(log.Filter):
-
-    """
-    A custom ``logging.Filter`` class to filter log records based on
-    their level and content.
-    """
-
-
-    def __init__(self,
-                 level = "WARNING",
-                 start = None,
-                 end = None,
-                 content = None):
-        """Initialize the filter.
-
-        Parameters
-        ----------
-        level : ``str`` or ``logging`` level, ``logging.WARNING``
-            The level at which and below which messages should be
-            filtered out.
-
-        start : ``list``, optional
-            A list of strings. Log records starting with any of these
-            strings will be filtered out.
-
-            Note that the log record is stripped of any leading and
-            traling blank spaces before checking whether it starts
-            with any of the provided strings.
-
-        end : ``list``, optional
-            A list of strings. Log records ending with any of these
-            strings will be filtered out.
-
-            Note that the log record is stripped of any leading and
-            trailing blank spaces before checking whether it ends with
-            any of the provided strings.
-
-        content : ``list``, optional
-            A list of strings. Log records containing any of these
-            strings will be filtered out.
-        """
-
-        # Call the parent class' initialization method.
-        super().__init__()
-
-        # Save the level below which messages from the specified
-        # loggers should be ignored.
-        self.level = log._nameToLevel[level]
-
-        # Save the strings the log record needs to start with to be
-        # ignored - if the log record starts with any of the specified
-        # strings, it will be ignored.
-        self.start = start
-
-        # Save the strings the log record needs to end with to be
-        # ignored - if the log record ends with any of the specified
-        # strings, it will be ignored.
-        self.end = end
-
-        # Save the strings the log record needs to contain to be
-        # ignored - if the log record contains any of the specified
-        # strings, it will be ignored.
-        self.content = content
-
-
-    def filter(self,
-               record):
-        """Decide whether a log record will be emitted or not.
-
-        Parameters
-        ----------
-        record : ``logging.LogRecord``
-            The log record.
-
-        Returns
-        -------
-        emit_record : ``bool``
-            Whether the log record will be emitted or not.
-        """
-
-        # If the record's level is below or equal to the selected
-        # level
-        if record.levelno <= self.level:
-
-            # If we specified strings the record needs to start with
-            # to be ignored
-            if self.start is not None:
-
-                # For each string
-                for string in self.start:
-
-                    # If the record starts with the selected string
-                    if record.msg.strip().startswith(string):
-
-                        # Do not log the record.
-                        return False
-
-            #---------------------------------------------------------#
-
-            # If we specified strings the record needs to end with to
-            # be ignored
-            if self.end is not None:
-
-                # For each string
-                for string in self.end:
-
-                    # If the record ends with the selected string
-                    if record.msg.strip().endswith(string):
-
-                        # Do not log the record.
-                        return False
-
-            #---------------------------------------------------------#
-
-            # If we specified strings the record needs to contain to be
-            # ignored
-            if self.content is not None:
-
-                # For each string
-                for string in self.content:
-
-                    # If the record contains the selected string
-                    if string in record:
-
-                        # Do not log the record.
-                        return False
-
-        #-------------------------------------------------------------#
-
-        # If we reached this point, log the record.
-        return True
-
-
-########################## PUBLIC FUNCTIONS ###########################
-
-
-def get_handlers(log_console = True,
-                 log_console_level = defaults.LOG_LEVEL,
-                 log_file_class = None,
-                 log_file_options = None,
-                 log_file_level = defaults.LOG_LEVEL):
-    """Get the handlers to use when logging.
-
-    Parameters
-    ----------
-    log_console : ``bool``, ``True``
-        Whether to write log messages to the console.
-
-    log_console_level : ``str``, ``bulkDGD.defaults.LOG_LEVEL``
-        The level below which log messages will not be logged on the
-        console.
-
-        By default, it takes the value of
-        ``bulkDGD.defaults.LOG_LEVEL``.
-
-    log_file_class : ``logging.FileHandler``, optional
-        A ``FileHandler`` class to construct the handler that will
-        log to a file.
-
-        If not provided, the log messages will not be written to any
-        file.
-
-    log_file_options : ``dict``, optional
-        A dictionary of options to set up the handler that will log to
-        a file.
-
-        It must be provided if ``log_file_class`` is provided.
-
-    log_file_level : ``str``, ``bulkDGD.defaults.LOG_LEVEL``
-        The level below which log messages will not be logged to the
-        file.
-
-        By default, it takes the value of
-        ``bulkDGD.defaults.LOG_LEVEL``.
-
-    Results
-    -------
-    handlers : ``list``
-        A list of handlers.
-    """
-
-    # Create a list to store the handlers.
-    handlers = []
-
-    #-----------------------------------------------------------------#
-
-    # If the user requested logging to the console
-    if log_console:
-
-        # Create a 'StreamHandler'.
-        handler = log.StreamHandler()
-
-        # Set the handler's level.
-        handler.setLevel(log_console_level)
-
-        # Add the handler to the list of handlers.
-        handlers.append(handler)
-
-    #-----------------------------------------------------------------#
-
-    # If the user specified a class to create a log file
-    if log_file_class is not None:
-
-        # Try to get the path to the log file.
-        try:
-
-            log_file = log_file_options["filename"]
-
-        # If the user did not pass any options to initialize the
-        # instance of the class
-        except TypeError as e:
-
-            # Raise an error.
-            errstr = \
-                "If 'log_file_class' is provided, a dictionary of " \
-                "'log_file_options' must be passed as well."
-            raise TypeError(errstr)
-
-        # If the user did not pass the 'filename' option
-        except KeyError as e:
-
-            # Raise an error.
-            errstr = \
-                "'filename' must be present in teh dictionary of " \
-                "'log_file_options."
-            raise KeyError(errstr)
-
-        # If the file already exists
-        if os.path.exists(log_file):
-
-            # Remove it.
-            os.remove(log_file)
-
-        #-------------------------------------------------------------#
-
-        # Create the corresponding handler.
-        handler = log_file_class(**log_file_options)
-
-        # Set the handler's level.
-        handler.setLevel(log_file_level)
-
-        # Add the handler to the list of handlers.
-        handlers.append(handler)
-
-    #-----------------------------------------------------------------#
-    
-    # Return the list of handlers.
-    return handlers
-
-
-
-def get_dask_logging_config(log_console = True,
-                            log_file = None,
-                            log_level = "ERROR"):
-    """Get the logging configuration for Dask/distributed loggers.
-
-    Parameters
-    ----------
-    log_console : ``bool``, ``True``
-        Whether to log messages to the console.
-
-    log_file : ``str``, optional
-        The name of the log file where to write the log messages.
-
-        If not provided, the log messages will not be written to
-        any file.
-
-    log_level : ``str``, ``"ERROR"``
-        The level below which log messages should be silenced.
-
-    Returns
-    -------
-    dask_logging_config : ``dict``
-        The logging configuration for Dask/distributed loggers.
-    """
-
-    # Initialize the logging configuration - it follows the
-    # "configuration dictionary schema" provided in
-    # https://docs.python.org/3/library/logging.config.html
-    # #configuration-dictionary-schema.
-    dask_logging_config = {\
-        
-        # Set the version of the logging configuration - so far,
-        # only version 1 is supported.
-        "version": 1,
-        
-        # Set the formatters for the log records - each key
-        # represents the name of a 'logging.Formatter' object and
-        # the dictionary associated with it contains the options to
-        # initialize it
-        "formatters" : {\
-            
-            # Set a generic formatter.
-            "generic_formatter" : \
-                defaults.CONFIG_FORMATTERS["generic_formatter"],
-        }, 
-
-        # Set the filters to be used for log records - each key
-        # represents the name of a 'logging.Filter' object and the
-        # dictionary associated with it contains the options to
-        # initialize it.
-        "filters" : {\
-            
-            # Use the custom filter for the 'distributed.worker'
-            # logger.
-            "distributed_filter" : \
-                defaults.CONFIG_FILTERS["distributed_filter"],
-        },
-       
-        # The handlers to be used when logging - each key represents
-        # the name of a 'logging.Handler' object and the dictionary
-        # associated with it contains the options to initialize it.
-        "handlers": {
-            
-            # Set a handler to log to a rotating file.
-            "rotating_file_handler": \
-                {# Set the class of the handler to initialize.
-                 "class": "logging.handlers.RotatingFileHandler",
-                 # Set the name of the rotating file.
-                 "filename": log_file,
-                 # Set the formatter for the log records.
-                 "formatter" : "generic_formatter"},
-            
-            # Set a handler to log to the console.
-            "stream_handler": \
-                {# Set the class of the handler to initialize.
-                 "class": "logging.StreamHandler",
-                 # Set the formatter for the log records.
-                 "formatter" : "generic_formatter"},
-        },
-
-        # Set the loggers to configure - each key represents the name
-        # of a 'logging.Logger' object and the dictionary associated
-        # with it contains the options to configure it. The dictionary
-        # of loggers is empty because we are going to fill it later.
-        "loggers" : {},
-    }
-
-    #-----------------------------------------------------------------#
-
-    # Initnialize an empty list to store the handlers to be used.
-    handlers = []
-
-    #-----------------------------------------------------------------#
-
-    # If the user requested logging to the console
-    if log_console:
-
-        # Add the corresponding handler to the list.
-        handlers.append("stream_handler")
-
-    # Otherwise
-    else:
-
-        # Remove the corresponding handler from the configuration.
-        dask_logging_config["handlers"].pop("stream_handler")
-
-    #-----------------------------------------------------------------#
-
-    # If the user requested logging to a file
-    if log_file is not None:
-
-        # Add the corresponding handler to the list.
-        handlers.append("rotating_file_handler")
-
-    # Otherwise
-    else:
-
-        # Remove the corresponding handler from the configuration.
-        dask_logging_config["handlers"].pop("rotating_file_handler")
-
-    #-----------------------------------------------------------------#
-
-    # For each Dask logger
-    for logger in defaults.DASK_LOGGERS:
-  
-        # Configure it.
-        dask_logging_config["loggers"][logger] = \
-            {"level" : log_level,
-             "filters" : ["distributed_filter"],
-             "handlers" : handlers}
-
-    #-----------------------------------------------------------------#
-
-    # Return the configuration.
-    return dask_logging_config
+#######################################################################
 
 
 def uniquify_file_path(file_path):
@@ -439,12 +49,12 @@ def uniquify_file_path(file_path):
 
     Parameters
     ----------
-    file_path : ``str``
+    file_path : :class:`str`
         The file path.
 
     Returns
     -------
-    unique_file_path : ``str``
+    unique_file_path : :class:`str`
         A unique file path generated from the original file path.
     """
     
@@ -467,42 +77,6 @@ def uniquify_file_path(file_path):
     return file_path
 
 
-def run_executable(executable,
-                   arguments,
-                   extra_return_values = None):
-    """Run an executable.
-
-    Parameters
-    ----------
-    executable : ``str``
-        The executable.
-
-    arguments : ``list``
-        A list of arguments to run the executable with.
-
-    extra_return_values : ``list``, optional
-        A list of extra values to be returned by the function,
-        together with the ``subprocess.CompletedProcess`` instance
-        representing the completed process.
-
-    Returns
-    -------
-    completed_process : ``subprocess.CompletedProcess``
-        The completed process.
-
-    Plus as many values as ``extra_return_values`` contains, if
-    ``extra_return_values`` was passed.
-    """
-
-    # Launch the executable.
-    completed_process = \
-        subprocess.run([executable] + arguments)
-
-    # Return the completed process and any other value that was
-    # passed.
-    return (completed_process, *extra_return_values)
-
-
 def check_config_against_template(config,
                                   template,
                                   ignore_if_missing,
@@ -511,24 +85,24 @@ def check_config_against_template(config,
 
     Parameters
     ----------
-    config : ``dict``
+    config : :class:`dict`
         The configuration.
 
-    template : ``dict``
+    template : :class:`dict`
         A template describing how the configuration should be
         structured.
 
-    ignore_if_missing : ``set``
+    ignore_if_missing : :class:`set`
         A set containing the fields that can be missing from the
         configuration.
 
-    ignore_if_varying : ``set``
+    ignore_if_varying : :class:`set`
         A set containing the fields that can vary in the
         configuration.
 
     Returns
     -------
-    config : ``dict``
+    config : :class:`dict`
         The configuration loaded from the file provided by
         the user, if all checks were successful.
     """
@@ -690,25 +264,26 @@ def recursive_map_dict(d,
 
     Parameters
     ----------
-    d : ``dict``
+    d : :class:`dict`
         The input dictionary.
 
     func : any callable
         A callable taking as keyword arguments the values of a
         dictionary and returning a single value.
 
-    keys : ``list``, ``set``, optional
+    keys : :class:`list` or :class:`set`, optional
         A list of specific keys on whose items the mapping should be
         performed.
 
         This means that all values associated with keys different
         from those in the list will not be affected.
 
-        If ``None``, all keys and associated values will be considered.
+        If :const:`None`, all keys and associated values will be
+        considered.
     
     Returns
     -------
-    new_d : ``dict``
+    new_d : :class:`dict`
         The new dictionary.
     """
 
@@ -765,6 +340,211 @@ def recursive_map_dict(d,
     return new_d
 
 
+def recursive_add(d,
+                  d2,
+                  keys):
+    """Recursively add all elements from a dictionary to another
+    dictionary in specific places.
+
+    Parameters
+    ----------
+    d : :class:`dict`
+        The input dictionary.
+
+    d2 : :class:`dict`
+        The dictionary whose elements should be added to the input
+        dictionary.
+
+    keys : :class:`list` or :class:`set` or :class:`tuple`
+        The keys corresponding to the places where the key, value
+        pairs contained in ``d2`` will be added to the input
+        dictionary.
+
+    Returns
+    -------
+    new_d : :class:`dict`
+        The updated dictionary.
+    """
+
+    # Define the recursion.
+    def recurse(d,
+                d2,
+                keys):
+
+        # If first dictionary is in fact a dictionary
+        if isinstance(d, dict):
+
+            # For each key in the first dictionary
+            for key in d:
+                
+                # If the key is among the selected keys
+                if key in keys:
+                    
+                    # If the associated value is a dictionary and the
+                    # second dictionary is in fact a dictionary
+                    if isinstance(d[key], dict) \
+                    and isinstance(d2, dict):
+
+                        # For each key, value pair in the second
+                        # dictionary
+                        for k, v in d2.items():
+
+                            # If the key is not among the keys in the
+                            # value associated with 'key' in the
+                            # fist dictionary
+                            if k not in d[key]:
+
+                                # Add the key and associated value to
+                                # the first dictionary.
+                                d[key][k] = v
+                    
+
+                # If the value associated with they key is a dictionary
+                if isinstance(d[key], dict):
+
+                    # Recurse through the dictionary.
+                    recurse(d = d[key],
+                            d2 = d2,
+                            keys = keys)
+
+    #-----------------------------------------------------------------#
+
+    # Create a copy of the input dictionary.
+    new_d = copy.deepcopy(d)
+
+    #-----------------------------------------------------------------#
+
+    # Recurse through the copy of the dictionary.
+    recurse(d = new_d,
+            d2 = d2,
+            keys = keys)
+
+    #-----------------------------------------------------------------#
+
+    # Return the modified dictionary.
+    return new_d
+
+
+def recursive_merge_dicts(*dicts):
+    """Recursively merge multiple dictionaries.
+
+    Parameters
+    ----------
+    *dicts : multiple :class:`dict`
+        The dictionaries to be merged.
+
+    Returns
+    -------
+    merged : :class:`dict`
+        A dictionary representing the result of the merging.
+    """
+
+    # Define a recursive function to merge two dictionaries at a time.
+    def merge_two_dicts(d1, d2):
+
+        # For each key, value pair in the second dictionary
+        for k, v in d2.items():
+
+            # If the key is in the first dictionary and the associated
+            # value in both dictionaries is another dictionary
+            if k in d1 \
+            and isinstance(d1[k], dict) and isinstance(v, dict):
+
+                # Recursively merge the associated values.
+                d1[k] = merge_two_dicts(d1[k], v)
+
+            # Otherwise
+            else:
+
+                # The value associated to the key in the first
+                # dictionary will be the value associated to the key
+                # in the second dictionary.
+                d1[k] = v
+
+        # Return the updated first dictionary.
+        return d1
+
+    #-----------------------------------------------------------------#
+
+    # Initialize an empty dictionary to store the result of the
+    # merging.
+    merged = {}
+
+    #-----------------------------------------------------------------#
+
+    # For each provided dictionary
+    for d in dicts:
+
+        # Recursively merge it with the current result.
+        merged = merge_two_dicts(merged, d)
+
+    #-----------------------------------------------------------------#
+
+    # Return the result of the merging.
+    return merged
+
+
+def recursive_get(d,
+                  key_path):
+    """Recursively get an item from a nested dictionary given the
+    item's "key path".
+
+    Parameters
+    ----------
+    d : :class:`dict`
+        The input dictionary.
+
+    key_path : :class:`list`
+        The "key path" leading to the item of interest.
+
+    Returns
+    -------
+    item : any object
+        The item of interest.
+    """
+
+    # Define the recursion.
+    def recurse(d,
+                key_path):
+
+        # If the key  path is empty
+        if not key_path:
+
+            # Return None
+            return None
+        
+        # Get the first key in the path.
+        key = key_path[0]
+
+        # If the key is in the dictionary
+        if key in d:
+
+            # If this is the last key in the path
+            if len(key_path) == 1:
+
+                # Return the value.
+                return d[key]
+
+            # Otherwise, if the value associated with the current key is
+            # a dictionary
+            elif isinstance(d[key], dict):
+
+                # Continue the recursion with the next level of the
+                # dictionary.
+                return recurse(d = d[key],
+                               key_path = key_path[1:])
+
+        # If the key is not found, return None.
+        return None
+
+    #-----------------------------------------------------------------#
+
+    # Return the result of the recursion.
+    return recurse(d = d,
+                   key_path = key_path)
+
+
+
 #######################################################################
 
 
@@ -774,20 +554,21 @@ def load_list(list_file):
 
     Parameters
     ----------
-    list_file : ``str``
+    list_file : :class:`str`
         The plain text file containing the entities of interest.
 
     Returns
     -------
-    list_entities : ``list``
+    list_entities : :class:`list`
         The list of entities.
     """
 
     # Return the list of entities from the file (exclude blank
     # and comment lines).
     return \
-        [l.rstrip("\n") for l in open(list_file, "r") \
-         if (not l.startswith("#") and not re.match(r"^\s*$", l))]
+        [line.rstrip("\n") for line in open(list_file, "r") \
+         if (not line.startswith("#") \
+             and not re.match(r"^\s*$", line))]
 
 
 #######################################################################
@@ -798,13 +579,13 @@ def check_config_model(config):
 
     Parameters
     ----------
-    config : ``dict``
-        The model's configuration.
+    config : :class:`dict`
+        The configuration.
 
     Returns
     -------
-    config : ``dict``
-        The model's configuration.
+    config : :class:`dict`
+        The configuration.
     """
 
     # Set the fields that can be missing from the configuration,
@@ -837,13 +618,13 @@ def check_config_rep(config):
 
     Parameters
     ----------
-    config : ``dict``
-        The model's configuration.
+    config : :class:`dict`
+        The configuration.
 
     Returns
     -------
-    config : ``dict``
-        The model's configuration.
+    config : :class:`dict`
+        The configuration.
     """
 
     # Set the names of the supported optimization schemes.
@@ -879,7 +660,7 @@ def check_config_rep(config):
     #-----------------------------------------------------------------#
 
     # Check the configuration against the template.
-    config = util.check_config_against_template(\
+    config = check_config_against_template(\
                 config = config,
                 template = defaults.CONFIG_REP_TEMPLATE[opt_scheme],
                 ignore_if_missing = set(),
@@ -897,17 +678,17 @@ def check_config_train(config):
 
     Parameters
     ----------
-    config : ``dict``
-        The model's configuration.
+    config : :class:`dict`
+        The configuration.
 
     Returns
     -------
-    config : ``dict``
-        The model's configuration.
+    config : :class:`dict`
+        The configuration.
     """
 
     # Check the configuration against the template.
-    config = util.check_config_against_template(\
+    config = check_config_against_template(\
                 config = config,
                 template = defaults.CONFIG_TRAIN_TEMPLATE,
                 ignore_if_missing = set(),
@@ -924,13 +705,13 @@ def check_config_plot(config):
 
     Parameters
     ----------
-    config : ``dict``
-        The model's configuration.
+    config : :class:`dict`
+        The configuration.
 
     Returns
     -------
-    config : ``dict``
-        The model's configuration.
+    config : :class:`dict`
+        The configuration.
     """
 
     # Return the configuration.
@@ -942,13 +723,32 @@ def check_config_genes(config):
 
     Parameters
     ----------
-    config : ``dict``
-        The model's configuration.
+    config : :class:`dict`
+        The configuration.
 
     Returns
     -------
-    config : ``dict``
-        The model's configuration.
+    config : :class:`dict`
+        The configuration.
+    """
+
+    # Return the configuration.
+    return config
+
+
+def check_config_dim_red(config):
+    """Check the configuration for performing a dimensionality
+    reduction analysis.
+
+    Parameters
+    ----------
+    config : :class:`dict`
+        The configuration.
+
+    Returns
+    -------
+    config : :class:`dict`
+        The configuration.
     """
 
     # Return the configuration.

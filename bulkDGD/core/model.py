@@ -3,8 +3,8 @@
 
 #    model.py
 #
-#    This module contains the class implementing the full DGD model
-#    (:class:`core.model.DGDModel`).
+#    This module contains the class implementing the full bulkDGD model
+#    (:class:`core.model.BulkDGDModel`).
 #
 #    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
@@ -29,8 +29,8 @@
 
 # Set the module's description.
 __doc__ = \
-    "This module contains the class implementing the full DGD model " \
-    "(:class:`core.model.DGDModel`)."
+    "This module contains the class implementing the full bulkDGD " \
+    "model (:class:`core.model.BulkDGDModel`)."
 
 
 #######################################################################
@@ -38,7 +38,6 @@ __doc__ = \
 
 # Import from the standard library.
 import logging as log
-import os
 import platform
 import re
 import time
@@ -55,7 +54,6 @@ from . import (
     decoder,
     latent,
     outputmodules,
-    priors,
     )
 
 
@@ -69,10 +67,10 @@ logger = log.getLogger(__name__)
 #######################################################################
 
 
-class DGDModel(nn.Module):
+class BulkDGDModel(nn.Module):
 
     """
-    Class implementing the full DGD model.
+    Class implementing the full bulkDGD model.
     """
 
     ####################### PRIVATE ATTRIBUTES ########################
@@ -156,7 +154,7 @@ class DGDModel(nn.Module):
         """
 
         # Run the superclass' initialization.
-        super(DGDModel, self).__init__()
+        super(BulkDGDModel, self).__init__()
 
         #-------------------------------------------------------------#
 
@@ -290,8 +288,9 @@ class DGDModel(nn.Module):
         # Return the list of genes from the file (exclude blank
         # and comment lines).
         return \
-            [l.rstrip("\n") for l in open(genes_list_file, "r") \
-             if (not l.startswith("#") and not re.match(r"^\s*$", l))]
+            [line.rstrip("\n") for line in open(genes_list_file, "r") \
+             if (not line.startswith("#") \
+                 and not re.match(r"^\s*$", line))]
 
 
     ########################### PROPERTIES ############################
@@ -679,7 +678,7 @@ class DGDModel(nn.Module):
                      outputmodules.OutputModulePoisson)):
                     
                     # Get the predicted scaled means of the
-                    # distributons modelling the genes' counts.
+                    # distributions modelling the genes' counts.
                     #
                     # The output is a 2D tensor with:
                     #
@@ -1555,7 +1554,8 @@ class DGDModel(nn.Module):
 
         Parameters
         ----------
-        dataset : ``bulkDGD.core.dataclasses.GeneExpressionDataset``
+        dataset : \
+            :class:`bulkDGD.core.dataclasses.GeneExpressionDataset`
             The dataset from which the data loader should be created.
 
         config : :class:`dict`
@@ -1787,11 +1787,12 @@ class DGDModel(nn.Module):
         initializing ``n_rep_per_comp`` representations per each
         component of the Gaussian mixture model per sample, optimizing
         these representations, selecting the best representation for
-        for each sample, and optimizing these representations furher.
+        for each sample, and optimizing these representations further.
 
         Parameters
         ----------
-        dataset : ``bulkDGD.core.dataclasses.GeneExpressionDataset``
+        dataset : \
+            :class:`bulkDGD.core.dataclasses.GeneExpressionDataset`
             The dataset from which the data loader should be created.
     
         config : :class:`dict`
@@ -2338,7 +2339,9 @@ class DGDModel(nn.Module):
                                     losses_list,
                                     time_train,
                                     samples_names_train,
-                                    samples_names_test):
+                                    samples_names_test,
+                                    df_other_data_train,
+                                    df_other_data_test):
         """Get the final data frames containing the losses calculated
         during training and the time needed to train the model.
 
@@ -2385,6 +2388,14 @@ class DGDModel(nn.Module):
 
         samples_names_test : :class:`list`
             A list containing the testing samples' names.
+        
+        df_other_data_train : :class:`pandas.DataFrame`
+            A data frame containing the additional data about the
+            training samples.
+        
+        df_other_data_test : :class:`pandas.DataFrame`
+            A data frame containing the additional data about the
+            test samples.
 
         Returns
         -------
@@ -2430,6 +2441,11 @@ class DGDModel(nn.Module):
             [f"latent_dim_{i}" for i \
              in range(1, df_rep_train.shape[1]+1)]
 
+        # Concatenate the data frame with the one containing additional
+        # information about the samples.
+        df_rep_train = pd.concat([df_rep_train, df_other_data_train],
+                                 axis = 1)
+
         #-------------------------------------------------------------#
 
         # Convert the tensor containing the representations for the
@@ -2448,6 +2464,11 @@ class DGDModel(nn.Module):
         df_rep_test.columns = \
             [f"latent_dim_{i}" for i \
              in range(1, df_rep_test.shape[1]+1)]
+
+        # Concatenate the data frame with the one containing additional
+        # information about the samples.
+        df_rep_test = pd.concat([df_rep_test, df_other_data_test],
+                                axis = 1)
 
         #-------------------------------------------------------------#
 
@@ -2595,8 +2616,8 @@ class DGDModel(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Get whetner the columns' names of the two input data frames
-        # are indentical
+        # Get whether the columns' names of the two input data frames
+        # are identical.
         columns_equal = \
             (df_pred_means.columns == df_pred_r_values.columns).all()
 
@@ -2690,7 +2711,7 @@ class DGDModel(nn.Module):
 
         df_pred_means : ``pandas.DataFrame``
             A data frame containing the predicted means of the
-            distrbutions modelling the genes' counts for the
+            distributions modelling the genes' counts for the
             representations found.
 
             Here, each row contains the predicted means for a
@@ -2879,7 +2900,7 @@ class DGDModel(nn.Module):
         MAX_PROB_COL = "max_prob_density"
 
         # Set the name of the column that will contain the component
-        # for which the maximum proability density was found per
+        # for which the maximum probability density was found per
         # sample.
         MAX_PROB_COMP_COL = "max_prob_density_comp"
 
@@ -2904,7 +2925,7 @@ class DGDModel(nn.Module):
         #-------------------------------------------------------------#
 
         # Split the data frame in two.
-        df_rep_data, df_other_data = \
+        df_rep_data, _ = \
             df_rep[latent_dims_columns], df_rep[other_columns]
 
         #-------------------------------------------------------------#
@@ -3257,11 +3278,6 @@ class DGDModel(nn.Module):
                 for samples_exp, samples_mean_exp, samples_ixs \
                     in data_loader:
 
-                    # Get the number of samples in the current batch.
-                    n_samples_in_batch = len(samples_ixs)
-
-                    #-------------------------------------------------#
-
                     # Move the gene expression of the samples to the
                     # correct device.
                     samples_exp = samples_exp.to(self.device)
@@ -3516,7 +3532,9 @@ class DGDModel(nn.Module):
                 losses_list = losses_list,
                 time_train = time_train,
                 samples_names_train = samples_names_train,
-                samples_names_test = samples_names_test)
+                samples_names_test = samples_names_test,
+                df_other_data_train = df_other_data_train,
+                df_other_data_test = df_other_data_test)
 
         #-------------------------------------------------------------#
 

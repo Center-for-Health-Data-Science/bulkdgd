@@ -7,8 +7,6 @@
 
 # Import the 'logging' module
 import logging as log
-# Import the 'core.model' module
-from bulkDGD.core import model
 # Import the 'analysis.dea' module
 from bulkDGD.analysis import dea
 # Import the 'ioutil' package

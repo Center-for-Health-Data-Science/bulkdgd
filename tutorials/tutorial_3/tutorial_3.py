@@ -9,6 +9,8 @@
 import logging as log
 # Import 'torch'.
 import torch
+# Import the 'util' module.
+from bulkDGD import util
 # Import the 'model' module.
 from bulkDGD.core import model
 # Import the 'ioutil' module.
@@ -36,8 +38,8 @@ config_model = util.check_config_model(config = config_model)
 #------------------------- Create the model --------------------------#
 
 
-# Create the DGD model (Gaussian mixture model and decoder).
-dgd_model = model.DGDModel(**config_model)
+# Create the bulkDGD model (Gaussian mixture model and decoder).
+dgd_model = model.BulkDGDModel(**config_model)
 
 # If a CPU with CUDA is available.
 if torch.cuda.is_available():
@@ -93,12 +95,12 @@ df_test_raw = \
 #---------------------- Preprocess the samples -----------------------#
 
 
-# Preprocess the training samples.
+# Pre-process the training samples.
 df_train, genes_excluded_train, genes_missing_train = \
     ioutil.preprocess_samples(df_samples = df_train_raw,
                               genes_txt_file = "custom_genes.txt")
 
-# Preprocess the test samples.
+# Pre-process the test samples.
 df_test, genes_excluded_test, genes_missing_test = \
     ioutil.preprocess_samples(df_samples = df_test_raw,
                               genes_txt_file = "custom_genes.txt")
@@ -116,7 +118,7 @@ config_train = util.check_config_train(config = config_train)
 #-------------------------- Train the model --------------------------#
 
 
-# Train the DGD model.
+# Train the bulkDGD model.
 df_rep_train, df_rep_test, df_loss, df_time = \
     dgd_model.train(df_train = df_train,
                     df_test = df_test,
@@ -126,7 +128,7 @@ df_rep_train, df_rep_test, df_loss, df_time = \
 #------------------------- Save the outputs --------------------------#
 
 
-# Save the preprocessed training samples.
+# Save the pre-processed training samples.
 ioutil.save_samples(\
    # The data frame containing the samples
    df = df_train,
@@ -135,7 +137,7 @@ ioutil.save_samples(\
    # The field separator in the output CSV file
    sep = ",")
 
-# Save the preprocessed test samples.
+# Save the pre-processed test samples.
 ioutil.save_samples(\
    # The data frame containing the samples
    df = df_test,

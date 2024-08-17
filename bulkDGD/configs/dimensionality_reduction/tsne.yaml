@@ -1,0 +1,8 @@
+# Configuration file to perform a t-SNE. The full list of available
+# options can be found here: https://scikit-learn.org/stable/modules/
+# generated/sklearn.manifold.TSNE.html#sklearn.manifold.TSNE
+
+# Set the number of components.
+#
+# Type: int.
+n_components: 2

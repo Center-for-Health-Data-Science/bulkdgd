@@ -7,10 +7,12 @@
 
 # Import the 'logging' module.
 import logging as log
+# Import the 'util' module.
+from bulkDGD import util
 # Import the 'model' module.
 from bulkDGD.core import model
 # Import the 'ioutil' module.
-from bulkDGD import ioutil, util
+from bulkDGD import ioutil
 
 
 #######################################################################
@@ -40,7 +42,7 @@ df_samples = \
                         # additional information about the samples                  
                         split = False)
 
-# Preprocess the samples.
+# Pre-process the samples.
 df_preproc, genes_excluded, genes_missing = \
     ioutil.preprocess_samples(df_samples = df_samples)
 
@@ -65,8 +67,8 @@ config_rep = util.check_config_rep(config = config_rep)
 #----------------------- Get the trained model -----------------------#
 
 
-# Get the trained DGD model (Gaussian mixture model and decoder).
-dgd_model = model.DGDModel(**config_model)
+# Get the trained bulkDGD model (Gaussian mixture model and decoder).
+dgd_model = model.BulkDGDModel(**config_model)
 
 
 #---------------------- Get the representations ----------------------#
@@ -87,7 +89,7 @@ df_rep, df_pred_means, df_pred_r_values, df_time_opt = \
 #------------------------- Save the outputs --------------------------#
 
 
-# Save the preprocessed samples.
+# Save the pre-processed samples.
 ioutil.save_samples(\
    # The data frame containing the samples
    df = df_preproc,

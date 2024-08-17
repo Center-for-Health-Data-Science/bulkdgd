@@ -1,0 +1,8 @@
+# Configuration file to perform a PCA. The full list of available
+# options can be found here: https://scikit-learn.org/stable/modules/
+# generated/sklearn.decomposition.PCA.html#pca.
+
+# Set the number of components.
+#
+# Type: int.
+n_components: 2

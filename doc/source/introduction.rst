@@ -1,7 +1,7 @@
 Getting started
 ===============
 
-bulkDGD is a Python package containing the DGD generative model for the gene expression of human tissues from bulk RNA-Seq data described in the work of Schuster and Krogh :cite:p:`schuster2021deep,schuster2021manifold` and Prada and coworkers :cite:p:`prada2023n`.
+bulkDGD is a Python package containing the bulkDGD generative model for the gene expression of human tissues from bulk RNA-Seq data described in the work of Schuster and Krogh :cite:p:`schuster2021deep,schuster2021manifold` and Prada and coworkers :cite:p:`prada2023n`.
 
 bulkDGD can be used, for instance, to find differentially expressed genes between normal human samples and diseased samples.
 
@@ -15,7 +15,7 @@ Usage
 
 The modules of bulkDGD can be imported and used to build customized scripts and pipelines.
 
-The :doc:`API reference section <api_reference>` provides a detailed descriptions of bulkDGD's subpackages and modules.
+The :doc:`API reference section <api_reference>` provides a detailed descriptions of bulkDGD's sub-packages and modules.
 
 However, we also provide a small :doc:`command-line interface <command_line_interface>` to automate some of the most common tasks for which the DGD model can be used for more bio-oriented audiences.
 

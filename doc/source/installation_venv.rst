@@ -43,19 +43,12 @@ Activate the environment:
 Step 4 - Get bulkDGD
 --------------------
 
-Clone the bulkDGD source code from its GitHub repository within a directory of your choice and enter the local copy of the repository.
-
-.. code-block:: shell
-
-    git clone https://github.com/Center-for-Health-Data-Science/bulkDGD.git
-    cd bulkDGD
-
-If the ``git`` command is unavailable, you can download the repository content as a ZIP file from the bulkDGD GitHub repository web page, unzip it, and enter it.
+Download the latest version of bulkDGD from `its GitHub repository <https://github.com/Center-for-Health-Data-Science/bulkDGD/releases/latest>`_. Do not place it inside the environment's directory but in another directory of your choice.
 
 Step 5 - Get the ``dec.pth`` file
 ---------------------------------
 
-You must download the ``dec.pth`` file containing the trained decoder's parameters before installing bulkDGD, so that the file is copied to the installation directory. The file cannot be shipped together with the GitHub package because of its size, but can be downloaded `here <https://drive.google.com/file/d/1GKMkVmmcEH8glNrQ4092VWYQgq6maYW1/view?usp=sharing>`_.
+You must download the ``dec.pth`` file containing the trained decoder's parameters before installing bulkDGD, so that the file is copied to the installation directory. The file cannot be shipped together with the GitHub package because of its size, but can be downloaded `here <https://drive.google.com/file/d/1GKMkVmmcEH8glNrQ4092VWYQgq6maYW1/view?usp=sharing>`_. Place it in a directory of your choice.
 
 Once downloaded, place the file into the ``bulkDGD/ioutil/data`` folder before performing the installation.
 
@@ -66,7 +59,6 @@ You can now install bulkDGD using ``pip``.
 
 .. code-block:: shell
     
-    cd ..
     pip install ./bulkDGD
 
 bulkDGD should now be installed.

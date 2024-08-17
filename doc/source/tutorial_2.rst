@@ -1,18 +1,18 @@
 Tutorial 2 - Differential Expression Analysis
 =============================================
 
-In this tutorial, we will use the DGD model to perform differential gene expression analysis (DEA) for a set of samples.
+In this tutorial, we will use the bulkDGD model to perform differential gene expression analysis (DEA) for a set of samples.
 
 The code and input/output data regarding this tutorial can be found in the ``bulkDGD/tutorials/tutorial_2`` directory.
 
 In this tutorial, we will walk you through how to integrate differential expression analysis with bulkDGD in a Python script. 
 
-However, if you need to perform DEA on a large set of samples, we recommend using the :doc:`dgd_perform_dea <dgd_perform_dea>` executable, which parallelizes the calculations.
+However, if you need to perform DEA on a large set of samples, we recommend using the :doc:`bulkdgd_dea <bulkdgd_dea>` executable, which parallelizes the calculations.
 
 Step 1 - Get the samples' representations in latent space and corresponding decoder's outputs
 ---------------------------------------------------------------------------------------------
 
-First, we need to find the best representations for these samples in the latent space defined by the DGD model. You can follow the instructions provided in :doc:`Tutorial 1 <tutorial_1>` to find the representations and the corresponding decoder outputs. These outputs are the predicted scaled means and predicted r-values of the negative binomials modeling the genes' counts in silico samples corresponding to the representations.
+First, we need to find the best representations for these samples in the latent space defined by the bulkDGD model. You can follow the instructions provided in :doc:`Tutorial 1 <tutorial_1>` to find the representations and the corresponding decoder outputs. These outputs are the predicted scaled means and predicted r-values of the negative binomials modeling the genes' counts in silico samples corresponding to the representations.
 
 For this tutorial, we use the first ten preprocessed samples in the ``samples_preprocessed.csv`` file and the corresponding ten pre-calculated scaled means and r-values in the ``pred_means.csv`` and ``pred_r_values.csv`` files obtained following :doc:`Tutorial 1 <tutorial_1>`.
 

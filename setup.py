@@ -27,7 +27,7 @@
 
 
 # Import from the standard library.
-from setuptools import setup, find_packages
+from setuptools import setup
 
 
 #######################################################################
@@ -46,7 +46,7 @@ author = \
     "Anders Lykkebo-Valløe, Andreas Bjerregaard, Anders Krogh"
 
 # Set the project's version.
-version = "1.1.0"
+version = "2.0.0"
 
 # Set a brief description of the project.
 description = \
@@ -66,49 +66,38 @@ packages = \
 
 # Set which package data to include.
 package_data = \
-    {"bulkDGD.ioutil" : ["configs/genes/*.yaml",
-                         "configs/model/*.yaml",
-                         "configs/plot/*.yaml",
-                         "configs/representations/*.yaml",
-                         "configs/training/*.yaml",
-                         "data/genes/*.txt"
-                         "data/model/*.pth",
-                         "data/*.md",],
-     "bulkDGD.recount3" : ["data/*.txt",
-                           "data/*.md"]}
+    {# Main package
+     "bulkDGD" : \
+        [# Configuration files
+         "configs/dimensionality_reduction/*yaml",
+         "configs/genes/*.yaml",
+         "configs/model/*.yaml",
+         "configs/plotting/*.yaml",
+         "configs/representations/*.yaml",
+         "configs/training/*.yaml",
+         # Data files
+         "data/model/genes/*.txt",
+         "data/model/gmm/*.pth",
+         "data/model/dec/*pth",
+         "data/*.md",],
+     
+     # 'recount3' package
+     "bulkDGD.recount3" : \
+        [# Data files
+         "data/*.txt",
+         "data/*.md"]}
 
 # Set the command-line executables.
 entry_points = \
     {"console_scripts" : \
         [# Public executables
-         "dgd_get_recount3_data = " \
-         f"{name}.execs.dgd_get_recount3_data:main",
-
-         "dgd_get_genes_list = " \
-         f"{name}.execs.dgd_get_genes_list:main",
-
-         "dgd_preprocess_samples = " \
-         f"{name}.execs.dgd_preprocess_samples:main",
-
-         "dgd_get_representations = " \
-         f"{name}.execs.dgd_get_representations:main",
-
-         "dgd_perform_dea = " \
-         f"{name}.execs.dgd_perform_dea:main",
-
-         "dgd_perform_pca = " \
-         f"{name}.execs.dgd_perform_pca:main",
-
-         "dgd_get_probability_density = " \
-         f"{name}.execs.dgd_get_probability_density:main",
-
-         "dgd_train = " \
-         f"{name}.execs.dgd_train:main",
+         "bulkdgd = " \
+         f"{name}.execs.main:main",
 
          # "Private" executables - not intended to be called
          # directly by end users
-         "_dgd_get_recount3_data_single_batch = " \
-         f"{name}.execs._dgd_get_recount3_data_single_batch:main"],
+         "_bulkdgd_recount3_single_batch = " \
+         f"{name}.execs._bulkdgd_recount3_single_batch:main"],
     }
 
 # Set any required dependencies.

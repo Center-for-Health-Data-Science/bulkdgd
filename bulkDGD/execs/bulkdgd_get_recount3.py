@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- Mode: python; tab-width: 4; indent-tabs-mode:nil; coding:utf-8 -*-
 
-#    dgd_get_recount3_data.py
+#    bulkdgd_get_recount3.py
 #
 #    Get RNA-seq data associated with specific human samples for
 #    projects hosted on the Recount3 platform.
@@ -37,60 +37,66 @@ __doc__ = \
 
 
 # Import from the standard library.
-import argparse
 import logging as log
-import logging.handlers as loghandlers
 import os
 import sys
 # Import from third-party packages.
-import dask
-import pandas as pd
+from distributed import LocalCluster, Client, as_completed
 # Import from 'bulkDGD'.
-from bulkDGD import defaults, util, recount3
+from bulkDGD import recount3
+from . import util
 
 
 #######################################################################
 
 
-def main():
+# Get the module's logger.
+logger = log.getLogger(__name__)
 
+
+#######################################################################
+
+
+# Define a function to set up the parser.
+def set_sub_parser(sub_parsers):
 
     # Create the argument parser.
-    parser = argparse.ArgumentParser(description = __doc__)
+    parser = \
+        sub_parsers.add_parser(\
+            name = "recount3",
+            description = __doc__,
+            help = __doc__,
+            formatter_class = util.CustomHelpFormatter)
 
     #-----------------------------------------------------------------#
 
-    # Add the arguments.
+    # Create a group of arguments for input files.
+    input_group = \
+        parser.add_argument_group(title = "Input files")
+
+    # Create a group of arguments for output files.
+    output_group = \
+        parser.add_argument_group(title = "Output files")
+
+    # Create a group of arguments for the run options.
+    run_group = \
+        parser.add_argument_group(title = "Run options")
+
+    #-----------------------------------------------------------------#
+
+    # Set a help message.
     ib_help = \
         "A CSV or a YAML file used to download samples' data in bulk."
-    parser.add_argument("-i", "--input-samples-batches",
-                        type = str,
-                        default = None,
-                        help = ib_help)
+
+    # Add the argument to the group.
+    input_group.add_argument("-ib", "--input-samples-batches",
+                             type = str,
+                             default = None,
+                             help = ib_help)
 
     #-----------------------------------------------------------------#
-
-    d_help = \
-        "The working directory. The default is the current " \
-        "working directory."
-    parser.add_argument("-d", "--work-dir",
-                        type = str,
-                        default = os.getcwd(),
-                        help = d_help)
-
-    #-----------------------------------------------------------------#
-
-    n_default = 1
-    n_help = \
-        "The number of processes to start. The default " \
-        f"number of processes started is {n_default}."
-    parser.add_argument("-n", "--n-proc",
-                        type = int,
-                        default = n_default,
-                        help = n_help)
-
-    #-----------------------------------------------------------------#
-
+    
+    # Set a help message.
     sg_help = \
         "Save the original GZ file containing the RNA-seq " \
         "data for the samples. For each batch of samples, "\
@@ -100,12 +106,15 @@ def main():
         "will be written only once if more than one batch " \
         "refers to the same 'recount3_project_name' " \
         "and 'recount3_samples_category'."
-    parser.add_argument("-sg", "--save-gene-sums",
-                        action = "store_true",
-                        help = sg_help)
+
+    # Add the argument to the group.
+    output_group.add_argument("-sg", "--save-gene-sums",
+                              action = "store_true",
+                              help = sg_help)
 
     #-----------------------------------------------------------------#
 
+    # Set a help message.
     sm_help = \
         "Save the original GZ file containing the metadata " \
         "for the samples. For each batch of samples, "\
@@ -115,107 +124,60 @@ def main():
         "be written only once if more than one batch refers " \
         "to the same 'recount3_project_name' and " \
         "'recount3_samples_category'."
-    parser.add_argument("-sm", "--save-metadata",
-                        action = "store_true",
-                        help = sm_help)
+
+    # Add the argument to the group.
+    output_group.add_argument("-sm", "--save-metadata",
+                              action = "store_true",
+                              help = sm_help)
 
     #-----------------------------------------------------------------#
 
-    lf_default = "dgd_get_recount3_data.log"
-    lf_help = \
-        "The name of the log file. The file will be written " \
-        "in the working directory. The default file name is " \
-        f"'{lf_default}'."
-    parser.add_argument("-lf", "--log-file",
-                        type = str,
-                        default = lf_default,
-                        help = lf_help)
+    # Set the default value for the argument.
+    n_default = 1
+    
+    # Set a help message.
+    n_help = \
+        "The number of processes to start. The default " \
+        f"number of processes started is {n_default}."
+
+    # Add the argument to the group.
+    run_group.add_argument("-n", "--n-proc",
+                           type = int,
+                           default = n_default,
+                           help = n_help)
 
     #-----------------------------------------------------------------#
 
-    lc_help = "Show log messages also on the console."
-    parser.add_argument("-lc", "--log-console",
-                        action = "store_true",
-                        help = lc_help)
+    # Return the parser.
+    return parser
 
-    #-----------------------------------------------------------------#
 
-    v_help = "Enable verbose logging (INFO level)."
-    parser.add_argument("-v", "--log-verbose",
-                        action = "store_true",
-                        help = v_help)
+#######################################################################
 
-    #-----------------------------------------------------------------#
 
-    vv_help = \
-        "Enable maximally verbose logging for debugging " \
-        "purposes (DEBUG level)."
-    parser.add_argument("-vv", "--log-debug",
-                        action = "store_true",
-                        help = vv_help)
+# Define the 'main' function.
+def main(args):
 
-    #-----------------------------------------------------------------#
-
-    # Parse the arguments.
-    args = parser.parse_args()
+    # Get the argument corresponding to the input file.
     input_samples_batches = args.input_samples_batches
-    wd = os.path.abspath(args.work_dir)
-    n_proc = args.n_proc
+
+    # Get the arguments corresponding to the output files.
     save_gene_sums = args.save_gene_sums
     save_metadata = args.save_metadata
-    log_file = os.path.join(wd, args.log_file)
+
+    # Get the argument corresponding to the working directory.
+    wd = args.work_dir
+
+    # Get the arguments corresponding to the run options.
+    n_proc = args.n_proc
+
+    # Get the other arguments to run the '_recount3_single_batch'
+    # executable.
     log_console = args.log_console
     v = args.log_verbose
     vv = args.log_debug
 
     #-----------------------------------------------------------------#
-
-    # Set WARNING logging level by default.
-    log_level = log.WARNING
-
-    # If the user requested verbose logging
-    if v:
-
-        # The minimal logging level will be INFO.
-        log_level = log.INFO
-
-    # If the user requested logging for debug purposes
-    # (-vv overrides -v if both are provided)
-    if vv:
-
-        # The minimal logging level will be DEBUG.
-        log_level = log.DEBUG
-
-    # Get the logging configuration for Dask.
-    dask_logging_config = \
-        util.get_dask_logging_config(log_console = log_console,
-                                     log_file = log_file)
-    
-    # Set the configuration for Dask-specific logging.
-    dask.config.set({"distributed.logging" : dask_logging_config})
-    
-    # Configure the logging (for non-Dask operations).
-    handlers = \
-        util.get_handlers(\
-            log_console = log_console,
-            log_console_level = log_level,
-            log_file_class = loghandlers.RotatingFileHandler,
-            log_file_options = {"filename" : log_file,
-                                "mode" : "w"},
-            log_file_level = log_level)
-
-    # Set the logging configuration.
-    log.basicConfig(level = log_level,
-                    format = defaults.LOG_FMT,
-                    datefmt = defaults.LOG_DATEFMT,
-                    style = defaults.LOG_STYLE,
-                    handlers = handlers)
-
-    #-----------------------------------------------------------------#
-    
-    # Import 'distributed' only here because, otherwise, the logging
-    # configuration is not properly set    .
-    from distributed import LocalCluster, Client, as_completed
 
     # Create the local cluster.
     cluster = LocalCluster(# Number of workers
@@ -408,7 +370,7 @@ def main():
         futures.append(\
             client.submit(\
                 util.run_executable,
-                executable = "_dgd_get_recount3_data_single_batch",
+                executable = "_bulkdgd_recount3_single_batch",
                 arguments = args,
                 extra_return_values = [num_batch]))
 
@@ -434,7 +396,7 @@ def main():
             errstr = \
                 f"The run for batch # {num_batch} failed. Please " \
                 f"check the log file '{process.args[10]}' for " \
-                "more details."
+                f"more details. Error: {e}"
             log.error(errstr)
 
             # Go to the next future.
@@ -444,10 +406,3 @@ def main():
         infostr = \
             f"The run for batch # {num_batch} completed successfully."
         log.info(infostr)
-
-
-#######################################################################
-
-
-if __name__ == "__main__":
-    main()

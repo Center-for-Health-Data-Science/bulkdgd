@@ -51,7 +51,6 @@ __doc__ = \
 # Import from the standard library.
 import logging as log
 # Import from third-party packages.
-import torch
 import torch.nn as nn
 # Import from 'bulkDGD'.
 from . import outputmodules
@@ -133,7 +132,7 @@ class Decoder(nn.Module):
         Parameters
         ----------
         n_units_input_layer : :class:`int`
-            The mumber of neurons in the input layer.
+            The number of neurons in the input layer.
 
         n_units_hidden_layers : :class:`list`
             The number of units in each of the hidden layers. As many
@@ -145,9 +144,9 @@ class Decoder(nn.Module):
             use in each hidden layer. Available activation functions
             are:
 
-            - ``"relu"`` for the ReLU function.
+            - ``"relu"`` : the ReLU function.
 
-            - ``"elu"`` for the ELU function.
+            - ``"elu"`` : the ELU function.
 
         output_module_name : :class:`str`, \
             {``"nb_feature_dispersion"``, ``"nb_full_dispersion"``, \
@@ -172,22 +171,22 @@ class Decoder(nn.Module):
             For the ``"nb_feature_dispersion"`` output module, the
             following options must be provided:
 
-            - ``"activation"`` - the name of the activation function to
+            - ``"activation"`` : the name of the activation function to
               be used in the output module.
 
-            - ``"r_init"`` - the initial r-value for the negative
-               binomial distributions modeling the genes' counts.
+            - ``"r_init"`` : the initial r-value for the negative
+              binomial distributions modeling the genes' counts.
 
             For the ``"nb_full_dispersion"`` output module, the
             following options must be provided:
 
-            - ``"activation"`` - the name of the activation function to
+            - ``"activation"`` : the name of the activation function to
               be used in the output module.
 
             For the ``"poisson"`` output module, the following options
             must be provided:
 
-            - ``"activation"`` - the name of the activation function to
+            - ``"activation"`` : the name of the activation function to
               be used in the output module.
         """
 
@@ -222,7 +221,7 @@ class Decoder(nn.Module):
         Parameters
         ----------
         n_units_input_layer : :class:`int`
-            The mumber of neurons in the input layer.
+            The number of neurons in the input layer.
 
         n_units_hidden_layers : :class:`list`
             The number of units in each of the hidden layers. As many
@@ -234,9 +233,9 @@ class Decoder(nn.Module):
             use in each hidden layer. Available activation functions
             are:
 
-            - ``"relu"`` for the ReLU function.
+            - ``"relu"`` : the ReLU function.
 
-            - ``"elu"`` for the ELU function.
+            - ``"elu"`` : the ELU function.
 
         Returns
         -------
@@ -251,7 +250,7 @@ class Decoder(nn.Module):
             # Raise an error.
             errstr = \
                 "The number of hidden layers should be equal to " \
-                "the number of activation funtions passed."
+                "the number of activation functions passed."
             raise ValueError(errstr)
 
         #-------------------------------------------------------------#
@@ -262,10 +261,13 @@ class Decoder(nn.Module):
         # Get the number of linear modules.
         n_modules = len(n_units_hidden_layers)
 
+        # Initialize the 'previous number of units' to None.
+        prev_n_units = None
+
         #-------------------------------------------------------------#
 
         # For each linear module
-        for n_module in range(len(n_units_hidden_layers)):
+        for n_module in range(n_modules):
 
             # If we are at the first module
             if n_module == 0:
@@ -383,22 +385,22 @@ class Decoder(nn.Module):
             For the ``"nb_feature_dispersion"`` output module, the
             following options must be provided:
 
-            - ``"activation"`` - the name of the activation function to
+            - ``"activation"`` : the name of the activation function to
               be used in the output module.
 
-            - ``"r_init"`` - the initial r-value for the negative
+            - ``"r_init"`` : the initial r-value for the negative
                binomial distributions modeling the genes' counts.
 
             For the ``"nb_full_dispersion"`` output module, the
             following options must be provided:
 
-            - ``"activation"`` - the name of the activation function to
+            - ``"activation"`` : the name of the activation function to
               be used in the output module.
 
             For the ``"poisson"`` output module, the following options
             must be provided:
 
-            - ``"activation"`` - the name of the activation function to
+            - ``"activation"`` : the name of the activation function to
               be used in the output module.
 
         Returns

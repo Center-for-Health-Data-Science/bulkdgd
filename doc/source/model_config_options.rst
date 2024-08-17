@@ -1,10 +1,10 @@
 .. _model_config_options:
 
 
-Configuration for creating an instance of the DGD model
-=======================================================
+Configuration for creating an instance of the bulkDGD model
+===========================================================
 
-To create a new instance of :class:`core.model.DGDModel`, we need to set the following options:
+To create a new instance of :class:`core.model.BulkDGDModel`, we need to set the following options:
 
 * ``input_dim``, the dimensionality of the model's input.
 
@@ -181,4 +181,4 @@ If we are loading the options from a YAML configuration file similar to those pr
    # section, and a 'dec_opt' section.
 
    # Initialize the model.
-   dgd_model = model.DGDModel(**config)
+   dgd_model = model.BulkDGDModel(**config)

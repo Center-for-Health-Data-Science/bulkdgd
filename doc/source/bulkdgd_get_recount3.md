@@ -1,6 +1,6 @@
-# `dgd_get_recount3_data`
+# `bulkdgd get recount3`
 
-This executable retrieves RNA-seq data (and associated metadata) from the [Recount3 platform](https://rna.recount.bio/).
+This command retrieves RNA-seq data (and associated metadata) from the [Recount3 platform](https://rna.recount.bio/).
 
 So far, the program supports retrieving data for samples from the [GTEx](https://gtexportal.org/home/), [TCGA](https://www.cancer.gov/ccg/research/genome-sequencing/tcga), and [SRA](https://www.ncbi.nlm.nih.gov/sra) projects.
 
@@ -8,7 +8,7 @@ The executable allows samples to be selected for a single tissue (for GTEx data)
 
 A list of the available metadata fields/columns is available in `bulkDGD/recount3/data/gtex_metadata_fields.txt` for GTEx samples, `bulkDGD/recount3/data/tcga_metadata_fields.txt` for TCGA samples, and `bulkDGD/recount3/data/sra_metadata_fields.txt` for SRA samples. More metadata fields may be available for SRA samples depending on the study they refer to. In this case, you can inspect the study's available metadata fields using the [NCBI SRA Run Selector tool](https://www.ncbi.nlm.nih.gov/Traces/study/). However, remember that the SRA Run Selector does not report Recount3-specific metadata, which can be found in the `sra_metadata_fields.txt` file.
 
-`dgd_get_recount3_data` accepts two types of inputs containing the batches of samples to be downloaded from Recount3:
+`bulkdgd get recount3` accepts two types of inputs containing the batches of samples to be downloaded from Recount3:
 
 * A CSV file with a comma-separated data frame. The data frame is expected to have at least two columns:
 
@@ -109,29 +109,56 @@ A list of the available metadata fields/columns is available in `bulkDGD/recount
     ...
   ```
 
-The main output of `dgd_get_recount3_data` is several CSV files (one per batch of samples) containing the RNA-seq data retrieved from Recount3 for the samples of interest. The rows represent the samples, while the columns contain the genes identified by their Ensembl IDs or the samples' metadata. This file is usually named `{recount3_project_name}_{recount3_samples_category}.csv`. If several different batches of samples are downloaded for the same project and samples' category (for instance, for the same GTEx tissue but using a different query string for filtering the samples), the output file for the first batch will be named `{recount3_project_name}_{recount3_samples_category}.csv`, the output file for the second one will be named `{recount3_project_name}_{recount3_samples_category}_1.csv`, and so forth.
+The main output of `bulkdgd get recount3` is several CSV files (one per batch of samples) containing the RNA-seq data retrieved from Recount3 for the samples of interest. The rows represent the samples, while the columns contain the genes identified by their Ensembl IDs or the samples' metadata. This file is usually named `{recount3_project_name}_{recount3_samples_category}.csv`. If several different batches of samples are downloaded for the same project and samples' category (for instance, for the same GTEx tissue but using a different query string for filtering the samples), the output file for the first batch will be named `{recount3_project_name}_{recount3_samples_category}.csv`, the output file for the second one will be named `{recount3_project_name}_{recount3_samples_category}_1.csv`, and so forth.
 
 The user also has the option to save the original compressed (`.gz`) files containing the RNA-seq data and the metadata associated with the samples. If these files are found in the working directory for a specific project and sample category, they will not be downloaded again.
 
-To speed up data retrieval and processing,  `dgd_get_recount3_data` uses the [Dask](https://www.dask.org/) Python package to parallelize the calculations.
+To speed up data retrieval and processing,  `bulkdgd get recount3` uses the [Dask](https://www.dask.org/) Python package to parallelize the calculations.
 
 ## Command line
 
 ```
-dgd_get_recount3_data [-h] [-is INPUT_SAMPLES_BATCHES] [-d WORK_DIR] [-n N_PROC] [-sg] [-sm] [-lf LOG_FILE] [-lc] [-v] [-vv]
+bulkdgd get recount3 [-h] [-ib INPUT_SAMPLES_BATCHES] [-d WORK_DIR] [-n N_PROC] [-sg] [-sm] [-lf LOG_FILE] [-lc] [-v] [-vv]
 ```
 
 ## Options
 
-| Option                          | Description                                                  |
-| ------------------------------- | ------------------------------------------------------------ |
-| `-h`, `--help`                  | Show the help message and exit.                              |
-| `-i`, `--input-samples-batches` | A CSV file or a YAML file used to download samples' data in bulk. |
-| `-d`, `--work-dir`              | The working directory. The default is the current working directory. |
-| `-n`, `--n-proc`                | The number of processes to start. The default number of processes started is 1. |
-| `-sg`, `--save-gene-sums`       | Save the original GZ file containing the RNA-seq data for the samples. For each batch of samples, the corresponding file will be saved in the working directory and named`{recount3_project_name}_{recount3_samples_category}_gene_sums.gz`. This file will be written only once if more than one batch refers to the same `recount3_project_name` and `recount3_samples_category`. |
-| `-sm`, `--save-metadata`        | Save the original GZ file containing the metadata for the samples. For each batch of samples, the corresponding file will be saved in the working directory and named `{recount3_project_name}_{recount3_samples_category}_metadata.gz`. This file will be written only once if more than one batch refers to the same `recount3_project_name` and `recount3_samples_category`. |
-| `-lf`, `--log-file`             | The name of the log file. The file will be written in the working directory. The default file name is `dgd_get_recount3_data.log`. |
-| `-lc`, `--log-console`          | Show log messages also on the console.                       |
-| `-v`, `--logging-verbose`       | Enable verbose logging (INFO level).                         |
-| `-vv`, `--logging-debug`        | Enable maximally verbose logging for debugging purposes (DEBUG level). |
+### Help options
+
+| Option         | Description                     |
+| -------------- | ------------------------------- |
+| `-h`, `--help` | Show the help message and exit. |
+
+### Input files
+
+| Option                           | Description                                                  |
+| -------------------------------- | ------------------------------------------------------------ |
+| `-ib`, `--input-samples-batches` | A CSV file or a YAML file used to download samples' data in bulk. |
+
+### Output options
+
+| Option                    | Description                                                  |
+| ------------------------- | ------------------------------------------------------------ |
+| `-sg`, `--save-gene-sums` | Save the original GZ file containing the RNA-seq data for the samples. For each batch of samples, the corresponding file will be saved in the working directory and named`{recount3_project_name}_{recount3_samples_category}_gene_sums.gz`. This file will be written only once if more than one batch refers to the same `recount3_project_name` and `recount3_samples_category`. |
+| `-sm`, `--save-metadata`  | Save the original GZ file containing the metadata for the samples. For each batch of samples, the corresponding file will be saved in the working directory and named `{recount3_project_name}_{recount3_samples_category}_metadata.gz`. This file will be written only once if more than one batch refers to the same `recount3_project_name` and `recount3_samples_category`. |
+
+### Run options
+
+| Option           | Description                                                  |
+| ---------------- | ------------------------------------------------------------ |
+| `-n`, `--n-proc` | The number of processes to start. The default number of processes started is 1. |
+
+### Working directory options
+
+| Option             | Description                                                  |
+| ------------------ | ------------------------------------------------------------ |
+| `-d`, `--work-dir` | The working directory. The default is the current working directory. |
+
+### Logging options
+
+| Option                    | Description                                                  |
+| ------------------------- | ------------------------------------------------------------ |
+| `-lf`, `--log-file`       | The name of the log file. The file will be written in the working directory. The default file name is `bulkdgd_get_recount3.log`. |
+| `-lc`, `--log-console`    | Show log messages also on the console.                       |
+| `-v`, `--logging-verbose` | Enable verbose logging (INFO level).                         |
+| `-vv`, `--logging-debug`  | Enable maximally verbose logging for debugging purposes (DEBUG level). |

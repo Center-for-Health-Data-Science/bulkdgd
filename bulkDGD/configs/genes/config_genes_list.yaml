@@ -115,7 +115,7 @@ filters:
   # - 'rRNA' = ribosomal RNA.
   #
   # - 'scaRNA' = small Cajal body-specific RNA, a class of small
-  #   nucleolar RNAs (snoRNAs) that specifically localise to the Cajal
+  #   nucleolar RNAs (snoRNAs) that specifically localize to the Cajal
   #   body, a nuclear organelle (cellular sub-organelle) involved in
   #   the biogenesis of small nuclear ribonucleoproteins.
   #
@@ -161,7 +161,7 @@ filters:
   #
   #-------------------------------------------------------------------#
   #
-  # Transcript from seudogenes.
+  # Transcript from pseudogenes.
   #
   # - 'pseudogene' = transcript from a gene that has homology to known
   #   protein-coding genes but contain a frameshift and/or stop
@@ -200,7 +200,7 @@ filters:
   #
   #-------------------------------------------------------------------#
   #
-  # Transcripts from egions to be experimentally confirmed.
+  # Transcripts from regions to be experimentally confirmed.
   #
   # - 'TEC' = transcript from a a region with EST clusters that have
   #   polyA features that could indicate the presence of protein coding
@@ -293,7 +293,7 @@ filters:
   #
   # - 'scaRNA' = a gene that gets transcribed into small Cajal
   #   body-specific RNA, a class of small nucleolar RNAs (snoRNAs) that
-  #   specifically localise to the Cajal body, a nuclear organelle
+  #   specifically localize to the Cajal body, a nuclear organelle
   #   (cellular sub-organelle) involved in the biogenesis of small
   #   nuclear ribonucleoproteins.
   #

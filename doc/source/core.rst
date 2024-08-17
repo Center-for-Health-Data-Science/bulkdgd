@@ -1,5 +1,5 @@
-``core`` - the DGD model
-========================
+``core`` - the bulkDGD model
+============================
 
 .. autosummary::
    :toctree: core

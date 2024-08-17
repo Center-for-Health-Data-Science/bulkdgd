@@ -3,8 +3,8 @@
 
 #    outputmodules.py
 #
-#    This module contains the classes defining the decoder's
-#    output layer.
+#    This module contains the classes defining the output layer of the
+#    :class:`core.decoder.Decoder`.
 #
 #    The code was originally developed by Viktoria Schuster,
 #    Inigo Prada Luengo, and Anders Krogh.
@@ -41,10 +41,8 @@
 
 # Set the module's description.
 __doc__ = \
-    "This module contains the classes defining the layer " \
-    "representing the negative binomial distributions used to " \
-    "model the expression of the genes " \
-    "(:class:`core.decoder.NBLayer`). "
+    "This module contains the classes defining the output layer of " \
+    "the :class:`core.decoder.Decoder`."
 
 
 #######################################################################
@@ -104,6 +102,11 @@ class OutputModuleBase(nn.Module):
         activation : :class:`str`, {``"sigmoid"``, ``"softplus"``}, \
             ``"softplus"``
             The name of the activation function to be used.
+
+            Available options are:
+
+            * ``"sigmoid"``: the sigmoid activation function.
+            * ``"softplus"``: the softplus activation function.
         """
         
         # Initialize the instance.
@@ -127,6 +130,11 @@ class OutputModuleBase(nn.Module):
 
         Parameters
         ----------
+        activation : :class:`str`
+            The name of the activation function to be used.
+
+        Returns
+        -------
         activation : :class:`str`
             The name of the activation function to be used.
         """
@@ -196,7 +204,7 @@ class OutputModuleBase(nn.Module):
 
     @property
     def activation(self):
-        """The activation function used in the layer.
+        """The activation function used.
         """
 
         return self._activation
@@ -276,6 +284,11 @@ class OutputModulePoisson(OutputModuleBase):
         activation : :class:`str`, {``"sigmoid"``, ``"softplus"``}, \
             ``"softplus"``
             The name of the activation function to be used.
+
+            Available options are:
+
+            * ``"sigmoid"``: the sigmoid activation function.
+            * ``"softplus"``: the softplus activation function.
         """
         
         # Initialize the instance.
@@ -615,6 +628,11 @@ class OutputModuleNB(OutputModuleBase):
         activation : :class:`str`, {``"sigmoid"``, ``"softplus"``}, \
             ``"softplus"``
             The name of the activation function to be used.
+
+            Available options are:
+
+            * ``"sigmoid"``: the sigmoid activation function.
+            * ``"softplus"``: the softplus activation function.
         """
         
         # Initialize the instance.
@@ -854,6 +872,11 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
         activation : :class:`str`, {``"sigmoid"``, ``"softplus"``}, \
             ``"softplus"``
             The name of the activation function to be used.
+
+            Available options are:
+
+            * ``"sigmoid"``: the sigmoid activation function.
+            * ``"softplus"``: the softplus activation function
         """
         
         # Initialize the instance.
@@ -911,8 +934,7 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
     @property
     def log_r(self):
         """The natural logarithm of the 'r' values associated with
-        the negative binomial distributions (the "number of failures"
-        after which the "trials" end).
+        the negative binomial distributions.
         """
 
         return self._log_r
@@ -961,14 +983,14 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
         # If the activation function is a sigmoid
         if self.activation == "sigmoid":
             
-            # Get the predicted means of the negative binomial
+            # Get the predicted scaled means of the negative binomial
             # distributions.
             m = torch.sigmoid(_m)
         
         # If the activation function is a softplus
         elif self.activation == "softplus":
 
-            # Get the predicted means of the negative binomial
+            # Get the predicted scaled means of the negative binomial
             # distributions.
             m = F.softplus(_m)
 
@@ -995,7 +1017,8 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
             reported.
 
         pred_means : :class:`torch.Tensor`
-            The predicted means of the negative binomial distributions.
+            The predicted scaled means of the negative binomial
+            distributions.
 
             This is a tensor whose shape must match that of
             ``obs_counts``.
@@ -1043,8 +1066,8 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
              pred_means,
              scaling_factors):
         """Compute the loss given observed the means ``obs_counts``
-        and predicted means ``pred_means``, the latter rescaled by
-        ``scaling_factors``.
+        and predicted scaled means ``pred_means``, the latter
+        rescaled by ``scaling_factors``.
 
         The loss corresponds to the negative log-probability mass of
         the binomial distributions.
@@ -1055,7 +1078,8 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
             The observed gene counts.
 
         pred_means : :class:`torch.Tensor`
-            The predicted means of the negative binomial distributions.
+            The predicted scaled means of the negative binomial
+            distributions.
 
             This is a tensor whose shape must match that of
             ``obs_counts``.
@@ -1102,7 +1126,8 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
             The number of samples to get.
 
         pred_means : :class:`torch.Tensor`
-            The predicted means of the negative binomial distributions.
+            The predicted scaled means of the negative binomial
+            distributions.
 
         scaling_factors : :class:`torch.Tensor`
             A tensor containing the scaling factors.
@@ -1176,6 +1201,11 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
         activation : :class:`str`, {``"sigmoid"``, ``"softplus"``}, \
             ``"softplus"``
             The name of the activation function to be used.
+
+            Available options are:
+
+            * ``"sigmoid"``: the sigmoid activation function.
+            * ``"softplus"``: the softplus activation function
         """
         
         # Initialize the instance.
@@ -1189,7 +1219,7 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
             nn.Linear(in_features = input_dim,
                       out_features = output_dim)
 
-        # Set the layer that will contain the predicted logaritm of
+        # Set the layer that will contain the predicted logarithm of
         # the 'r' values of the negative binomial distributions.
         self._layer_r_values = \
             nn.Linear(in_features = input_dim,
@@ -1227,14 +1257,14 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
         # If the activation function is a sigmoid
         if self.activation == "sigmoid":
             
-            # Get the predicted means of the negative binomial
+            # Get the predicted scaled means of the negative binomial
             # distributions.
             m = torch.sigmoid(_m)
         
         # If the activation function is a softplus
         elif self.activation == "softplus":
 
-            # Get the predicted means of the negative binomial
+            # Get the predicted scaled means of the negative binomial
             # distributions.
             m = F.softplus(_m)
 
@@ -1248,14 +1278,14 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
         # If the activation function is a sigmoid
         if self.activation == "sigmoid":
             
-            # Get the predicted means of the negative binomial
+            # Get the predicted scaled means of the negative binomial
             # distributions.
             log_r = torch.sigmoid(_log_r)
         
         # If the activation function is a softplus
         elif self.activation == "softplus":
 
-            # Get the predicted means of the negative binomial
+            # Get the predicted scaled means of the negative binomial
             # distributions
             log_r = F.softplus(_log_r)
 
@@ -1284,7 +1314,8 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
             reported.
 
         pred_means : :class:`torch.Tensor`
-            The predicted means of the negative binomial distributions.
+            The predicted scaled means of the negative binomial
+            distributions.
 
             This is a tensor whose shape must match that of
             ``obs_counts``.
@@ -1339,7 +1370,7 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
              pred_log_r_values,
              scaling_factors):
         """Compute the loss given observed the means ``obs_counts``,
-        the predicted means ``pred_means`` (rescaled by
+        the predicted scaled means ``pred_means`` (rescaled by
         ``scaling_factors``), and the predicted logarithm of the
         r-values (``pred_log_r_values``) of the negative binomial
         distributions
@@ -1353,7 +1384,8 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
             The observed gene counts.
 
         pred_means : :class:`torch.Tensor`
-            The predicted means of the negative binomial distributions.
+            The predicted scaled means of the negative binomial
+            distributions.
 
             This is a tensor whose shape must match that of
             ``obs_counts``.
@@ -1410,7 +1442,8 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
             The number of samples to get.
 
         pred_means : :class:`torch.Tensor`
-            The predicted means of the negative binomial distributions.
+            The predicted scaled means of the negative binomial
+            distributions.
 
         pred_log_r_values : :class:`torch.Tensor`
             The predicted logarithm of the r-values of the negative

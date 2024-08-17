@@ -1,5 +1,5 @@
-``analysis`` - analyze data produced by the DGD model
-=====================================================
+``analysis`` - analyze data produced by the bulkDGD model
+=========================================================
 
 .. autosummary::
    :toctree: analysis

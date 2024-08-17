@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # -*- Mode: python; tab-width: 4; indent-tabs-mode:nil; coding:utf-8 -*-
 
-#    dgd_perform_dea.py
+#    bulkdgd_dea.py
 #
 #    Perform a differential expression analysis comparing experimental
 #    samples to their "closest normal" sample found in latent space
-#    by the DGD model.
+#    by the :class:`core.model.BulkDGDModel`.
 #
 #    Copyright (C) 2024 Valentina Sora 
 #                       <sora.valentina1@gmail.com>
@@ -32,239 +32,224 @@
 __doc__ = \
     "Perform a differential expression analysis comparing " \
     "experimental samples to their 'closest normal' samples " \
-    "found in latent space by the DGD model."
+    "found in latent space by the :class:`core.model.BulkDGDModel`."
 
 
 #######################################################################
 
 
 # Import from the standard library.
-import argparse
 import logging as log
-import logging.handlers as loghandlers
 import os
 import sys
 # Import from third-party packages.
-import dask
-import pandas as pd
-import torch
+from distributed import LocalCluster, Client, as_completed
 # Import from 'bulkDGD'.
-from bulkDGD.core import model
 from bulkDGD.analysis import dea
-from bulkDGD import defaults, ioutil, util
+from bulkDGD import ioutil
+from . import util
 
 
 #######################################################################
 
 
-def main():
+# Get the module's logger.
+logger = log.getLogger(__name__)
 
+
+#######################################################################
+
+
+# Define a function to set up the parser.
+def set_parser(sub_parsers):
 
     # Create the argument parser.
-    parser = argparse.ArgumentParser(description = __doc__)
+    parser = \
+        sub_parsers.add_parser(\
+            name = "dea",
+            description = __doc__,
+            help = __doc__,
+            formatter_class = util.CustomHelpFormatter)
 
     #-----------------------------------------------------------------#
 
-    # Add the arguments.
+    # Create a group of arguments for the input files.
+    input_group = \
+        parser.add_argument_group(title = "Input files")
+
+    # Create a group of arguments for the output files.
+    output_group = \
+        parser.add_argument_group(title = "Output files")
+
+    # Create a group of arguments for the DEA options.
+    dea_group = \
+        parser.add_argument_group(title = "DEA options")
+
+    # Create a group of arguments for the run options.
+    run_group = \
+        parser.add_argument_group(title = "Run options")
+
+    #-----------------------------------------------------------------#
+
+    # Set a help message.
     is_help = \
         "The input CSV file containing a data frame with " \
         "the gene expression data for the samples."
-    parser.add_argument("-is", "--input-csv-samples",
-                        type = str,
-                        required = True,
-                        help = is_help)
+
+    # Add the argument to the group.
+    input_group.add_argument("-is", "--input-samples",
+                             type = str,
+                             required = True,
+                             help = is_help)
 
     #-----------------------------------------------------------------#
 
+    # Set a help message.
     im_help = \
         "The input CSV file containing the data frame with the " \
         "predicted means of the distributions used to model the " \
         "genes' counts for each in silico control sample."
-    parser.add_argument("-im", "--input-csv-means",
-                        type = str,
-                        required = True,
-                        help = im_help)
+
+    # Add the argument to the group.
+    input_group.add_argument("-im", "--input-means",
+                             type = str,
+                             required = True,
+                             help = im_help)
 
     #-----------------------------------------------------------------#
 
+    # Set a help message.
     iv_help = \
         "The input CSV file containing the data frame with the " \
         "predicted r-values of the negative binomial distributions " \
         "for each in silico control sample, if negative binomial " \
         "distributions were used to model the genes' counts."
-    parser.add_argument("-iv", "--input-csv-rvalues",
-                        type = str,
-                        default = None,
-                        help = iv_help)
+
+    # Add the argument to the group.
+    input_group.add_argument("-iv", "--input-rvalues",
+                             type = str,
+                             default = None,
+                             help = iv_help)
 
     #-----------------------------------------------------------------#
 
+    # Set the default value for the argument.
     op_default = "dea_"
+
+    # Set a help message.
     op_help = \
         "The prefix of the output CSV file(s) that will contain " \
-        "the results of the differential expression analysys. " \
+        "the results of the differential expression analysis. " \
         "Since the analysis will be performed for each sample, " \
         "one file per sample will be created. The files' names " \
         "will have the form {output_csv_prefix}{sample_name}.csv. " \
         f"The default prefix is '{op_default}'."
-    parser.add_argument("-op", "--output-csv-prefix",
-                        type = str,
-                        default = op_default,
-                        help = op_help)
+
+    # Add the argument to the group.
+    output_group.add_argument("-op", "--output-prefix",
+                              type = str,
+                              default = op_default,
+                              help = op_help)
 
     #-----------------------------------------------------------------#
 
+    # Set the default value for the argument.
     pr_default = 1e4
+
+    # Set a help message.
     pr_help = \
         "The resolution at which to sum over the probability " \
         "mass function to compute the p-values. The higher the " \
         "resolution, the more accurate the calculation. " \
         f"The default is {pr_default}."
-    parser.add_argument("-pr", "--p-values-resolution",
-                        type = lambda x: int(float(x)),
-                        default = pr_default,
-                        help = pr_help)
+
+    # Add the argument to the group.
+    dea_group.add_argument("-pr", "--p-values-resolution",
+                           type = lambda x: int(float(x)),
+                           default = pr_default,
+                           help = pr_help)
 
     #-----------------------------------------------------------------#
 
+    # Set the default value for the argument.
     qa_default = 0.05
+
+    # Set a help message.
     qa_help = \
         "The alpha value used to calculate the q-values (adjusted " \
         f"p-values). The default is {qa_default}."
-    parser.add_argument("-qa", "--q-values-alpha",
-                        type = float,
-                        default = qa_default,
-                        help = qa_help)
+
+    # Add the argument to the group.
+    dea_group.add_argument("-qa", "--q-values-alpha",
+                           type = float,
+                           default = qa_default,
+                           help = qa_help)
 
     #-----------------------------------------------------------------#
 
+    # Set the default value for the argument.
     qm_default = "fdr_bh"
+
+    # Set a help message.
     qm_help = \
         "The method used to calculate the q-values (i.e., to " \
         f"adjust the p-values). The default is '{qm_default}'. " \
         "The available methods can be found in the documentation " \
         "of 'statsmodels.stats.multitest.multipletests', " \
         "which is used to perform the calculation."
-    parser.add_argument("-qm", "--q-values-method",
-                        type = str,
-                        default = qm_default,
-                        help = qm_help)
+
+    # Add the argument to the group.
+    dea_group.add_argument("-qm", "--q-values-method",
+                           type = str,
+                           default = qm_default,
+                           help = qm_help)
 
     #-----------------------------------------------------------------#
 
-    d_help = \
-        "The working directory. The default is the current " \
-        "working directory."
-    parser.add_argument("-d", "--work-dir",
-                        type = str,
-                        default = os.getcwd(),
-                        help = d_help)
-
-    #-----------------------------------------------------------------#
-
+    # Set the default value for the argument.
     n_default = 1
+
+    # Set a help message.
     n_help = \
         "The number of processes to start. The default number " \
         f"of processes started is {n_default}."
-    parser.add_argument("-n", "--n-proc",
-                        type = int,
-                        default = n_default,
-                        help = n_help)
 
-    #-----------------------------------------------------------------#
-    
-    lf_default = "dgd_perform_dea.log"
-    lf_help = \
-        "The name of the log file. The file will be written " \
-        "in the working directory. The default file name is " \
-        f"'{lf_default}'."
-    parser.add_argument("-lf", "--log-file",
-                        type = str,
-                        default = lf_default,
-                        help = lf_help)
+    # Add the argument to the group.
+    run_group.add_argument("-n", "--n-proc",
+                           type = int,
+                           default = n_default,
+                           help = n_help)
 
     #-----------------------------------------------------------------#
 
-    lc_help = "Show log messages also on the console."
-    parser.add_argument("-lc", "--log-console",
-                        action = "store_true",
-                        help = lc_help)
+    # Return the parser.
+    return parser
 
-    #-----------------------------------------------------------------#
 
-    v_help = "Enable verbose logging (INFO level)."
-    parser.add_argument("-v", "--log-verbose",
-                        action = "store_true",
-                        help = v_help)
+#######################################################################
 
-    #-----------------------------------------------------------------#
 
-    vv_help = \
-        "Enable maximally verbose logging for debugging " \
-        "purposes (DEBUG level)."
-    parser.add_argument("-vv", "--log-debug",
-                        action = "store_true",
-                        help = vv_help)
+# Define the 'main' function.
+def main(args):
 
-    #-----------------------------------------------------------------#
+    # Get the argument corresponding to the working directory.
+    wd = args.work_dir
 
-    # Parse the arguments.
-    args = parser.parse_args()
-    input_csv_samples = args.input_csv_samples
-    input_csv_means = args.input_csv_means
-    input_csv_rvalues = args.input_csv_rvalues
-    output_csv_prefix = args.output_csv_prefix
+    # Get the arguments corresponding to the input files.
+    input_samples = args.input_samples
+    input_means = args.input_means
+    input_rvalues = args.input_rvalues
+
+    # Get the argument corresponding to the output file.
+    output_prefix = args.output_prefix
+
+    # Get the arguments corresponding to the DEA options.
     p_values_resolution = args.p_values_resolution
     q_values_alpha = args.q_values_alpha
     q_values_method = args.q_values_method
-    wd = os.path.abspath(args.work_dir)
+
+    # Get the arguments corresponding to the run options.
     n_proc = args.n_proc
-    log_file = os.path.join(wd, args.log_file)
-    log_console = args.log_console
-    v = args.log_verbose
-    vv = args.log_debug
-
-    #-----------------------------------------------------------------#
-
-    # Set WARNING logging level by default.
-    log_level = log.WARNING
-
-    # If the user requested verbose logging
-    if v:
-
-        # The minimal logging level will be INFO.
-        log_level = log.INFO
-
-    # If the user requested logging for debug purposes
-    # (-vv overrides -v if both are provided)
-    if vv:
-
-        # The minimal logging level will be DEBUG.
-        log_level = log.DEBUG
-
-    # Get the logging configuration for Dask.
-    dask_logging_config = \
-        util.get_dask_logging_config(log_console = log_console,
-                                     log_file = log_file)
-    
-    # Set the configuration for Dask-specific logging.
-    dask.config.set({"distributed.logging" : dask_logging_config})
-    
-    # Configure the logging (for non-Dask operations).
-    handlers = \
-        util.get_handlers(\
-            log_console = log_console,
-            log_console_level = log_level,
-            log_file_class = loghandlers.RotatingFileHandler,
-            log_file_options = {"filename" : log_file},
-            log_file_level = log_level)
-
-    # Set the logging configuration.
-    log.basicConfig(level = log_level,
-                    format = defaults.LOG_FMT,
-                    datefmt = defaults.LOG_DATEFMT,
-                    style = defaults.LOG_STYLE,
-                    handlers = handlers)
 
     #-----------------------------------------------------------------#
 
@@ -274,7 +259,7 @@ def main():
         # Get the samples (= observed gene counts).
         obs_counts = \
             ioutil.load_samples(\
-                csv_file = input_csv_samples,
+                csv_file = input_samples,
                 sep = ",",
                 keep_samples_names = True,
                 split = False)
@@ -288,14 +273,14 @@ def main():
         # Warn the user and exit.
         errstr = \
             "It was not possible to load the samples from " \
-            f"'{input_csv_samples}'. Error: {e}"
+            f"'{input_samples}'. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the samples were successfully loaded.
     infostr = \
         "The samples were successfully loaded from " \
-        f"'{input_csv_samples}'."
+        f"'{input_samples}'."
     log.info(infostr)
 
     #-----------------------------------------------------------------#
@@ -305,7 +290,7 @@ def main():
 
         # Get the predicted means.
         pred_means = \
-            ioutil.load_decoder_outputs(csv_file = input_csv_means,
+            ioutil.load_decoder_outputs(csv_file = input_means,
                                         sep = ",",
                                         split = False)
 
@@ -315,7 +300,7 @@ def main():
         # Warn the user and exit.
         errstr = \
             "It was not possible to load the predicted means from " \
-            f"'{input_csv_means}'. Error: {e}"
+            f"'{input_means}'. Error: {e}"
         log.exception(errstr)
         sys.exit(errstr)
 
@@ -323,13 +308,13 @@ def main():
     # loaded.
     infostr = \
         "The predicted means were successfully loaded from " \
-        f"'{input_csv_means}'."
+        f"'{input_means}'."
     log.info(infostr)
 
     #-----------------------------------------------------------------#
 
     # If r-values were passed
-    if input_csv_rvalues is not None:
+    if input_rvalues is not None:
 
         # Try to load the predicted r-values.
         try:
@@ -337,7 +322,7 @@ def main():
             # Get the predicted r-values.
             r_values = \
                 ioutil.load_decoder_outputs(\
-                    csv_file = input_csv_rvalues,
+                    csv_file = input_rvalues,
                     sep = ",",
                     split = False)
 
@@ -347,7 +332,7 @@ def main():
             # Warn the user and exit.
             errstr = \
                 "It was not possible to load the predicted r-values " \
-                f"from '{input_csv_rvalues}'. Error: {e}"
+                f"from '{input_rvalues}'. Error: {e}"
             log.exception(errstr)
             sys.exit(errstr)
 
@@ -355,7 +340,7 @@ def main():
         # loaded.
         infostr = \
             "The predicted r-values were successfully loaded from " \
-            f"'{input_csv_rvalues}'."
+            f"'{input_rvalues}'."
         log.info(infostr)
 
     # Otherwise
@@ -365,10 +350,6 @@ def main():
         r_values = None
 
     #-----------------------------------------------------------------#
-
-    # Import 'distributed' only here because, otherwise, the logging
-    # configuration is not properly set    .
-    from distributed import LocalCluster, Client, as_completed
 
     # Create the local cluster.
     cluster = LocalCluster(# Number of workers
@@ -445,14 +426,13 @@ def main():
         #-------------------------------------------------------------#
 
         # Set the path to the output file.
-        output_csv_path = \
-            os.path.join(wd,
-                         f"{output_csv_prefix}{sample_name}.csv")
+        output_path = \
+            os.path.join(wd, f"{output_prefix}{sample_name}.csv")
 
         # Try to write the data frame in the output file.
         try:
 
-            df_stats.to_csv(output_csv_path,
+            df_stats.to_csv(output_path,
                             sep = ",",
                             index = True,
                             header = True)
@@ -463,20 +443,13 @@ def main():
             # Warn the user and exit.
             errstr = \
                 "It was not possible to write the DEA results " \
-                f"for sample '{sample_name}' in " \
-                f"'{output_csv_path}'. Error: {e}"
+                f"for sample '{sample_name}' in '{output_path}'. " \
+                f"Error: {e}"
             log.exception(errstr)
             sys.exit(errstr)
 
         # Inform the user that the file was successfully written.
         infostr = \
             f"The DEA results for sample '{sample_name}' were " \
-            f"successfully written in '{output_csv_path}'."
+            f"successfully written in '{output_path}'."
         log.info(infostr)
-
-
-#######################################################################
-
-
-if __name__ == "__main__":
-    main()

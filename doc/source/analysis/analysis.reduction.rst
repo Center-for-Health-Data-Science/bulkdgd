@@ -2,7 +2,7 @@
 ==================
 
 .. automodule:: analysis.reduction
-   :members: perform_2d_pca
+   :members: perform_pca, perform_kpca, perform_mds, perform_tsne
    
    
 

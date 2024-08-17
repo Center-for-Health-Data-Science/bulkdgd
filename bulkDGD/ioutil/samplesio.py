@@ -35,7 +35,6 @@ __doc__ = "Utilities to load and save sets of samples."
 
 # Import from the standard library.
 import logging as log
-import re
 # Import from third-party packages.
 import pandas as pd
 # Import from 'bulkDGD'.
@@ -302,7 +301,7 @@ def preprocess_samples(df_samples,
             # of a pseudoautosomal region, like PAR_Y).
             pseudoatom_region = version.split("_")
 
-            # If there is an indication of a pseudoatosomal region
+            # If there is an indication of a pseudoautosomal region
             if len(pseudoatom_region) > 1:
 
                 # Add the information to the unversioned gene ID.
@@ -438,7 +437,7 @@ def preprocess_samples(df_samples,
     if genes_txt_file is None:
 
         # Use the default one
-        genes_txt_file = defaults.GENES_FILE
+        genes_txt_file = defaults.DATA_FILES_MODEL["genes"]
 
     # Load the list of genes
     genes_list_dgd = util.load_list(list_file = genes_txt_file)

@@ -3,8 +3,9 @@
 
 #    dataclasses.py
 #
-#    This module contains the classses defining the structure of the
-#    datasets to be used with the DGD model.
+#    This module contains the classes defining the structure of the
+#    datasets to be used with the
+#    :class:`core.model.BulkDGDModel`.
 #
 #    The code was originally developed by Viktoria Schuster,
 #    Inigo Prada Luengo, and Anders Krogh.
@@ -41,8 +42,9 @@
 
 # Set the module's description.
 __doc__ = \
-    "This module contains the classses defining the structure of " \
-    "the datasets to be used with the DGD model."
+    "This module contains the classes defining the structure of " \
+    "the datasets to be used with the " \
+    ":class:`core.model.BulkDGDModel`."
 
 
 #######################################################################
@@ -72,10 +74,7 @@ class GeneExpressionDataset(object):
     for multiple samples.
 
     This class is designed so that it can be used with the
-    ``torch.utils.data.DataLoader`` utility, if needed.
-
-    The class needs to implement a ``__getitem__`` and a ``__len__``
-    method.
+    :class:`torch.utils.data.DataLoader` utility, if needed.
     """
 
 
@@ -88,7 +87,7 @@ class GeneExpressionDataset(object):
 
         Parameters
         ----------
-        df : ``pandas.DataFrame``
+        df : :class:`pandas.DataFrame`
             A data frame whose rows must represent samples,
             and columns must represent genes.
 
@@ -124,12 +123,12 @@ class GeneExpressionDataset(object):
 
         Parameters
         ----------
-        df : ``pandas.DataFrame``
+        df : :class:`pandas.DataFrame`
             A data frame containing the gene expression data.
 
         Returns
         -------
-        data_exp : ``torch.Tensor``
+        data_exp : :class:`torch.Tensor`
             The gene expression for all samples.
 
             This is a 2D tensor where:
@@ -140,7 +139,7 @@ class GeneExpressionDataset(object):
             - The second dimension has a length equal to the number of
               genes whose expression is reported in the dataset.
 
-        mean_exp : ``torch.Tensor``
+        mean_exp : :class:`torch.Tensor`
             The mean gene expression for each sample.
             
             This is a 1D tensor whose length is equal to the
@@ -268,19 +267,19 @@ class GeneExpressionDataset(object):
         
         Parameters
         ----------
-        idx : ``list`` or ``torch.Tensor``, optional
+        idx : :class:`list` or :class:`torch.Tensor`, optional
             If passed, a list of indexes of the samples to get from
             the dataset.
 
         Returns
         -------
-        data : ``numpy.ndarray``
+        data : :class:`numpy.ndarray`
             An array containing the data for the selected samples.
 
-        mean_expr : ``numpy.ndarray``
+        mean_expr : :class:`numpy.ndarray`
             An array with the mean gene expression for each sample.
 
-        idx : ``list``
+        idx : :class:`list`
             A list of indexes of the samples that are returned.
         """
 
@@ -319,7 +318,7 @@ class GeneExpressionDataset(object):
 
         Returns
         -------
-        ``torch.Tensor``
+        tot_expr : :class:`torch.Tensor`
             The total expression of all genes across all samples.
         """
 

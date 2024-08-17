@@ -34,7 +34,6 @@ __doc__ = "Utilities to load and save configurations."
 
 
 # Import from the standard library.
-import copy
 import logging as log
 import os
 # Import from third-party packages.
@@ -135,7 +134,7 @@ def load_config_model(config_file):
     #-----------------------------------------------------------------#
 
     # Check the configuration.
-    config = check_config_model(config = config)
+    config = util.check_config_model(config = config)
 
     #-----------------------------------------------------------------#
 
@@ -206,7 +205,7 @@ def load_config_rep(config_file):
     #-----------------------------------------------------------------#
 
     # Check the configuration.
-    config = check_config_rep(config = config)
+    config = util.check_config_rep(config = config)
 
     #-----------------------------------------------------------------#
 
@@ -236,7 +235,7 @@ def load_config_train(config_file):
     #-----------------------------------------------------------------#
 
     # Check the configuration.
-    config = check_config_train(config = config)
+    config = util.check_config_train(config = config)
 
     #-----------------------------------------------------------------#
 
@@ -265,7 +264,7 @@ def load_config_plot(config_file):
     #-----------------------------------------------------------------#
 
     # Check the configuration.
-    config = check_config_plot(config = config)
+    config = util.check_config_plot(config = config)
 
     #-----------------------------------------------------------------#
     
@@ -304,9 +303,39 @@ def load_config_genes(config_file):
     #-----------------------------------------------------------------#
 
     # Check the configuration.
-    config = check_config_genes(config = config)
+    config = util.check_config_genes(config = config)
 
     #-----------------------------------------------------------------#
 
     # Return the new configuration.
-    return new_config
+    return config
+
+
+def load_config_dim_red(config_file):
+    """Load the configuration for performing a dimensionality
+    reduction analysis.
+
+    Parameters
+    ----------
+    config_file : :class:`str`
+        A YAML configuration file.
+
+    Returns
+    -------
+    config : :class:`dict`
+        A dictionary containing the configuration.
+    """
+
+    # Load the configuration from the file.
+    config = _load_config(config_file = config_file,
+                          config_type = "dimensionality_reduction")
+
+    #-----------------------------------------------------------------#
+
+    # Check the configuration.
+    config = util.check_config_dim_red(config = config)
+
+    #-----------------------------------------------------------------#
+
+    # Return the new configuration.
+    return config

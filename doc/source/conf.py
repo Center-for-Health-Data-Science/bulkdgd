@@ -46,7 +46,7 @@ author = \
 
 # Set a list of strings that are module names of extensions needed:
 #
-# - 'myst_parser' is needed to parse Markwodn files.
+# - 'myst_parser' is needed to parse Markdown files.
 #   Install it with 'pip install myst-parser'.
 #
 # - 'sphinx.ext.autodoc' is needed to automatically generate
@@ -63,7 +63,8 @@ author = \
 #   Install it with 'pip install sphinxcontrib-bibtex'.
 #
 # - 'sphinx.ext.intersphinx' is needed for cross-referencing with the
-#   documentations of other packages.
+#   documentations of other packages and is installed together with
+#   Sphinx.
 extensions = \
    ["myst_parser",
     "sphinx.ext.autodoc",
@@ -80,7 +81,9 @@ intersphinx_mapping = \
     "numpy": ("https://numpy.org/doc/stable/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
     "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
-    "sklearn": ("https://scikit-learn.org/stable/", None)}
+    "sklearn": ("https://scikit-learn.org/stable/", None),
+    "matplotlib": ("https://matplotlib.org/stable/", None),
+    "seaborn": ("https://seaborn.pydata.org/", None)}
 
 # Set the file extensions of source files. Sphinx considers the files
 # with this suffix as sources. The value can be a dictionary mapping
@@ -137,8 +140,7 @@ bibtex_bibfiles = ["./bib_files/references.bib"]
 # Set which 'myst-parser' extensions should be enabled.
 myst_enable_extensions = ["amsmath", "dollarmath"]
 
-# Set the lowest level at which to create reate automatic heading
-# anchors.
+# Set the lowest level at which to create automatic heading anchors.
 myst_heading_anchors = 3
 
 # Set whether to show the warning regarding having the document ending
@@ -160,8 +162,10 @@ myst_footnote_transition = False
 html_static_path = ["_static"]
 
 # Set the HTML theme to be used.
-# If 'sphinx_rtd_theme', install it first by running
-# 'pip install sphinx-rtd-theme'.
+# - If 'sphinx_rtd_theme', install it first by running
+#   'pip install sphinx-rtd-theme'.
+# - If 'pydata_sphinx_theme', install it first by running
+#   'pip install pydata_sphinx_theme'.
 html_theme = "sphinx_rtd_theme"
 
 # Set a dictionary of values to pass into the template engine’s context

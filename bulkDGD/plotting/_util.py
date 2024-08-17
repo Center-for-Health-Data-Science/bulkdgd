@@ -37,8 +37,12 @@ __doc__ = "Private utilities for plotting."
 import logging as log
 import math
 # Import from third-party packages.
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
+# Import from 'bulkDGD'.
+from bulkDGD import util
 
 
 #######################################################################
@@ -48,7 +52,38 @@ import numpy as np
 logger = log.getLogger(__name__)
 
 
-#######################################################################
+########################## PRIVATE CONSTANTS ##########################
+
+
+# Set a mapping between the sections that we can encounter in a
+# configuration and the name of the item they refer to.
+SECTIONS2ITEMS = \
+    {# Plot elements.
+     "plot:xaxis" : "x-axis",
+     "plot:yaxis" : "y-axis",
+     "plot:legend" : "legend",
+     "plot:title" : "title",
+     "plot:text" : "text",
+     # Plot types.
+     "plot:other_groups" : "scatter plot for 'other' groups",
+     "plot:scatterplot" : "scatter plot",
+     "plot:lineplot" : "line plot",
+     "plot:histogram" : "histogram"}
+
+########################## PUBLIC CONSTANTS ###########################
+
+
+# Get all palettes available in Seaborn.
+SEABORN_PALETTES = \
+    set(sns.palettes.SEABORN_PALETTES.keys()).union(\
+        {"cubehelix", "dark", "colorblind", "husl", "hls", 
+         "muted", "pastel", "bright"})
+
+# Get all color maps available in Matplotlib.
+MATPLOTLIB_CMAPS = set(plt.colormaps())
+
+
+########################## PUBLIC FUNCTIONS ###########################
 
 
 def get_formatted_ticklabels(ticklabels,
@@ -58,15 +93,15 @@ def get_formatted_ticklabels(ticklabels,
 
     Parameters
     ----------
-    ticklabels : ``numpy.array`` or ``list``
+    ticklabels : :class:`numpy.ndarray` or :class:`list`
         An array or list of labels.
 
-    fmt: ``str``
+    fmt: :class:`str`
         The format string.
 
     Returns
     -------
-    ticklabels : ``list``
+    ticklabels : :class:`list`
         A list with the formatted ticks' labels.
     """
 
@@ -125,15 +160,15 @@ def find_rectangular_grid(n):
 
     Parameters
     ----------
-    n : ``numpy.array``
+    n : :class:`numpy.ndarray`
         The array of items.
 
     Returns
     -------
-    nrows : ``int``
+    nrows : :class:`int`
         The number of rows in the squarest grid.
 
-    ncols : ``int``
+    ncols : :class:`int`
         The number of columns in the squarest grid.
     """
 
@@ -207,40 +242,31 @@ def get_ticks_positions(values,
 
     Parameters
     ----------
-    values : {``list``, ``numpy.ndarray``}
+    values : :class:`list` or :class:`numpy.ndarray`
         The values from which the ticks' positions should be set.
 
-    item : ``str``
+    item : :class:`str`
         The name of the item of the plot you are setting the ticks'
         positions for (e.g., ``"x-axis"``, ``"y-axis"``, or
         ``"colorbar"``).
 
-    config : ``dict``
+    config : :class:`dict`
         The configuration for the interval that the ticks' positions
         should cover.
 
     Returns
     -------
-    ticks_positions : ``numpy.ndarray``
+    ticks_positions : :class:`numpy.ndarray`
         An array containing the ticks' positions.
     """
 
-    # Get the top configuration
-    config = config.get("interval")
-
-    # If there is no configuration for the interval
-    if config is None:
-
-        # Raise an error.
-        errstr = \
-            f"No 'interval' section was found in the " \
-            f"configuration for the {item}."
-        raise KeyError(errstr)
+    # Get the top configuration.
+    config = config.get("interval", {})
 
     #-----------------------------------------------------------------#
     
     # Get the configurations.
-    int_type = config.get("type")
+    int_type = config.get("type", "continuous")
     rtn = config.get("round_to_nearest")
     top = config.get("top")
     bottom = config.get("bottom")
@@ -249,9 +275,9 @@ def get_ticks_positions(values,
     ciz = config.get("center_in_zero")
 
     # Inform the user that we are now setting the ticks' interval.
-    infostr = \
+    debugstr = \
         f"Now setting the interval for the plot's {item}'s ticks..."
-    logger.info(infostr)
+    logger.debug(debugstr)
 
     #-----------------------------------------------------------------#
 
@@ -271,27 +297,27 @@ def get_ticks_positions(values,
             rtn = 0.5
 
         # Inform the user about the rounding value.
-        infostr = \
-            "Since 'round_to_nearest' is not defined and 'type'" \
+        debugstr = \
+            "Since 'round_to_nearest' is not defined and 'type' " \
             f"is '{int_type}', the rounding will be set to the " \
             f"nearest {rtn}."
-        logger.info(infostr)
+        logger.debug(debugstr)
 
     # Otherwise
     else:
 
         # Inform the user about the chosen rounding value.
-        infostr = \
+        debugstr = \
             "The user set the rounding (up and down) to the nearest " \
             f"{rtn} ('round_to_nearest' = {rtn})."
-        logger.info(infostr)
+        logger.debug(debugstr)
 
     #-----------------------------------------------------------------#
 
     # If the maximum of the ticks interval was not specified
     if top is None:
         
-        # If the interval is discrete.
+        # If the interval is discrete
         if int_type == "discrete":
             
             # The default top value will be the maximum of the values
@@ -299,34 +325,34 @@ def get_ticks_positions(values,
             top = int(np.ceil(max(values)))
 
             # Inform the user about the top value.
-            infostr = \
+            debugstr = \
                 "Since 'top' is not defined and 'type' is " \
                 f"'{int_type}', 'top' will be the maximum of all " \
                 f"values found, ({top})."
-            logger.info(infostr)
+            logger.debug(debugstr)
         
         # If the interval is continuous
         elif int_type == "continuous":
             
             # The default top value will be the maximum of the values
             # provided, rounded up.
-            top = np.ceil(max(values)*(1/rtn)) / (1/rtn)
+            top = np.ceil(max(values)/rtn) * rtn
 
             # Inform the user about the top value.
-            infostr = \
+            debugstr = \
                 "Since 'top' is not defined and 'type' is " \
                 f"'{int_type}', 'top' will be the maximum of all " \
                 f"values found, rounded up to the nearest {rtn} " \
                 f"({top})."
-            logger.info(infostr)
+            logger.debug(debugstr)
 
     # Otherwise
     else:
 
         # Inform the user about the chosen top value.
-        infostr = \
+        debugstr = \
             f"The user set the top value to {top} ('top' = {top})."
-        logger.info(infostr)
+        logger.debug(debugstr)
 
     #-----------------------------------------------------------------#
 
@@ -341,35 +367,35 @@ def get_ticks_positions(values,
             bottom = int(min(values))
 
             # Inform the user about the bottom value.
-            infostr = \
+            debugstr = \
                 f"Since 'bottom' is not defined and 'type' is " \
                 f"'{int_type}', 'bottom' will be the minimum of all " \
                 f"values found ({bottom})."
-            logger.info(infostr)
+            logger.debug(debugstr)
         
         # If the interval is continuous
         elif int_type == "continuous":
             
             # The default bottom value is the minimum of the values
             # provided, rounded down.
-            bottom = np.floor(min(values)*(1/rtn)) / (1/rtn)
+            bottom = np.floor(min(values)/rtn) * rtn
 
             # Inform the user about the bottom value.
-            infostr = \
+            debugstr = \
                 "Since 'bottom' is not defined and 'type' is " \
                 f"'{int_type}', 'bottom' will be the minimum of all " \
                 f"values found, rounded down to the nearest {rtn} " \
                 f"({bottom})."
-            logger.info(infostr)
+            logger.debug(debugstr)
 
     # Otherwise
     else:
 
         # Inform the user about the chosen top value
-        infostr = \
+        debugstr = \
             f"The user set the bottom value to {bottom} ('bottom' " \
             f"= {bottom})."
-        logger.info(infostr)
+        logger.debug(debugstr)
 
     #-----------------------------------------------------------------#
 
@@ -388,19 +414,19 @@ def get_ticks_positions(values,
         steps = 10
 
         # Inform the user about the steps.
-        infostr = \
+        debugstr = \
             "Since the number of steps the interval should have " \
             "is not defined, 'steps' will be '10'."
-        logger.info(infostr)
+        logger.debug(debugstr)
 
     # Otherwise
     else:
 
         # Inform the user about the chosen number of steps.
-        infostr = \
+        debugstr = \
             "The user set the number of steps the interval " \
             f"should have to {steps} ('steps' = {steps})."
-        logger.info(infostr)
+        logger.debug(debugstr)
 
     #-----------------------------------------------------------------#
 
@@ -419,14 +445,14 @@ def get_ticks_positions(values,
                                         retstep = True)[1]))
 
             # Inform the user about the spacing.
-            infostr = \
+            debugstr = \
                 "Since the spacing between the ticks is not " \
                 "defined, 'spacing' will be the value " \
                 "guaranteeing an equipartition of the interval " \
                 f"between {bottom} and {top} in {steps} " \
                 "number of steps, rounded up to the nearest 1 " \
                 f"({spacing})."
-            logger.info(infostr)
+            logger.debug(debugstr)
 
         # If the interval is continuous
         elif int_type == "continuous":
@@ -440,16 +466,16 @@ def get_ticks_positions(values,
 
             # Get the spacing by rounding up the spacing obtained
             # obtained above.
-            spacing = np.ceil(spacing*(1/rtn)) / (1/rtn)
+            spacing = np.ceil(spacing / rtn) * rtn
 
             # Inform the user about the spacing.
-            infostr = \
+            debugstr = \
                 "Since the spacing between the ticks is not " \
                 "defined, 'spacing' will be the value " \
                 "guaranteeing an equipartition of the interval " \
                 f"between {bottom} and {top} in {steps} " \
                 f"number of steps ({spacing})."
-            logger.info(infostr)
+            logger.debug(debugstr)
 
     #-----------------------------------------------------------------#
 
@@ -469,12 +495,12 @@ def get_ticks_positions(values,
         interval = np.linspace(bottom, top, steps)
 
         # Inform the user about the change in the interval.
-        infostr = \
+        debugstr = \
             "Since the user requested a ticks' interval centered " \
             f"in zero, the interval will be between {top} " \
             f"and {bottom} with {steps} number of steps: " \
             f"{', '.join([str(i) for i in interval.tolist()])}."
-        logger.info(infostr)
+        logger.debug(debugstr)
         
         # Return the interval.
         return interval
@@ -485,11 +511,11 @@ def get_ticks_positions(values,
     interval = np.arange(bottom, top + spacing, spacing)
 
     # Inform the user about the interval that will be used.
-    infostr = \
+    debugstr = \
         f"The ticks' interval will be between {bottom} and {top} " \
         f"with a spacing of {spacing}: " \
         f"{', '.join([str(i) for i in interval.tolist()])}."
-    logger.info(infostr)
+    logger.debug(debugstr)
 
     #-----------------------------------------------------------------#
 
@@ -506,27 +532,27 @@ def set_axis(ax,
 
     Parameters
     ----------
-    ax : ``matplotlib.axes.Axes``
+    ax : :class:`matplotlib.axes.Axes`
         An Axes instance.
 
-    axis : ``str``, {``"x"``, ``"y"``}
+    axis : :class:`str`, {``"x"``, ``"y"``}
         Whether the axis to be set is the x- or the y-axis.
 
-    config : ``dict``
+    config : :class:`dict`
         The configuration for setting the axis.
 
-    ticks : ``list``, optional
+    ticks : :class:`list`, optional
         A list of ticks' positions. If it is not passed, the ticks
         will be those already present on the axis (automatically
         determined by matplotlib when generating the plot).
 
-    tick_labels : ``list``, optional
+    tick_labels : :class:`list`, optional
         A list of ticks' labels. If not passed, the ticks' labels
         will represent the ticks' positions.
 
     Returns
     -------
-    ax : ``matplotlib.axes.Axes``
+    ax : :class:`matplotlib.axes.Axes`
         An Axes instance. 
     """
 
@@ -538,7 +564,6 @@ def set_axis(ax,
         set_label = ax.set_xlabel
         set_ticks = ax.set_xticks
         set_ticklabels = ax.set_xticklabels
-        get_ticklabels = ax.get_xticklabels
 
         # Get the corresponding spine.
         spine = "bottom"
@@ -551,10 +576,26 @@ def set_axis(ax,
         set_label = ax.set_ylabel
         set_ticks = ax.set_yticks
         set_ticklabels = ax.set_yticklabels
-        get_ticklabels = ax.get_yticklabels
 
         # Get the corresponding spine.
         spine = "left"
+
+    #-----------------------------------------------------------------#
+
+    # If there is a configuration for the spine
+    if config.get("spine"):
+
+        # If there is a configuration for the spine's position
+        if config["spine"].get("position"):
+
+            # Set the spine's position.
+            ax.spines[spine].set_position(config["spine"]["position"])
+
+        # Otherwise
+        else:
+
+            # Default it to 5.
+            ax.spine[spine].set_position(("outward", 5))
 
     #-----------------------------------------------------------------#
 
@@ -625,6 +666,86 @@ def set_axis(ax,
     return ax
 
 
+def set_cbar_axis(cbar,
+                  config,
+                  ticks = None,
+                  tick_labels = None):
+    """Set up the colorbar after generating a plot.
+
+    Parameters
+    ----------
+    cbar : :class:`matplotlib.colorbar.Colorbar`
+        The colorbar.
+
+    config : :class:`dict`
+        The configuration for setting the colorbar's axis.
+
+    ticks : :class:`list`, optional
+        A list of ticks' positions.
+
+        If it is not passed, the ticks will be those already present
+        on the colorbar's axis (automatically determined by Matplotlib
+        when generating the plot).
+
+    tick_labels : :class:`list`, optional
+        A list of ticks' labels.
+
+        If not passed, the ticks' labels will represent the ticks'
+        positions.
+
+    Returns
+    -------
+    cbar : :class:`matplotlib.colorbar.Colorbar`
+        The colorbar.
+    """
+
+    # If there is a configuration for the colorbar's label.
+    if config.get("label"):
+        
+        # Set the colorbar's label.
+        cbar.set_label(**config["label"])        
+
+    #-----------------------------------------------------------------#
+
+    # If no ticks' positions were passed
+    if ticks is None:
+
+        # Default to the ticks' locations already present.
+        ticks = cbar.get_ticks()
+
+    # Set the ticks.
+    cbar.set_ticks(ticks = ticks)
+
+    #-----------------------------------------------------------------#
+
+    # Get the configuration for the ticks' labels.
+    tick_labels_config = config.get("ticklabels", {})
+
+    # Get the configuration for the ticks' labels' options.
+    tick_labels_options = tick_labels_config.get("options", {})
+
+    # If no ticks' labels were passed
+    if tick_labels is None:
+
+        # Get the format to be used for the tick labels.
+        tick_labels_fmt = tick_labels_config.get("fmt", "{:.3f}")
+        
+        # Default to the string representations of the ticks'
+        # positions.
+        tick_labels = \
+            get_formatted_ticklabels(ticklabels = ticks,
+                                     fmt = tick_labels_fmt)
+    
+    # Set the ticks' labels.
+    cbar.set_ticklabels(ticklabels = tick_labels,
+                        **tick_labels_options)
+
+    #-----------------------------------------------------------------#
+
+    # Return the colorbar.
+    return cbar
+
+
 def set_legend(ax,
                config):
     """Set a legend for the current plot.
@@ -656,5 +777,180 @@ def set_legend(ax,
 
     #-----------------------------------------------------------------#
 
-    # Retutn the ax.
+    # Return the ax.
     return ax
+
+def set_text(fig,
+             config):
+    """Write text on a plot.
+
+    Parameters
+    ----------
+    fig : :class:`matplotlib.figure.Figure`
+        The figure containing the plot to which the text should be
+        added.
+
+    config : :class:`dict`
+        The configuration for the text.
+    """
+
+    # Add the text.
+    fig.text(**config)
+
+    #-----------------------------------------------------------------#
+
+    # Return the figure.
+    return fig
+
+
+def get_colormap(cmap,
+                 n_colors = None):
+    """Discretize a given colormap into a specific number of colors.
+
+    Parameters
+    ----------
+    cmap : :class:`str`
+        The name of a color map available in Seaborn or Matplotlib.
+
+    n_colors : :class:`int`, optional
+        The number of colors the palette should be discretized into.
+
+    Returns
+    -------
+    cmap : :class:`matplotlib.colors.Colormap` or :class:`list`
+        Either the color map's object or a list of colors constituting
+        the color map.
+    """
+
+    # If the color map is available both in Seaborn and in Matplotlib.
+    if cmap in SEABORN_PALETTES and cmap in MATPLOTLIB_CMAPS:
+
+        # Inform the user about it.
+        infostr = \
+            f"The '{cmap}' color map is available in both " \
+            "Matplotlib and in Seaborn. The Seaborn " \
+            "implementation will be used."
+        logger.info(infostr)
+
+        # Get the color map from Seaborn.
+        cmap = sns.color_palette(cmap, as_cmap = True)
+
+    # If the color map is available in Seaborn.
+    elif cmap in SEABORN_PALETTES:
+
+        # Get the color map from Seaborn.
+        cmap = sns.color_palette(cmap, as_cmap = True)
+
+    # If the color map is available in Matplotlib.
+    elif cmap in MATPLOTLIB_CMAPS:
+
+        # Get the color map from Matplotlib.
+        cmap = plt.get_cmap(cmap)
+
+    # Otherwise
+    else:
+
+        # Get the names of all the available color maps.
+        available_cmaps = \
+            ", ".join([f"'{c}'" for c \
+                       in SEABORN_PALETTES.union(MATPLOTLIB_CMAPS)])
+        # Raise an error
+        errstr = \
+            f"Unrecognized '{cmap}' color map. Available color " \
+            f"maps are: {available_cmaps}."
+        raise ValueError(errstr)
+
+    #-----------------------------------------------------------------#
+    
+    # If a discrete number of colors was specified.
+    if n_colors:
+        
+        # Discretize the color map.
+        colors = cmap(np.linspace(0, 1, n_colors))
+        
+        # Return the list of colors.
+        return [c.tolist() for c \
+                in mcolors.ListedColormap(colors).colors]
+
+    #-----------------------------------------------------------------#
+
+    # Return the color map.
+    return cmap
+
+
+def check_custom_configs(config,
+                         sections,
+                         sections_needed = [],
+                         multiple_plots = False):
+    """Check the configuration passed for a plot.
+
+    Parameters
+    ----------
+    config : :class:`dict`
+        The configuration.
+
+    sections : :class:`list`
+        The sections that we may find in the configuration passed.
+
+    sections_needed : :class:`list`, ``[]``
+        The sections that need to be present in the configuration
+        passed.
+
+    multiple_plots : :class:`bool`, ``False``
+        Whether the configuration refers to a figure that will contain
+        multiple plots.
+    """
+
+    # For each section needed in the configuration
+    for section in sections_needed:
+
+        # Get the 'key path' to the section in the configuration.
+        key_path = section.split(":")
+
+        # If the section is absent from the configuration
+        if util.recursive_get(d = config,
+                              key_path = key_path) is None:
+
+            # Raise an error.
+            errstr = \
+                f"The '{section}' section must be present in the " \
+                "configuration."
+            raise KeyError(errstr)
+
+    #-----------------------------------------------------------------#
+
+    # For each section that we may encounter in the configuration
+    for possible_section, item_name in SECTIONS2ITEMS.items():
+
+        # If the section is among those that could be in the current
+        # configuration
+        if possible_section in sections:
+
+            # Get the 'key path' to the section in the configuration.
+            key_path = possible_section.split(":")
+
+            # If the section is present in the configuration
+            if util.recursive_get(d = config,
+                                  key_path = key_path) is not None:
+
+
+                # If there will be multiple plots on the same figure
+                if multiple_plots:
+                    
+                    # Inform the user that the custom configuration
+                    # will be used.
+                    infostr = \
+                        "A custom configuration will be used for " \
+                        f"the {item_name} in each plot."
+
+                # Otherwise
+                else:
+                    
+                    # Inform the user that the custom configuration
+                    # will be used.
+                    infostr = \
+                        "A custom configuration will be used for " \
+                        f"the {item_name} in the plot."
+
+                # Inform the user about the custom configuration used.
+                logger.info(infostr)

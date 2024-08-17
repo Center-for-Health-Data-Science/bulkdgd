@@ -10,7 +10,7 @@ So far, bulkDGD implements two optimization schemes:
 ``one_opt`` scheme
 ------------------
 
-When running :meth:`core.model.DGDModel.get_representations` the ``config`` argument should be a dictionary structured as follows to use the ``one_opt`` scheme:
+When running :meth:`core.model.BulkDGDModel.get_representations` the ``config`` argument should be a dictionary structured as follows to use the ``one_opt`` scheme:
 
 .. code-block:: python
    
@@ -137,7 +137,7 @@ When running :meth:`core.model.DGDModel.get_representations` the ``config`` argu
 ``two_opt`` scheme
 ------------------
 
-When running :meth:`core.model.DGDModel.get_representations` the ``config`` argument should be a dictionary structured as follows to use the ``two_opt`` scheme:
+When running :meth:`core.model.BulkDGDModel.get_representations` the ``config`` argument should be a dictionary structured as follows to use the ``two_opt`` scheme:
 
 .. code-block:: python
 

@@ -1,0 +1,22 @@
+# Configuration file to perform a KPCA. The full list of available
+# options can be found here: https://scikit-learn.org/stable/modules/
+# generated/sklearn.decomposition.KernelPCA.html#
+# sklearn.decomposition.KernelPCA
+
+# Set the number of components.
+#
+# Type: int.
+n_components: 2
+
+# Set the kernel.
+#
+# Type: str.
+#
+# Options:
+# - 'linear'
+# - 'poly'
+# - 'rbf’
+# - 'sigmoid’
+# - ‘cosine’
+# - ‘precomputed’
+kernel: rbf

@@ -96,7 +96,7 @@ def _yield_p_values(obs_counts,
     """
 
     # For each gene's observed count, predicted mean count, and r-value
-    for i, obs_count_gene_i, pred_mean_gene_i \
+    for i, (obs_count_gene_i, pred_mean_gene_i) \
         in enumerate(zip(obs_counts, pred_means)):
 
         #-------------------------------------------------------------#
@@ -349,7 +349,7 @@ def get_p_values(obs_counts,
 
         If not passed, the calculation will be exact.
 
-    return_pmf_values : :class:`bool`, ``False``
+    return_pmf_values : :class:`bool`, :obj:`False`
         Return the points at which the log-probability mass function
         was evaluated and the corresponding values of the log-
         probability mass function, together with the p-values.
@@ -543,7 +543,7 @@ def get_p_values(obs_counts,
     if final_results[2]:
 
         # Convert the array of values into a data frame.
-        df_pmfs = pd.DataFrame(np.stack(pmfs))
+        df_pmfs = pd.DataFrame(np.stack(final_results[2]))
 
         # Set the index of the data frame equal to the genes' names.
         df_pmfs.index = genes_obs

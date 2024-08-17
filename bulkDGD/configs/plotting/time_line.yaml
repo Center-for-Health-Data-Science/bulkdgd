@@ -133,7 +133,7 @@ plot:
     
     # Set the properties of the font of the legend's text elements.
     #
-    # All the the availabe options for the properties can be found at:
+    # All the the available options for the properties can be found at:
     #
     # https://matplotlib.org/stable/api/
     # font_manager_api.html#matplotlib.font_manager.FontProperties
@@ -155,7 +155,7 @@ plot:
 
     # Set the properties of the font of the legend's title.
     # 
-    # All the availabe options for the properties can be found at:
+    # All the available options for the properties can be found at:
     #
     # https://matplotlib.org/stable/api/
     # font_manager_api.html#matplotlib.font_manager.FontProperties
@@ -201,7 +201,7 @@ plot:
 
     # Set the properties of the font of the plot's title.
     # 
-    # All the availabe options for the properties can be found at:
+    # All the available options for the properties can be found at:
     #
     # https://matplotlib.org/stable/api/
     # font_manager_api.html#matplotlib.font_manager.FontProperties
@@ -247,7 +247,7 @@ plot:
 
       # Set the properties of the font of the axis' label.
       #
-      # All the availabe options for the properties can be found at:
+      # All the available options for the properties can be found at:
       #
       # https://matplotlib.org/stable/api/
       # font_manager_api.html#matplotlib.font_manager.FontProperties
@@ -291,7 +291,7 @@ plot:
 
         # Set the properties of the font of the ticks' labels.
         #
-        # All the availabe options for the properties can be found at:
+        # All the available options for the properties can be found at:
         #
         # https://matplotlib.org/stable/api/
         # font_manager_api.html#matplotlib.font_manager.FontProperties
@@ -368,7 +368,7 @@ plot:
 
       # Set the properties of the font of the axis' label.
       #
-      # All the availabe options for the properties can be found at:
+      # All the available options for the properties can be found at:
       #
       # https://matplotlib.org/stable/api/
       # font_manager_api.html#matplotlib.font_manager.FontProperties
@@ -412,7 +412,7 @@ plot:
 
         # Set the properties of the font of the ticks' labels.
         #
-        # All the availabe options for the properties can be found at:
+        # All the available options for the properties can be found at:
         #
         # https://matplotlib.org/stable/api/
         # font_manager_api.html#matplotlib.font_manager.FontProperties

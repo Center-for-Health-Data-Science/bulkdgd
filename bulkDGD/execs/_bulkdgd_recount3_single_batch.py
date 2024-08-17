@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- Mode: python; tab-width: 4; indent-tabs-mode:nil; coding:utf-8 -*-
 
-#    _dgd_get_recount3_data_single_batch.py
+#    _bulkdgd_recount3_single_batch.py
 #
 #    Get RNA-seq data associated with a single set of human samples
 #    for projects hosted on the Recount3 platform.
@@ -41,36 +41,54 @@ import argparse
 import logging as log
 import os
 import sys
-# Import from third-party packages.
-import pandas as pd
 # Import from 'bulDGD'.
-from bulkDGD import defaults, ioutil, recount3, util
+from bulkDGD import ioutil, recount3
+from . import defaults, util
 
 
 #######################################################################
 
 
+# Define the 'main' function.
 def main():
 
 
     # Create the argument parser.
-    parser = argparse.ArgumentParser()
+    parser = \
+        argparse.ArgumentParser(\
+            description = __doc__,
+            formatter_class = util.CustomHelpFormatter)
 
     #-----------------------------------------------------------------#
 
-    # Add the arguments.
+    # Create a group of arguments for the input options.
+    input_group = \
+        parser.add_argument_group(title = "Input options")
+
+    # Create a group of arguments for the output options.
+    output_group = \
+        parser.add_argument_group(title = "Output options")
+
+    #-----------------------------------------------------------------#
+
+    # Set the choices for the argument.
     ip_choices = ["gtex", "tcga", "sra"]
     ip_choices_str = ", ".join(f"'{choice}'" for choice in ip_choices)
+
+    # Set a help message.
     ip_help = \
         "The name of the Recount3 project for which samples will " \
         f"be retrieved. The available projects are: {ip_choices_str}."
-    parser.add_argument("-ip", "--input-project-name",
-                        required = True,
-                        choices = ip_choices,
-                        help = ip_help)
+
+    # Add the argument to the group.
+    input_group.add_argument("-ip", "--input-project-name",
+                             required = True,
+                             choices = ip_choices,
+                             help = ip_help)
 
     #-----------------------------------------------------------------#
 
+    # Set a help message.
     is_help = \
         "The category of samples for which RNA-seq data will be " \
         "retrieved. For GTEx data, this is the name of the tissue " \
@@ -78,68 +96,75 @@ def main():
         "For TCGA data, this is the type of cancer the samples are " \
         "associated with." \
         "For SRA data, this is the code associated with the project."
-    parser.add_argument("-is", "--input-samples-category",
-                        required = True,
-                        help = is_help)
+
+    # Add the argument to the group.
+    input_group.add_argument("-is", "--input-samples-category",
+                             required = True,
+                             help = is_help)
 
     #-----------------------------------------------------------------#
 
-    o_help = \
+    # Set the default value for the argument.
+    os_default = "{input_project_name}_{input_samples_category}.csv"
+
+    # Set a help message.
+    os_help = \
         "The name of the output CSV file containing the data frame " \
         "with the RNA-seq data for the samples. The file will be " \
         "written in the working directory. The default file name is " \
-        "'{input_project_name}_{input_samples_category}.csv'."
-    parser.add_argument("-o", "--output-csv",
-                        default = None,
-                        help = o_help)
+        f"'{os_default}'."
+
+    # Add the argument to the group.
+    output_group.add_argument("-os", "--output-samples",
+                              help = os_help)
 
     #-----------------------------------------------------------------#
 
-    d_help = \
-        "The working directory. The default is the current " \
-        "working directory."
-    parser.add_argument("-d", "--work-dir",
-                        default = os.getcwd(),
-                        help = d_help)
-
-    #-----------------------------------------------------------------#
-
+    # Set a help message.
     sg_help = \
         "Save the original GZ file containing the RNA-seq " \
         "data for the samples. The file will be saved in the " \
         "working directory and named " \
         "'{input_project_name}_{input_samples_category}_" \
         "gene_sums.gz'."
-    parser.add_argument("-sg", "--save-gene-sums",
-                        action = "store_true",
-                        help = sg_help)
+
+    # Add the argument to the group.
+    output_group.add_argument("-sg", "--save-gene-sums",
+                              action = "store_true",
+                              help = sg_help)
 
     #-----------------------------------------------------------------#
 
+    # Set a help message.
     sm_help = \
         "Save the original GZ file containing the metadata " \
         "for the samples. The file will be saved in the working " \
         "directory and named " \
         "'{input_project_name}_{input_samples_category}_" \
         "metadata.gz'."
-    parser.add_argument("-sm", "--save-metadata",
-                        action = "store_true",
-                        help = sm_help)
+
+    # Add the argument to the group.
+    output_group.add_argument("-sm", "--save-metadata",
+                              action = "store_true",
+                              help = sm_help)
 
     #-----------------------------------------------------------------#
 
+    # Set a help message.
     qs_help = \
         "The string that will be used to filter the samples " \
         "according to their associated metadata using the " \
         "'pandas.DataFrame.query()' method. The option also " \
         "accepts a plain text file containing the string " \
         "since it can be long for complex queries."
-    parser.add_argument("-qs", "--query-string",
-                        default = None,
-                        help = qs_help)
+
+    # Add the argument to the group.
+    output_group.add_argument("-qs", "--query-string",
+                              help = qs_help)
 
     #-----------------------------------------------------------------#
 
+    # Set a help message.
     mk_help = \
         "A vertical line (|)-separated list of names of metadata " \
         "columns to keep in the final data frame. All the other " \
@@ -147,12 +172,14 @@ def main():
         "neither this option nor the '-md', '--metadata-to-drop' " \
         "is passed, all metadata columns are kept in the final data " \
         "frame."
-    parser.add_argument("-mk", "--metadata-to-keep",
-                        default = None,
-                        help = mk_help)
+
+    # Add the argument to the group.
+    output_group.add_argument("-mk", "--metadata-to-keep",
+                              help = mk_help)
 
     #-----------------------------------------------------------------#
 
+    # Set a help message.
     md_help = \
         "A vertical line (|)-separated list of names of metadata " \
         "columns to drop in the final data frame. All the other " \
@@ -161,79 +188,55 @@ def main():
         "from the data frame. If neither this option nor the '-mk', " \
         "'--metadata-to-keep' option is passed, all metadata " \
         "columns are kept in the final data frame."
-    parser.add_argument("-md", "--metadata-to-drop",
-                        default = None,
-                        help = md_help)
+
+    # Add the argument to the group.
+    output_group.add_argument("-md", "--metadata-to-drop",
+                              help = md_help)
 
     #-----------------------------------------------------------------#
 
-    lf_default = "_dgd_get_recount3_data_single_batch.log"
-    lf_help = \
-        "The name of the log file. The file will be written " \
-        "in the working directory. The default file name is " \
-        f"'{lf_default}'."
-    parser.add_argument("-lf", "--log-file",
-                        default = lf_default,
-                        help = lf_help)
-
-    #-----------------------------------------------------------------#
-
-    lc_help = "Show log messages also on the console."
-    parser.add_argument("-lc", "--log-console",
-                        action = "store_true",
-                        help = lc_help)
-
-    #-----------------------------------------------------------------#
-
-    v_help = "Enable verbose logging (INFO level)."
-    parser.add_argument("-v", "--log-verbose",
-                        action = "store_true",
-                        help = v_help)
-    
-    #-----------------------------------------------------------------#
-
-    vv_help = \
-        "Enable maximally verbose logging for debugging " \
-        "purposes (DEBUG level)."
-    parser.add_argument("-vv", "--log-debug",
-                        action = "store_true",
-                        help = vv_help)
+    # Add arguments for the working directory and logging.
+    util.add_wd_and_logging_arguments(\
+        parser = parser,
+        command_name = "_recount3_single_batch")
 
     #-----------------------------------------------------------------#
 
     # Parse the arguments.
     args = parser.parse_args()
+
+    # Get the argument corresponding to the working directory.
+    wd = args.work_dir
+
+    # Get the arguments corresponding to the input options.
     input_project_name = args.input_project_name
     input_samples_category = args.input_samples_category
-    output_csv = args.output_csv
-    wd = os.path.abspath(args.work_dir)
+
+    # Get the arguments corresponding to the output options.
+    output_samples = os.path.join(wd, args.output_samples)
     query_string = args.query_string
     metadata_to_keep = args.metadata_to_keep
     metadata_to_drop = args.metadata_to_drop
     save_gene_sums = args.save_gene_sums
     save_metadata = args.save_metadata
-    log_file = args.log_file
-    log_console = args.log_console
-    v = args.log_verbose
-    vv = args.log_debug
 
     #-----------------------------------------------------------------#
 
     # Get the module's logger.
-    logger = log.getLogger("dgd_get_recount3_data")
+    logger = log.getLogger("get_recount3_data")
 
     # Set WARNING logging level by default.
     log_level = log.WARNING
 
     # If the user requested verbose logging
-    if v:
+    if args.log_verbose:
 
         # The minimal logging level will be INFO.
         log_level = log.INFO
 
     # If the user requested logging for debug purposes
     # (-vv overrides -v if both are provided)
-    if vv:
+    if args.log_debug:
 
         # The minimal logging level will be DEBUG.
         log_level = log.DEBUG
@@ -241,10 +244,10 @@ def main():
     # Configure the logging.
     handlers = \
         util.get_handlers(\
-            log_console = log_console,
+            log_console = args.log_console,
             log_console_level = log.ERROR,
             log_file_class = log.FileHandler,
-            log_file_options = {"filename" : log_file,
+            log_file_options = {"filename" : args.log_file,
                                 "mode" : "w"},
             log_file_level = log_level)
 
@@ -454,25 +457,25 @@ def main():
     #-----------------------------------------------------------------#
 
     # If the user did not pass a name for the output CSV file
-    if output_csv is None:
+    if output_samples is None:
 
         # Use the default output name.
-        output_csv_path = \
-            os.path.join(wd, o_default.format(input_project_name,
-                                              input_samples_category))
+        output_samples = \
+            os.path.join(wd, os_default.format(input_project_name,
+                                               input_samples_category))
 
     # Otherwise
     else:
 
         # Use the user-defined one.
-        output_csv_path = \
-            os.path.join(wd, output_csv)
+        output_samples = \
+            os.path.join(wd, output_samples)
 
     # Try to write the data frame to the output CSV file.
     try:
         
         ioutil.save_samples(df = df_final,
-                            csv_file = output_csv_path,
+                            csv_file = output_samples,
                             sep = ",")
 
     # If something went wrong
@@ -481,6 +484,6 @@ def main():
         # Log it and exit.
         errstr = \
             "It was not possible to save the final data frame in " \
-            f"'{output_csv_path}'. Error: {e}"
+            f"'{output_samples}'. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)

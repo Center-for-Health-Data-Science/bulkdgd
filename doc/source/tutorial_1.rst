@@ -6,7 +6,7 @@ The code and input/output data regarding this tutorial can be found in the ``bul
 Step 1 - Preprocess the input samples
 -------------------------------------
 
-In this tutorial, we are going to find the best representations in the latent space defined by the DGD model for a set of samples.
+In this tutorial, we are going to find the best representations in the latent space defined by the bulkDGD model for a set of samples.
 
 We are going to use the samples provided in the ``samples.csv`` file.
 
@@ -67,24 +67,24 @@ Then, we can preprocess the samples.
    df_preproc, genes_excluded, genes_missing = \
        ioutil.preprocess_samples(df_samples = df_samples)
 
-The function looks for duplicated samples, duplicated genes, and missing values in the columns containing gene expression data. If the function finds duplicated samples or genes with missing expression values, it raises a warning but keeps the samples where the duplication or missing values were found. However, the function will throw an error if it finds duplicated genes since the DGD model assumes the input samples report expression data for unique genes.
+The function looks for duplicated samples, duplicated genes, and missing values in the columns containing gene expression data. If the function finds duplicated samples or genes with missing expression values, it raises a warning but keeps the samples where the duplication or missing values were found. However, the function will throw an error if it finds duplicated genes since the bulkDGD model assumes the input samples report expression data for unique genes.
 
-Then, the function re-orders the columns containing gene expression data according to the list of genes included in the DGD model and places all the columns containing additional information about the samples (in our case, the ``tissue`` column) as the last columns of the output data frame.
+Then, the function re-orders the columns containing gene expression data according to the list of genes included in the bulkDGD model and places all the columns containing additional information about the samples (in our case, the ``tissue`` column) as the last columns of the output data frame.
 
-Finally, the function checks that all genes in the input samples are among those included in the DGD model, and that all genes used in the DGD model are found in the input samples.
+Finally, the function checks that all genes in the input samples are among those included in the bulkDGD model, and that all genes used in the bulkDGD model are found in the input samples.
 
 The function returns three objects:
 
 * ``df_preproc`` is a data frame containing the preprocessed samples.
 
-* ``genes_excluded`` is a list containing the Ensembl IDs of the genes that were found in the input samples but are not part of the set of genes included in the DGD model. These genes are absent from ``df_preproc``. In our case, no genes were excluded.
+* ``genes_excluded`` is a list containing the Ensembl IDs of the genes that were found in the input samples but are not part of the set of genes included in the bulkDGD model. These genes are absent from ``df_preproc``. In our case, no genes were excluded.
 
-* ``genes_missing`` is a list containing the Ensembl IDs of the genes that are part of the set of genes included in the the DGD model but were not found in the input samples. These genes are added to ``df_preproc`` with a count of 0 for all samples. In our case, no genes were missing.
+* ``genes_missing`` is a list containing the Ensembl IDs of the genes that are part of the set of genes included in the the bulkDGD model but were not found in the input samples. These genes are added to ``df_preproc`` with a count of 0 for all samples. In our case, no genes were missing.
 
-Step 2 - Get the trained DGD model
-----------------------------------
+Step 2 - Get the trained bulkDGD model
+--------------------------------------
 
-In order to set up the DGD model and load its trained parameters, we need a configuration file specifying the options to initialize the model and the path to the files containing the parameters of the trained model. Here, we model the genes' counts using negative binomial distributions.
+In order to set up the bulkDGD model and load its trained parameters, we need a configuration file specifying the options to initialize the model and the path to the files containing the parameters of the trained model. Here, we model the genes' counts using negative binomial distributions.
 
 In this case, we will use the ``bulkDGD/configs/model/model.yaml`` file. We can refer to this file using only the file's name (without extension) since it is located in the ``bulkDGD/configs/model`` directory.
 
@@ -98,27 +98,27 @@ We can load the configuration using the :func:`ioutil.load_config_model` functio
    # Check the configuration.
    config_model = util.check_config_model(config = config_model)
 
-Once loaded, the configuration consists of a dictionary of options, which maps to the arguments required by the :class:`core.model.DGDModel` constructor.
+Once loaded, the configuration consists of a dictionary of options, which maps to the arguments required by the :class:`core.model.BulkDGDModel` constructor.
 
-You can find more information about the available options to configure the DGD model :doc:`here <model_config_options>`.
+You can find more information about the available options to configure the bulkDGD model :doc:`here <model_config_options>`.
 
-Then, we can initialize the trained DGD model.
+Then, we can initialize the trained bulkDGD model.
 
 .. code-block:: python
    
    # Import the 'model' module from 'bulkDGD.core'.
    from bulkDGD.core import model
    
-   # Get the trained DGD model (Gaussian mixture model
+   # Get the trained bulkDGD model (Gaussian mixture model
    # and decoder).
-   dgd_model = model.DGDModel(**config_model)
+   dgd_model = model.BulkDGDModel(**config_model)
 
 Step 3 - Get the optimization scheme
 ------------------------------------
 
 Before finding the representations, we need to define the scheme that will be used to optimize the representations in latent space.
 
-The scheme is contained in a YAML configuration file similar to that containing the DGD model's configuration.
+The scheme is contained in a YAML configuration file similar to that containing the bulkDGD model's configuration.
 
 In this case, we will use the ``bulkDGD/configs/representations/two_opt.yaml`` file. We can refer to this file using only the file's name (without extension) since it is located in the ``bulkDGD/configs/representations`` directory.
 
@@ -139,7 +139,7 @@ You can find more information about the supported optimization schemes and corre
 Step 4 - Find and optimize the representations
 ----------------------------------------------
 
-We can now use the :meth:`core.model.DGDModel.get_representations` method to find and optimize the representations for our input samples.
+We can now use the :meth:`core.model.BulkDGDModel.get_representations` method to find and optimize the representations for our input samples.
 
 .. code-block:: python
    
@@ -160,7 +160,7 @@ The method returns four objects:
 
 * ``df_pred_means`` is a ``pandas.DataFrame`` containing the predicted scaled means of the negative binomials used to model the RNA-seq genes' counts in the in silico samples corresponding to the best representations found. In this data frame, each row represents a different sample, and each column represents either the scaled mean of the negative binomial for a specific gene (in the columns named after the genes' Ensembl IDs) or additional information about the original samples (in our case, the ``tissue`` column).
 
-* ``df_pred_r_values`` is a ``pandas.DataFrame`` containing the predicted r-values of the negative binomials used to model the RNA-seq genes' counts in the in silico samples corresponding to the best representations found. In this data frame, each row represents a different sample, and each column represents either the r-value of the negative binomial for a specific gene (in the columns named after the genes' Ensembl IDs) or additional information about the original samples (in our case, the ``tissue`` column). If we had used Poisson distributions to model the genes' counts instead of negative binomial distributions, ``df_pred_r_values`` would have been ``None``-
+* ``df_pred_r_values`` is a ``pandas.DataFrame`` containing the predicted r-values of the negative binomials used to model the RNA-seq genes' counts in the in silico samples corresponding to the best representations found. In this data frame, each row represents a different sample, and each column represents either the r-value of the negative binomial for a specific gene (in the columns named after the genes' Ensembl IDs) or additional information about the original samples (in our case, the ``tissue`` column). If we had used Poisson distributions to model the genes' counts instead of negative binomial distributions, ``df_pred_r_values`` would have been ``None``.
 
 * ``df_time`` is a ``pandas.DataFrame`` containing information about the CPU and wall clock time used by each optimization epoch and each backpropagation step through the decoder (one per epoch).
 

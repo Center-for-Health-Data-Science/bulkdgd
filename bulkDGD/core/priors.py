@@ -4,11 +4,7 @@
 #    priors.py
 #
 #    This module contains the classes implementing some of the prior
-#    distributions used in the DGD model. The 'softball' distribution
-#    (:class:`core.priors.SoftballPrior`) is used as a prior over the
-#    means of the components of the Gaussian mixture, while a
-#    Gaussian distribution (:class:`core.priors.GaussianPrior`) is
-#    used as a prior over the log-variance of the Gaussian mixture.
+#    distributions used in the :class:`core.model.BulkDGDModel`.
 #
 #    The code was originally developed by Viktoria Schuster,
 #    Inigo Prada Luengo, and Anders Krogh.
@@ -46,12 +42,8 @@
 # Set the module's description.
 __doc__ = \
     "This module contains the classes implementing some of the " \
-    "prior distributions used in the DGD model. The 'softball' " \
-    "distribution (:class:`core.priors.SoftballPrior`) is used " \
-    "as a prior over the means of the components of the " \
-    "Gaussian mixture, while a Gaussian distribution " \
-    "(:class:`core.priors.GaussianPrior`) is used as a prior " \
-    "over the log-variance of the Gaussian mixture."
+    "prior distributions used in the " \
+    ":class:`core.model.BulkDGDModel`."
 
 
 #######################################################################

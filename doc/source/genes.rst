@@ -1,5 +1,5 @@
-``genes`` - creating customized list of genes
-=============================================
+``genes`` - creating customized lists of genes
+==============================================
 
 .. automodule:: genes.util
 

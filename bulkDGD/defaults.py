@@ -34,7 +34,6 @@ __doc__ = "General default values."
 
 
 # Import from the standard library.
-import logging as log
 import os
 
 
@@ -74,7 +73,37 @@ CONFIG_DIRS = \
     "genes" : \
         os.path.join(os.path.dirname(__file__),
                      "configs/genes"),
-    }
+
+    # Set the directory containing the configuration files specifying
+    # the options to perform dimensionality reduction analyses.
+    "dimensionality_reduction" : \
+        os.path.join(os.path.dirname(__file__),
+                     "configs/dimensionality_reduction")}
+
+#---------------------------------------------------------------------#
+
+# Set the default configuration files for performing dimensionality
+# reduction analyses.
+CONFIG_FILES_DIM_RED = \
+    {# Set the default configuration file for performing a PCA.
+     "pca" : \
+        os.path.join(os.path.dirname(__file__),
+                     "configs/dimensionality_reduction/pca.yaml"),
+     
+     # Set the default configuration file for performing a KPCA.
+     "kpca" : \
+        os.path.join(os.path.dirname(__file__),
+                     "configs/dimensionality_reduction/kpca.yaml"),
+     
+     # Set the default configuration file for performing a MDS.
+     "mds" : \
+        os.path.join(os.path.dirname(__file__),
+                     "configs/dimensionality_reduction/mds.yaml"),
+     
+     # Set the default configuration file for performing a t-SNE.
+     "tsne" : \
+        os.path.join(os.path.dirname(__file__),
+                     "configs/dimensionality_reduction/tsne.yaml")}
 
 #---------------------------------------------------------------------#
 
@@ -85,8 +114,25 @@ CONFIG_FILES_PLOT = \
      # a PCA.
      "pca" : \
         os.path.join(os.path.dirname(__file__),
-                     "configs/plotting/pca_scatter.yaml"),
-     }
+                     "configs/plotting/dim_red.yaml"),
+     
+     # Set the default configuration file for plotting the results of
+     # a KPCA.
+     "kpca" : \
+        os.path.join(os.path.dirname(__file__),
+                     "configs/plotting/dim_red.yaml"),
+     
+     # Set the default configuration file for plotting the results of
+     # a MDS.
+     "mds" : \
+        os.path.join(os.path.dirname(__file__),
+                     "configs/plotting/dim_red.yaml"),
+     
+     # Set the default configuration file for plotting the results of
+     # a PCA.
+     "tsne" : \
+        os.path.join(os.path.dirname(__file__),
+                     "configs/plotting/dim_red.yaml"),}
 
 
 #---------------------------------------------------------------------#
@@ -109,91 +155,7 @@ DATA_FILES_MODEL = \
     # included in the DGD model.
     "genes" : \
         os.path.join(os.path.dirname(__file__),
-                     "data/genes/genes.txt")}
-
-
-#######################################################################
-
-
-# Set the list of Dask loggers.
-DASK_LOGGERS = [\
-    "distributed.batched",
-    "distributed.client",
-    "distributed.comm",
-    "distributed.core",
-    "distributed.diskutils",
-    "distributed.http.proxy",
-    "distributed.nanny",
-    "distributed.scheduler",
-    "distributed.worker",
-    "bokeh.server"]
-
-#---------------------------------------------------------------------#
-
-# Set the default level for logging.
-LOG_LEVEL = "WARNING"
-
-# Set the default format for log records.
-LOG_FMT = "{asctime}:{levelname}:{name}:{message}"
-
-# Set the default format for date and time in log records.
-LOG_DATEFMT = "%Y-%m-%d,%H:%M"
-
-# Set the style of the log records.
-LOG_STYLE = "{"
-
-#---------------------------------------------------------------------#
-
-# Set the configuration for named formatters used when logging.
-CONFIG_FORMATTERS = \
-    {# Set a generic formatter for log messages.
-     "generic_formatter" : \
-    
-        {# Set a format string in the given 'style' for the logged
-         # output as a whole.
-         "fmt" : LOG_FMT,
-
-         # Set a format string in the given 'style' for the date/time
-         # portion of the logged output.
-         "datefmt" : LOG_DATEFMT,
-
-         # The 'style' be one of '%', '{' or '$' and determines how
-         # the format string will be merged with its data.
-         "style" : LOG_STYLE},
-    }
-
-#---------------------------------------------------------------------#
-
-# Set the configuration for named filters used when logging.
-CONFIG_FILTERS = \
-    {# Ignore messages starting with specific strings from the Dask
-     # loggers.
-     "distributed_filter" : \
-
-        {# Set the custom 'factory' for the filter.
-         "()" : "bulkDGD.util.LevelContentFilter",
-         
-         # Set the level of the records that should be ignored.
-         "level" : "INFO",
-
-         # Set how the record should start for them to be ignored.
-         "start" : ["Starting Worker plugin",
-                    "---",
-                    "Local Directory:",
-                    "Memory:",
-                    "Threads:",
-                    "Registered to:",
-                    "Stopping worker",
-                    "Waiting to connect to:",
-                    "Listening to:",
-                    "Start worker at:",
-                    "Worker name:",
-                    "dashboard at:",
-                    "Worker closed",
-                    "Found state lock",
-                    "Starting established connection",
-                    "Keep-alive"]},
-    }
+                     "data/model/genes/genes.txt")}
 
 
 #######################################################################
@@ -214,7 +176,6 @@ CONFIG_MODEL_TEMPLATE = \
     
      # Set the file containing the genes included in the model.
      "genes_txt_file" : str}
-
 
 # Set the templates against which to check the configuration for
 # the different types of optimization schemes that can be used

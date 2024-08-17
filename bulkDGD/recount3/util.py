@@ -39,7 +39,6 @@ __doc__ = \
 # Import from the standard library.
 import logging as log
 import os
-import sys
 import re
 import tempfile
 # Import from third-party packages.
@@ -95,8 +94,9 @@ def _get_metadata_fields(project_name,
 
         # Get the fields (ignore empty lines and comment lines).
         metadata_fields = \
-            [l.rstrip("\n") for l in f \
-             if not (re.match(r"^\s*$", l) or l.startswith("#"))]
+            [line.rstrip("\n") for line in f \
+             if not (re.match(r"^\s*$", line) or \
+                     line.startswith("#"))]
 
         #-------------------------------------------------------------#
 
@@ -325,7 +325,7 @@ def load_samples_batches(samples_file):
 
     Notes
     -----
-    ** CSV file **
+    **CSV file**
 
     If the input file is a CSV file, it should contain a
     comma-separated data frame.
@@ -375,7 +375,7 @@ def load_samples_batches(samples_file):
       are valid column names and, if passed, will result in these
       columns being dropped.
 
-    ** YAML file **
+    **YAML file**
 
     If the file is a YAML file, it should have the format exemplified
     below. We recommend using a YAML file over a CSV file when you have
@@ -577,8 +577,8 @@ def get_gene_sums(project_name,
     samples_category : :class:`str`
         The category of samples requested.
 
-    save_gene_sums : :class:`bool`, ``True``
-        If ``True``, save the original RNA-seq data file in the
+    save_gene_sums : :class:`bool`, :obj:`True`
+        If :obj:`True`, save the original RNA-seq data file in the
         working directory.
 
         The file name will be 
@@ -586,7 +586,7 @@ def get_gene_sums(project_name,
 
     wd : :class:`str`, optional
         The working directory where the original RNA-seq data
-        file will be saved, if ``save_gene_sums`` is ``True``.
+        file will be saved, if ``save_gene_sums`` is :obj:`True`.
 
         If not specified, it will be the current working directory.
 
@@ -661,14 +661,14 @@ def get_gene_sums(project_name,
 
         # Raise an error.
         errstr = \
-            "It was not possible to retieve the RNA-seq " \
+            "It was not possible to retrieve the RNA-seq " \
             "data from the Recount3 platform. Error code: " \
             f"{gene_sums.status_code}. URL: {gene_sums_url}. "
         raise Exception(errstr)
 
     # Inform the user that the data were successfully retrieved.
     infostr = \
-        "The RNA-seq data were successfully retieved from the " \
+        "The RNA-seq data were successfully retrieved from the " \
         "the Recount3 platform."
     logger.info(infostr)
 
@@ -741,13 +741,13 @@ def get_metadata(project_name,
     samples_category : :class:`str`
         The category of samples requested.
 
-    save_metadata : :class:`bool`, ``True``
-        If ``True``, save the original metadata file in the working
+    save_metadata : :class:`bool`, :obj:`True`
+        If :obj:`True`, save the original metadata file in the working
         directory.
 
     wd : :class:`str`, optional
         The working directory where the original metadata file will be
-        saved, if ``save_metadata`` is ``True``.
+        saved, if ``save_metadata`` is :obj:`True`.
 
         If not specified, it will be the current working directory.
 
@@ -838,14 +838,14 @@ def get_metadata(project_name,
 
         # Raise an error.
         errstr = \
-            "It was not possible to retieve the metadata from the " \
+            "It was not possible to retrieve the metadata from the " \
             "Recount3 platform. Error code: " \
             f"{metadata.status_code}. URL: {metadata_url}."
         raise Exception(errstr)
 
     # Inform the user that the data were successfully retrieved.
     infostr = \
-        "The metadata were successfully retieved from the Recount3 " \
+        "The metadata were successfully retrieved from the Recount3 " \
         "platform."
     logger.info(infostr)
 
@@ -927,12 +927,11 @@ def get_metadata(project_name,
 
             # Define a function to parse the 'sample_attribute' column
             # in the metadata.
-            parse_attributes = \
-                lambda attr_str: dict(\
-                    (item.split(";;")[0].replace(" ", "_"), 
-                     item.split(";;")[1]) \
-                    for item in str(attr_str).split("|") \
-                    if item != "nan")
+            def parse_attributes(attr_str):
+                return dict((item.split(";;")[0].replace(" ", "_"), \
+                             item.split(";;")[1]) for item \
+                             in str(attr_str).split("|") \
+                             if item != "nan")
 
             # Parse the samples' attributes from the data frame and
             # convert them into a data frame.
@@ -956,10 +955,6 @@ def get_metadata(project_name,
                 logger.info(infostr)
 
             #---------------------------------------------------------#
-
-            # Get the standard metadata fields.
-            metadata_fields = \
-                _get_metadata_fields(project_name = project_name)
 
             # Get any attributes that are already found in the
             # metadata.
