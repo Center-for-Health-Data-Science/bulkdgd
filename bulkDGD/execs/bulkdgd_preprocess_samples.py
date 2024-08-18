@@ -91,6 +91,18 @@ def set_sub_parser(sub_parsers):
 
     #-----------------------------------------------------------------#
 
+    # Set a help message.
+    ig_help = \
+        "The input plain text file containing the list of genes " \
+        "that should be or are included in the bulkDGD model. " \
+        "If not passed, the default list of genes will be used."
+
+    # Add the argument to the group.
+    input_group.add_argument("-ig", "--input-genes-list",
+                             help = ig_help)
+    
+    #-----------------------------------------------------------------#
+
     # Set the default value for the argument.
     os_default = "samples_preprocessed.csv"
 
@@ -159,8 +171,9 @@ def main(args):
     # Get the argument corresponding to the working directory.
     wd = args.work_dir
 
-    # Get the argument corresponding to the input file.
+    # Get the arguments corresponding to the input files.
     input_samples = args.input_samples
+    input_genes_list = args.input_genes_list
 
     # Get the arguments corresponding to the output files.
     output_samples = \
@@ -202,7 +215,9 @@ def main(args):
     try:
 
         df_preproc, genes_excluded, genes_missing = \
-            ioutil.preprocess_samples(df_samples = df_samples)
+            ioutil.preprocess_samples(\
+                df_samples = df_samples,
+                genes_txt_file = input_genes_list)
 
     # If something went wrong
     except Exception as e:
