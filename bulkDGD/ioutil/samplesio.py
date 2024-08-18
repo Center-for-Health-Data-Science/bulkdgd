@@ -114,7 +114,8 @@ def load_samples(csv_file,
         df = pd.read_csv(csv_file,
                          sep = sep,
                          index_col = 0,
-                         header = 0)
+                         header = 0,
+                         low_memory = False)
 
         # Inform the user that the original IDs will be used.
         infostr = \
