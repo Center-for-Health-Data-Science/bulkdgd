@@ -121,6 +121,11 @@ def _perform_dim_red(df,
         A data frame containing the results of the PCA.
     """
 
+    # Create a copy of the options.
+    mod_options = dict(mod_options)
+
+    #-----------------------------------------------------------------#
+
     # If the user specified the number of components
     if "n_components" in mod_options:
 
