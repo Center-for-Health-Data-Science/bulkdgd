@@ -175,7 +175,7 @@ def main():
                 # Log the error.
                 errstr = \
                     f"The run in the '{work_dir}' directory failed. " \
-                    "Please the log file in the directory for " \
+                    "Please check the log file in the directory for " \
                     "more information."
                 logger.error(errstr)
 
