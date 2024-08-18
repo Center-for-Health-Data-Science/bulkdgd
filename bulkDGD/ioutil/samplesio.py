@@ -73,14 +73,14 @@ def load_samples(csv_file,
     sep : :class:`str`, ``","``
         The column separator in the input CSV file.
 
-    keep_samples_names : :class:`bool`, ``True``
+    keep_samples_names : :class:`bool`, :class:`True`
         Whether to keep the names/IDs/indexes assigned to the
         samples in the input data frame.
 
-        If ``True``, the samples' names/IDs/indexes are assumed
+        If :class:`True`, the samples' names/IDs/indexes are assumed
         to be in the first column of the input data frame.
 
-    split : :class:`bool`, ``True``
+    split : :class:`bool`, :class:`True`
         Whether to split the input data frame into two data frames,
         one with only the columns containing the gene expression
         data and the other containing only the columns with
@@ -95,15 +95,15 @@ def load_samples(csv_file,
         the genes. Therefore, each cell contains the expression of a
         gene in a specific sample.
 
-        If ``split`` is ``False``, this data frame will contain also
-        the columns containing additional information about the
+        If ``split`` is :class:`False`, this data frame will contain
+        also the columns containing additional information about the
         samples, if any were found.
 
     df_other_data : :class:`pandas.DataFrame`
         A data frame containing the additional information about the
         samples found in the input data frame.
 
-        If ``split`` is ``False``, only ``df_data`` is returned.
+        If ``split`` is :class:`False`, only ``df_data`` is returned.
     """
 
     # If we need to keep the samples' original names

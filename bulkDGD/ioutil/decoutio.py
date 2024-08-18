@@ -66,7 +66,7 @@ def load_decoder_outputs(csv_file,
     sep : :class:`str`, ``","``
         The column separator in the input CSV file.
 
-    split : :class:`bool`, ``True``
+    split : :class:`bool`, :class:`True`
         Whether to split the input data frame into two data frames,
         one with only the columns containing the decoder's outputs
         and the other containing only the columns with additional
@@ -81,9 +81,9 @@ def load_decoder_outputs(csv_file,
         representation. and the columns contain the values
         of the output.
 
-        If ``split`` is ``False``, this data frame will also contain
-        the columns with additional information about the output, if
-        any were found.
+        If ``split`` is :class:`False`, this data frame will contain
+        also the columns with additional information about the
+        output, if any were found.
 
     df_other_data : :class:`pandas.DataFrame`
         A data frame containing additional information about the
@@ -93,14 +93,15 @@ def load_decoder_outputs(csv_file,
         representations and the columns contain additional
         information provided in the input data frame.
 
-        If ``split`` is ``False``, only ``df_data`` is returned.
+        If ``split`` is :class:`False`, only ``df_data`` is returned.
     """
 
     # Load the data frame with the decoder's outputs.
     df = pd.read_csv(csv_file,
                      sep = sep,
                      index_col = 0,
-                     header = 0)
+                     header = 0,
+                     low_memory = False)
 
     #-----------------------------------------------------------------#
 
