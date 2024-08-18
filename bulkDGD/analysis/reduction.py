@@ -473,6 +473,9 @@ def perform_tsne(df,
         The fitted model.
     """
 
+    # Create a copy of the options.
+    options = dict(options)
+
     # If the perplexity is not defined and the number of samples is
     # less than 30
     if "perplexity" not in options and len(df) <= 30:
