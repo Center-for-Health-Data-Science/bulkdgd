@@ -365,19 +365,19 @@ def main(args):
             args.append("-vv")
 
         #-------------------------------------------------------------#
-
+ 
         # Submit the calculation.
         futures.append(\
             client.submit(\
                 util.run_executable,
-                executable = "_bulkdgd_recount3_single_batch",
+                executable = "_bulkdgd_get_recount3_single_batch",
                 arguments = args,
                 extra_return_values = [num_batch]))
 
     #-----------------------------------------------------------------#
 
     # Get the futures as they are completed.
-    for future, result in as_completed(futures,
+    for _, result in as_completed(futures,
                                        with_results = True):
 
         # Get the process and the batch number from the current

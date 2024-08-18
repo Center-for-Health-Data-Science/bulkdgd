@@ -50,6 +50,7 @@ logger = log.getLogger(__name__)
 
 #######################################################################
 
+
 def main():
 
     # Set the main parser.
@@ -68,6 +69,9 @@ def main():
     # Get the 'n_proc' argument.
     n_proc = getattr(args, "n_proc", None)
 
+    # Get the 'parallelize' argument.
+    parallelize = getattr(args, "parallelize", False)
+
     #-----------------------------------------------------------------#
 
     # Set the logging.
@@ -76,7 +80,7 @@ def main():
     #-----------------------------------------------------------------#
 
     # If the execution should be parallelized
-    if args.parallelize:
+    if parallelize:
 
         # Create a list to store the futures.
         futures = []

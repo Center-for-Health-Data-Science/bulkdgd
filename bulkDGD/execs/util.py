@@ -581,6 +581,7 @@ def add_wd_and_logging_arguments(parser,
 
     #-----------------------------------------------------------------#
     
+    # If the command is not 'bulkdgd_dea' or 'bulkdgd_get_recount3'
     if command_name not in \
         ("bulkdgd_dea", "bulkdgd_get_recount3"):
 
@@ -799,7 +800,7 @@ def run_executable(executable,
 
         # Create the command line.
         line = [executable] + arguments
-    
+
     #-----------------------------------------------------------------#
 
     # Launch the executable.
