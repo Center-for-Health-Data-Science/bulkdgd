@@ -759,7 +759,8 @@ def process_arg_groups(val):
 
 def run_executable(executable,
                    arguments,
-                   extra_return_values = None):
+                   extra_return_values = None,
+                   shell = False):
     """Run an executable.
 
     Parameters
@@ -774,6 +775,9 @@ def run_executable(executable,
         A list of extra values to be returned by the function,
         together with the ``subprocess.CompletedProcess`` instance
         representing the completed process.
+    
+    shell : :class:`bool`, :obj:`False`
+        Whether to run the executable in a shell.
 
     Returns
     -------
@@ -784,9 +788,34 @@ def run_executable(executable,
     ``extra_return_values`` was passed.
     """
 
+    # If the user requested to run the executable in a shell
+    if shell:
+
+        # Create the command line.
+        line = f"{executable} {' '.join(arguments)}"
+    
+    # Otherwise
+    else:
+
+        # Create the command line.
+        line = [executable] + arguments
+    
+    #-----------------------------------------------------------------#
+
     # Launch the executable.
     completed_process = \
-        subprocess.run([executable] + arguments)
+        subprocess.run(line,
+                       shell = shell)
+
+    #-----------------------------------------------------------------#
+    
+    # If the user did not pass any extra return values
+    if extra_return_values is None:
+
+        # Return the completed process.
+        extra_return_values = []
+    
+    #-----------------------------------------------------------------#
 
     # Return the completed process and any other value that was
     # passed.
@@ -983,10 +1012,16 @@ def set_executable_args(args,
     #-----------------------------------------------------------------#
 
     # For each argument
-    for arg, val in kwargs.items():
+    for arg, val in dict(kwargs).items():
+
+        # If the value is None
+        if val is None:
+
+            # Pop it.
+            kwargs.pop(arg)
         
         # If the argument starts with 'input_' or 'config_'
-        if arg.startswith("input_") \
+        elif arg.startswith("input_") \
         or arg.startswith("config_"):
 
             # Get the full path to the file.

@@ -35,7 +35,6 @@ __doc__ = "Main command."
 
 # Import from the standard library.
 import logging as log
-import sys
 # Import from 'bulkDGD'.
 from . import (
     parsers,
@@ -63,23 +62,11 @@ def main():
 
     #-----------------------------------------------------------------#
 
-    # Get the 'command' argument.
-    command = getattr(args, "command", None)
-
     # Get the 'work_dir' argument.
     wd = getattr(args, "work_dir", None)
 
     # Get the 'n_proc' argument.
     n_proc = getattr(args, "n_proc", None)
-
-    #-----------------------------------------------------------------#
-
-    # If the user did not pass a command
-    if command is None:
-
-        # Print the help message and exit.
-        parser.print_help()
-        sys.exit(0)
 
     #-----------------------------------------------------------------#
 
@@ -139,7 +126,7 @@ def main():
             arguments = util.set_executable_args(args = args,
                                                  wd = work_dir,
                                                  main_wd = wd)
-            
+
             # Inform the user that we are submitting the calculation.
             infostr = \
                 f"Submitting the calculation in '{work_dir}' " \
@@ -201,6 +188,5 @@ def main():
         # Run the executable.
         util.run_executable(\
             executable = "_bulkdgd_exec",
-            arguments = arguments,
-            wd = wd)
+            arguments = arguments)
         

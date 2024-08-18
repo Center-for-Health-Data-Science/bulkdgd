@@ -89,7 +89,7 @@ CONFIG_FILTERS = \
      "distributed_filter" : \
 
         {# Set the custom 'factory' for the filter.
-         "()" : "bulkDGD.util.LevelContentFilter",
+         "()" : "bulkDGD.execs.util.LevelContentFilter",
          
          # Set the level of the records that should be ignored.
          "level" : "INFO",
