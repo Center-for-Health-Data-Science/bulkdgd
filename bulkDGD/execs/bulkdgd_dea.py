@@ -274,14 +274,14 @@ def main(args):
         errstr = \
             "It was not possible to load the samples from " \
             f"'{input_samples}'. Error: {e}"
-        log.exception(errstr)
+        logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the samples were successfully loaded.
     infostr = \
         "The samples were successfully loaded from " \
         f"'{input_samples}'."
-    log.info(infostr)
+    logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
@@ -301,7 +301,7 @@ def main(args):
         errstr = \
             "It was not possible to load the predicted means from " \
             f"'{input_means}'. Error: {e}"
-        log.exception(errstr)
+        logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the predicted means were successfully
@@ -309,7 +309,7 @@ def main(args):
     infostr = \
         "The predicted means were successfully loaded from " \
         f"'{input_means}'."
-    log.info(infostr)
+    logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
@@ -333,7 +333,7 @@ def main(args):
             errstr = \
                 "It was not possible to load the predicted r-values " \
                 f"from '{input_rvalues}'. Error: {e}"
-            log.exception(errstr)
+            logger.exception(errstr)
             sys.exit(errstr)
 
         # Inform the user that the predicted r-values were successfully
@@ -341,7 +341,7 @@ def main(args):
         infostr = \
             "The predicted r-values were successfully loaded from " \
             f"'{input_rvalues}'."
-        log.info(infostr)
+        logger.info(infostr)
 
     # Otherwise
     else:
@@ -445,11 +445,11 @@ def main(args):
                 "It was not possible to write the DEA results " \
                 f"for sample '{sample_name}' in '{output_path}'. " \
                 f"Error: {e}"
-            log.exception(errstr)
+            logger.exception(errstr)
             sys.exit(errstr)
 
         # Inform the user that the file was successfully written.
         infostr = \
             f"The DEA results for sample '{sample_name}' were " \
             f"successfully written in '{output_path}'."
-        log.info(infostr)
+        logger.info(infostr)
