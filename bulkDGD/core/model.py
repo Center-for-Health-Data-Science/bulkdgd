@@ -125,7 +125,7 @@ class BulkDGDModel(nn.Module):
             :ref:`model_config_options` page.
 
         genes_txt_file : :class:`str`
-            A .txt file containing the Ensembl IDs of the genes
+            A plain text file containing the Ensembl IDs of the genes
             included in the model.
 
             Training data will be checked to ensure counts are
@@ -241,7 +241,7 @@ class BulkDGDModel(nn.Module):
 
         Parameters
         ----------
-        mod : ``nn.Module``
+        mod : :class:`nn.Module`
             The module.
 
         pth_file : :class:`str`
@@ -251,7 +251,8 @@ class BulkDGDModel(nn.Module):
         # Try to load the parameters
         try:
 
-            mod.load_state_dict(torch.load(pth_file))
+            mod.load_state_dict(torch.load(pth_file,
+                                           weights_only = True))
 
         # If something went wrong
         except Exception as e:
@@ -513,7 +514,7 @@ class BulkDGDModel(nn.Module):
             distributions, the predicted means are scaled by the
             corresponding distributions' r-values.
 
-        pred_r_values : :class:`torch.Tensor` or ``None``
+        pred_r_values : :class:`torch.Tensor` or :obj:`None`
             A tensor containing the predicted r-values of the negative
             binomial distributions modelling the genes' counts, if
             the counts are modelled by negative binomial distributions.
@@ -526,7 +527,7 @@ class BulkDGDModel(nn.Module):
             - The second dimension has a length equal to the
               dimensionality of the gene space.
 
-            ``pred_r_values`` is ``None`` if the counts are modelled
+            ``pred_r_values`` is :obj:`None` if the counts are modelled
             by Poisson distributions.
 
         time_opt : :class:`list`
@@ -1641,7 +1642,7 @@ class BulkDGDModel(nn.Module):
             distributions, the predicted means are scaled by the
             corresponding distributions' r-values.
 
-        pred_r_values : :class:`torch.Tensor` or ``None``
+        pred_r_values : :class:`torch.Tensor` or :obj:`None`
             A tensor containing the predicted r-values of the negative
             binomial distributions modelling the genes' counts, if
             the counts are modelled by negative binomial distributions.
@@ -1654,7 +1655,7 @@ class BulkDGDModel(nn.Module):
             - The second dimension has a length equal to the
               dimensionality of the gene space.
 
-            ``pred_r_values`` is ``None`` if the counts are modelled
+            ``pred_r_values`` is :obj:`None` if the counts are modelled
             by Poisson distributions.
 
         time_opt : :class:`list`
@@ -1899,7 +1900,7 @@ class BulkDGDModel(nn.Module):
             distributions, the predicted means are scaled by the
             corresponding distributions' r-values.
 
-        pred_r_values : :class:`torch.Tensor` or ``None``
+        pred_r_values : :class:`torch.Tensor` or :obj:`None`
             A tensor containing the predicted r-values of the negative
             binomial distributions modelling the genes' counts, if
             the counts are modelled by negative binomial distributions.
@@ -1912,7 +1913,7 @@ class BulkDGDModel(nn.Module):
             - The second dimension has a length equal to the
               dimensionality of the gene space.
 
-            ``pred_r_values`` is ``None`` if the counts are modelled
+            ``pred_r_values`` is :obj:`None` if the counts are modelled
             by Poisson distributions.
 
         time_opt : :class:`list`
@@ -2113,7 +2114,7 @@ class BulkDGDModel(nn.Module):
 
         Returns
         -------
-        df_time : ``pandas.DataFrame``
+        df_time : :class:`pandas.DataFrame`
             A data frame containing data about the computing time.
         """
 
@@ -2190,7 +2191,7 @@ class BulkDGDModel(nn.Module):
             distributions, the predicted means are scaled by the
             corresponding distributions' r-values.
 
-        pred_r_values : :class:`torch.Tensor` or ``None``
+        pred_r_values : :class:`torch.Tensor` or :obj:`None`
             A tensor containing the predicted r-values of the negative
             binomial distributions modelling the genes' counts, if
             the counts are modelled by negative binomial distributions.
@@ -2203,7 +2204,7 @@ class BulkDGDModel(nn.Module):
             - The second dimension has a length equal to the
               dimensionality of the gene space.
 
-            ``pred_r_values`` is ``None`` if the counts are modelled
+            ``pred_r_values`` is :obj:`None` if the counts are modelled
             by Poisson distributions.
 
         time_opt : :class:`list`
@@ -2220,10 +2221,10 @@ class BulkDGDModel(nn.Module):
         
         Returns
         -------
-        df_rep : ``pandas.DataFrame``
+        df_rep : :class:`pandas.DataFrame`
             A data frame containing the representations.
 
-        df_pred_means : ``pandas.DataFrame``
+        df_pred_means : :class:`pandas.DataFrame`
             A data frame containing the predicted means of the
             distributions modelling the genes' counts.
 
@@ -2231,12 +2232,12 @@ class BulkDGDModel(nn.Module):
             distributions, the predicted means are scaled by the
             corresponding distributions' r-values.
 
-        df_pred_r_values : ``pandas.DataFrame`` or ``None``
+        df_pred_r_values : :class:`pandas.DataFrame` or :obj:`None`
             A data frame containing the predicted r-values of the
-            negative binomials. It is ``None`` if the genes' counts
+            negative binomials. It is :obj:`None` if the genes' counts
             are modelled by Poisson distributions.
 
-        df_time_opt : ``pandas.DataFrame``
+        df_time_opt : :class:`pandas.DataFrame`
             A data frame containing data about the optimization time.
         """
 
@@ -2399,20 +2400,20 @@ class BulkDGDModel(nn.Module):
 
         Returns
         -------
-        df_rep_train : ``pandas.DataFrame``
+        df_rep_train : :class:`pandas.DataFrame`
             A data frame containing the optimized representations
             for the training samples.
 
-        df_rep_test : ``pandas.DataFrame``
+        df_rep_test : :class:`pandas.DataFrame`
             A data frame containing the optimized representations
             for the testing samples.
 
-        df_train : ``pandas.DataFrame``
+        df_train : :class:`pandas.DataFrame`
             A data frame containing the losses for the training
             (such as loss for each model's components per epoch,
             overall loss per epoch, etc.).
 
-        df_time : ``pandas.DataFrame``
+        df_time : :class:`pandas.DataFrame`
             A data frame containing data about the CPU and wall
             clock time used by each training epoch (and backpropagation
             step within each epoch).
@@ -2564,7 +2565,7 @@ class BulkDGDModel(nn.Module):
 
         Parameters
         ----------
-        df_pred_means : ``pandas.DataFrame``
+        df_pred_means : :class:`pandas.DataFrame`
             A data frame containing the predicted scaled means of
             the negative binomials modeling the genes' counts.
 
@@ -2575,7 +2576,7 @@ class BulkDGDModel(nn.Module):
             The columns containing the scaled means must be
             named after the corresponding genes' Ensembl IDs.
 
-        df_pred_r_values : ``pandas.DataFrame``
+        df_pred_r_values : :class:`pandas.DataFrame`
             A data frame containing the predicted r-values of
             the negative binomials modeling the genes' counts.
 
@@ -2588,7 +2589,7 @@ class BulkDGDModel(nn.Module):
         
         Returns
         -------
-        df_scaled : ``pandas.DataFrame``
+        df_scaled : :class:`pandas.DataFrame`
             A data frame containing the predicted means.
 
             It contains the same columns of the ``df_pred_means`` data
@@ -2686,7 +2687,7 @@ class BulkDGDModel(nn.Module):
 
         Parameters
         ----------
-        df_samples : ``pandas.DataFrame``
+        df_samples : :class:`pandas.DataFrame`
             A data frame containing the samples.
 
         config_rep : :class:`dict`
@@ -2698,7 +2699,7 @@ class BulkDGDModel(nn.Module):
 
         Returns
         -------
-        df_rep : ``pandas.DataFrame``
+        df_rep : :class:`pandas.DataFrame`
             A data frame containing the representations.
 
             Here, each row contains a representation and the
@@ -2709,7 +2710,7 @@ class BulkDGDModel(nn.Module):
             information, if present in the input data frame, will
             appear last in the data frame.
 
-        df_pred_means : ``pandas.DataFrame``
+        df_pred_means : :class:`pandas.DataFrame`
             A data frame containing the predicted means of the
             distributions modelling the genes' counts for the
             representations found.
@@ -2725,7 +2726,7 @@ class BulkDGDModel(nn.Module):
             distributions, the predicted means are scaled by the
             corresponding distributions' r-values.
 
-        df_pred_r_values : ``pandas.DataFrame`` or ``None``
+        df_pred_r_values : :class:`pandas.DataFrame` or :obj:`None`
             A data frame containing the predicted r-values of the
             negative binomials for the representations found, if the
             genes' counts are modelled by negative binomial
@@ -2739,10 +2740,10 @@ class BulkDGDModel(nn.Module):
             information, if present in the input data frame, will
             appear last in the data frame.
 
-            ``df_pred_r_values`` is ``None`` if the genes' counts are
-            modelled by Poisson distributions.
+            ``df_pred_r_values`` is :obj:`None` if the genes' counts
+            are modelled by Poisson distributions.
 
-        df_time : ``pandas.DataFrame``
+        df_time : :class:`pandas.DataFrame`
             A data frame containing data about the CPU and wall
             clock time used by each epoch (and backpropagation
             step within each epoch) in each optimization step.
@@ -2877,18 +2878,18 @@ class BulkDGDModel(nn.Module):
 
         Parameters
         ----------
-        df_rep : ``pandas.DataFrame``
+        df_rep : :class:`pandas.DataFrame`
             A data frame containing the representations.
 
         Returns
         -------
-        df_prob_rep : ``pandas.DataFrame``
+        df_prob_rep : :class:`pandas.DataFrame`
             A data frame containing the probability densities for each
             representation, together with an indication of what the
             maximum probability density found is and for which
             component it is found.
 
-        df_prob_comp : ``pandas.DataFrame``
+        df_prob_comp : :class:`pandas.DataFrame`
             A data frame containing, for each component, the
             representation(s) having the maximum probability density
             for the component, together with the probability density
@@ -3017,7 +3018,7 @@ class BulkDGDModel(nn.Module):
 
         Parameters
         ----------
-        df_train : ``pandas.DataFrame``
+        df_train : :class:`pandas.DataFrame`
             A data frame containing the training data.
 
             Each row should contain a unique sample, and each
@@ -3025,7 +3026,7 @@ class BulkDGDModel(nn.Module):
             sample (if the column is named after the gene's Ensembl
             ID) or additional information about the sample.
 
-        df_test : ``pandas.DataFrame``
+        df_test : :class:`pandas.DataFrame`
             A data frame containing the testing data.
 
             Each row should contain a unique sample, and each
@@ -3051,12 +3052,12 @@ class BulkDGDModel(nn.Module):
 
         Returns
         -------
-        df_loss : ``pandas.DataFrame``
+        df_loss : :class:`pandas.DataFrame`
             A data frame containing the losses for the training
             (such as loss for each model's components per epoch,
             overall loss per epoch, etc.).
 
-        df_time : ``pandas.DataFrame``
+        df_time : :class:`pandas.DataFrame`
             A data frame containing data about the CPU and wall
             clock time used by each training epoch (and backpropagation
             step within each epoch).
