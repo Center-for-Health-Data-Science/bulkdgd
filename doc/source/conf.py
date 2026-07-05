@@ -175,12 +175,8 @@ nbsphinx_execute = "never"
 # named 'default.css' will overwrite the theme’s 'default.css'.
 html_static_path = ["_static"]
 
-# Set the HTML theme to be used.
-# - If 'sphinx_rtd_theme', install it first by running
-#   'pip install sphinx-rtd-theme'.
-# - If 'pydata_sphinx_theme', install it first by running
-#   'pip install pydata_sphinx_theme'.
-html_theme = "sphinx_rtd_theme"
+# Set the HTML theme to be used (installed via 'doc/requirements.txt').
+html_theme = "pydata_sphinx_theme"
 
 # Set a dictionary of values to pass into the template engine’s context
 # for all pages.
