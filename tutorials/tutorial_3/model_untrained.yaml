@@ -5,26 +5,35 @@
 ############################### GENERAL ###############################
 
 
-# Set the dimensionality of the input (= the dimensionality of the
-# representations, of the Gaussian mixture model, and of the first
-# layer of the decoder)
-input_dim: 50
+# Set the dimensionality of the latent space (= the dimensionality of
+# the Gaussian mixture model, and of the first layer of the decoder).
+latent_dim: 50
 
 
-####################### GAUSSIAN MIXTURE MODEL ########################
+############################# LATENT SPACE ############################
 
 
-# Set the options for the Gaussian mixture model.
-gmm_options:
+# Set the type of latent space to use.
+#
+# Type: str.
+#
+# Options:
+# - 'lgmm' for the legacy Gaussian mixture model implementation.
+# - 'tgmm' for the new Gaussian mixture model implementation.
+latent_type: lgmm
+
+# Set the options for the latent space (Gaussian mixture model).
+latent_options:
 
   # Set the number of components in the Gaussian mixture model.
   #
   # Type: int.
-  n_comp: 45
+  n_components: 45
 
   #-------------------------------------------------------------------#
 
-  # Set the type of covariance matrix used by the Gaussian mixture model.
+  # Set the type of covariance matrix used by the Gaussian mixture
+  # model.
   #
   # Type: str.
   # 
@@ -32,7 +41,7 @@ gmm_options:
   # - 'fixed' for a fixed covariance matrix.
   # - 'isotropic' for an isotropic covariance matrix.
   # - 'diagonal' for a diagonal covariance matrix.
-  cm_type: diagonal
+  covariance_type: diagonal
 
   #-------------------------------------------------------------------#
 
@@ -118,7 +127,7 @@ gmm_options:
 
 
 # Set the options for the decoder.
-dec_options:
+decoder_options:
 
   # Set the number of units in the hidden layers.
   #

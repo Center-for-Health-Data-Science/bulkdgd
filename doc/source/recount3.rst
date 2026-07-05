@@ -1,17 +1,15 @@
 ``recount3`` - interacting with Recount3
 ========================================
 
-.. automodule:: recount3.util
+.. automodule:: bulkdgd.recount3.util
 
-   .. autofunction:: recount3.load_samples_batches
+   .. autofunction:: bulkdgd.recount3.util.load_samples_batches
 
-   .. autofunction:: recount3.get_query_string
+   .. autofunction:: bulkdgd.recount3.util.get_gene_sums
 
-   .. autofunction:: recount3.get_gene_sums
+   .. autofunction:: bulkdgd.recount3.util.get_qc
 
-   .. autofunction:: recount3.get_metadata
+   .. autofunction:: bulkdgd.recount3.util.get_metadata
 
-   .. autofunction:: recount3.merge_gene_sums_and_metadata
-
-   .. autofunction:: recount3.filter_by_metadata
+   .. autofunction:: bulkdgd.recount3.util.get_read_counts
 

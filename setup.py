@@ -3,9 +3,9 @@
 
 #    setup.py
 #
-#    bulkDGD setup.
+#    bulkdgd setup.
 #
-#    Copyright (C) 2024 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -34,7 +34,7 @@ from setuptools import setup
 
 
 # Set the name of the project.
-name = "bulkDGD"
+name = "bulkdgd"
 
 # Set the URL where to find the project.
 url = \
@@ -42,8 +42,9 @@ url = \
 
 # Set the project's author(s).
 author = \
-    "Valentina Sora, Viktoria Schuster, Iñigo Prada-Luengo, " \
-    "Anders Lykkebo-Valløe, Andreas Bjerregaard, Anders Krogh"
+    "Valentina Sora, Adrian Sousa-Poza, Viktoria Schuster, " \
+    "Iñigo Prada-Luengo, Anders Lykkebo-Valløe, " \
+    "Andreas Bjerregaard, Anders Krogh"
 
 # Set the project's version.
 version = "2.0.0"
@@ -55,19 +56,19 @@ description = \
 
 # Set which packages are included.
 packages = \
-    ["bulkDGD",
-     "bulkDGD.analysis",
-     "bulkDGD.core",
-     "bulkDGD.execs",
-     "bulkDGD.genes",
-     "bulkDGD.ioutil",
-     "bulkDGD.plotting",
-     "bulkDGD.recount3"]
+    ["bulkdgd",
+     "bulkdgd.analysis",
+     "bulkdgd.core",
+     "bulkdgd.execs",
+     "bulkdgd.genes",
+     "bulkdgd.ioutil",
+     "bulkdgd.plotting",
+     "bulkdgd.recount3"]
 
 # Set which package data to include.
 package_data = \
     {# Main package
-     "bulkDGD" : \
+     "bulkdgd" : \
         [# Configuration files
          "configs/dimensionality_reduction/*yaml",
          "configs/genes/*.yaml",
@@ -79,10 +80,10 @@ package_data = \
          "data/model/genes/*.txt",
          "data/model/gmm/*.pth",
          "data/model/dec/*pth",
-         "data/*.md",],
+         "data/*.md"],
      
      # 'recount3' package
-     "bulkDGD.recount3" : \
+     "bulkdgd.recount3" : \
         [# Data files
          "data/*.txt",
          "data/*.md"]}
@@ -91,16 +92,59 @@ package_data = \
 entry_points = \
     {"console_scripts" : \
         [# Public executables
-         "bulkdgd = " \
-         f"{name}.execs.main:main",
+
+         # Get genes.
+         "bulkdgd_get_genes = " \
+         f"{name}.execs.bulkdgd_get_genes:entry_point",
+
+         # Get Recount3 data.
+         "bulkdgd_get_recount3 = " \
+         f"{name}.execs.bulkdgd_get_recount3:entry_point",
+
+         # Find representations.
+         "bulkdgd_find_representations = " \
+         f"{name}.execs.bulkdgd_find_representations:entry_point",
+
+         # Find probability densities.
+         "bulkdgd_find_probdens = " \
+         f"{name}.execs.bulkdgd_find_probdens:entry_point",
+
+         # Preprocess samples.
+         "bulkdgd_preprocess_samples = " \
+         f"{name}.execs.bulkdgd_preprocess_samples:entry_point",
+
+         # Dimensionality reduction - PCA.
+         "bulkdgd_reduction_pca = " \
+         f"{name}.execs.bulkdgd_reduction:entry_point_pca",
+
+         # Dimensionality reduction - KPCA.
+         "bulkdgd_reduction_kpca = " \
+         f"{name}.execs.bulkdgd_reduction:entry_point_kpca",
+
+         # Dimensionality reduction - MDS.
+         "bulkdgd_reduction_mds = " \
+         f"{name}.execs.bulkdgd_reduction:entry_point_mds",
+
+         # Dimensionality reduction - t-SNE.
+         "bulkdgd_reduction_tsne = " \
+         f"{name}.execs.bulkdgd_reduction:entry_point_tsne",
+
+         # Dimensionality reduction - UMAP.
+         "bulkdgd_reduction_umap = " \
+         f"{name}.execs.bulkdgd_reduction:entry_point_umap",
+
+         # Differential expression analysis.
+         "bulkdgd_dea = " \
+         f"{name}.execs.bulkdgd_dea:entry_point",
+
+         # Train the model.
+         "bulkdgd_train = " \
+         f"{name}.execs.bulkdgd_train:entry_point",
 
          # "Private" executables - not intended to be called
-         # directly by end users
+         # directly by end users.
          "_bulkdgd_get_recount3_single_batch = " \
-         f"{name}.execs._bulkdgd_get_recount3_single_batch:main",
-         
-         "_bulkdgd_exec = " \
-         f"{name}.execs._bulkdgd_exec:main",],
+         f"{name}.execs._bulkdgd_get_recount3_single_batch:main",],
     }
 
 # Set any required dependencies.
@@ -114,7 +158,9 @@ install_requires = ["dask",
                     "scikit-learn",
                     "scipy",
                     "statsmodels",
+                    "tgmm",
                     "torch",
+                    "umap-learn",
                     "PyYAML"]
 
 

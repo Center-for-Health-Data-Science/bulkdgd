@@ -1,19 +1,17 @@
-# `bulkdgd dea`
+# `bulkdgd_dea`
 
-This command can be used to perform differential expression analysis (DEA) of genes between a "treated" sample (for instance, a cancer sample) against an "untreated" or "control" sample.
+This command can be used to perform differential expression analysis (DEA) of genes between a "treated" sample (for instance, a cancer sample) and an "untreated" (control) sample.
 
-Within the context of the bulkDGD model, the DEA is intended between a "treated" experimental sample and a "control" sample, which is the model's decoder's output for the best representation of the "treated" sample in latent space. Therefore, the decoder output for the best representation of the "treated" sample acts as an in silico control sample.
+Within the context of the bulkdgd model, the DEA is intended between a "treated" experimental sample and a "control" sample, which is the model's decoder's output for the best representation of the "treated" sample in latent space. Therefore, the decoder output for the best representation of the "treated" sample acts as an in silico control sample.
 
-`bulkdgd dea` expects two to three inputs. First, a CSV file containing a data frame set of experimental "treated" samples. The program assumes that each row represents a sample and each column represents a gene or additional information about the samples. Then, the program expects a CSV file containing a data frame with the means of the distributions modeling the genes' counts in the in silico "control" samples. The third input is needed if the genes' counts were modeled using negative binomial distributions and is a CSV file containing a data frame containing the r-values of the negative binomials modeling the genes' counts in the "control" samples. These last two files are obtained by running the [`bulkdgd find representations`](#bulkdgd_find_representations) command on the "treated" samples.
+`bulkdgd_dea` expects two to three inputs. First, a CSV file containing a data frame of experimental "treated" samples. The program assumes that each row represents a sample and each column represents either a gene or additional sample metadata. Second, the program expects a CSV file containing a data frame with the means of the distributions modeling the genes' counts in the in silico "control" samples. A third input is needed if the genes' counts were modeled using negative binomial distributions: a CSV file containing the r-values of the negative binomials modeling the genes' counts in the "control" samples. These last two files are obtained by running the [`bulkdgd_find_representations`](bulkdgd_find_representations.md) command on the "treated" samples.
 
-The output of `bulkdgd dea` is a CSV file for each sample containing the results of the differential expression analysis. Here, the p-values, q-values (adjusted p-values), and log2-fold changes relative to each gene's differential expression are reported.
-
-To speed up DEA's performance on a set of samples, `bulkdgd dea` uses the [Dask](https://www.dask.org/) Python package to parallelize the calculations.
+The output of `bulkdgd_dea` is a CSV file for each sample containing the results of the differential expression analysis. Here, the p-values, q-values (adjusted p-values), and log2-fold changes relative to each gene's differential expression are reported. The program can also return one or more (one per sample) CSV file(s) containing the results of the gene set enrichment analysis, if one or more `-gsf`, `--genes-sets-files` are provided.
 
 ## Command line
 
 ```
-bulkdgd dea [-h] -is INPUT_SAMPLES -im INPUT_MEANS [-iv INPUT_RVALUES] [-op OUTPUT_PREFIX] [-pr P_VALUES_RESOLUTION] [-qa Q_VALUES_ALPHA] [-qm Q_VALUES_METHOD] [-d WORK_DIR] [-n N_PROC] [-lf LOG_FILE] [-lc] [-v] [-vv]
+bulkdgd_dea [-h] -is INPUT_SAMPLES -im INPUT_MEANS [-iv INPUT_RVALUES] [-odp OUTPUT_DEA_PREFIX] [-ogp OUTPUT_GSEA_PREFIX] [-mg] [-pr P_VALUES_RESOLUTION] [-pt P_VALUES_THRESHOLD] [-qa Q_VALUES_ALPHA] [-qm Q_VALUES_METHOD] [-qt Q_VALUES_THRESHOLD] [-fct LOG2_FOLD_CHANGE_THRESHOLD] [-gsf GENES_SETS_FILES [GENES_SETS_FILES ...]] [-n N_PROC] [-d WORK_DIR] [-lf LOG_FILE] [-lc] [-v] [-vv]
 ```
 
 ## Options
@@ -28,7 +26,7 @@ bulkdgd dea [-h] -is INPUT_SAMPLES -im INPUT_MEANS [-iv INPUT_RVALUES] [-op OUTP
 
 | Option                   | Description                                                  |
 | ------------------------ | ------------------------------------------------------------ |
-| `-is`, `--input-samples` | The input CSV file containing a data frame with the gene expression data for the samples |
+| `-is`, `--input-samples` | The input CSV file containing a data frame with the gene expression data for the samples. |
 | `-im`, `--input-means`   | The input CSV file containing the data frame with the predicted means of the distributions used to model the genes' counts for each in silico control sample. |
 | `-iv`, `--input-rvalues` | The input CSV file containing the data frame with the predicted r-values of the negative binomials for each in silico control sample if negative binomial distributions were used to model the genes' counts. |
 
@@ -36,21 +34,27 @@ bulkdgd dea [-h] -is INPUT_SAMPLES -im INPUT_MEANS [-iv INPUT_RVALUES] [-op OUTP
 
 | Option                   | Description                                                  |
 | ------------------------ | ------------------------------------------------------------ |
-| `-op`, `--output-prefix` | The prefix of the output CSV file(s) that will contain the results of the differential expression analysis. Since the analysis will be performed for each sample, one file per sample will be created. The files' names will have the form `{output_csv_prefix}{sample_name}.csv`. The default prefix is `dea_`. |
+| `-odp`, `--output-dea-prefix` | The prefix of the output CSV file(s) that will contain the results of the differential expression analysis. Since the analysis will be performed for each sample, one file per sample will be created. The files' names will have the form `{output_csv_prefix}{sample_name}.csv`. The default prefix is `dea_`. |
+| `-ogp`, `--output-gsea-prefix`| The prefix of the output CSV file(s) that will contain the results of the gene set enrichment analysis. By default, the analysis will be performed for each sample and one per sample will be created. The files' names will have the form `{output_csv_prefix}{sample_name}.csv`. The default prefix is `gsea_`. If the `-mg`, `--merge-gsea` option is passed, this option is interpreted as the name of the output file where the merged results will be written (stripped of any trailing underscores or dots). |
+| `-mg`, `--merge-gsea` | Whether the results of the gene set enrichment analysis will be merged into a single file. By default, the results for each sample are written in separate files. |
 
 ### DEA options
 
 | Option                         | Description                                                  |
 | ------------------------------ | ------------------------------------------------------------ |
-| `-pr`, `--p-values-resolution` | The resolution at which to sum over the probability mass function to compute the p-values. The higher the resolution, the more accurate the calculation. The default is `1e4`. |
+| `-pr`, `--p-values-resolution` | The resolution at which to sum over the probability mass function to compute the p-values. The higher the resolution, the more accurate the calculation. The default is `10000.0`. |
+| `-pt`, `--p-values-threshold` | The threshold used to select the significant genes based on the p-values. The default is `0.05`. |
 | `-qa`, `--q-values-alpha`      | The alpha value used to calculate the q-values (adjusted p-values). The default is `0.05`. |
 | `-qm`, `--q-values-method`     | The method used to calculate the q-values (i.e., to adjust the p-values). The default is `"fdr_bh"`. The available methods can be found in the documentation of `statsmodels.stats.multitest.multipletests`, which is used to perform the calculation. |
+| `-qt`, `--q-values-threshold` | The threshold used to select the significant genes based on the q-values. The default is `0.05`. |
+| `-fct`, `--log2-fold-change-threshold` | The threshold used to select the significant genes based on the log2-fold changes. The default is `2`. |
+| `-gsf`, `--genes-sets-files` | A list of plain text files containing the gene sets to be used in the analysis. The files must contain one gene symbol per line. The gene sets will be used to perform the gene set enrichment analysis. |
 
 ### Run options
 
 | Option          | Description                                                  |
 | --------------- | ------------------------------------------------------------ |
-| `-n`, `--nproc` | The number of processes to start. The default number of processes started is 1. |
+| `-n`, `--n-proc` | The number of processes to start. The default number of processes started is 1. |
 
 ### Working directory options
 
@@ -66,3 +70,11 @@ bulkdgd dea [-h] -is INPUT_SAMPLES -im INPUT_MEANS [-iv INPUT_RVALUES] [-op OUTP
 | `-lc`, `--log-console`    | Show log messages also on the console.                       |
 | `-v`, `--logging-verbose` | Enable verbose logging (INFO level).                         |
 | `-vv`, `--logging-debug`  | Enable maximally verbose logging for debugging purposes (DEBUG level). |
+
+## Example
+
+```
+bulkdgd_dea -is samples.csv -im pred_means.csv -iv pred_r_values.csv -gsf glioblastoma_genes.txt -mg
+```
+
+This performs DEA for each sample in `samples.csv` against the in silico control samples described by `pred_means.csv`/`pred_r_values.csv` (as produced by [`bulkdgd_find_representations`](bulkdgd_find_representations.md)), additionally scoring the enrichment of the gene set in `glioblastoma_genes.txt` and merging the per-sample enrichment results into a single file.

@@ -1,0 +1,8 @@
+# Configuration file to perform a UMAP. The full list of available
+# options can be found here:
+# https://umap-learn.readthedocs.io/en/latest/api.html.
+
+# Set the number of components.
+#
+# Type: int.
+n_components: 2

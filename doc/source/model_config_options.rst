@@ -1,184 +1,154 @@
 .. _model_config_options:
 
-
-Configuration for creating an instance of the bulkDGD model
+Configuration for creating an instance of the BulkDGD model
 ===========================================================
 
-To create a new instance of :class:`core.model.BulkDGDModel`, we need to set the following options:
+To create a new instance of :class:`core.model.BulkDGD`, we need to set a number of options.
 
-* ``input_dim``, the dimensionality of the model's input.
+These options can be passed as a nested dictionary or are specified in a YAML configuration file.
 
-* ``gmm_options``, a dictionary of options to set up the Gaussian mixture model.
+The function that loads the configuration file is :func:`bulkdgd.ioutil.load_config_model`.
 
-* ``dec_options``, a dictionary of options to set up the decoder.
+The options that can be specified are described below.
 
-* ``genes_txt_file``, the path to a plain text file containing the list of genes that will be included in the model.
+* ``"genes_txt_file"`` is the path to the plain text file containing the list of genes used in the model. This file should contain one gene name per line in Ensemble ID format.
 
-If we want to load a model that has already been trained, we should provide also the following options:
+* ``"latent_dim"`` is the dimensionality of the latent space. This is a positive integer that specifies the number of dimensions in the latent space.
 
-* ``gmm_pth_file``, a PyTorch file containing the trained paramenters of the Gaussian mixture model.
+* ``"latent_type"`` is the type of latent space to use. This is a string that can take one of the following values: ``"lgmm"`` for the legacy Gaussian Mixture Model implementation, and ``"tgmm"`` for the new Gaussian Mixture Model implementeation.
 
-* ``dec_pth_file``, a PyTorch file containing the trained parameters of the decoder.
+* ``"latent_options"`` is a dictionary containing the options for the GMM. The options that can be specified in this dictionary depend on the type of GMM used.
 
-This is how the ``gmm_options`` dictionary should look like:
+   * If you are loading a trained model, ``"latent_pth_file"`` is the path to the .pth file containing the state dictionary of the latent space. 
 
-.. code-block:: python
+   * For the legacy GMM (``"lgmm"``):
 
-   {# Set the number of components in the Gaussian mixture model.
-    #
-    # Type: int.
-    "n_comp" : 45,
+      * ``"n_components"`` is the number of components in the GMM. This is a positive integer that specifies the number of Gaussian components in the mixture.
 
-    # Set the type of covariance matrix used by the Gaussian mixture
-    # model.
-    #
-    # Type: str.
-    # 
-    # Options:
-    # - 'fixed' for a fixed covariance matrix.
-    # - 'isotropic' for an isotropic covariance matrix.
-    # - 'diagonal' for a diagonal covariance matrix.
-    "cm_type" : "diagonal",
+      * ``"covariance_type"`` is the type of covariance to use. This is a string that can take one of the following values:
+         
+         * ``"fixed"`` for a fixed covariance matrix.
+         * ``"isotropic"`` for an isotropic covariance matrix.
+         * ``"diagonal"`` for a diagonal covariance matrix. This is the default.
+      
+      * ``"means_prior_type"`` is the type of prior distribution used for the means of the GMM components. This is a string that can take one of the following values:
+         
+         * ``"softball"`` for a softball prior. This is the default.
+      
+      * ``"means_prior_options"`` is a dictionary containing the options for the means prior distribution. The options that can be specified in this dictionary depend on the type of prior distribution used.
 
-    # Set the prior distribution over the means of the components of
-    # the Gaussian mixture model.
-    #
-    # Type: str.
-    #
-    # Options:
-    # - 'softball' for a softball distribution.
-    "means_prior_name" : "softball",
+         * For the softball prior (``"softball"``):
 
-    # Set the options to set up the prior distribution (they vary
-    # depending on the prior defined by 'means_prior_name').
-    "means_prior_options" : \
+            * ``"radius"`` is the radius of the softball prior. This is a positive float that specifies the radius of the sphere on which the means are constrained to lie.
+            * ``"sharpness"`` is the sharpness of the softball prior. This is a positive float that specifies how sharply the means are constrained to lie on the sphere.
+      
+      * ``"weights_prior_type"`` is the type of prior distribution used for the weights of the GMM components. This is a string that can take one of the following values:
+         
+         * ``"dirichlet"`` for a Dirichlet prior. This is the default.
+      
+      * ``"weights_prior_options"`` is a dictionary containing the options for the weights prior distribution. The options that can be specified in this dictionary depend on the type of prior distribution used.
+         
+         * For the Dirichlet prior (``"dirichlet"``):
 
-      # Set these options if 'means_prior_name' is 'softball'.
+            * ``"alpha"`` is the concentration parameter of the Dirichlet prior. This is a positive float that specifies the concentration of the Dirichlet distribution.
+      
+      * ``"log_var_prior_type"`` is the type of prior distribution used for the log-variances of the GMM components. This is a string that can take one of the following values:
 
-      {# Set the radius of the soft ball.
-       #
-       # Type: int.
-       "radius" : 7,
+         * ``"gaussian"`` for a Gaussian prior. This is the default.
+      
+      * ``"log_var_prior_options"`` is a dictionary containing the options for the log-variances prior distribution. The options that can be specified in this dictionary depend on the type of prior distribution used.
 
-       # Set the sharpness of the soft boundary of the ball.
-       #
-       # Type: int.
-       "sharpness" : 10},
+         * For the Gaussian prior (``"gaussian"``):
 
-    # Set the prior distribution over the weights of the components of
-    # the Gaussian mixture model.
-    #
-    # Type: str.
-    #
-    # Options:
-    # - 'dirichlet' for a Dirichlet distribution.
-    "weights_prior_name" : "dirichlet",
+            * ``"mean"`` is the mean of the Gaussian prior. This is a float that specifies the mean of the Gaussian distribution.
+            * ``"stddev"`` is the standard deviation of the Gaussian prior. This is a positive float that specifies the standard deviation of the Gaussian distribution.
+   
+   * For the new GMM implementation (``"tgmm"``):
 
-    # Set the options to set up the prior (they vary according to the
-    # prior defined by 'weights_prior_name').
-    "weights_prior_options" : \
+      * ``"n_components"`` is the number of components in the GMM. This is a positive integer that specifies the number of Gaussian components in the mixture.
 
-      # Set these options if 'weights_prior_name' is 'dirichlet'.
+      * ``"covariance_type"`` is the type of covariance to use. This is a string that can take one of the following values:
+         
+         * ``"full"`` for a full covariance matrix. This is the default.
+         * ``"diag"`` for a diagonal covariance matrix.
+         * ``"spherical"`` for a spherical covariance matrix.
+         * ``"tied_full"`` for a full tied covariance matrix.
+         * ``"tied_diag"`` for a diagonal tied covariance matrix.
+         * ``"tied_spherical"`` for a spherical tied covariance matrix.
 
-      {# Set the alpha of the Dirichlet distribution determining the
-       # uniformity of the weights of the components in the Gaussian
-       # mixture model.
-       #
-       # Type: int.
-       "alpha": 5},
+     * ``"init_means"`` is the method used to initialize the means of the GMM components. This is a string that can take one of the following values:
+         
+         * ``"kmeans"`` for K-means initialization. This is the default value if not specified.
+         * ``"kpp"`` for K-means++ initialization.
+         * ``"random"`` for random initialization.
+         * ``"points"`` for initialization using random points from the dataset.
+         * ``"maxdist"`` for initialization using the points with the maximum determinant of the covariance matrix.
+    
+     * ``"init_weights"`` is the method used to initialize the weights of the GMM components. This is a string that can take one of the following values:
+         
+         * ``"uniform"`` for uniform initialization. This is the default value if not specified.
+         * ``"random"`` for random initialization.
+         * ``"kmeans"`` for K-means initialization.
+   
+     * ``"init_covariances"`` is the method used to initialize the covariances of the GMM components. This is a string that can take one of the following values:
+         
+         * ``"empirical"`` for empirical covariance initialization. This is the default value if not specified.
+         * ``"eye"`` for identity covariance initialization.
+         * ``"random"`` for random initialization.
+         * ``"global"`` for global covariance initialization.
+   
+     * ``"tol"`` is the convergence threshold based on relative improvement in log-likelihood. If not specified, the default value is ``1e-4``.
 
-    # Set the prior distribution over the log-variances of the
-    # components of the Gaussian mixture model.
-    #
-    # Type: str.
-    #
-    # Options:
-    # - 'gaussian' for a Gaussian distribution.
-    "log_var_prior_name" : "gaussian",
+     * ``"reg_covar"`` is the non-negative regularization added to the diagonal of covariance. This is used to ensure that the covariance matrices are positive definite. If not specified, the default value is ``1e-6``.
 
-    # Set the options to set up the prior (they vary according to the
-    # prior defined by 'log_var_prior_name').
-    "log_var_prior_options" :
+     * ``"n_init"`` is the number of initializations to perform. The default value is 1.
+   
+     * ``"random_state"`` is the random seed used for initialization. This is an integer that specifies the random seed for reproducibility. If not specified, the default value is None, which means that the random seed will be determined by the PyTorch's internal seed.
 
-      # Set these options if 'log_var_prior_name' is 'gaussian'.
+     * ``"cem"`` is a boolean that specifies whether to use the classification expectation-maximization (CEM) algorithm for fitting the GMM. If not specified, the default value is False, which means that the standard expectation-maximization (EM) algorithm will be used.
 
-      {# Set the mean of the Gaussian distribution calculated as
-       # 2 * log(mean).
-       #
-       # Type: float.
-       "mean" : 0.1,
+* ``"decoder_options"`` is a dictionary containing the options for the decoder.
 
-       # Set the standard deviation of the Gaussian distribution.
-       #
-       # Type: float.
-       "stddev": 1.0},
-   }
+   * If you are loading a trained model, ``"decoder_pth_file"`` is the path to the .pth file containing the state dictionary of the decoder.
 
-And this is how the ``dec_options`` dictionary should look like:
+   * ``"n_units_hidden_layers"`` is a list of positive integers that specifies the number of units in each hidden layer of the decoder. For example, if ``"n_units_hidden_layers"`` is set to ``[128, 64]``, then the decoder will have two hidden layers, with 128 units in the first hidden layer and 64 units in the second hidden layer.
 
-.. code-block:: python
+   * ``"activations"`` is a list of strings that specifies the activation function to use in each hidden layer of the decoder. The length of this list should be equal to the length of the ``"n_units_hidden_layers"`` list. Each string in this list can take one of the following values:
+         
+      * ``"relu"`` for ReLU activation.
+      * ``"elu"`` for ELU activation.
+      
+   * ``"dropout"`` is a float between 0 and 1 that specifies the dropout rate to use in the decoder. This is the fraction of the input units to drop during training. If not specified, the default value is 0, which means that no dropout will be applied.
 
-   {# Set the number of units in the hidden layers.
-    #
-    # Type: list of int.
-    "n_units_hidden_layers" : [500, 8000],
+   * ``"output_module_name"`` is the name of the output module used in the decoder. This is a string that can take one of the following values:
+         
+      * ``"poisson"`` for the Poisson output module.
+      * ``"nb_feature_dispersion"`` for the negative binomial output module with r-values learned per gene.
+      * ``"nb_full_dispersion"`` for the negative binomial output module with r-values learned per gene and sample.
+      
+   * ``"output_module_options"`` is a dictionary containing the options for the output module. The options that can be specified in this dictionary depend on the type of output module used.
 
-    # Set the activation function for each hidden layer.
-    #
-    # Type: list of str.
-    #
-    # Options:
-    # - "relu" for the ReLU function.
-    # - "elu" for the ELU function.
-    "activations": ["relu", "relu"],
+      * For the Poisson output module (``"poisson"``):
 
-    # Set the name of the decoder's output module.
-    #
-    # Type: str.
-    #
-    # Options:
-    # - 'nb_feature_dispersion' for negative binomial distributions
-    #   with means learned per gene per sample and r-values learned per
-    #   gene.
-    # - 'nb_full_dispersion' for negative binomial distributions with
-    #   both means and r-values learned per gene per sample.
-    # - 'poisson' for Poisson distributions.
-    "output_module_name" : "nb_feature_dispersion",
+         * ``"activation"`` is the activation function to use in the output module. This is a string that can take one of the following values:
+               
+            * ``"sigmoid"`` for sigmoid activation.
+            * ``"softplus"`` for softplus activation.
+         
+      * For the negative binomial output module with r-values learned per gene (``"nb_feature_dispersion"``):
 
-    # Set the options for the output module.
-    "output_module_options" : \
+         * ``"activation"`` is the activation function to use in the output module. This is a string that can take one of the following values:
+               
+            * ``"sigmoid"`` for sigmoid activation.
+            * ``"softplus"`` for softplus activation.
+            
+         * ``"r_init"`` is the value to use for initializing the r-values in the negative binomial output module. This is a positive integer that specifies the initial value of the r-values in the negative binomial distribution. If not specified, the default value is ``2``.
+         
+      * For the negative binomial output module with r-values learned per gene and sample (``"nb_full_dispersion"``):
 
-      {# Set the name of the activation function in the output module.
-       #
-       # Type: str.
-       #
-       # Options:
-       # - 'sigmoid' for a sigmoid function.
-       # - 'softplus' for a softplus function.
-       "activation" : "softplus",
+         * ``"activation"`` is the activation function to use in the output module. This is a string that can take one of the following values:
+               
+            * ``"sigmoid"`` for sigmoid activation.
+            * ``"softplus"`` for softplus activation.
 
-       # Set the initial r-value for the negative binomial
-       # distributions modeling the genes' counts.
-       #
-       # Type: int.
-       "r_init" : 2},
-   }
 
-If we are loading the options from a YAML configuration file similar to those provided in the ``bulkDGD/configs/model`` directory, we can set up the model as follows:
-
-.. code-block:: python
-
-   # Import 'ioutil' and the 'core.model' module.
-   from bulkDGD import ioutil
-   from bulkDGD.core import model
-
-   # Let's assume we load the 'model_untrained.yaml' configuration file.
-
-   # Load the configuration from the configuration file.
-   config = ioutil.load_config_model(config_file = "model_untrained")
-
-   # The configuration contains a 'input_dim' section, a 'gmm_options'
-   # section, and a 'dec_opt' section.
-
-   # Initialize the model.
-   dgd_model = model.BulkDGDModel(**config)

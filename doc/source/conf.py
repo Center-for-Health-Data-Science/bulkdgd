@@ -17,8 +17,8 @@ import sys
 #######################################################################
 
 
-# Get the absolute path to the package.
-path = os.path.abspath("../../bulkDGD")
+# Get the absolute path to the project root.
+path = os.path.abspath("../..")
 
 # Insert the path into the PATH.
 sys.path.insert(0, path)
@@ -29,15 +29,22 @@ sys.path.insert(0, path)
 # #project-information
 
 # Set the name of the project.
-project = "bulkDGD"
+project = "bulkdgd"
 
 # Set the copyright of the project.
-copyright = "2024, Valentina Sora"
+copyright = "2026, Valentina Sora"
 
 # Set the name(s) of the project's author(s).
 author = \
-   "Valentina Sora, Viktoria Schuster, Inigo Prada Luengo, " \
-   "Anders Lykkebo-Valløe, Andreas Bjerregaard,, Anders Krogh"
+   "Valentina Sora, Adrian Sousa-Poza, Viktoria Schuster, " \
+   "Iñigo Prada-Luengo, Anders Lykkebo-Valløe, " \
+   "Andreas Bjerregaard, Anders Krogh"
+
+# Set the version of the project.
+version = "2.0.0"
+
+# Set the full version, including alpha/beta/rc tags.
+release = "2.0.0"
 
 #---------------------------------------------------------------------#
 
@@ -67,6 +74,7 @@ author = \
 #   Sphinx.
 extensions = \
    ["myst_parser",
+   "nbsphinx",
     "sphinx.ext.autodoc",
     "numpydoc",
     "sphinx_design",
@@ -91,7 +99,7 @@ intersphinx_mapping = \
 source_suffix = \
    {".rst" : "restructuredtext",
     ".txt" : "restructuredtext",
-    ".md" : "markdown"}
+   ".md" : "markdown"}
 
 # Set a list of paths that contain extra templates (or templates that
 # overwrite builtin/theme-specific templates). Relative paths are
@@ -99,6 +107,9 @@ source_suffix = \
 # As these files are not meant to be built, they are automatically
 # added to exclude_patterns.
 templates_path = ["_templates"]
+
+# Exclude transient build and notebook checkpoint artifacts.
+exclude_patterns = ["_build", "**.ipynb_checkpoints"]
 
 #---------------------------------------------------------------------#
 
@@ -146,6 +157,9 @@ myst_heading_anchors = 3
 # Set whether to show the warning regarding having the document ending
 # with footnotes preceded by a heading.
 myst_footnote_transition = False
+
+# Do not execute notebooks while building docs.
+nbsphinx_execute = "never"
 
 #---------------------------------------------------------------------#
 

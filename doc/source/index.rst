@@ -10,7 +10,7 @@
    tutorials
 
 
-Welcome to bulkDGD!
+Welcome to bulkdgd!
 ===================
 
 .. grid:: 3
@@ -22,12 +22,12 @@ Welcome to bulkDGD!
       **Introduction**
       ^^^^^^^^^^^^^^^^
 
-      New to bulkDGD?
+      New to bulkdgd?
 
       Check out our Introduction. It contains a brief explanation
-      of bulkDGD's functionalities, tutorials,
-      how to contribute to bulkDGD and how to cite us if you
-      use bulkDGD in your work.
+      of bulkdgd's functionalities, tutorials,
+      how to contribute to bulkdgd and how to cite us if you
+      use bulkdgd in your work.
 
       +++
 
@@ -45,9 +45,9 @@ Welcome to bulkDGD!
       **Installation**
       ^^^^^^^^^^^^^^^^
 
-      Installing bulkDGD.
+      Installing bulkdgd.
 
-      Here, you can find the instructions for installing bulkDGD
+      Here, you can find the instructions for installing bulkdgd
       in a Python virtual environment or in a conda environment.
 
       +++
@@ -69,7 +69,7 @@ Welcome to bulkDGD!
       API reference guide.
 
       This guide contains a description of the functions, modules,
-      and objects included in bulkDGD.
+      and objects included in the package.
 
       +++
 
@@ -92,7 +92,7 @@ Welcome to bulkDGD!
 
       Here, you can find a guide to the command-line utilities
       that speed up and simplify some of the most common tasks
-      bulkDGD is used for.
+      bulkdgd is used for.
 
       +++
 
@@ -111,9 +111,9 @@ Welcome to bulkDGD!
       **Tutorials**
       ^^^^^^^^^^^^^
 
-      bulkDGD's tutorials.
+      bulkdgd's tutorials.
 
-      Here, a list of tutorials that can get you started with bulkDGD.
+      Here, a list of tutorials that can get you started with bulkdgd.
 
       +++
 

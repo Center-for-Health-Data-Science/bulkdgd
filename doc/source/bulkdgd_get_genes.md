@@ -1,29 +1,39 @@
-# `bulkdgd get genes`
+# `bulkdgd_get_genes`
 
-This command allows you to create customized lists of genes to use with the bulkDGD model.
+This command allows you to create customized lists of genes to use with the bulkdgd model.
 
-`bulkdgd get genes` takes in input a YAML configuration file containing:
+`bulkdgd_get_genes` takes as input a YAML configuration file containing:
 
 * The `attributes` to retrieve for the genes of interest from the Ensembl database.
+
 * The `filters` to use on the genes retrieved from the Ensembl database (to keep, for instance, only protein-coding genes or genes producing only protein-coding transcripts).
 
 The command produces two output files:
 
 * A CSV file containing the `attributes` for the genes passing all the `filters`.
-* A plain text file containing the Ensembl IDs of the genes reported in the CSV file. This file can be directly used when setting up a new instance of the bulkDGD model or preprocessing a set of samples to be used with the model.
+
+* A plain text file containing the Ensembl IDs of the genes reported in the CSV file. This file can be directly used when setting up a new instance of the bulkdgd model or preprocessing a set of samples to be used with the model.
 
 ## Parallelization
 
-If the command is parallelized over several configuration files, each is assumed to be identically named and placed in a different directory. The paths to such directories must be specified using the `-ds`, `--dirs` option (see the full description in the [Parallelization options](#parallelization-options) section below) and must be relative to the specified working directory (`-d`, `--work-dir` option).
+The command can be run in parallel over different inputs in different directories by using the `-ds`, `--dirs` option. The directories may be specified either by name (if they are in the current working directory) or their absolute or relative path.
 
-The configuration files must be placed in different directories and referenced by their corresponding options by name (not path).
+* If `-ds dir1 path/to/dir2`, the program will be run in parallel in each directory using the input and configuration files in it. The name of the configuration file may be provided using the `-cg`/ `--config-file-genes` option. The output files and the log file for each run will be saved in the corresponding directory and named according to the file names provided in the `-ol`/`--output-list`, `-oa`/`--output-attributes`, and `-lf`/`--log-file` options.
 
-The output and log files for each run will be written in the directory where the corresponding input/configuration files were placed. If the command is not parallelized, these files will be written in the working directory.
+* If `-ds file.txt`, `file.txt` the file is expected to contain a newline-separated list of either names of directories in the working directory or absolute/relative paths to directories. The name of the configuration file may be provided using the `-cg`/ `--config-file-genes` option. The output files and the log file for each run will be saved in the corresponding directory and named according to the file names provided in the `-ol`/`--output-list`, `-oa`/`--output-attributes`, and `-lf`/`--log-file` options. `file.txt` can, for instance, look like this:
+
+    .. code-block::
+
+       dir1
+       dir2
+       absolute/path/to/dir3
+       ..relative/path/to/dir4
+       ...
 
 ## Command line
 
 ```
-bulkdgd get genes [-h] [-ol OUTPUT_LIST] [-oa OUTPUT_ATTRIBUTES] -cg CONFIG_FILE_GENES [-d WORK_DIR] [-lf LOG_FILE] [-lc] [-v] [-vv] [-p] [-n N_PROC] [-ds DIRS [DIRS ...]]
+bulkdgd_get_genes [-h] [-ol OUTPUT_LIST] [-oa OUTPUT_ATTRIBUTES] -cg CONFIG_FILE_GENES [-d WORK_DIR] [-lf LOG_FILE] [-lc] [-v] [-vv] [-p] [-n N_PROC] [-ds DIRS [DIRS ...]]
 ```
 
 ## Options
@@ -45,7 +55,7 @@ bulkdgd get genes [-h] [-ol OUTPUT_LIST] [-oa OUTPUT_ATTRIBUTES] -cg CONFIG_FILE
 
 | Option                       | Description                                                  |
 | ---------------------------- | ------------------------------------------------------------ |
-| `-cg`, `--config-file-genes` | The YAML configuration file containing the options used to query the Ensembl database for the genes of interest. If it is a name without an extension, it is assumed to be the name of a configuration file in `$INSTALLDIR/bulkDGD/configs/genes`. |
+| `-cg`, `--config-file-genes` | The YAML configuration file containing the options used to query the Ensembl database for the genes of interest. If it is a name without an extension, it is assumed to be the name of a configuration file in `$INSTALLDIR/bulkdgd/configs/genes`. |
 
 ### Working directory options
 
@@ -69,3 +79,11 @@ bulkdgd get genes [-h] [-ol OUTPUT_LIST] [-oa OUTPUT_ATTRIBUTES] -cg CONFIG_FILE
 | `-p`, `--parallelize` | Whether to run the command in parallel.                      |
 | `-n`, `--n-proc`      | The number of processes to start. The default number of processes started is 1. |
 | `-ds`, `--dirs`       | The directories containing the input/configuration files. It can be either a list of names or paths, a pattern that the names or paths match, or a plain text file containing the names of or the paths to the directories. If names are given, the directories are assumed to be inside the working directory. If paths are given, they are assumed to be relative to the working directory. |
+
+## Example
+
+```
+bulkdgd_get_genes -cg config_genes_list.yaml -ol genes.txt -oa genes_attributes.csv
+```
+
+This queries Ensembl/BioMart according to the filters and attributes defined in `config_genes_list.yaml` and writes the resulting list of Ensembl gene IDs to `genes.txt` and their attributes to `genes_attributes.csv`.

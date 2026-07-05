@@ -1,19 +1,13 @@
-﻿core.latent
-===========
+core.latents
+============
 
-.. automodule:: core.latent
+.. automodule:: bulkdgd.core.latents
 
-   .. autoclass:: core.latent.GaussianMixtureModel
-      :members: __init__, dim, n_comp, cm_type, means_prior, means, weights_prior, weights, log_var_prior, log_var, get_mixture_probs, get_prior_log_prob, forward, sample_probs, log_prob, sample_new_points
+   .. autoclass:: bulkdgd.core.latents.GaussianMixtureModelLegacy
+      :members:
 
-   .. autoclass:: core.latent.RepresentationLayer
-      :members: __init__, n_rep, dim, options, z, forward, rescale
-   
-   
+   .. autoclass:: bulkdgd.core.latents.GaussianMixtureModelTGMM
+      :members:
 
-   
-   
-   
-
-
-
+   .. autoclass:: bulkdgd.core.latents.RepresentationLayer
+      :members:

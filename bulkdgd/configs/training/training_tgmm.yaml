@@ -1,0 +1,560 @@
+# Configuration file specifying the options to train the model.
+#
+# This configuration uses AdamW optimizers and includes support for
+# latent noise injection, clustering metrics, and early stopping.
+#
+# This configuration uses the 'tgmm' latent space implementation.
+
+
+#######################################################################
+
+
+# Set the number of epochs to train the model for.
+#
+# Type: int.
+n_epochs: 200
+
+
+#######################################################################
+
+
+# Set the type of latent space.
+#
+# Type: str.
+#
+# Options:
+# - 'lgmm' for the legacy Gaussian mixture model implementation.
+# - 'tgmm' for the new Gaussian mixture model implementation.
+latent_type: tgmm
+
+
+#######################################################################
+
+
+# Set the reduction method to use for the loss function.
+#
+# Type: str.
+#
+# Options:
+# - 'sum' computes the sum of the loss over the batch.
+# - 'mean' computes the mean of the loss over the batch.
+loss_reduction_type: sum
+
+
+#######################################################################
+
+
+# Set the options for the data loader. They are passed to the
+# 'torch.utils.data.DataLoader' constructor.
+data_loader_options:
+
+  # Set the options for the training data loader.
+  train:
+
+    # Set how many samples per batch to load.
+    #
+    # Type: int.
+    batch_size: 256
+
+    # Set whether to reshuffle the data during every training epoch.
+    #
+    # Type: bool.
+    shuffle: True
+  
+  # Set the options for the test data loader.
+  test:
+
+    # Set how many samples per batch to load.
+    #
+    # Type: int.
+    batch_size: 256
+
+    # Set whether to reshuffle the data during every training epoch.
+    #
+    # Type: bool.
+    shuffle: False
+
+
+#######################################################################
+
+
+# Set the options for reporting during training.
+reporting_options:
+
+  # Set the options to report the loss.
+  loss:
+
+    # Set the options for the latent space loss.
+    latent:
+
+      # Set the method used to normalize the loss when reporting it
+      # per epoch.
+      #
+      # Type: str.
+      #
+      # Options:
+      # - 'none' means that the loss will not be normalized.
+      # - 'n_samples' means that the loss will be normalized by the
+      #   number of samples.
+      norm_type: n_samples
+
+    #-----------------------------------------------------------------#
+
+    # Set the options for the reconstruction loss.
+    decoder:
+      
+      # Set the method used to normalize the loss when reporting it
+      # per epoch.
+      #
+      # Type: str.
+      #
+      # Options:
+      # - 'none' means that the loss will not be normalized.
+      # - 'n_samples' means that the loss will be normalized by the
+      #   number of samples.
+      norm_type: n_samples
+
+    #-----------------------------------------------------------------#
+
+    # Set the options for the total loss.
+    total:
+
+      # Set the method used to normalize the loss when reporting it
+      # per epoch.
+      #
+      # Type: str.
+      #
+      # Options:
+      # - 'none' means that the loss will not be normalized.
+      # - 'n_samples' means that the loss will be normalized by the
+      #   number of samples.
+      norm_type: n_samples
+
+  #-------------------------------------------------------------------#
+
+  # Set the options for the optional outputs during training.
+  optional_outputs:
+
+    # Set the options for the representations to save at each epoch.
+    representations_epoch:
+
+      # Set whether to save the representations at each epoch.
+      #
+      # Type: bool.
+      enabled: True
+
+      # Set the stride for saving the representations at each epoch.
+      #
+      # Type: int.
+      stride: 1
+
+      # Set the directory for saving the representations at each
+      # epoch.
+      #
+      # Type: str.
+      dir: "epochs/representations"
+    
+    #-----------------------------------------------------------------#
+    
+    # Set the options for the latent probabilities to save at each
+    # epoch.
+    latent_probs_epoch:
+
+      # Set whether to save the latent probabilities at each epoch.
+      #
+      # Type: bool.
+      enabled: True
+
+      # Set the stride for saving the latent probabilities at each
+      # epoch.
+      #
+      # Type: int.
+      stride: 1
+
+      # Set the directory for saving the latent probabilities at each
+      # epoch.
+      #
+      # Type: str.
+      dir: "epochs/latent_probs"
+
+    #-----------------------------------------------------------------#
+    
+    # Set the options for the latent means to save at each epoch.
+    latent_means_epoch:
+
+      # Set whether to save the latent means at each epoch.
+      #
+      # Type: bool.
+      enabled: True
+
+      # Set the stride for saving the latent means at each epoch.
+      #
+      # Type: int.
+      stride: 1
+
+      # Set the directory for saving the latent means at each epoch.
+      #
+      # Type: str.
+      dir: "epochs/latent_means"
+
+    #-----------------------------------------------------------------#
+    
+    # Set the options for the genes' saliency maps to save at each
+    # epoch.
+    genes_saliency_maps_epoch:
+
+      # Set whether to save the genes' saliency maps at each epoch.
+      #
+      # Type: bool.
+      enabled: False
+
+      # Set the stride for saving the genes' saliency maps at each
+      # epoch.
+      #
+      # Type: int.
+      stride: 1
+
+      # Set the directory for saving the genes' saliency maps at each
+      # epoch.
+      #
+      # Type: str.
+      dir: "epochs/saliency_maps"
+
+    #-----------------------------------------------------------------#
+    
+    # Set the options for the pathways' saliency maps to save at each
+    # epoch.
+    pathways_saliency_maps_epoch:
+
+      # Set whether to save the pathways' saliency maps at each epoch.
+      #
+      # Type: bool.
+      enabled: False
+
+      # Set the stride for saving the pathways' saliency maps at each
+      # epoch.
+      #
+      # Type: int.
+      stride: 1
+
+      # Set the directory for saving the pathways' saliency maps at
+      # each epoch.
+      #
+      # Type: str.
+      dir: "epochs/pathway_saliency_maps"
+
+
+#######################################################################
+
+
+# Set the options to train the latent space (Gaussian mixture model).
+latent_training_options:
+
+  # Set the options for calculating the latent space loss.
+  loss_calculation:
+
+    # Set the lambda value for the latent space loss.
+    # This controls the weight of the GMM loss in the total loss.
+    #
+    # Type: float.
+    lambda: 1.0
+
+  #-------------------------------------------------------------------#
+
+  # Set the options for fitting the GMM during training.
+  fitting:
+
+    # Set the first epoch after which the Gaussian mixture model will
+    # be fitted. The GMM will be fitted at this epoch.
+    #
+    # Type: int.
+    first_epoch: 25
+
+    # Set whether a final refitting of the Gaussian mixture model will
+    # be performed at the end of training.
+    #
+    # Type: bool.
+    refit_final: True
+
+    # Set the interval (in epochs) at which the Gaussian mixture model
+    # will be refitted. Set to 0 or null to disable periodic refitting.
+    #
+    # Type: int or null.
+    refit_interval: 0
+
+    # Set the maximum number of EM iterations to perform at 
+    # 'first_epoch'.
+    #
+    # Type: int.
+    max_iter_first_epoch: 1000
+
+    # Set the maximum number of EM iterations to perform at a
+    # full-refit epoch that is not the first epoch (i.e., epochs that
+    # are multiples of 'refit_interval').
+    #
+    # Type: int.
+    max_iter_full_refit: 100
+
+    # Set the maximum number of EM iterations to perform at a
+    # "warm"-refit epoch (i.e., at epochs later than the first epoch
+    # that are not full-refit epochs).
+    #
+    # Type: int.
+    max_iter_warm_refit: 100
+
+    # Get the maximum number of EM iterations to perform at a refit
+    # epoch (if 'final_refit' is True).
+    #
+    # Type: int.
+    max_iter_final_refit: 1000
+
+  #-------------------------------------------------------------------#
+
+  # Set the options for removing collapsed components.
+  components_removal_type: weight_threshold
+
+  # Set the options for the components removal.
+  components_removal_options:
+
+    # Set the threshold for removing components from the GMM during
+    # training. If the weight of a component in the GMM is less than
+    # this threshold, it will be removed.
+    #
+    # Type: float.
+    threshold: 0.00000001
+
+
+#######################################################################
+
+
+# Set the options to train the decoder.
+decoder_training_options:
+
+  # Set the optimizer.
+  optimizer_type: adamw
+
+  # Set the options for the optimizer.
+  optimizer_options:
+
+    # Set the learning rate.
+    #
+    # Type: float.
+    lr: 0.01
+
+    # Set the weight decay.
+    #
+    # Type: float.
+    weight_decay: 0.01
+
+    # Set the betas.
+    #
+    # Type: list of float.
+    betas: [0.9, 0.999]
+
+  #-------------------------------------------------------------------#
+
+  # Set the options for the learning rate scheduler.
+  lr_scheduler_type: one_cycle
+
+  # Set the options for the learning rate scheduler.
+  lr_scheduler_options:
+
+    # Whether the learning rate scheduler is enabled.
+    #
+    # Type: bool.
+    enabled: True
+
+    # Set the maximum learning rate.
+    #
+    # Type: float.
+    max_lr: 0.01
+
+    # Set the percentage of the cycle spent increasing the learning
+    # rate.
+    #
+    # Type: float.
+    pct_start: 0.25
+
+    # Set the annealing strategy.
+    #
+    # Type: str.
+    #
+    # Options:
+    # - 'cos' for cosine annealing.
+    # - 'linear' for linear annealing.
+    anneal_strategy: "cos"
+
+    # Set whether the momentum is cycled inversely to learning rate
+    # between 'base_momentum' and 'max_momentum'.
+    #
+    # Type: bool.
+    cycle_momentum: True
+
+    # Set the lower momentum boundaries in the cycle.
+    #
+    # Type: float.
+    base_momentum: 0.85
+
+    # Set the upper momentum boundaries in the cycle.
+    #
+    # Type: float.
+    max_momentum: 0.9
+
+    # Set the initial learning rate as max_lr/div_factor.
+    #
+    # Type: float.
+    div_factor: 25.0
+
+    # Set the final learning rate as max_lr/final_div_factor.
+    #
+    # Type: float.
+    final_div_factor: 1000.0
+
+    # Set whether to use a third phase of the schedule.
+    #
+    # Type: bool.
+    three_phase: False
+
+
+#######################################################################
+
+
+# Set the options to train the representation layer (the
+# representations found for the samples).
+representations_training_options:
+
+  # Set the type of noise to add to the representations during
+  # training.
+  #
+  # Type: str.
+  #
+  # Options:
+  # - 'none' means that no noise will be added.
+  # - 'gaussian' means that Gaussian noise will be added.
+  train_noise_type: gaussian
+
+  # Set the options for the noise to add to the representations during
+  # training.
+  train_noise_options:
+
+    # Set the base noise scale. Set to 0.0 to disable noise injection.
+    #
+    # Type: float.
+    scale: 0.1
+
+    # Set the starting noise multiplier (at epoch 1).
+    #
+    # Type: float.
+    start: 1.0
+
+    # Set the ending noise multiplier (at the final epoch).
+    #
+    # Type: float.
+    end: 0.01
+
+  #-------------------------------------------------------------------#
+
+  # Set the optimizer.
+  optimizer_type: adamw
+
+  # Set the options for the optimizer.
+  optimizer_options:
+
+    # Set the learning rate.
+    #
+    # Type: float.
+    lr: 0.01
+
+    # Set the weight decay.
+    #
+    # Type: float.
+    weight_decay: 0.0
+
+    # Set the betas.
+    #
+    # Type: list of float.
+    betas: [0.9, 0.999]
+
+  #-------------------------------------------------------------------#
+
+  # Set the options for the learning rate scheduler.
+  lr_scheduler_type: one_cycle
+
+  # Set the options for the learning rate scheduler.
+  lr_scheduler_options:
+
+    # Whether the learning rate scheduler is enabled.
+    #
+    # Type: bool.
+    enabled: True
+
+    # Set the maximum learning rate.
+    #
+    # Type: float.
+    max_lr: 0.01
+
+    # Set the percentage of the cycle spent increasing the learning
+    # rate.
+    #
+    # Type: float.
+    pct_start: 0.25
+
+    # Set the annealing strategy.
+    #
+    # Type: str.
+    #
+    # Options:
+    # - 'cos' for cosine annealing.
+    # - 'linear' for linear annealing.
+    anneal_strategy: "cos"
+
+    # Set whether the momentum is cycled inversely to learning rate
+    # between 'base_momentum' and 'max_momentum'.
+    #
+    # Type: bool.
+    cycle_momentum: True
+
+    # Set the lower momentum boundaries in the cycle.
+    #
+    # Type: float.
+    base_momentum: 0.85
+
+    # Set the upper momentum boundaries in the cycle.
+    #
+    # Type: float.
+    max_momentum: 0.9
+
+    # Set the initial learning rate as max_lr/div_factor.
+    #
+    # Type: float.
+    div_factor: 25.0
+
+    # Set the final learning rate as max_lr/final_div_factor.
+    #
+    # Type: float.
+    final_div_factor: 1000.0
+
+    # Set whether to use a third phase of the schedule.
+    #
+    # Type: bool.
+    three_phase: False
+
+
+#######################################################################
+
+
+# Set the options for early stopping.
+#
+# Early stopping monitors the test loss and stops training when
+# the test loss has not improved for 'patience' consecutive epochs.
+# The best model state is restored after stopping.
+early_stopping_type: loss
+
+# Set the options for early stopping.
+early_stopping_options:
+
+  # The number of epochs without improvement in test loss before
+  # stopping.
+  #
+  # Type: int.
+  patience: 10

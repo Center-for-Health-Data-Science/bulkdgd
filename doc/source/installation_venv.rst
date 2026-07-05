@@ -1,9 +1,9 @@
 Installing with ``virtualenv``
 ==============================
 
-This section guides you in installing the bulkDGD package in a virtual environment, meaning an instance of Python that is isolated from your system.
+This section guides you in installing the ``bulkdgd`` package in a virtual environment, meaning an instance of Python that is isolated from your system.
 
-This is not strictly necessary, and bulkDGD may be installed system-wide similarly, following steps 4 to 6.
+This is not strictly necessary, and ``bulkdgd`` may be installed system-wide similarly, following steps 4 to 6.
 
 Step 1 - Install ``virtualenv``
 -------------------------------
@@ -40,27 +40,27 @@ Activate the environment:
 
     source bulkdgd-env/bin/activate
 
-Step 4 - Get bulkDGD
+Step 4 - Get bulkdgd
 --------------------
 
-Download the latest version of bulkDGD from `its GitHub repository <https://github.com/Center-for-Health-Data-Science/bulkDGD/releases/latest>`_. Do not place it inside the environment's directory but in another directory of your choice.
+Download the latest version of ``bulkdgd`` from `its GitHub repository <https://github.com/Center-for-Health-Data-Science/bulkDGD/releases/latest>`_. Do not place it inside the environment's directory but in another directory of your choice. Cloning or extracting the release archive creates a ``bulkDGD`` directory (matching the repository's name); the importable Python package inside it is named ``bulkdgd`` (lowercase).
 
 Step 5 - Get the ``dec.pth`` file
 ---------------------------------
 
-You must download the ``dec.pth`` file containing the trained decoder's parameters before installing bulkDGD, so that the file is copied to the installation directory. The file cannot be shipped together with the GitHub package because of its size, but can be downloaded `here <https://drive.google.com/file/d/1GKMkVmmcEH8glNrQ4092VWYQgq6maYW1/view?usp=sharing>`_. Place it in a directory of your choice.
+You must download the ``dec.pth`` file containing the trained decoder's parameters before installing ``bulkdgd``, so that the file is copied to the installation directory. The file cannot be shipped together with the GitHub package because of its size, but can be downloaded `here <https://drive.google.com/file/d/1GKMkVmmcEH8glNrQ4092VWYQgq6maYW1/view?usp=sharing>`_. Place it in a directory of your choice.
 
-Once downloaded, place the file into the ``bulkDGD/ioutil/data`` folder before performing the installation.
+Once downloaded, place the file into the ``bulkDGD/bulkdgd/data/model/dec`` folder (inside the cloned repository, in the ``dec`` sub-folder of the package's data directory) before performing the installation.
 
-Step 6 - Install bulkDGD
+Step 6 - Install bulkdgd
 ----------------------------
 
-You can now install bulkDGD using ``pip``.
+You can now install ``bulkdgd`` using ``pip``.
 
 .. code-block:: shell
-    
+
     pip install ./bulkDGD
 
-bulkDGD should now be installed.
+``bulkdgd`` should now be installed.
 
-Every time you need to run bulkDGD after opening a new shell, just run step 3 beforehand.
+Every time you need to run ``bulkdgd`` after opening a new shell, just run step 3 beforehand.
