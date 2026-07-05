@@ -35,6 +35,7 @@ pip-delete-this-directory.txt
 
 # Sphinx documentation
 doc/build/
+doc/_build/
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -57,3 +58,9 @@ venv.bak/
 
 # downloaded decoder
 dec.pth
+
+# Linter caches
+.ruff_cache/
+
+# Raw Recount3 downloads cached during tutorial runs (disposable)
+tutorials/tutorial_4/recount3_raw/

@@ -1,6 +1,6 @@
 ``genes`` - creating customized lists of genes
 ==============================================
 
-.. automodule:: genes.util
+.. automodule:: bulkdgd.genes.util
 
-   .. autofunction:: genes.get_genes_attributes
+   .. autofunction:: bulkdgd.genes.util.get_genes_attributes

@@ -1,12 +1,13 @@
-``core`` - the bulkDGD model
+``core`` - the bulkdgd model
 ============================
 
-.. autosummary::
-   :toctree: core
+.. toctree::
+   :maxdepth: 1
 
-   core.dataclasses
-   core.decoder
-   core.latent
-   core.outputmodules
-   core.priors
-   core.model
+   core/core.dataclasses
+   core/core.decoder
+   core/core.latent
+   core/core.metrics
+   core/core.outputmodules
+   core/core.priors
+   core/core.model

@@ -1,0 +1,106 @@
+# Configuration file specifying the options to train the model in Tutorial 3.
+# This configuration uses the 'tgmm' latent space implementation.
+
+n_epochs: 200
+latent_type: tgmm
+loss_reduction_type: sum
+
+data_loader_options:
+  train:
+    batch_size: 256
+    shuffle: True
+  test:
+    batch_size: 256
+    shuffle: False
+
+reporting_options:
+  loss:
+    latent:
+      norm_type: n_samples
+    decoder:
+      norm_type: n_samples
+    total:
+      norm_type: n_samples
+  optional_outputs:
+    representations_epoch:
+      enabled: True
+      stride: 1
+      dir: "epochs/representations"
+    latent_probs_epoch:
+      enabled: True
+      stride: 1
+      dir: "epochs/latent_probs"
+    latent_means_epoch:
+      enabled: True
+      stride: 1
+      dir: "epochs/latent_means"
+    genes_saliency_maps_epoch:
+      enabled: False
+      stride: 1
+      dir: "epochs/saliency_maps"
+    pathways_saliency_maps_epoch:
+      enabled: False
+      stride: 1
+      dir: "epochs/pathway_saliency_maps"
+
+latent_training_options:
+  loss_calculation:
+    lambda: 1.0
+  fitting:
+    first_epoch: 25
+    refit_final: True
+    refit_interval: 0
+    max_iter_first_epoch: 1000
+    max_iter_full_refit: 100
+    max_iter_warm_refit: 100
+    max_iter_final_refit: 1000
+  components_removal_type: weight_threshold
+  components_removal_options:
+    threshold: 0.00000001
+
+decoder_training_options:
+  optimizer_type: adamw
+  optimizer_options:
+    lr: 0.01
+    weight_decay: 0.01
+    betas: [0.9, 0.999]
+  lr_scheduler_type: one_cycle
+  lr_scheduler_options:
+    enabled: True
+    max_lr: 0.01
+    pct_start: 0.25
+    anneal_strategy: "cos"
+    cycle_momentum: True
+    base_momentum: 0.85
+    max_momentum: 0.9
+    div_factor: 25.0
+    final_div_factor: 1000.0
+    three_phase: False
+
+representations_training_options:
+  train_noise_type: gaussian
+  train_noise_options:
+    scale: 0.1
+    start: 1.0
+    end: 0.01
+  optimizer_type: adamw
+  optimizer_options:
+    lr: 0.01
+    weight_decay: 0.0
+    betas: [0.9, 0.999]
+  lr_scheduler_type: one_cycle
+  lr_scheduler_options:
+    enabled: True
+    max_lr: 0.01
+    pct_start: 0.25
+    anneal_strategy: "cos"
+    cycle_momentum: True
+    base_momentum: 0.85
+    max_momentum: 0.9
+    div_factor: 25.0
+    final_div_factor: 1000.0
+    three_phase: False
+
+early_stopping_type: loss
+early_stopping_options:
+  patience: 10

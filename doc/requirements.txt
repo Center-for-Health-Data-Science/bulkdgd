@@ -1,4 +1,7 @@
 myst-parser
+nbsphinx
+pypandoc_binary
+ipykernel
 sphinx
 numpydoc
 sphinx_design

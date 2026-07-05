@@ -1,7 +1,7 @@
-core.decoder
-============
+core.decoders
+=============
 
-.. automodule:: core.decoder
+.. automodule:: bulkdgd.core.decoders
 
-   .. autoclass:: core.decoder.Decoder
+   .. autoclass:: bulkdgd.core.decoders.Decoder
       :members: __init__, forward

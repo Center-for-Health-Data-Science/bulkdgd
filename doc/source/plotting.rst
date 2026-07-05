@@ -1,12 +1,12 @@
 ﻿``plotting`` - plotting utilities
 =================================
 
-.. automodule:: plotting.plots
+.. automodule:: bulkdgd.plotting.plots
 
-   .. autofunction:: plotting.plot_2d_dim_red
+   .. autofunction:: bulkdgd.plotting.plots.plot_representations_time
 
-   .. autofunction:: plot_multiple_2d_dim_red
-   
-   .. autofunction:: plotting.plot_get_representations_time
+   .. autofunction:: bulkdgd.plotting.plots.plot_dimensionality_reduction
 
-   .. autofunction:: plotting.plot_r_values_hist
+   .. autofunction:: bulkdgd.plotting.plots.plot_enrichment_scores
+
+   .. autofunction:: bulkdgd.plotting.plots.plot_rvalues

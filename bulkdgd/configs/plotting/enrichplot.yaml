@@ -1,0 +1,582 @@
+# This is a configuration file describing the aesthetics of a three-
+# panels plot showing:
+#
+# - A bar plot of the number of genes of interest per group (for
+#   instance, driver genes per cancer).
+# - A violin plot of the distribution of genes of interest per group.
+# - A strip plot of the enrichment scores.
+#
+#
+# The file also contains the options specifying the format of the
+# output file(s) where the plot will be saved.
+
+
+#######################################################################
+
+
+# Set the options for the output file.
+#
+# All the available options to set up the output file can be found at:
+#
+# https://bulkdgd.readthedocs.io/en/latest/output.html
+output:
+  
+  # Set the DPI (dots per inch) of the output file.
+  #
+  # Type: int.
+  dpi: 900
+  
+  # Set whether the figure's background is transparent. It is 'False'
+  # by default.
+  #
+  # Type: bool.
+  transparent: True
+  
+  # Set the figure's bounding box in inches.
+  #
+  # Type: str.
+  #
+  # Options: 'standard' or 'tight'.
+  bbox_inches: tight
+
+
+#######################################################################
+
+
+# Set the options for the figure.
+figure:
+
+  # Set the options to adjust the sub-plots.
+  #
+  # All the available options to adjust the sub-plots can be found
+  # at:
+  #
+  # https://bulkdgd.readthedocs.io/en/latest/violin_plots.html
+  subplots:
+
+    # Set the horizontal space between the sub-plots.
+    #
+    # Type: int or float.
+    wspace: 0.5
+
+    # Set the vertical space between the sub-plots.
+    #
+    # Type: int or float.
+    hspace: 0.5
+  
+  # Set the size of the figure in inches.
+  #
+  # Type: list of floats.
+  sizeinches: [30, 15]
+
+
+#######################################################################
+
+
+# The general font properties.
+#
+# All the available options for the properties can be found at:
+#
+# https://bulkdgd.readthedocs.io/en/latest/text_elements.html
+general_fontproperties:
+
+  # Set the name of/path to the font.
+  #
+  # Type: str.
+  #
+  # Notes: if !!null, the default font used by Matplotlib will be
+  # used.
+  fname: !!null
+
+
+#######################################################################
+
+
+# The palette to be used for the groups in all three panels.
+#
+# Type: str.
+#
+# Options: all the available options to specify palettes can be found
+# at https://bulkdgd.readthedocs.io/en/latest/colors.html.
+general_palette: husl
+
+
+#######################################################################
+
+
+# Set the options for the violin plot.
+#
+# All the available options to set up the boxplot can be found at:
+#
+# https://bulkdgd.readthedocs.io/en/latest/violin_plots.html
+violinplot:
+
+  # The distance, in units of bandwidth, to extend the density past
+  # the extreme data points. Set it to '0' to limit the violin's 
+  # range within the range of the observed data.
+  #
+  # Type: int or float.
+  cut: 0.0
+
+  # The method that normalizes each density to determine the violin's
+  # width.
+  #
+  # Type: str.
+  #
+  # Options:
+  # - 'area' indicates that each violin will have the same area.
+  # - 'count' indicates that the width of each violin will be
+  #   proportional to the number of observations.
+  # - 'width' indicates that each violin will have the same width.
+  density_norm: area
+
+  # The representation of the data in the violin's interior.
+  #
+  # Type: str.
+  #
+  # Options:
+  # - 'box' draws a miniature boxplot.
+  # - 'quartiles' draws the quartiles of the distribution.
+  # - 'point' draws the individual data points.
+  # - 'stick' draws a stick for each observation.
+  # - !!null does not draw anything in the interior.
+  inner: !!null
+
+  # The color of the edges of the violin.
+  #
+  # Type: str.
+  #
+  # Options: all the available options to specify colors can be found
+  # at https://bulkdgd.readthedocs.io/en/latest/colors.html.
+  edgecolors: "#333333"
+
+
+#######################################################################
+
+
+# Set the options for the x-axis. This axis is shared between the 
+# three panels.
+xaxis:
+  
+  # Set the options for the axis' label.
+  #
+  # All the available options to set up the axis' label can be found
+  # at:
+  #
+  # https://bulkdgd.readthedocs.io/en/latest/violin_plots.html
+  label:
+
+    # Set the label.
+    #
+    # Type: str.
+    xlabel: Dataset
+
+    # Set the padding around the label.
+    #
+    # Type: int.
+    labelpad: 10
+
+    # Set the font properties of the label.
+    fontproperties:
+
+      # Set the font size.
+      #
+      # Type: int.
+      size: 22
+
+  #-------------------------------------------------------------------#
+  
+  # Set the axis' ticks' labels.
+  #
+  # All the available options to set up the axis' ticks' labels can
+  # be found at:
+  #
+  # https://bulkdgd.readthedocs.io/en/latest/violin_plots.html
+  ticklabels:
+    
+    # Set the format for the ticks' labels.
+    #
+    # Type: format str.
+    fmt: "{:d}"
+
+    # Set the options for the ticks' labels.
+    options:
+      
+      # The text's rotation angle (in degrees) in a counterclockwise
+      # direction.
+      #
+      # Type: int or float.
+      rotation: 0
+
+      # Set the font properties of the ticks' labels.
+      fontproperties:
+
+        # Set the font size.
+        #
+        # Type: int.
+        size: 18
+
+  #-------------------------------------------------------------------#
+
+  # Set the options for the interval represented on the axis.
+  #
+  # All the available options to set up the interval can be found at:
+  #
+  # https://bulkdgd.readthedocs.io/en/latest/violin_plots.html
+  interval:
+
+    # Set the type of interval represented on the axis.
+    #
+    # Type: str.
+    #
+    # Options:
+    # - 'discrete' for a discrete interval.
+    # - 'continuous' for a continuous interval.
+    type: discrete
+
+
+#######################################################################
+
+
+# The options to be used for the y-axis of all three plots.
+yaxis:
+
+  # Set the options for the axis' label.
+  #
+  # All the available options to set up the axis' label can be found
+  # at:
+  #
+  # https://bulkdgd.readthedocs.io/en/latest/violin_plots.html
+  label:
+
+    # Set the padding around the label.
+    #
+    # Type: int.
+    labelpad: 10
+
+    # Set the font properties of the label.
+    fontproperties:
+
+      # Set the font size.
+      #
+      # Type: int.
+      size: 22
+
+  #-------------------------------------------------------------------#
+
+  # Set the axis' ticks' labels.
+  #
+  # All the available options to set up the axis' ticks' labels can
+  # be found at:
+  #
+  # https://bulkdgd.readthedocs.io/en/latest/violin_plots.html
+  ticklabels:
+
+    # Set the options for the ticks' labels.
+    options:
+
+      # Set the font properties of the ticks' labels.
+      fontproperties:
+
+        # Set the font size.
+        #
+        # Type: int.
+        size: 18
+
+
+#######################################################################
+
+
+# Set the options for the y-axis of the bar plot.
+yaxis_barplot:
+  
+  # Set the options for the axis' label.
+  #
+  # All the available options to set up the axis' label can be found
+  # at:
+  #
+  # https://bulkdgd.readthedocs.io/en/latest/violin_plots.html
+  label:
+
+    # Set the label.
+    #
+    # Type: str.
+    ylabel: "Number of\ngenes of interest"
+
+  #-------------------------------------------------------------------#
+
+  # Set the options for the interval represented on the axis.
+  #
+  # All the available options to set up the interval can be found at:
+  #
+  # https://bulkdgd.readthedocs.io/en/latest/violin_plots.html
+  interval:
+
+    # Set the type of interval represented on the axis.
+    #
+    # Type: str.
+    #
+    # Options:
+    # - 'discrete' for a discrete interval.
+    # - 'continuous' for a continuous interval. 
+    type: discrete
+
+    # Set whether to round all ticks' positions to the nearest
+    # 'round_to_nearest' number. For instance, setting it to 1 would
+    # round to the nearest integer, while setting it to 0.5 would
+    # round to the nearest half an integer.
+    #
+    # If the interval is 'discrete', it is set to 1 by default.
+    # If the interval is 'continuous', it is set to 0.5 by default.
+    #
+    # Type: int or float.
+    # round_to_nearest: !!null
+
+    # Set the highest value displayed on the axis. It is
+    # automatically inferred from the plot if not passed (and
+    # appropriately rounded if the 'round_to_nearest' option is
+    # passed.
+    #
+    # Type: int or float.
+    top: 100
+
+    # Set the lowest value displayed on the axis. It is
+    # automatically inferred from the plot if not passed (and
+    # appropriately rounded if the 'round_to_nearest' option is
+    # passed).
+    #
+    # Type: int or float.
+    bottom: 0
+
+    # Set the number of steps (ticks) displayed on the axis. This
+    # number includes the most extreme ticks. It is set to 10 by
+    # default.
+    #
+    # Type: int.
+    # steps: !!null
+
+    # Set the spacing between the ticks on the axis. If not passed,
+    # it is automatically computed from the 'top', 'bottom', and
+    # 'steps' values.
+    #
+    # Type: int or float.
+    spacing: 20
+
+
+#######################################################################
+
+
+# Set the options for the y-axis of the violin plot.
+yaxis_violinplot:
+  
+  # Set the options for the axis' label.
+  #
+  # All the available options to set up the axis' label can be found
+  # at:
+  #
+  # https://bulkdgd.readthedocs.io/en/latest/violin_plots.html
+  label:
+
+    # Set the label.
+    #
+    # Type: str.
+    ylabel: "Number of\nsignificant genes"
+
+  #-------------------------------------------------------------------#
+
+  # Set the options for the interval represented on the axis.
+  #
+  # All the available options to set up the interval can be found at:
+  #
+  # https://bulkdgd.readthedocs.io/en/latest/violin_plots.html
+  interval:
+
+    # Set the type of interval represented on the axis.
+    #
+    # Type: str.
+    #
+    # Options:
+    # - 'discrete' for a discrete interval.
+    # - 'continuous' for a continuous interval. 
+    type: discrete
+
+    # Set whether to round all ticks' positions to the nearest
+    # 'round_to_nearest' number. For instance, setting it to 1 would
+    # round to the nearest integer, while setting it to 0.5 would
+    # round to the nearest half an integer.
+    #
+    # If the interval is 'discrete', it is set to 1 by default.
+    # If the interval is 'continuous', it is set to 0.5 by default.
+    #
+    # Type: int or float.
+    # round_to_nearest: !!null
+
+    # Set the highest value displayed on the axis. It is
+    # automatically inferred from the plot if not passed (and
+    # appropriately rounded if the 'round_to_nearest' option is
+    # passed.
+    #
+    # Type: int or float.
+    top: 500
+
+    # Set the lowest value displayed on the axis. It is
+    # automatically inferred from the plot if not passed (and
+    # appropriately rounded if the 'round_to_nearest' option is
+    # passed).
+    #
+    # Type: int or float.
+    bottom: 0
+
+    # Set the number of steps (ticks) displayed on the axis. This
+    # number includes the most extreme ticks. It is set to 10 by
+    # default.
+    #
+    # Type: int.
+    # steps: !!null
+
+    # Set the spacing between the ticks on the axis. If not passed,
+    # it is automatically computed from the 'top', 'bottom', and
+    # 'steps' values.
+    #
+    # Type: int or float.
+    spacing: 100
+
+
+#######################################################################
+
+
+# Set the options for the y-axis of the strip plot.
+yaxis_stripplot:
+  
+  # Set the options for the axis' label.
+  #
+  # All the available options to set up the axis' label can be found
+  # at:
+  #
+  # https://bulkdgd.readthedocs.io/en/latest/violin_plots.html
+  label:
+
+    # Set the label.
+    #
+    # Type: str.
+    ylabel: "Enrichment score"
+
+  #-------------------------------------------------------------------#
+
+  # Set the options for the interval represented on the axis.
+  #
+  # All the available options to set up the interval can be found at:
+  #
+  # https://bulkdgd.readthedocs.io/en/latest/violin_plots.html
+  interval:
+
+    # Set the type of interval represented on the axis.
+    #
+    # Type: str.
+    #
+    # Options:
+    # - 'discrete' for a discrete interval.
+    # - 'continuous' for a continuous interval. 
+    type: continuous
+
+    # Set whether to round all ticks' positions to the nearest
+    # 'round_to_nearest' number. For instance, setting it to 1 would
+    # round to the nearest integer, while setting it to 0.5 would
+    # round to the nearest half an integer.
+    #
+    # If the interval is 'discrete', it is set to 1 by default.
+    # If the interval is 'continuous', it is set to 0.5 by default.
+    #
+    # Type: int or float.
+    # round_to_nearest: !!null
+
+    # Set the highest value displayed on the axis. It is
+    # automatically inferred from the plot if not passed (and
+    # appropriately rounded if the 'round_to_nearest' option is
+    # passed.
+    #
+    # Type: int or float.
+    top: 20.0
+
+    # Set the lowest value displayed on the axis. It is
+    # automatically inferred from the plot if not passed (and
+    # appropriately rounded if the 'round_to_nearest' option is
+    # passed).
+    #
+    # Type: int or float.
+    bottom: 0.0
+
+    # Set the number of steps (ticks) displayed on the axis. This
+    # number includes the most extreme ticks. It is set to 10 by
+    # default.
+    #
+    # Type: int.
+    # steps: !!null
+
+    # Set the spacing between the ticks on the axis. If not passed,
+    # it is automatically computed from the 'top', 'bottom', and
+    # 'steps' values.
+    #
+    # Type: int or float.
+    spacing: 5.0
+
+
+#######################################################################
+  
+# The options for drawing a horizontal line on the strip plot.
+#
+# All the available options for setting up the horizontal line can be
+# found at:
+#
+# https://bulkdgd.readthedocs.io/en/latest/strip_plots.html
+hline_stripplot:
+
+  # Set the y-coordinate of the horizontal line.
+  #
+  # Type: int or float.
+  y: 0.0
+
+  # Set the style of the line.
+  #
+  # Type: str or tuple.
+  #
+  # Options:
+  # - '-' or 'solid' for a solid line.
+  # - '--' or 'dashed' for a dashed line.
+  # - '-.' or 'dashdot' for a dash-dot line.
+  # - ':' or 'dotted' for a dotted line.
+  # - a tuple containing as the first element the offset to draw a
+  #   dashed line ('float') and as the second element a tuple with
+  #   a sequence of floats of even length describing the length of
+  #   dashes and spaces in ink points ('float', 'float'). For
+  #   instance, '(4, 1, 2, 1)' represents a sequence of 4-point
+  #    and 2-point dashes separated by 1-point spaces.
+  linestyle: --
+
+  # Set how to draw the end caps if the lines are dashed.
+  #
+  # Type: str.
+  #
+  # Options:
+  # - 'butt' for a flat cap.
+  # - 'round' for a rounded cap.
+  # - 'projecting' for a projecting cap.
+  dash_capstyle: round
+
+  # Set how to join line segments if the lines are dashed.
+  #
+  # Type: str.
+  #
+  # Options:
+  # - 'miter' for a sharp corner.
+  # - 'round' for a rounded corner.
+  # - 'bevel' for a flat beveled corner.
+  dash_joinstyle: round
+
+  # Set the color of the line.
+  #
+  # Type: str or float.
+  #
+  # Options: all the available options can be found at
+  # https://bulkdgd.readthedocs.io/en/latest/colors.html
+  color: "#333333"

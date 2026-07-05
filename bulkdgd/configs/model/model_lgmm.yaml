@@ -1,0 +1,36 @@
+# Configuration file containing the configuration for the BulkDGD
+# model with 'lgmm' latent space.
+
+genes_txt_file: "default"
+
+latent_dim: 50
+
+latent_type: "lgmm"
+
+latent_options:
+  n_components: 45
+  covariance_type: "diagonal"
+  means_prior_name: "softball"
+  means_prior_options:
+    radius: 7
+    sharpness: 10
+  weights_prior_name: "dirichlet"
+  weights_prior_options:
+    alpha: 5
+  log_var_prior_name: "gaussian"
+  log_var_prior_options:
+    mean : 0.1
+    stddev: 1.0
+
+decoder_options:
+  n_units_hidden_layers:
+    - 500
+    - 8000
+  activations:
+    - "relu"
+    - "relu"
+  dropout: 0.0
+  output_module_name: "nb_feature_dispersion"
+  output_module_options:
+    activation: "softplus"
+    r_init: 2

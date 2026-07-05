@@ -1,0 +1,208 @@
+# Configuration file specifying the options to train the model.
+#
+# This configuration uses the 'lgmm' latent space implementation.
+
+
+#######################################################################
+
+
+# Set the number of epochs to train the model for.
+#
+# Type: int.
+n_epochs: 200
+
+
+#######################################################################
+
+
+# Set the type of latent space.
+#
+# Type: str.
+#
+# Options:
+# - 'lgmm' for the legacy Gaussian mixture model implementation.
+# - 'tgmm' for the new Gaussian mixture model implementation.
+latent_type: lgmm
+
+
+#######################################################################
+
+
+# Set the reduction method to use for the loss function.
+#
+# Type: str.
+#
+# Options:
+# - 'sum' computes the sum of the loss over the batch.
+# - 'mean' computes the mean of the loss over the batch.
+loss_reduction_type: sum
+
+
+#######################################################################
+
+
+# Set the options for the data loader. They are passed to the
+# 'torch.utils.data.DataLoader' constructor.
+data_loader_options:
+
+  # Set the options for the training data loader.
+  train:
+
+    # Set how many samples per batch to load.
+    #
+    # Type: int.
+    batch_size: 256
+
+    # Set whether to reshuffle the data during every training epoch.
+    #
+    # Type: bool.
+    shuffle: True
+  
+  # Set the options for the test data loader.
+  test:
+
+    # Set how many samples per batch to load.
+    #
+    # Type: int.
+    batch_size: 256
+
+    # Set whether to reshuffle the data during every training epoch.
+    #
+    # Type: bool.
+    shuffle: False
+
+
+#######################################################################
+
+
+# Set the options for reporting during training.
+reporting_options:
+
+  # Set the options to report the loss.
+  loss:
+
+    # Set the options for the latent space loss.
+    latent:
+
+      # Set the method used to normalize the loss when reporting it
+      # per epoch.
+      #
+      # Type: str.
+      #
+      # Options:
+      # - 'none' means that the loss will not be normalized.
+      # - 'n_samples' means that the loss will be normalized by the
+      #   number of samples.
+      norm_type: n_samples
+
+    #-----------------------------------------------------------------#
+
+    # Set the options for the reconstruction loss.
+    decoder:
+      
+      # Set the method used to normalize the loss when reporting it
+      # per epoch.
+      #
+      # Type: str.
+      #
+      # Options:
+      # - 'none' means that the loss will not be normalized.
+      # - 'n_samples' means that the loss will be normalized by the
+      #   number of samples.
+      norm_type: n_samples
+
+    #-----------------------------------------------------------------#
+
+    # Set the options for the total loss.
+    total:
+
+      # Set the method used to normalize the loss when reporting it
+      # per epoch.
+      #
+      # Type: str.
+      #
+      # Options:
+      # - 'none' means that the loss will not be normalized.
+      # - 'n_samples' means that the loss will be normalized by the
+      #   number of samples.
+      norm_type: n_samples
+
+
+#######################################################################
+
+
+# Set the options to train the latent space (Gaussian mixture model).
+latent_training_options:
+
+  # Set the optimizer.
+  optimizer_type: adam
+
+  # Set the options for the optimizer.
+  optimizer_options:
+
+    # Set the learning rate.
+    #
+    # Type: float.
+    lr: 0.01
+
+    # Set the weight decay.
+    #
+    # Type: float.
+    weight_decay: 0.0
+
+
+#######################################################################
+
+
+# Set the options to train the decoder.
+decoder_training_options:
+
+  # Set the optimizer.
+  optimizer_type: adam
+
+  # Set the options for the optimizer.
+  optimizer_options:
+
+    # Set the learning rate.
+    #
+    # Type: float.
+    lr: 0.0001
+
+    # Set the weight decay.
+    #
+    # Type: float.
+    weight_decay: 0.0
+
+    # Set the betas.
+    #
+    # Type: list of float.
+    betas: [0.5, 0.9]
+
+
+#######################################################################
+
+
+# Set the options to train the representation layer (the
+# representations found for the samples).
+representations_training_options:
+
+  # Set the optimizer.
+  optimizer_type: adam
+
+  # Set the options for the optimizer.
+  optimizer_options:
+
+    # Set the learning rate.
+    #
+    # Type: float.
+    lr: 0.01
+
+    # Set the weight decay.
+    #
+    # Type: float.
+    weight_decay: 0.0
+
+    # Set the betas.
+    #
+    # Type: list of float.
+    betas: [0.5, 0.9]

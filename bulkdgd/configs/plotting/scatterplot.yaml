@@ -1,0 +1,308 @@
+# Configuration file describing the aesthetics of a scatter plot.
+#
+# The file also contains the options specifying the output file format
+# where the plot will be saved.
+
+
+#######################################################################
+
+
+# Set the options for the output file.
+#
+# All the available options to set up the output file can be found at:
+#
+# https://bulkdgd.readthedocs.io/en/latest/outputs.html
+output:
+  
+  # Set the DPI (dots per inch) of the output file.
+  #
+  # Type: int.
+  dpi: 900
+  
+  # Set whether the figure's background is transparent. It is 'False'
+  # by default.
+  #
+  # Type: bool.
+  transparent: True
+  
+  # Set the figure's bounding box in inches.
+  #
+  # Type: str.
+  #
+  # Options: 'standard' or 'tight'.
+  bbox_inches: tight
+
+
+#######################################################################
+
+
+# Set the options for the figure.
+figure:
+
+  # Set the options to adjust the sub-plots.
+  #
+  # All the available options to adjust the sub-plots can be found
+  # at:
+  #
+  # https://bulkdgd.readthedocs.io/en/latest/figures.html
+  subplots:
+
+    # Set the horizontal space between the sub-plots.
+    #
+    # Type: int or float.
+    wspace: 0.5
+
+    # Set the vertical space between the sub-plots.
+    #
+    # Type: int or float.
+    hspace: 0.5
+
+
+#######################################################################
+
+
+# Set the general font properties.
+#
+# All the available options for the properties can be found at:
+#
+# https://bulkdgd.readthedocs.io/en/latest/text_elements.html
+general_fontproperties:
+
+  # Set the name of/path to the font.
+  #
+  # Type: str.
+  #
+  # Notes: if !!null, the default font used by Matplotlib will be
+  # used.
+  fname: !!null
+
+
+#######################################################################
+
+
+# Set the options for the scatterplot.
+#
+# All the available options to set up the scatterplot can be found
+# at:
+#
+# https://bulkdgd.readthedocs.io/en/latest/scatterplots.html
+scatterplot:
+
+  # Set the palette to be used to color the markers.
+  #
+  # Type: str.
+  #
+  # Options: all the available options can be found at
+  # https://bulkdgd.readthedocs.io/en/latest/scatterplots.html
+  palette: husl
+
+
+#######################################################################
+
+
+# Set the options for the second scatterplot, which will contain the
+# points belonging to other groups with respect to those of interest.
+#
+# All the available options to set up the scatterplot can be found
+# at:
+#
+# https://seaborn.pydata.org/generated/seaborn.scatterplot.html
+scatterplot_2:
+
+  # Set the palette to be used to color the markers.
+  #
+  # Type: str.
+  #
+  # Options: all the available options can be found at
+  # https://bulkdgd.readthedocs.io/en/latest/scatterplots.html
+  palette: "#cccccc"
+
+
+#######################################################################
+
+
+# Set the options for the legend.
+#
+# All the available options to set up the legend can be found at:
+#
+# https://bulkdgd.readthedocs.io/en/latest/scatterplots.html
+legend:
+
+  # Set whether the legend has a frame.
+  #
+  # Type: bool.
+  frameon: False
+
+  # Set the alignment of the legend title and entries.
+  #
+  # Type: str.
+  #
+  # Options:
+  # - 'center' for center alignment.
+  # - 'left' for left alignment.
+  # - 'right' for right alignment.
+  alignment: left
+
+  # Set the absolute position of the legend (1.0, 1.0 roughly means
+  # "center right").
+  #
+  # Type: list of float.
+  bbox_to_anchor: [1.3, 0.9]
+
+  # Set the number of columns in the legend. By default, this is set
+  # to 1.
+  #
+  # Type: int.
+  ncols: 2
+  
+  # Set the font properties of the legend labels
+  prop:
+    
+    # Set the font size.
+    #
+    # Type: int.
+    size: 8
+
+  # Set the font properties of the legend title.
+  title_fontproperties:
+    
+    # Set the font size.
+    #
+    # Type: int.
+    size: 10
+
+
+#######################################################################
+
+
+# Set the options for the x-axis.
+xaxis:
+  
+  # Set the options for the axis' label.
+  #
+  # All the available options to set up the axis' label can be found
+  # at:
+  #
+  # https://bulkdgd.readthedocs.io/en/latest/xaxis.html
+  label:
+
+    # Set the padding around the label.
+    #
+    # Type: int.
+    labelpad: 10
+
+    # Set the font properties of the label.
+    fontproperties:
+
+      # Set the font size.
+      #
+      # Type: int.
+      size: 10
+
+  #-------------------------------------------------------------------#
+  
+  # Set the axis' ticks' labels.
+  #
+  # All the available options to set up the axis' ticks' labels can
+  # be found at:
+  #
+  # https://bulkdgd.readthedocs.io/en/latest/xaxis.html
+  ticklabels:
+    
+    # Set the format for the ticks' labels.
+    #
+    # Type: format str.
+    fmt: "{:.3f}"
+
+    # Set the options for the ticks' labels.
+    options:
+
+      # Set the font properties of the ticks' labels.
+      fontproperties:
+
+        # Set the font size.
+        #
+        # Type: int.
+        size: 8
+
+  #-------------------------------------------------------------------#
+
+  # Set the options for the interval represented on the axis.
+  interval:
+
+    # Set the type of interval represented on the axis.
+    #
+    # Type: str.
+    #
+    # Options:
+    # - 'discrete' for a discrete interval.
+    # - 'continuous' for a continuous interval.
+    type: continuous
+
+
+#######################################################################
+
+
+# Set the options for the y-axis.
+yaxis:
+  
+  # Set the options for the axis' label.
+  #
+  # All the available options to set up the axis' label can be found
+  # at:
+  #
+  # https://bulkdgd.readthedocs.io/en/latest/yaxis.html
+  label:
+
+    # Set the padding around the label.
+    #
+    # Type: int.
+    labelpad: 10
+
+    # Set the font properties of the label.
+    fontproperties:
+
+      # Set the font size.
+      #
+      # Type: int.
+      size: 10
+
+  #-------------------------------------------------------------------#
+  
+  # Set the axis' ticks' labels.
+  #
+  # All the available options to set up the axis' ticks' labels can
+  # be found at:
+  #
+  # https://bulkdgd.readthedocs.io/en/latest/yaxis.html
+  ticklabels:
+  
+    # Set the format for the ticks' labels.
+    #
+    # Type: format str.
+    fmt: "{:.3f}"
+
+    # Set the options for the ticks' labels.
+    options:
+
+      # Set the font properties of the ticks' labels.
+      fontproperties:
+
+        # Set the font size.
+        #
+        # Type: int.
+        size: 8
+
+  #-------------------------------------------------------------------#
+
+  # Set the options for the interval represented on the axis.
+  interval:
+
+    # Set the type of interval represented on the axis.
+    #
+    # Type: str.
+    #
+    # Options:
+    # - 'discrete' for a discrete interval.
+    # - 'continuous' for a continuous interval.
+    type: continuous

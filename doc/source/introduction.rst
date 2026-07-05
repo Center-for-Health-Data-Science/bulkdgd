@@ -1,28 +1,28 @@
 Getting started
 ===============
 
-bulkDGD is a Python package containing the bulkDGD generative model for the gene expression of human tissues from bulk RNA-Seq data described in the work of Schuster and Krogh :cite:p:`schuster2021deep,schuster2021manifold` and Prada and coworkers :cite:p:`prada2023n`.
+bulkdgd is a Python package containing the BulkDGD generative model for the gene expression of human tissues from bulk RNA-seq data described in the work of Schuster and Krogh :cite:p:`schuster2021deep,schuster2021manifold` and Prada and coworkers :cite:p:`prada2023n`.
 
-bulkDGD can be used, for instance, to find differentially expressed genes between normal human samples and diseased samples.
+bulkdgd can be used, for instance, to find differentially expressed genes between normal human samples and diseased samples.
 
 Installation
 ------------
 
-We provide detailed instructions to install bulkDGD in a Python virtual environment or in a ``conda`` environment in the :doc:`Installation <installation>` section.
+We provide detailed instructions to install bulkdgd in a Python virtual environment or in a ``conda`` environment in the :doc:`Installation <installation>` section.
 
 Usage
 -----
 
-The modules of bulkDGD can be imported and used to build customized scripts and pipelines.
+The modules of bulkdgd can be imported and used to build customized scripts and pipelines.
 
-The :doc:`API reference section <api_reference>` provides a detailed descriptions of bulkDGD's sub-packages and modules.
+The :doc:`API reference section <api_reference>` provides a detailed descriptions of bulkdgd's sub-packages and modules.
 
 However, we also provide a small :doc:`command-line interface <command_line_interface>` to automate some of the most common tasks for which the DGD model can be used for more bio-oriented audiences.
 
 Tutorials
 ---------
 
-Our :doc:`tutorials <tutorials>` provide detailed, step-by-step explanations of how to perform different tasks using bulkDGD.
+Our :doc:`tutorials <tutorials>` provide detailed, step-by-step explanations of how to perform different tasks using bulkdgd.
 
 Issues, bugs, and questions
 ---------------------------
@@ -34,11 +34,11 @@ Citing
 
 If you use our software for your research, please cite the following articles:
 
+* Prada-Luengo, Inigo, et al. "N-of-one differential gene expression without control samples using a deep generative model." *Genome Biology* 24.1 (2023): 263.
+
 * Schuster, Viktoria, and Anders Krogh. "A manifold learning perspective on representation learning: Learning decoder and representations without an encoder." *Entropy* 23.11 (2021): 1403.
 
 * Schuster, Viktoria, and Anders Krogh. "The deep generative decoder: Using MAP estimates of representations." *arXiv preprint arXiv:2110.06672* (2021).
-
-* Prada-Luengo, Inigo, et al. "N-of-one differential gene expression without control samples using a deep generative model." *bioRxiv* (2023): 2023-01.
 
 References
 ----------

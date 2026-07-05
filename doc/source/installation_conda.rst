@@ -10,10 +10,10 @@ Installing ``miniconda`` rather than the full ``anaconda`` package is advised.
 
 Once ``conda`` is installed on your system, you can create a virtual environment.
 
-Step 2 - Get bulkDGD
+Step 2 - Get bulkdgd
 --------------------
 
-Download the latest version of bulkDGD from `its GitHub repository <https://github.com/Center-for-Health-Data-Science/bulkDGD/releases/latest>`_.
+Download the latest version of ``bulkdgd`` from `its GitHub repository <https://github.com/Center-for-Health-Data-Science/bulkDGD/releases/latest>`_. Cloning or extracting the release archive creates a ``bulkDGD`` directory (matching the repository's name); the importable Python package inside it is named ``bulkdgd`` (lowercase).
 
 Step 3 - Create the ``conda`` environment
 -----------------------------------------
@@ -36,19 +36,19 @@ You can activate the ``conda`` environment by running:
 Step 5 - Get the ``dec.pth`` file
 ---------------------------------
 
-You must download the ``dec.pth`` file containing the trained decoder's parameters before installing bulkDGD, so that the file is copied to the installation directory. The file cannot be shipped together with the GitHub package because of its size, but can be downloaded `here <https://drive.google.com/file/d/1GKMkVmmcEH8glNrQ4092VWYQgq6maYW1/view?usp=sharing>`_.
+You must download the ``dec.pth`` file containing the trained decoder's parameters before installing ``bulkdgd``, so that the file is copied to the installation directory. The file cannot be shipped together with the GitHub package because of its size, but can be downloaded `here <https://drive.google.com/file/d/1GKMkVmmcEH8glNrQ4092VWYQgq6maYW1/view?usp=sharing>`_.
 
-Once downloaded, place the file into the ``bulkDGD/ioutil/data`` folder before performing the installation.
+Once downloaded, place the file into the ``bulkDGD/bulkdgd/data/model/dec`` folder (inside the cloned repository, in the ``dec`` sub-folder of the package's data directory) before performing the installation.
 
-Step 6 - Install bulkDGD
+Step 6 - Install bulkdgd
 ------------------------
 
-You can now install bulkDGD using ``pip``.
+You can now install ``bulkdgd`` using ``pip``.
 
 .. code-block:: shell
-    
+
     pip install ./bulkDGD
 
-bulkDGD should now be installed.
+``bulkdgd`` should now be installed.
 
-Every time you need to run bulkDGD after opening a new shell, just run step 4 beforehand.
+Every time you need to run ``bulkdgd`` after opening a new shell, just run step 4 beforehand.

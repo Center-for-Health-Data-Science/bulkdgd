@@ -1,8 +1,9 @@
-``analysis`` - analyze data produced by the bulkDGD model
+``analysis`` - analyze data produced by the bulkdgd model
 =========================================================
 
-.. autosummary::
-   :toctree: analysis
+.. toctree::
+   :maxdepth: 1
 
-   analysis.dea
-   analysis.reduction
+   analysis/analysis.dea
+   analysis/analysis.reduction
+   analysis/analysis.residuals
