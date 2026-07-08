@@ -7,9 +7,11 @@
 </a>
 
 
-``bulkdgd`` is a Python package providing an interface to use the Deep Generative Decoder (DGD) developed by Schuster and Krogh (Schuster and Krogh, 2023) to model the gene expression of healthy human tissues from bulk RNA-Seq data.
+``bulkdgd`` is a Python package providing an interface to use the Deep Generative Decoder (DGD) to model the gene expression of healthy human tissues from bulk RNA-Seq data.
 
-The first application of the model to bulk RNA-Seq data is presented in the work of Prada-Luengo, Schuster, Liang, and coworkers (Prada-Luego, Schuster, Liang, et al., 2023).
+The first version of the DGD was developed in 2023 (Schuster and Krogh, 2023) and the first application of the model to bulk RNA-Seq data is presented in the work of Prada-Luengo, Schuster, Liang, and coworkers (Prada-Luego, Schuster, Liang, et al., 2023).
+
+``bulkdgd`` is a Python package, but it can be used directly from R without writing any Python code. For how to perform differential expression analysis using ``bulkdgd`` in R, see the [R tutorial](https://bulkdgd.readthedocs.io/en/latest/tutorial_notebooks/tutorial_5.html).
 
 ## Version 2.0.0 - major release
 
