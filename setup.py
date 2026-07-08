@@ -27,6 +27,9 @@
 
 
 # Import from the standard library.
+import pathlib
+
+# Import from third-party packages.
 from setuptools import setup
 
 
@@ -46,6 +49,9 @@ author = \
     "Iñigo Prada-Luengo, Anders Lykkebo-Valløe, " \
     "Andreas Bjerregaard, Anders Krogh"
 
+# Set the maintainer's contact e-mail.
+author_email = "sora.valentina1@gmail.com"
+
 # Set the project's version.
 version = "2.0.0"
 
@@ -54,9 +60,40 @@ description = \
     "A generative model for human gene expression from bulk " \
     "RNA-seq data."
 
+# Set the long description from the README file, to be rendered
+# on the project's PyPI page.
+long_description = \
+    pathlib.Path(__file__).parent.joinpath("README.md").read_text(\
+        encoding = "utf-8")
+long_description_content_type = "text/markdown"
+
+# Set the minimum Python version required (the code uses the
+# PEP 604 'X | Y' union type syntax, which requires Python 3.10+).
+python_requires = ">=3.10"
+
+# Set the project's classifiers.
+classifiers = \
+    ["Development Status :: 5 - Production/Stable",
+     "Intended Audience :: Science/Research",
+     "License :: OSI Approved :: GNU General Public License v3 " \
+     "or later (GPLv3+)",
+     "Operating System :: OS Independent",
+     "Programming Language :: Python :: 3",
+     "Programming Language :: Python :: 3.10",
+     "Programming Language :: Python :: 3.11",
+     "Programming Language :: Python :: 3.12",
+     "Topic :: Scientific/Engineering :: Bio-Informatics"]
+
+# Set links to relevant project pages, shown on the PyPI page.
+project_urls = \
+    {"Documentation" : "https://bulkdgd.readthedocs.io/en/latest/",
+     "Source" : url,
+     "Bug Tracker" : f"{url}/issues"}
+
 # Set which packages are included.
 packages = \
     ["bulkdgd",
+     "bulkdgd._internals",
      "bulkdgd.analysis",
      "bulkdgd.core",
      "bulkdgd.execs",
@@ -171,8 +208,14 @@ install_requires = ["dask",
 setup(name = name,
       url = url,
       author = author,
+      author_email = author_email,
       version = version,
       description = description,
+      long_description = long_description,
+      long_description_content_type = long_description_content_type,
+      python_requires = python_requires,
+      classifiers = classifiers,
+      project_urls = project_urls,
       packages = packages,
       package_data = package_data,
       entry_points = entry_points,

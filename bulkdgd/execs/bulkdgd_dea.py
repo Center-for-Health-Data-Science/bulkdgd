@@ -630,116 +630,116 @@ def main(args: argparse.Namespace) -> None:
             f"successfully written in '{output_path}'."
         logger.info(infostr)
 
-    #-----------------------------------------------------------------#
+        #-----------------------------------------------------------------#
 
-    # If gene sets were passed
-    if genes_sets is not None:
+        # If gene sets were passed
+        if genes_sets is not None:
 
-        # Try to get the significant genes.
-        try:
-
-            # Get the significant genes.
-            df_significant_genes = \
-                dea.get_significant_genes(\
-                        df_stats = df_stats,
-                        p_val = p_values_threshold,
-                        q_val = q_values_threshold,
-                        log2_fold_change = log2_fold_change_threshold)
-        
-        # If something went wrong
-        except Exception as e:
-
-            # Warn the user and exit.
-            errstr = \
-                "It was not possible to get the significant " \
-                f"genes from the DEA results of sample " \
-                f"'{sample_name}'. Error: {e}"
-            logger.exception(errstr)
-            sys.exit(errstr)
-            
-        # Inform the user that the significant genes were
-        # successfully obtained.
-        infostr = \
-            "The significant genes were successfully obtained " \
-            f"from the DEA results of sample '{sample_name}'."
-        logger.info(infostr)
-
-        #---------------------------------------------------------#
-
-        # Try to perform the gene set enrichment analysis.
-        try:
-
-            # Perform the gene set enrichment analysis.
-            df_gsea_result = \
-                dea.get_enrichment_scores(\
-                    df_significant_genes = df_significant_genes,
-                    genes_sets = genes_sets,
-                    genes_all = genes_all)
-        
-        # If something went wrong
-        except Exception as e:
-
-            # Warn the user and exit.
-            errstr = \
-                "It was not possible to perform the gene set " \
-                f"enrichment analysis for sample '{sample_name}'. " \
-                f"Error: {e}"
-            logger.exception(errstr)
-            sys.exit(errstr)
-        
-        # Inform the user that the gene set enrichment analysis
-        # was successfully performed.
-        infostr = \
-            "The gene set enrichment analysis was successfully " \
-            f"performed for sample '{sample_name}."
-        logger.info(infostr)
-
-        #-------------------------------------------------------------#
-
-        # If the results of the analysis should be written to separate
-        # files
-        if not merge_gsea:
-
-            # Set the path to the output file.
-            output_path = \
-                os.path.join(wd,
-                             f"{output_gsea_prefix}{sample_name}.csv")
-
-            # Try to write the data frame in the output file.
+            # Try to get the significant genes.
             try:
 
-                df_gsea_result.to_csv(output_path,
-                                     sep = ",",
-                                     index = True,
-                                     header = True)
-
+                # Get the significant genes.
+                df_significant_genes = \
+                    dea.get_significant_genes(\
+                            df_stats = df_stats,
+                            p_val = p_values_threshold,
+                            q_val = q_values_threshold,
+                            log2_fold_change = log2_fold_change_threshold)
+        
             # If something went wrong
             except Exception as e:
 
                 # Warn the user and exit.
                 errstr = \
-                    "It was not possible to write the gene set " \
-                    f"enrichment analysis results for sample " \
-                    f"'{sample_name}' in '{output_path}'. Error: {e}"
+                    "It was not possible to get the significant " \
+                    f"genes from the DEA results of sample " \
+                    f"'{sample_name}'. Error: {e}"
                 logger.exception(errstr)
                 sys.exit(errstr)
-
-            # Inform the user that the file was successfully written.
+            
+            # Inform the user that the significant genes were
+            # successfully obtained.
             infostr = \
-                f"The gene set enrichment analysis results for " \
-                f"sample '{sample_name}' were successfully written " \
-                f"in '{output_path}'."
+                "The significant genes were successfully obtained " \
+                f"from the DEA results of sample '{sample_name}'."
             logger.info(infostr)
+
+            #---------------------------------------------------------#
+
+            # Try to perform the gene set enrichment analysis.
+            try:
+
+                # Perform the gene set enrichment analysis.
+                df_gsea_result = \
+                    dea.get_enrichment_scores(\
+                        df_significant_genes = df_significant_genes,
+                        genes_sets = genes_sets,
+                        genes_all = genes_all)
         
-        # Otherwise
-        else:
+            # If something went wrong
+            except Exception as e:
 
-            # Add a column identifying the sample the results belong
-            # to.
-            df_gsea_result.insert(0, "sample", sample_name)
+                # Warn the user and exit.
+                errstr = \
+                    "It was not possible to perform the gene set " \
+                    f"enrichment analysis for sample '{sample_name}'. " \
+                    f"Error: {e}"
+                logger.exception(errstr)
+                sys.exit(errstr)
+        
+            # Inform the user that the gene set enrichment analysis
+            # was successfully performed.
+            infostr = \
+                "The gene set enrichment analysis was successfully " \
+                f"performed for sample '{sample_name}."
+            logger.info(infostr)
 
-            # Add the results to the list.
-            gsea_results.append(df_gsea_result)
+            #-------------------------------------------------------------#
+
+            # If the results of the analysis should be written to separate
+            # files
+            if not merge_gsea:
+
+                # Set the path to the output file.
+                output_path = \
+                    os.path.join(wd,
+                                 f"{output_gsea_prefix}{sample_name}.csv")
+
+                # Try to write the data frame in the output file.
+                try:
+
+                    df_gsea_result.to_csv(output_path,
+                                         sep = ",",
+                                         index = True,
+                                         header = True)
+
+                # If something went wrong
+                except Exception as e:
+
+                    # Warn the user and exit.
+                    errstr = \
+                        "It was not possible to write the gene set " \
+                        f"enrichment analysis results for sample " \
+                        f"'{sample_name}' in '{output_path}'. Error: {e}"
+                    logger.exception(errstr)
+                    sys.exit(errstr)
+
+                # Inform the user that the file was successfully written.
+                infostr = \
+                    f"The gene set enrichment analysis results for " \
+                    f"sample '{sample_name}' were successfully written " \
+                    f"in '{output_path}'."
+                logger.info(infostr)
+        
+            # Otherwise
+            else:
+
+                # Add a column identifying the sample the results belong
+                # to.
+                df_gsea_result.insert(0, "sample", sample_name)
+
+                # Add the results to the list.
+                gsea_results.append(df_gsea_result)
     
     #-----------------------------------------------------------------#
 
