@@ -13,6 +13,8 @@ The first version of the DGD was developed in 2023 (Schuster and Krogh, 2023) an
 
 ``bulkdgd`` is a Python package, but it can be used directly from R without writing any Python code. For how to perform differential expression analysis using ``bulkdgd`` in R, see the [R tutorial](https://bulkdgd.readthedocs.io/en/latest/tutorial_notebooks/tutorial_5.html).
 
+All the [recount3](https://rna.recount.bio/) samples used to train and test the model were processed from raw files through the [Monorail](https://github.com/langmead-lab/monorail-external/) pipeline. If you have your own raw files, we recommend processing them through the same pipeline before using them with ``bulkdgd``.
+
 ## Version 2.0.0 - major release
 
 This is a **major release** superseding all previous versions of the package (previously named ``bulkDGD``). Existing users should switch to it. The biggest changes compared to the previous version:
