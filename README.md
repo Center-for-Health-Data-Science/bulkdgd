@@ -15,6 +15,19 @@ The first version of the DGD was developed in 2023 (Schuster and Krogh, 2023) an
 
 All the [recount3](https://rna.recount.bio/) samples used to train and test the model were processed from raw files through the [Monorail](https://github.com/langmead-lab/monorail-external/) pipeline. If you have your own raw files, we recommend processing them through the same pipeline before using them with ``bulkdgd``.
 
+## Quick install
+
+```sh
+pip install bulkdgd
+```
+
+The trained decoder's parameters (``dec.pth``, too large to distribute on PyPI) are downloaded automatically the first time you use the pre-trained model - see the [installation instructions](https://bulkdgd.readthedocs.io/en/latest/installation.html) for details, including a manual-download fallback for offline machines.
+
+## Version 2.0.1
+
+* The default pre-trained model has been updated (both the Gaussian mixture and the decoder's parameters), fixing a mismatch between the packaged model configuration and the previously-shipped decoder.
+* The trained decoder's parameters (``dec.pth``) are no longer distributed with the package or manually downloaded - ``bulkdgd`` now downloads them automatically, once, the first time the pre-trained model is used.
+
 ## Version 2.0.0 - major release
 
 This is a **major release** superseding all previous versions of the package (previously named ``bulkDGD``). Existing users should switch to it. The biggest changes compared to the previous version:

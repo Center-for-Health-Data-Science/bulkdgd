@@ -39,7 +39,7 @@ import torch
 from torch.utils.data import DataLoader
 
 # Import from 'bulkdgd'.
-from bulkdgd import defaults
+from bulkdgd import _internals, defaults
 from . import _templates, dataclasses, latents
 
 
@@ -785,10 +785,20 @@ def parse_config_model(config: dict[str, object],
         if decoder_pth_file == "default":
 
             # Get the path to the default file.
-            config_validated["decoder_options"]["decoder_pth_file"] = \
+            default_decoder_pth_file = \
                 os.path.normpath(\
                     defaults.DATA_FILES_MODEL["dec"])
-            
+
+            # If the file is not present locally (it is too large to
+            # be distributed with the package on PyPI), download it.
+            if not os.path.isfile(default_decoder_pth_file):
+
+                _internals.download_decoder_pth(\
+                    dest_path = default_decoder_pth_file)
+
+            config_validated["decoder_options"]["decoder_pth_file"] = \
+                default_decoder_pth_file
+
         # Otherwise
         else:
 

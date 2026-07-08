@@ -39,7 +39,11 @@ import copy
 import logging as log
 import os
 import re
+import tempfile
 from typing import Optional
+
+# Import from third-party packages.
+import requests as rq
 
 
 #######################################################################
@@ -534,3 +538,109 @@ def kwargs_to_dict(kwargs: dict[str, object]) -> dict[str, object]:
     
     # Return the dictionary.
     return d
+
+
+def download_decoder_pth(dest_path: str) -> None:
+    """Download the trained decoder's parameters (``dec.pth``) from
+    the GitHub release matching the installed ``bulkdgd`` version, and
+    save them at ``dest_path``.
+
+    The file is too large to be distributed together with the
+    package on PyPI, so it is fetched on demand the first time it is
+    needed.
+
+    Parameters
+    ----------
+    dest_path : :class:`str`
+        The path where the downloaded file should be saved.
+    """
+
+    # Import here to avoid a circular import at module load time
+    # ('bulkdgd' imports 'defaults', and '_internals' is imported
+    # from modules that are themselves imported after 'bulkdgd' has
+    # been fully initialized, but importing at the top of this
+    # module would run before that is guaranteed).
+    import bulkdgd
+    from bulkdgd import defaults
+
+    # Get the URL from which the decoder's parameters can be
+    # downloaded.
+    url = defaults.DECODER_PTH_URL.format(version = bulkdgd.__version__)
+
+    # Inform the user that the download is about to start.
+    infostr = \
+        "The trained decoder's parameters were not found locally " \
+        f"and will now be downloaded from '{url}'. This is a " \
+        "one-off download (file size: about 900 MB) - subsequent " \
+        "runs will reuse the downloaded file."
+    logger.info(infostr)
+
+    #-----------------------------------------------------------------#
+
+    # Make sure the destination directory exists.
+    os.makedirs(os.path.dirname(dest_path), exist_ok = True)
+
+    #-----------------------------------------------------------------#
+
+    # Try to download the file.
+    try:
+
+        # Open a streaming connection to the file.
+        with rq.get(url, stream = True, timeout = 60) as response:
+
+            # Raise an exception if the download failed.
+            response.raise_for_status()
+
+            # Download the file to a temporary location first, so
+            # that an interrupted download never leaves a corrupt
+            # file at 'dest_path'.
+            fd, temp_path = \
+                tempfile.mkstemp(\
+                    dir = os.path.dirname(dest_path),
+                    prefix = ".dec.pth.",
+                    suffix = ".part")
+
+            try:
+
+                with os.fdopen(fd, "wb") as f:
+
+                    # Write the file in chunks.
+                    for chunk in \
+                        response.iter_content(chunk_size = 8388608):
+
+                        f.write(chunk)
+
+                # Atomically move the temporary file to its final
+                # destination.
+                os.replace(temp_path, dest_path)
+
+            # If anything went wrong while writing the file
+            except Exception:
+
+                # Remove the temporary file, if it still exists.
+                if os.path.exists(temp_path):
+
+                    os.remove(temp_path)
+
+                # Re-raise the exception.
+                raise
+
+    # If something went wrong with the download
+    except Exception as e:
+
+        # Warn the user and raise an exception.
+        errstr = \
+            "It was not possible to download the trained decoder's " \
+            f"parameters from '{url}'. If you are on a machine " \
+            "without internet access, download the file manually " \
+            "from the same URL on another machine and place it at " \
+            f"'{dest_path}'. Error: {e}"
+        raise Exception(errstr)
+
+    #-----------------------------------------------------------------#
+
+    # Inform the user that the download was successful.
+    infostr = \
+        "The trained decoder's parameters were successfully " \
+        f"downloaded and saved in '{dest_path}'."
+    logger.info(infostr)

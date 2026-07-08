@@ -23,5 +23,20 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
+# Import from the standard library.
+import importlib.metadata as _importlib_metadata
+
 # Import everything from the 'defaults' module.
 from .defaults import *
+
+
+# Set the package's version, read from the installed distribution's
+# metadata (falls back to 'unknown' for an unpacked source checkout
+# that was never installed).
+try:
+
+    __version__ = _importlib_metadata.version("bulkdgd")
+
+except _importlib_metadata.PackageNotFoundError:
+
+    __version__ = "unknown"

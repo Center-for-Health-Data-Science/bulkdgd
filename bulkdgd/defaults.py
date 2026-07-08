@@ -273,7 +273,20 @@ DATA_FILES_MODEL = {
     "genes" : \
         os.path.join(os.path.dirname(__file__),
                      "data/model/genes/genes.txt"),
-    
+
     #-----------------------------------------------------------------#
 
     }
+
+
+#######################################################################
+
+
+# Set the URL template from which the trained decoder's parameters
+# (too large to be distributed with the package itself) can be
+# downloaded on demand. '{version}' is filled in with the installed
+# 'bulkdgd' version, so a given release always downloads the exact
+# decoder it was tested with.
+DECODER_PTH_URL = \
+    "https://github.com/Center-for-Health-Data-Science/bulkdgd/" \
+    "releases/download/v{version}/dec.pth"
