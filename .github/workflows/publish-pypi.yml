@@ -74,3 +74,15 @@ jobs:
           path: dist/
 
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  # Rebuild the Read the Docs "latest" documentation whenever a real
+  # release ships - only runs after publish-pypi actually succeeds.
+  trigger-rtd-build:
+    needs: publish-pypi
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Read the Docs build (latest)
+        run: |
+          curl -fsS -X POST \
+            -H "Authorization: Token ${{ secrets.RTD_TOKEN }}" \
+            https://readthedocs.org/api/v3/projects/bulkdgd/versions/latest/builds/
