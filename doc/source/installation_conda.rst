@@ -10,45 +10,39 @@ Installing ``miniconda`` rather than the full ``anaconda`` package is advised.
 
 Once ``conda`` is installed on your system, you can create a virtual environment.
 
-Step 2 - Get bulkdgd
---------------------
-
-Download the latest version of ``bulkdgd`` from `its GitHub repository <https://github.com/Center-for-Health-Data-Science/bulkDGD/releases/latest>`_. Cloning or extracting the release archive creates a ``bulkDGD`` directory (matching the repository's name); the importable Python package inside it is named ``bulkdgd`` (lowercase).
-
-Step 3 - Create the ``conda`` environment
+Step 2 - Create the ``conda`` environment
 -----------------------------------------
 
 You can create your ``conda`` environment:
 
 .. code-block:: shell
-    
+
     conda create -n bulkdgd-env python=3.11
 
-Step 4 - Activate the environment
+Step 3 - Activate the environment
 ---------------------------------
 
 You can activate the ``conda`` environment by running:
 
 .. code-block:: shell
-    
+
     conda activate bulkdgd-env
 
-Step 5 - Get the ``dec.pth`` file
----------------------------------
-
-You must download the ``dec.pth`` file containing the trained decoder's parameters before installing ``bulkdgd``, so that the file is copied to the installation directory. The file cannot be shipped together with the GitHub package because of its size, but can be downloaded `here <https://drive.google.com/file/d/1GKMkVmmcEH8glNrQ4092VWYQgq6maYW1/view?usp=sharing>`_.
-
-Once downloaded, place the file into the ``bulkDGD/bulkdgd/data/model/dec`` folder (inside the cloned repository, in the ``dec`` sub-folder of the package's data directory) before performing the installation.
-
-Step 6 - Install bulkdgd
+Step 4 - Install bulkdgd
 ------------------------
 
-You can now install ``bulkdgd`` using ``pip``.
+You can now install ``bulkdgd`` from `PyPI <https://pypi.org/project/bulkdgd/>`_ using ``pip``:
 
 .. code-block:: shell
 
-    pip install ./bulkDGD
+    pip install bulkdgd
 
 ``bulkdgd`` should now be installed.
 
-Every time you need to run ``bulkdgd`` after opening a new shell, just run step 4 beforehand.
+The trained decoder's parameters (``dec.pth``) are not distributed with the package because of their size. You do not need to do anything about this now: the first time you use the pre-trained model (for instance, the first time you run ``bulkdgd_find_representations``), ``bulkdgd`` will automatically download ``dec.pth`` (about 900 MB) and cache it inside the installed package for subsequent runs.
+
+.. note::
+
+   If the machine you are running ``bulkdgd`` on has no internet access, download ``dec.pth`` manually on another machine from `this URL <https://github.com/Center-for-Health-Data-Science/bulkdgd/releases/download/v2.0.1/dec.pth>`_ (replace ``v2.0.1`` with your installed ``bulkdgd`` version - run ``python -c "import bulkdgd; print(bulkdgd.__version__)"`` to check), transfer it to the offline machine, find where ``bulkdgd`` was installed with ``python -c "import bulkdgd, os; print(os.path.dirname(bulkdgd.__file__))"``, and place the file in the ``data/model/dec`` sub-folder of that directory (creating it if needed).
+
+Every time you need to run ``bulkdgd`` after opening a new shell, just run step 3 beforehand.

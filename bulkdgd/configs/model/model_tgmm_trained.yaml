@@ -16,6 +16,8 @@ latent_options:
   n_init: 1
   reg_covar: 1.0e-06
   tol: 0.0001
+  random_state: null
+  cem: false
   latent_pth_file: "default"
 
 decoder_options:
@@ -26,10 +28,9 @@ decoder_options:
   n_units_hidden_layers:
     - 500
     - 8000
-  output_module_name: "nb_feature_dispersion"
+  output_module_name: "nb_full_dispersion"
   output_module_options:
     activation: "softplus"
-    r_init: 2
   decoder_pth_file: "default"
 
 
