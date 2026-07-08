@@ -9,6 +9,7 @@ Tutorials
    tutorial_notebooks/tutorial_2
    tutorial_notebooks/tutorial_3
    tutorial_notebooks/tutorial_4
+   tutorial_notebooks/tutorial_5
 
 In this section, you will find examples of how to use the bulkdgd package for different tasks.
 
@@ -25,5 +26,7 @@ Specifically, we provide detailed tutorials to:
 * Train the bulkdgd model on a new set of samples (:doc:`Tutorial 3 <tutorial_notebooks/tutorial_3>`).
 
 * Download and prepare a set of samples from the Recount3 platform for use with the bulkdgd model, using a real glioblastoma dataset as an example (:doc:`Tutorial 4 <tutorial_notebooks/tutorial_4>`).
+
+* Use bulkdgd directly from R, via ``reticulate``, to find representations and perform DEA without writing any Python code (:doc:`Tutorial 5 <tutorial_notebooks/tutorial_5>`).
 
 The data and Python notebooks needed to reproduce the tutorials can be found in the different ``tutorial_*`` directories inside the ``tutorials`` directory at the root of the repository.
