@@ -27,7 +27,7 @@ This is a **major release** superseding all previous versions of the package (pr
 
 * **Documentation**: ``bulkdgd``'s documentation can be found [here](https://bulkdgd.readthedocs.io/en/latest/).
 
-* **Bug reports**: please report any bugs or problems you encounter with ``bulkdgd`` in the dedicated [issues](https://github.com/Center-for-Health-Data-Science/bulkDGD/issues) section on GitHub.
+* **Bug reports**: please report any bugs or problems you encounter with ``bulkdgd`` in the dedicated [issues](https://github.com/Center-for-Health-Data-Science/bulkdgd/issues) section on GitHub.
 
 **License**
 
