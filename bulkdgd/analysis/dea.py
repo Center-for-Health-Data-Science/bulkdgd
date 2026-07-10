@@ -164,7 +164,21 @@ def _yield_p_values(obs_counts: torch.Tensor,
         # function beyond which lies 0.00001 of the mass. This is a
         # single value.
         tail = float(ppf_dist.ppf(**ppf_options))
-        
+
+        # A negative binomial with a vanishingly small r-value (as can
+        # happen for genes the decoder predicts as essentially
+        # unexpressed) drives 'p' to (numerically) exactly 1, which is
+        # a degenerate parameterization SciPy's 'nbinom.ppf' resolves
+        # to NaN instead of a finite value -- even though the
+        # distribution's mass is, in this limit, concentrated at 0
+        # (consistent with the finite, non-NaN 'tail' SciPy itself
+        # returns for the same gene at slightly less extreme
+        # parameter values). Fall back to 0 in that case rather than
+        # letting a single near-zero-dispersion gene crash the entire
+        # sample's DEA.
+        if not np.isfinite(tail):
+            tail = 0.0
+
         #-------------------------------------------------------------#
 
         # If no resolution was passed
