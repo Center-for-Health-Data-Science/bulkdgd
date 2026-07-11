@@ -341,6 +341,34 @@ def set_parser() -> argparse.ArgumentParser:
 
     #-----------------------------------------------------------------#
 
+    # Set the default value for the argument.
+    pm_default = "auto"
+
+    # Set a help message.
+    pm_help = \
+        "How to calculate the p-values. The two methods give the " \
+        "same p-values. 'batched' calculates them for all the genes " \
+        "at once - this is what lets them be calculated on a GPU, " \
+        "and, on a CPU, 'torch' spreads the calculation over the " \
+        "cores by itself, so use it with '-n 1'. 'per-gene' " \
+        "calculates them one gene at a time, and is parallelized " \
+        "over the samples with the '-n', '--n-proc' option, which " \
+        "is the way to use a machine with many cores. Do not " \
+        "combine 'batched' with '-n' greater than 1: the processes " \
+        "would each try to use every core, and fight over them. " \
+        f"The default, '{pm_default}', uses 'batched' on a GPU and " \
+        "on a CPU with one process, and 'per-gene' on a CPU with " \
+        "more than one process."
+
+    # Add the argument to the group.
+    run_group.add_argument("-pm", "--p-values-method",
+                           type = str,
+                           default = pm_default,
+                           choices = dea.P_VALUES_METHODS,
+                           help = pm_help)
+
+    #-----------------------------------------------------------------#
+
     # Add the working directory and logging arguments.
     util.add_wd_and_logging_arguments(\
         parser = parser,
@@ -383,6 +411,7 @@ def main(args: argparse.Namespace) -> None:
     # Get the arguments corresponding to the run options.
     n_proc = args.n_proc
     device = args.device
+    p_values_method = args.p_values_method
 
     #-----------------------------------------------------------------#
 
@@ -406,6 +435,50 @@ def main(args: argparse.Namespace) -> None:
         f"The p-values will be calculated on the '{device}' device."
     logger.info(infostr)
 
+    #-----------------------------------------------------------------#
+
+    # If the method to calculate the p-values should be chosen
+    # automatically
+    if p_values_method == "auto":
+
+        # On a GPU, calculating the p-values for all the genes at once
+        # is the whole point - it is what lets the GPU be used.
+        if torch.device(device).type != "cpu":
+
+            # Calculate the p-values for all the genes at once.
+            p_values_method = "batched"
+
+        # On a CPU, in a single process, calculate them for all the
+        # genes at once, too.
+        #
+        # 'torch' parallelizes the calculation over the CPU's cores by
+        # itself, so a single process already uses the whole machine -
+        # and it does so better than one process per sample does. On a
+        # 56-core node, 16 samples take 25.7s this way, against 30.0s
+        # with 28 processes going gene by gene.
+        elif n_proc == 1:
+
+            # Calculate the p-values for all the genes at once.
+            p_values_method = "batched"
+
+        # On a CPU, over several processes, go gene by gene.
+        #
+        # Each process would otherwise start a batched calculation of
+        # its own, and each of those would try to use every core on the
+        # machine. The processes would then fight over the cores, and
+        # the whole thing would get *slower* - 16 samples over 7
+        # processes take 72.4s batched, against 43.8s gene by gene.
+        else:
+
+            # Go gene by gene.
+            p_values_method = "per-gene"
+
+    # Inform the user about the method that will be used.
+    infostr = \
+        f"The p-values will be calculated with the " \
+        f"'{p_values_method}' method."
+    logger.info(infostr)
+
     # If the p-values will be calculated on a GPU, but more than one
     # process was requested
     if torch.device(device).type != "cpu" and n_proc > 1:
@@ -418,6 +491,27 @@ def main(args: argparse.Namespace) -> None:
             "processes will share the same GPU, so using more than " \
             "one process is not expected to speed up the " \
             "calculation. Consider using '-n 1'."
+        logger.warning(warnstr)
+
+    # If the p-values will be calculated for all the genes at once on a
+    # CPU, over several processes
+    if torch.device(device).type == "cpu" \
+    and p_values_method == "batched" \
+    and n_proc > 1:
+
+        # Warn the user - this is the one combination that is slower
+        # than either of its halves.
+        warnstr = \
+            "The p-values will be calculated with the 'batched' " \
+            f"method on a CPU, over {n_proc} processes. 'torch' " \
+            "already parallelizes the batched calculation over the " \
+            "CPU's cores, so each of the processes will try to use " \
+            "every core on the machine, and they will fight over " \
+            "them. This is expected to be slower than either using " \
+            "one process ('-n 1'), which lets 'torch' use the cores " \
+            "by itself, or calculating the p-values gene by gene " \
+            "('-pm per-gene'), which parallelizes over the samples. " \
+            "Each process also holds a batch of its own in memory."
         logger.warning(warnstr)
 
     #-----------------------------------------------------------------#
@@ -598,7 +692,8 @@ def main(args: argparse.Namespace) -> None:
              "resolution" : p_values_resolution,
              "alpha" : q_values_alpha,
              "method" : q_values_method,
-             "device" : device}
+             "device" : device,
+             "p_values_method" : p_values_method}
 
         # If r-values were passed
         if r_values is not None:
