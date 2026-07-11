@@ -36,7 +36,7 @@ __doc__ = \
 
 # Import from the standard library.
 import logging as log
-from typing import Iterator, Optional
+from typing import Iterator, Optional, Union
 
 # Import from third-party libraries.
 import numpy as np
@@ -308,6 +308,392 @@ def _yield_p_values(obs_counts: torch.Tensor,
         yield p_val, k, pmf
 
 
+def _get_tails(pred_means: np.ndarray,
+               r_values: Optional[np.ndarray] = None) -> np.ndarray:
+    """For each gene, get the count value at which the value of the
+    percent point function (the inverse of the cumulative mass
+    function) is 0.99999.
+
+    This is the vectorized counterpart of the per-gene percent point
+    function evaluation performed in :func:`_yield_p_values`, and
+    returns the same values.
+
+    Parameters
+    ----------
+    pred_means : :class:`numpy.ndarray`
+        A one-dimensional array containing the predicted scaled mean
+        counts for the genes.
+
+    r_values : :class:`numpy.ndarray`, optional
+        A one-dimensional array containing the r-values for the genes.
+
+    Returns
+    -------
+    tails : :class:`numpy.ndarray`
+        A one-dimensional array containing the tail of each gene's
+        distribution.
+    """
+
+    # If negative binomial distributions were used to model the genes'
+    # counts
+    if r_values is not None:
+
+        # Calculate the probability of "success" for all genes at once.
+        p = pred_means / (pred_means + r_values)
+
+        # Get the tail of each gene's distribution. Since SciPy's
+        # negative binomial function is implemented as a function of
+        # the number of failures, their 'p' is equivalent to our '1-p'
+        # and their 'n' is our 'r'.
+        tails = nbinom.ppf(q = 0.99999,
+                           n = r_values,
+                           p = 1 - p)
+
+    # If Poisson distributions were used to model the genes' counts
+    else:
+
+        # Get the tail of each gene's distribution.
+        tails = poisson.ppf(q = 0.99999,
+                            mu = pred_means)
+
+    # A negative binomial with a vanishingly small r-value (as can
+    # happen for genes the decoder predicts as essentially unexpressed)
+    # drives 'p' to (numerically) exactly 1, which is a degenerate
+    # parameterization SciPy's 'nbinom.ppf' resolves to NaN instead of
+    # a finite value. Fall back to 0 in that case, as
+    # '_yield_p_values' does.
+    tails = np.where(np.isfinite(tails), tails, 0.0)
+
+    # Return the tails.
+    return tails
+
+
+def _compute_p_values(obs_counts: np.ndarray,
+                      pred_means: np.ndarray,
+                      r_values: Optional[np.ndarray] = None,
+                      resolution: Optional[int] = None,
+                      device: Union[str, torch.device] = "cpu",
+                      max_elements: int = 2**26) -> np.ndarray:
+    """Calculate the p-value for all the genes in a sample at once.
+
+    This is a vectorized re-formulation of :func:`_yield_p_values`. It
+    evaluates the log-probability mass function of all the genes'
+    distributions in a batch instead of gene by gene, which makes the
+    calculation suitable for running on a GPU.
+
+    The p-value of a gene depends only on that gene's distribution, so
+    the genes are independent of each other, and the calculation
+    parallelizes exactly.
+
+    The genes' distributions have different tails, so the points at
+    which the log-probability mass function needs to be evaluated form
+    a "ragged" set. Here, the genes are sorted by the length of their
+    set of points and split into chunks. Inside a chunk, the sets of
+    points are padded to the length of the longest one, and the
+    log-probability mass at the padded points is set to negative
+    infinity so that it contributes zero probability mass. Sorting the
+    genes beforehand keeps the amount of padding (and, therefore, the
+    amount of wasted computation) small.
+
+    Parameters
+    ----------
+    obs_counts : :class:`numpy.ndarray`
+        A one-dimensional array containing the observed counts for the
+        genes.
+
+    pred_means : :class:`numpy.ndarray`
+        A one-dimensional array containing the predicted scaled mean
+        counts for the genes.
+
+    r_values : :class:`numpy.ndarray`, optional
+        A one-dimensional array containing the r-values for the genes.
+
+    resolution : :class:`int`, optional
+        The resolution at which to perform the p-value calculation.
+
+    device : :class:`str` or :class:`torch.device`, ``"cpu"``
+        The device on which to perform the calculation.
+
+    max_elements : :class:`int`, ``2**26``
+        The maximum number of points at which the log-probability mass
+        function is evaluated in one chunk. This caps the memory used
+        on the device.
+
+    Returns
+    -------
+    p_values : :class:`numpy.ndarray`
+        A one-dimensional array containing the p-value of each gene.
+    """
+
+    # Get the device on which to perform the calculation.
+    device = torch.device(device)
+
+    # Get the number of genes.
+    n_genes = obs_counts.shape[0]
+
+    # Get the tail of each gene's distribution.
+    tails = _get_tails(pred_means = pred_means,
+                       r_values = r_values)
+
+    #-----------------------------------------------------------------#
+
+    # If no resolution was passed
+    if resolution is None:
+
+        # The log-probability mass function is evaluated at steps of
+        # width 1, from 0 up to (but excluding) the tail, so each gene
+        # needs as many points as the ceiling of its tail.
+        n_points = np.ceil(tails).astype(np.int64)
+
+    # Otherwise
+    else:
+
+        # The log-probability mass function is evaluated at
+        # 'resolution' points for every gene.
+        n_points = np.full(shape = n_genes,
+                           fill_value = int(resolution),
+                           dtype = np.int64)
+
+    #-----------------------------------------------------------------#
+
+    # Move the genes' data to the device, in double precision, so that
+    # the calculation matches the NumPy one.
+    obs_counts_t = torch.as_tensor(obs_counts,
+                                   dtype = torch.float64,
+                                   device = device)
+    pred_means_t = torch.as_tensor(pred_means,
+                                   dtype = torch.float64,
+                                   device = device)
+    tails_t = torch.as_tensor(tails,
+                              dtype = torch.float64,
+                              device = device)
+    n_points_t = torch.as_tensor(n_points,
+                                 dtype = torch.int64,
+                                 device = device)
+
+    # If the genes' counts were modelled using negative binomial
+    # distributions
+    if r_values is not None:
+
+        # Move the r-values to the device, too.
+        r_values_t = torch.as_tensor(r_values,
+                                     dtype = torch.float64,
+                                     device = device)
+
+    #-----------------------------------------------------------------#
+
+    # Sort the genes by the number of points at which the
+    # log-probability mass function needs to be evaluated, so that
+    # genes needing a similar number of points end up in the same
+    # chunk, and little padding is needed.
+    order = np.argsort(n_points, kind = "stable")
+
+    # Create an empty tensor to store the p-values.
+    p_values_t = torch.empty(n_genes,
+                             dtype = torch.float64,
+                             device = device)
+
+    #-----------------------------------------------------------------#
+
+    # Get the number of points needed by each gene, sorted.
+    n_points_sorted = n_points[order]
+
+    # Set the index of the first gene in the current chunk.
+    start = 0
+
+    # Until all genes have been processed
+    while start < n_genes:
+
+        # Find how many genes fit in the current chunk. The chunk is
+        # padded to the number of points needed by its longest-tailed
+        # gene, so the chunk's size is capped so that the padded chunk
+        # holds at most 'max_elements' points.
+        #
+        # The genes are sorted by the number of points they need, so
+        # the longest-tailed gene of a chunk is its last one, and the
+        # size of a chunk of 's' genes starting at 'start' is
+        # 's * n_points_sorted[start+s-1]'. This grows with 's', so the
+        # largest 's' whose chunk fits can be found by binary search.
+        lo = 1
+        hi = n_genes - start
+
+        # While the search has not converged
+        while lo < hi:
+
+            # Try the larger half.
+            mid = (lo + hi + 1) // 2
+
+            # If a chunk of 'mid' genes fits
+            if mid * int(n_points_sorted[start+mid-1]) <= max_elements:
+
+                # It is a lower bound on the chunk's size.
+                lo = mid
+
+            # Otherwise
+            else:
+
+                # It is an upper bound on the chunk's size.
+                hi = mid - 1
+
+        # A chunk always holds at least one gene, even if that gene
+        # alone needs more than 'max_elements' points.
+        chunk_size = max(1, lo)
+
+        # Get the indices of the genes in the current chunk.
+        idx = order[start : start + chunk_size]
+
+        # Get the number of points needed by the longest-tailed gene
+        # of the chunk (the genes are sorted, so it is the last one).
+        n_points_chunk = int(n_points[idx[-1]])
+
+        # Get the indices of the genes in the chunk, on the device.
+        idx_t = torch.as_tensor(idx,
+                                dtype = torch.int64,
+                                device = device)
+
+        # Get the data of the genes in the chunk.
+        obs_counts_chunk = obs_counts_t[idx_t].unsqueeze(1)
+        pred_means_chunk = pred_means_t[idx_t].unsqueeze(1)
+        tails_chunk = tails_t[idx_t].unsqueeze(1)
+        n_points_gene = n_points_t[idx_t].unsqueeze(1)
+
+        #-------------------------------------------------------------#
+
+        # If no resolution was passed
+        if resolution is None:
+
+            # The log-probability mass function is evaluated at steps
+            # of width 1, starting from 0.
+            k = torch.arange(n_points_chunk,
+                             dtype = torch.float64,
+                             device = device).unsqueeze(0)
+
+            # A gene's points beyond its own tail are padding.
+            mask = \
+                torch.arange(n_points_chunk,
+                             dtype = torch.int64,
+                             device = device).unsqueeze(0) \
+                < n_points_gene
+
+        # Otherwise
+        else:
+
+            # The log-probability mass function is evaluated at
+            # 'resolution' evenly spaced points between 0 and the
+            # gene's tail, rounded.
+            #
+            # The points are built the way 'numpy.linspace' builds
+            # them - as 'arange(resolution) * step', with the last
+            # point pinned to the gene's tail - so that they are
+            # bit-for-bit the ones the per-gene calculation uses.
+            # Computing them in any other way (say, as
+            # 'linspace(0, 1) * tail') can be off by one unit in the
+            # last place, which is enough to make a point that sits
+            # exactly halfway between two integers round the other way.
+            tails_trunc = torch.trunc(tails_chunk)
+
+            # Get the points at which to evaluate the function.
+            steps = \
+                torch.arange(int(resolution),
+                             dtype = torch.float64,
+                             device = device).unsqueeze(0)
+
+            # If more than one point is requested
+            if int(resolution) > 1:
+
+                # Space the points evenly between 0 and the tail.
+                k = steps * (tails_trunc / (int(resolution) - 1))
+
+                # Pin the last point to the tail.
+                k[:, -1] = tails_trunc[:, 0]
+
+            # Otherwise
+            else:
+
+                # There is a single point, at 0.
+                k = steps * tails_trunc
+
+            # Round the points.
+            k = torch.round(k)
+
+            # Every gene is evaluated at the same number of points, so
+            # there is no padding.
+            mask = torch.ones_like(k, dtype = torch.bool)
+
+        #-------------------------------------------------------------#
+
+        # If the genes' counts were modelled using negative binomial
+        # distributions
+        if r_values is not None:
+
+            # Get the r-values of the genes in the chunk.
+            r_values_chunk = r_values_t[idx_t].unsqueeze(1)
+
+            # Get the log-probability mass at each point.
+            pmf = _util.log_prob_mass_nb_torch(k = k,
+                                               m = pred_means_chunk,
+                                               r = r_values_chunk)
+
+            # Get the log-probability mass at the observed count.
+            prob_obs = \
+                _util.log_prob_mass_nb_torch(k = obs_counts_chunk,
+                                             m = pred_means_chunk,
+                                             r = r_values_chunk)
+
+        # If the genes' counts were modelled using Poisson
+        # distributions
+        else:
+
+            # Get the log-probability mass at each point.
+            pmf = _util.log_prob_mass_poisson_torch(k = k,
+                                                    m = pred_means_chunk)
+
+            # Get the log-probability mass at the observed count.
+            prob_obs = \
+                _util.log_prob_mass_poisson_torch(k = obs_counts_chunk,
+                                                  m = pred_means_chunk)
+
+        #-------------------------------------------------------------#
+
+        # Set the log-probability mass at the padded points to negative
+        # infinity, so that they carry no probability mass.
+        pmf = torch.where(mask,
+                          pmf,
+                          torch.tensor(-float("inf"),
+                                       dtype = torch.float64,
+                                       device = device))
+
+        # Get the probability mass at each point.
+        prob_mass = torch.exp(pmf)
+
+        # Get the probability that a point falls lower than the
+        # observed count. The padded points carry no probability mass,
+        # so they contribute nothing to the sum.
+        lower_probs = \
+            torch.where(pmf <= prob_obs,
+                        prob_mass,
+                        torch.zeros_like(prob_mass)).sum(dim = 1)
+
+        # Get the total mass of the "discretized" probability mass
+        # function computed above.
+        norm_const = prob_mass.sum(dim = 1)
+
+        # Calculate the p-values of the genes in the chunk. Genes whose
+        # tail is 0 have no points, and therefore a total mass of 0 -
+        # they get a NaN p-value, as they do in '_yield_p_values'.
+        p_values_t[idx_t] = lower_probs / norm_const
+
+        #-------------------------------------------------------------#
+
+        # Move on to the next chunk.
+        start += len(idx)
+
+    #-----------------------------------------------------------------#
+
+    # Return the p-values.
+    return p_values_t.cpu().numpy()
+
+
 ########################## PUBLIC FUNCTIONS ###########################
 
 
@@ -316,7 +702,8 @@ def get_p_values(obs_counts: pd.Series,
                  r_values: Optional[pd.Series] = None,
                  resolution: Optional[int] = None,
                  return_pmf_values: bool = False,
-                 pseudocount: int = 1) -> \
+                 pseudocount: int = 1,
+                 device: Union[str, torch.device] = "cpu") -> \
                     tuple[pd.Series, pd.DataFrame, pd.DataFrame]:
     """Given the observed gene counts in a single sample, and the
     predicted mean gene counts in a single sample, calculate the
@@ -380,10 +767,23 @@ def get_p_values(obs_counts: pd.Series,
         probability mass function was evaluated and the corresponding
         values of the function will contain ``resolution``
         floating-point numbers for each gene.
-    
+
+        Setting it to ``True`` forces the p-values to be computed gene
+        by gene on the CPU, ignoring ``device``.
+
     pseudocount : :class:`int`, ``1``
         A pseudocount to add to both the predicted means and observed
         counts to avoid artifacts.
+
+    device : :class:`str` or :class:`torch.device`, ``"cpu"``
+        The device on which to compute the p-values.
+
+        The genes are independent of each other, so the calculation of
+        the p-values parallelizes exactly, and running it on a GPU
+        (for instance, by passing ``"cuda"``) speeds it up
+        considerably.
+
+        It is ignored if ``return_pmf_values`` is ``True``.
 
     Returns
     -------
@@ -503,6 +903,42 @@ def get_p_values(obs_counts: pd.Series,
 
     #-----------------------------------------------------------------#
 
+    # If a GPU was requested, and the points at which the
+    # log-probability mass function was evaluated do not need to be
+    # returned
+    #
+    # The batched calculation is a win on a GPU, but not on a CPU,
+    # where evaluating the log-probability mass function of all the
+    # genes at once means paying for the padding without having
+    # thousands of cores to make up for it. So, on a CPU, keep going
+    # gene by gene.
+    if torch.device(device).type != "cpu" and not return_pmf_values:
+
+        # Compute the p-values of all the genes in the sample at once.
+        # This is equivalent to the per-gene calculation below.
+        p_values = _compute_p_values(obs_counts = obs_counts,
+                                     pred_means = pred_means,
+                                     r_values = r_values,
+                                     resolution = resolution,
+                                     device = device)
+
+        # Convert the p-values into a series.
+        series_p_values = pd.Series(p_values)
+
+        # Set the genes as the index of the series.
+        series_p_values.index = genes_obs
+
+        # Name the series.
+        series_p_values.name = "p_value"
+
+        # Return the p-values, and two empty data frames, since the
+        # points at which the log-probability mass function was
+        # evaluated and the values of the function at those points were
+        # not requested.
+        return series_p_values, pd.DataFrame(), pd.DataFrame()
+
+    #-----------------------------------------------------------------#
+
     # Yield the p-values computed per gene in the current sample, the
     # 'k' points at which the log-probability mass function was
     # calculated, and the values of the function at those points.
@@ -510,7 +946,7 @@ def get_p_values(obs_counts: pd.Series,
                               pred_means = pred_means,
                               r_values = r_values,
                               resolution = resolution)
-    
+
     #-----------------------------------------------------------------#
 
     # Create an empty list of lists to store the final results.
@@ -792,7 +1228,8 @@ def get_statistics(obs_counts: pd.Series,
                    resolution: Optional[int] = None,
                    alpha: float = 0.05,
                    method: str = "fdr_bh",
-                   pseudocount: int = 1) -> \
+                   pseudocount: int = 1,
+                   device: Union[str, torch.device] = "cpu") -> \
                         tuple[pd.DataFrame, Optional[str]]:
     """Compute p-values, q-values, and/or log2-fold changes.
 
@@ -923,7 +1360,8 @@ def get_statistics(obs_counts: pd.Series,
                          r_values = r_values,
                          resolution = resolution,
                          return_pmf_values = False,
-                         pseudocount = pseudocount)
+                         pseudocount = pseudocount,
+                         device = device)
 
     #-----------------------------------------------------------------#
 
@@ -941,7 +1379,8 @@ def get_statistics(obs_counts: pd.Series,
                              pred_means = pred_means,
                              r_values = r_values,
                              resolution = resolution,
-                             return_pmf_values = False)
+                             return_pmf_values = False,
+                             device = device)
 
         # Calculate the q-values.
         q_values, _ = \
@@ -1113,7 +1552,8 @@ def perform_dea(obs_counts: pd.DataFrame,
                 q_val: float = 0.05,
                 log2_fold_change: float = 2,
                 genes_sets: Optional[dict[str, list[str]]] = None,
-                pseudocount: int = 1) -> \
+                pseudocount: int = 1,
+                device: Union[str, torch.device] = "cpu") -> \
                     tuple[dict[str, pd.DataFrame],
                           pd.Series,
                           pd.DataFrame]:
@@ -1243,7 +1683,8 @@ def perform_dea(obs_counts: pd.DataFrame,
              "resolution" : resolution,
              "alpha" : alpha,
              "method" : method,
-             "pseudocount" : pseudocount}
+             "pseudocount" : pseudocount,
+             "device" : device}
 
         # If r-values were passed
         if r_values is not None:

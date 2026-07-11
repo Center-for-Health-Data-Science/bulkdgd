@@ -47,6 +47,7 @@ import sys
 # Import from third-party libraries.
 from distributed import LocalCluster, Client, as_completed
 import pandas as pd
+import torch
 
 # Import from 'bulkdgd'.
 from bulkdgd.analysis import dea
@@ -325,6 +326,21 @@ def set_parser() -> argparse.ArgumentParser:
 
     #-----------------------------------------------------------------#
 
+    # Set a help message.
+    dev_help = \
+        "The device to use. If not provided, the GPU will be used " \
+        "if it is available. Otherwise, the CPU will be used. The " \
+        "genes are independent of each other, so calculating the " \
+        "p-values on a GPU is considerably faster."
+
+    # Add the argument to the group.
+    run_group.add_argument("-dev", "--device",
+                           type = str,
+                           default = None,
+                           help = dev_help)
+
+    #-----------------------------------------------------------------#
+
     # Add the working directory and logging arguments.
     util.add_wd_and_logging_arguments(\
         parser = parser,
@@ -366,6 +382,43 @@ def main(args: argparse.Namespace) -> None:
 
     # Get the arguments corresponding to the run options.
     n_proc = args.n_proc
+    device = args.device
+
+    #-----------------------------------------------------------------#
+
+    # If no device was passed
+    if device is None:
+
+        # If a GPU is available
+        if torch.cuda.is_available():
+
+            # Set the GPU as the device.
+            device = "cuda"
+
+        # Otherwise
+        else:
+
+            # Set the CPU as the device.
+            device = "cpu"
+
+    # Inform the user about the device that will be used.
+    infostr = \
+        f"The p-values will be calculated on the '{device}' device."
+    logger.info(infostr)
+
+    # If the p-values will be calculated on a GPU, but more than one
+    # process was requested
+    if torch.device(device).type != "cpu" and n_proc > 1:
+
+        # Warn the user - the processes would all queue up on the same
+        # GPU, and each of them would keep its own context on it.
+        warnstr = \
+            f"The p-values will be calculated on the '{device}' " \
+            f"device, but {n_proc} processes were requested. The " \
+            "processes will share the same GPU, so using more than " \
+            "one process is not expected to speed up the " \
+            "calculation. Consider using '-n 1'."
+        logger.warning(warnstr)
 
     #-----------------------------------------------------------------#
 
@@ -562,7 +615,8 @@ def main(args: argparse.Namespace) -> None:
              "statistics" : statistics,
              "resolution" : p_values_resolution,
              "alpha" : q_values_alpha,
-             "method" : q_values_method}
+             "method" : q_values_method,
+             "device" : device}
 
         # If r-values were passed
         if r_values is not None:

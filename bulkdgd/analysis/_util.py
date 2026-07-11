@@ -339,7 +339,104 @@ def log_prob_mass_poisson(k: torch.Tensor,
     
     # Get the log-probability mass of the Poisson distributions.
     x = k * np.log(m + eps) - m - gammaln(k + 1)
-    
+
     # Return the log-probability mass for the Poisson
     # distributions.
+    return x
+
+
+def log_prob_mass_nb_torch(k: torch.Tensor,
+                           m: torch.Tensor,
+                           r: torch.Tensor) -> torch.Tensor:
+    """Compute the natural logarithm of the probability mass for a set
+    of negative binomial distributions, using :mod:`torch` so that the
+    computation can run on a GPU.
+
+    This is the :mod:`torch` counterpart of :func:`log_prob_mass_nb`.
+    It evaluates the same formula, with the same ``eps``, and is meant
+    to be numerically equivalent to it when run in double precision.
+
+    Unlike :func:`log_prob_mass_nb`, the inputs are broadcast against
+    each other, so that the log-probability mass of several
+    distributions can be evaluated at several points at once. For
+    instance, passing a ``k`` of shape ``(n_genes, n_points)`` together
+    with an ``m`` and an ``r`` of shape ``(n_genes, 1)`` evaluates, for
+    each gene, the log-probability mass at all the given points.
+
+    Parameters
+    ----------
+    k : :class:`torch.Tensor`
+        The "number of successes" seen before stopping the trials.
+
+    m : :class:`torch.Tensor`
+        The means of the negative binomials.
+
+    r : :class:`torch.Tensor`
+        The r-values of the negative binomials.
+
+    Returns
+    -------
+    x : :class:`torch.Tensor`
+        The log-probability mass of the negative binomials, evaluated
+        at the given points.
+    """
+
+    # Set a small value used to prevent underflow and overflow. This
+    # matches the one used in the NumPy implementation.
+    eps = 1.e-10
+
+    # Set a constant used later in the equation defining the log-
+    # probability mass.
+    c = 1.0 / (r + m + eps)
+
+    # Get the log-probability mass of the negative binomials. This is
+    # the same formula used in 'log_prob_mass_nb'.
+    x = \
+        torch.lgamma(k+r) - torch.lgamma(r) - \
+        torch.lgamma(k+1) + k*torch.log(m*c+eps) + \
+        r*torch.log(r*c)
+
+    # Return the log-probability mass for the negative binomials.
+    return x
+
+
+def log_prob_mass_poisson_torch(k: torch.Tensor,
+                                m: torch.Tensor) -> torch.Tensor:
+    """Compute the natural logarithm of the probability mass for a set
+    of Poisson distributions, using :mod:`torch` so that the
+    computation can run on a GPU.
+
+    This is the :mod:`torch` counterpart of
+    :func:`log_prob_mass_poisson`. It evaluates the same formula, with
+    the same ``eps``, and is meant to be numerically equivalent to it
+    when run in double precision.
+
+    Unlike :func:`log_prob_mass_poisson`, the inputs are broadcast
+    against each other, so that the log-probability mass of several
+    distributions can be evaluated at several points at once.
+
+    Parameters
+    ----------
+    k : :class:`torch.Tensor`
+        The "number of successes" seen before stopping the trials.
+
+    m : :class:`torch.Tensor`
+        The means of the Poisson distributions.
+
+    Returns
+    -------
+    x : :class:`torch.Tensor`
+        The log-probability mass of the Poisson distributions,
+        evaluated at the given points.
+    """
+
+    # Set a small value used to prevent underflow and overflow. This
+    # matches the one used in the NumPy implementation.
+    eps = 1.e-10
+
+    # Get the log-probability mass of the Poisson distributions. This
+    # is the same formula used in 'log_prob_mass_poisson'.
+    x = k * torch.log(m + eps) - m - torch.lgamma(k + 1)
+
+    # Return the log-probability mass for the Poisson distributions.
     return x
