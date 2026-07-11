@@ -368,6 +368,115 @@ def _get_tails(pred_means: np.ndarray,
     return tails
 
 
+# Set the methods available to compute the p-values.
+P_VALUES_METHODS = ["auto", "batched", "per-gene"]
+
+
+def _resolve_p_values_method(method: str,
+                             device: Union[str, torch.device],
+                             resolution: Optional[int],
+                             return_pmf_values: bool) -> str:
+    """Get the method to be used to compute the p-values.
+
+    Parameters
+    ----------
+    method : :class:`str`
+        The method requested. It can be ``"auto"``, ``"batched"``, or
+        ``"per-gene"``.
+
+    device : :class:`str` or :class:`torch.device`
+        The device on which the p-values will be computed.
+
+    resolution : :class:`int`, optional
+        The resolution at which the p-values will be computed.
+
+    return_pmf_values : :class:`bool`
+        Whether the points at which the log-probability mass function
+        was evaluated need to be returned.
+
+    Returns
+    -------
+    method : :class:`str`
+        The method to be used. It is either ``"batched"`` or
+        ``"per-gene"``.
+    """
+
+    # If the method is not one of the available ones
+    if method not in P_VALUES_METHODS:
+
+        # Raise an error.
+        methods_str = \
+            ", ".join(f"'{m}'" for m in P_VALUES_METHODS)
+        errstr = \
+            f"Unknown method '{method}' to compute the p-values. " \
+            f"Available methods are: {methods_str}."
+        raise ValueError(errstr)
+
+    #-----------------------------------------------------------------#
+
+    # Only the per-gene method yields the points at which the
+    # log-probability mass function was evaluated.
+    if return_pmf_values:
+
+        # If the batched method was explicitly requested
+        if method == "batched":
+
+            # Raise an error, rather than silently returning something
+            # other than what was asked for.
+            errstr = \
+                "The 'batched' method cannot return the points at " \
+                "which the log-probability mass function was " \
+                "evaluated. Either use the 'per-gene' method, or do " \
+                "not request the points."
+            raise ValueError(errstr)
+
+        # Go gene by gene.
+        return "per-gene"
+
+    #-----------------------------------------------------------------#
+
+    # If a method was explicitly requested
+    if method != "auto":
+
+        # Use it - the user knows what their machine looks like better
+        # than we do.
+        return method
+
+    #-----------------------------------------------------------------#
+
+    # From here on, the method is chosen automatically.
+
+    # On a GPU, computing the p-values for all the genes at once is
+    # always the better choice - it is what lets the GPU be used at
+    # all.
+    if torch.device(device).type != "cpu":
+
+        # Compute the p-values for all the genes at once.
+        return "batched"
+
+    #-----------------------------------------------------------------#
+
+    # On a CPU, it depends on how the log-probability mass function is
+    # evaluated.
+    #
+    # At a fixed resolution, every gene is evaluated at the same number
+    # of points, so the batch is a dense rectangle with no padding in
+    # it, and evaluating it in one go is faster than looping over the
+    # genes in Python.
+    #
+    # In the exact calculation, instead, each gene is evaluated at as
+    # many points as its own tail requires. The batch is then ragged,
+    # and has to be padded - and, on a CPU, there are no spare cores to
+    # absorb the cost of the padding. So, go gene by gene.
+    if resolution is not None:
+
+        # Compute the p-values for all the genes at once.
+        return "batched"
+
+    # Go gene by gene.
+    return "per-gene"
+
+
 def _compute_p_values(obs_counts: np.ndarray,
                       pred_means: np.ndarray,
                       r_values: Optional[np.ndarray] = None,
@@ -703,7 +812,9 @@ def get_p_values(obs_counts: pd.Series,
                  resolution: Optional[int] = None,
                  return_pmf_values: bool = False,
                  pseudocount: int = 1,
-                 device: Union[str, torch.device] = "cpu") -> \
+                 device: Union[str, torch.device] = "cpu",
+                 p_values_method: str = "auto",
+                 max_elements: Optional[int] = None) -> \
                     tuple[pd.Series, pd.DataFrame, pd.DataFrame]:
     """Given the observed gene counts in a single sample, and the
     predicted mean gene counts in a single sample, calculate the
@@ -903,16 +1014,26 @@ def get_p_values(obs_counts: pd.Series,
 
     #-----------------------------------------------------------------#
 
-    # If a GPU was requested, and the points at which the
-    # log-probability mass function was evaluated do not need to be
-    # returned
-    #
-    # The batched calculation is a win on a GPU, but not on a CPU,
-    # where evaluating the log-probability mass function of all the
-    # genes at once means paying for the padding without having
-    # thousands of cores to make up for it. So, on a CPU, keep going
-    # gene by gene.
-    if torch.device(device).type != "cpu" and not return_pmf_values:
+    # Get the method to be used to compute the p-values.
+    p_values_method = \
+        _resolve_p_values_method(method = p_values_method,
+                                 device = device,
+                                 resolution = resolution,
+                                 return_pmf_values = return_pmf_values)
+
+    #-----------------------------------------------------------------#
+
+    # If the p-values should be computed for all the genes at once
+    if p_values_method == "batched":
+
+        # If no cap on the memory used was passed
+        if max_elements is None:
+
+            # Set the default cap for the device. A CPU has to keep the
+            # batch in RAM, which several processes may be sharing, so
+            # it gets a smaller one.
+            max_elements = \
+                2**26 if torch.device(device).type != "cpu" else 2**22
 
         # Compute the p-values of all the genes in the sample at once.
         # This is equivalent to the per-gene calculation below.
@@ -920,7 +1041,8 @@ def get_p_values(obs_counts: pd.Series,
                                      pred_means = pred_means,
                                      r_values = r_values,
                                      resolution = resolution,
-                                     device = device)
+                                     device = device,
+                                     max_elements = max_elements)
 
         # Convert the p-values into a series.
         series_p_values = pd.Series(p_values)
@@ -1229,7 +1351,9 @@ def get_statistics(obs_counts: pd.Series,
                    alpha: float = 0.05,
                    method: str = "fdr_bh",
                    pseudocount: int = 1,
-                   device: Union[str, torch.device] = "cpu") -> \
+                   device: Union[str, torch.device] = "cpu",
+                   p_values_method: str = "auto",
+                   max_elements: Optional[int] = None) -> \
                         tuple[pd.DataFrame, Optional[str]]:
     """Compute p-values, q-values, and/or log2-fold changes.
 
@@ -1361,7 +1485,9 @@ def get_statistics(obs_counts: pd.Series,
                          resolution = resolution,
                          return_pmf_values = False,
                          pseudocount = pseudocount,
-                         device = device)
+                         device = device,
+                         p_values_method = p_values_method,
+                         max_elements = max_elements)
 
     #-----------------------------------------------------------------#
 
@@ -1380,7 +1506,9 @@ def get_statistics(obs_counts: pd.Series,
                              r_values = r_values,
                              resolution = resolution,
                              return_pmf_values = False,
-                             device = device)
+                             device = device,
+                             p_values_method = p_values_method,
+                             max_elements = max_elements)
 
         # Calculate the q-values.
         q_values, _ = \
@@ -1553,7 +1681,9 @@ def perform_dea(obs_counts: pd.DataFrame,
                 log2_fold_change: float = 2,
                 genes_sets: Optional[dict[str, list[str]]] = None,
                 pseudocount: int = 1,
-                device: Union[str, torch.device] = "cpu") -> \
+                device: Union[str, torch.device] = "cpu",
+                p_values_method: str = "auto",
+                max_elements: Optional[int] = None) -> \
                     tuple[dict[str, pd.DataFrame],
                           pd.Series,
                           pd.DataFrame]:
@@ -1684,7 +1814,9 @@ def perform_dea(obs_counts: pd.DataFrame,
              "alpha" : alpha,
              "method" : method,
              "pseudocount" : pseudocount,
-             "device" : device}
+             "device" : device,
+             "p_values_method" : p_values_method,
+             "max_elements" : max_elements}
 
         # If r-values were passed
         if r_values is not None:
