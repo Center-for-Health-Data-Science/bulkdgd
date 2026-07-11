@@ -580,30 +580,12 @@ def main(args: argparse.Namespace) -> None:
 
     #-----------------------------------------------------------------#
 
-    # Create the local cluster.
-    cluster = LocalCluster(# Number of workers
-                           n_workers = n_proc,
-                           # Below which level log messages will
-                           # be silenced
-                           silence_logs = "ERROR",
-                           # Whether to use processes, single-core
-                           # or threads
-                           processes = True,
-                           # How many threads for each worker should
-                           # be used
-                           threads_per_worker = 1)
-
-    # Open the client from the cluster.
-    client = Client(cluster)
-
-    #-----------------------------------------------------------------#
-
     # Set the statistics to be calculated.
     statistics = ["p_values", "q_values", "log2_fold_changes"]
 
-    # Create a list to store the futures.
-    futures = []
-    
+    # Create a list to store the options to analyze each sample.
+    samples_options = []
+
     # For each sample
     for sample_name in obs_counts_names:
 
@@ -624,17 +606,62 @@ def main(args: argparse.Namespace) -> None:
             # Add the r-values for the current sample.
             dea_options["r_values"] = r_values.loc[sample_name,:]
 
-        # Submit the calculation to the cluster.
-        futures.append(\
-            client.submit(dea.get_statistics,
-                          **dea_options))
+        # Save the options.
+        samples_options.append(dea_options)
 
     #-----------------------------------------------------------------#
 
-    # For each future
-    for future, result in as_completed(futures, 
-                                       with_results = True):
-        
+    # If only one process was requested
+    if n_proc == 1:
+
+        # Analyze the samples in the current process.
+        #
+        # A cluster of one worker would gain nothing, and would cost a
+        # second Python process, which would have to import the
+        # third-party libraries again and - if the analysis runs on a
+        # GPU - set up its own GPU context. Both are slower than the
+        # analysis itself.
+        results = \
+            (dea.get_statistics(**dea_options) \
+             for dea_options in samples_options)
+
+        # No cluster was created.
+        cluster, client = None, None
+
+    # Otherwise
+    else:
+
+        # Create the local cluster.
+        cluster = LocalCluster(# Number of workers
+                               n_workers = n_proc,
+                               # Below which level log messages will
+                               # be silenced
+                               silence_logs = "ERROR",
+                               # Whether to use processes, single-core
+                               # or threads
+                               processes = True,
+                               # How many threads for each worker
+                               # should be used
+                               threads_per_worker = 1)
+
+        # Open the client from the cluster.
+        client = Client(cluster)
+
+        # Submit the analysis of each sample to the cluster.
+        futures = \
+            [client.submit(dea.get_statistics, **dea_options) \
+             for dea_options in samples_options]
+
+        # Get the results as they come in.
+        results = \
+            (result for _, result \
+             in as_completed(futures, with_results = True))
+
+    #-----------------------------------------------------------------#
+
+    # For each result
+    for result in results:
+
         # Get the data frame containing the DEA results for the
         # current sample and the name of the sample.
         df_stats, sample_name = result
@@ -794,7 +821,16 @@ def main(args: argparse.Namespace) -> None:
 
                 # Add the results to the list.
                 gsea_results.append(df_gsea_result)
-    
+
+    #-----------------------------------------------------------------#
+
+    # If a cluster was created to analyze the samples
+    if client is not None:
+
+        # Close it.
+        client.close()
+        cluster.close()
+
     #-----------------------------------------------------------------#
 
     # If the results of the gene set enrichment analysis should be
