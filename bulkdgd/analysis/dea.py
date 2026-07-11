@@ -896,6 +896,38 @@ def get_p_values(obs_counts: pd.Series,
 
         It is ignored if ``return_pmf_values`` is ``True``.
 
+    p_values_method : :class:`str`, ``"auto"``
+        How to compute the p-values. The methods give the same
+        p-values, but differ in how they use the machine.
+
+        ``"batched"`` computes the p-values for all the genes at once.
+        This is what allows them to be computed on a GPU. On a CPU,
+        :mod:`torch` spreads the computation over the cores by itself,
+        so it should be used in a single process.
+
+        ``"per-gene"`` computes the p-values one gene at a time. It is
+        meant to be parallelized over the samples - by
+        :func:`perform_dea`'s caller, or by ``bulkdgd_dea``'s ``-n``
+        option - which is how to use a machine with many cores.
+
+        The two kinds of parallelism do not compose: several processes
+        each running a ``"batched"`` computation would fight over the
+        CPU's cores, and the result would be slower than either kind of
+        parallelism on its own.
+
+        ``"auto"`` uses ``"batched"`` on a GPU, and ``"per-gene"`` on a
+        CPU for the exact calculation (where the batch would have to be
+        padded), and ``"batched"`` on a CPU otherwise.
+
+    max_elements : :class:`int`, optional
+        The maximum number of points at which the log-probability mass
+        function is evaluated in one batch, which caps the memory used
+        by the ``"batched"`` method.
+
+        If not passed, it defaults to ``2**26`` on a GPU and ``2**22``
+        on a CPU, where the batch sits in RAM that several processes
+        may be sharing.
+
     Returns
     -------
     p_values : :class:`pandas.Series`
@@ -1430,6 +1462,46 @@ def get_statistics(obs_counts: pd.Series,
         A pseudocount to add to both the predicted means and observed
         counts to avoid artifacts.
 
+    device : :class:`str` or :class:`torch.device`, ``"cpu"``
+        The device on which to compute the p-values.
+
+        The genes are independent of each other, so the calculation of
+        the p-values parallelizes exactly, and running it on a GPU
+        (for instance, by passing ``"cuda"``) speeds it up
+        considerably.
+
+    p_values_method : :class:`str`, ``"auto"``
+        How to compute the p-values. The methods give the same
+        p-values, but differ in how they use the machine.
+
+        ``"batched"`` computes the p-values for all the genes at once.
+        This is what allows them to be computed on a GPU. On a CPU,
+        :mod:`torch` spreads the computation over the cores by itself,
+        so it should be used in a single process.
+
+        ``"per-gene"`` computes the p-values one gene at a time. It is
+        meant to be parallelized over the samples - by
+        :func:`perform_dea`'s caller, or by ``bulkdgd_dea``'s ``-n``
+        option - which is how to use a machine with many cores.
+
+        The two kinds of parallelism do not compose: several processes
+        each running a ``"batched"`` computation would fight over the
+        CPU's cores, and the result would be slower than either kind of
+        parallelism on its own.
+
+        ``"auto"`` uses ``"batched"`` on a GPU, and ``"per-gene"`` on a
+        CPU for the exact calculation (where the batch would have to be
+        padded), and ``"batched"`` on a CPU otherwise.
+
+    max_elements : :class:`int`, optional
+        The maximum number of points at which the log-probability mass
+        function is evaluated in one batch, which caps the memory used
+        by the ``"batched"`` method.
+
+        If not passed, it defaults to ``2**26`` on a GPU and ``2**22``
+        on a CPU, where the batch sits in RAM that several processes
+        may be sharing.
+
     Returns
     -------
     df_stats : :class:`pandas.DataFrame`
@@ -1765,7 +1837,46 @@ def perform_dea(obs_counts: pd.DataFrame,
     pseudocount : :class:`int`, ``1``
         A pseudocount to add to both the predicted means and observed
         counts to avoid artifacts.
-    
+
+    device : :class:`str` or :class:`torch.device`, ``"cpu"``
+        The device on which to compute the p-values.
+
+        The genes are independent of each other, so the calculation of
+        the p-values parallelizes exactly, and running it on a GPU
+        (for instance, by passing ``"cuda"``) speeds it up
+        considerably.
+
+    p_values_method : :class:`str`, ``"auto"``
+        How to compute the p-values. The methods give the same
+        p-values, but differ in how they use the machine.
+
+        ``"batched"`` computes the p-values for all the genes at once.
+        This is what allows them to be computed on a GPU. On a CPU,
+        :mod:`torch` spreads the computation over the cores by itself,
+        so it should be used in a single process.
+
+        ``"per-gene"`` computes the p-values one gene at a time. It is
+        meant to be parallelized over the samples, which is how to use
+        a machine with many cores.
+
+        The two kinds of parallelism do not compose: several processes
+        each running a ``"batched"`` computation would fight over the
+        CPU's cores, and the result would be slower than either kind of
+        parallelism on its own.
+
+        ``"auto"`` uses ``"batched"`` on a GPU, and ``"per-gene"`` on a
+        CPU for the exact calculation (where the batch would have to be
+        padded), and ``"batched"`` on a CPU otherwise.
+
+    max_elements : :class:`int`, optional
+        The maximum number of points at which the log-probability mass
+        function is evaluated in one batch, which caps the memory used
+        by the ``"batched"`` method.
+
+        If not passed, it defaults to ``2**26`` on a GPU and ``2**22``
+        on a CPU, where the batch sits in RAM that several processes
+        may be sharing.
+
     Returns
     -------
     dfs_stats : :class:`dict`
