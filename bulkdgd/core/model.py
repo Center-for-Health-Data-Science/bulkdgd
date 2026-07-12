@@ -3340,6 +3340,39 @@ class BulkDGD(nn.Module):
     
         #-------------------------------------------------------------#
 
+        # Get the configuration for the model to save at each epoch.
+        config_train_outputs_model_epoch = \
+            reporting_options["model_epoch"]
+
+        # Get whether to save the model at each epoch.
+        save_model_epoch = \
+            config_train_outputs_model_epoch["enabled"]
+
+        # Get the stride for saving the model at each epoch.
+        save_model_epoch_stride = \
+            config_train_outputs_model_epoch.get("stride",
+                                                 1)
+
+        # Get the directory for saving the model at each epoch.
+        save_model_epoch_dir = \
+            config_train_outputs_model_epoch.get("dir",
+                                                 None)
+
+        #-------------------------------------------------------------#
+
+        # If the user wants to save the model
+        if save_model_epoch and (epoch % save_model_epoch_stride == 0):
+
+            # Save the decoder's weights and the latent space's
+            # parameters.
+            _util.save_model_epoch(\
+                epoch = epoch,
+                decoder = self.decoder,
+                latent = self.latent,
+                save_dir = save_model_epoch_dir)
+
+        #-------------------------------------------------------------#
+
         # If the user wants to save the representations
         if save_rep_epoch and (epoch % save_rep_epoch_stride == 0):
 

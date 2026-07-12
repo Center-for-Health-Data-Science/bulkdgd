@@ -1876,6 +1876,54 @@ def save_latent_means_epoch(epoch: int,
                     header = True)
 
 
+def save_model_epoch(epoch: int,
+                     decoder: "decoders.Decoder",
+                     latent: "latents.LatentSpaceBase",
+                     save_dir: Optional[str] = None) -> None:
+    """Save the decoder's weights and the latent space's parameters at
+    the end of a given epoch.
+
+    Training writes the model out only when it is over, so a run that
+    dies at the last epoch - or is killed, or runs out of time - leaves
+    nothing behind. Saving them as it goes means the model can be picked
+    up from where it got to.
+
+    Parameters
+    ----------
+    epoch : :class:`int`
+        The epoch.
+
+    decoder : :class:`core.decoders.Decoder`
+        The decoder, whose weights are saved.
+
+    latent : :class:`core.latents.LatentSpaceBase`
+        The latent space, whose parameters are saved.
+
+    save_dir : :class:`str`, optional
+        The directory where to save them. If not provided, the current
+        working directory is used.
+    """
+
+    # Get the directory where to save the model.
+    save_dir = \
+        save_dir if save_dir is not None else os.getcwd()
+
+    # Create the directory if it does not exist.
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    #-----------------------------------------------------------------#
+
+    # Save the decoder's weights, under the same name the end of
+    # training uses, with the epoch appended.
+    torch.save(decoder.state_dict(),
+               os.path.join(save_dir, f"dec_{epoch}.pth"))
+
+    # Save the latent space's parameters.
+    torch.save(latent.state_dict(),
+               os.path.join(save_dir, f"gmm_{epoch}.pth"))
+
+
 def save_genes_saliency_maps_epoch(
         epoch: int,
         saliency_map: np.ndarray,
