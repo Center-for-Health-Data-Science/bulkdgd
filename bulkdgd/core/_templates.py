@@ -428,13 +428,13 @@ _OPTIMIZER_ADAMW = {
 
 # Set the template for the optimizer's options.
 _OPTIMIZER =  {
-    
+
     # The type of optimizer to use.
     "optimizer_type" : {
         "type": (str,),
         "choices": ["adam", "adamw"],
         "default": "adamw"},
-    
+
     # The options for the optimizer.
     "optimizer_options" : {
         "switch" : {
@@ -444,6 +444,18 @@ _OPTIMIZER =  {
                 "adamw" : _OPTIMIZER_ADAMW
                 },
             },
+        },
+
+    # The norm to which the gradients are clipped before the optimizer
+    # takes its step.
+    #
+    # If not set, the gradients are not clipped, which is what happened
+    # before this option existed.
+    "grad_clipping_max_norm" : {
+        "type": (float, int, type(None)),
+        "condition": lambda v: v is None or v > 0,
+        "message": "must be a positive number, or null to not clip",
+        "default": None,
         },
     }
 

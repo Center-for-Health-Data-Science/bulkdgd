@@ -42,7 +42,7 @@ import logging as log
 import math
 import re
 import time
-from typing import Optional
+from typing import Optional, Union
 
 # Import from third-party libraries.
 import numpy as np
@@ -67,6 +67,52 @@ from . import (
 
 # Get the module's logger.
 logger = log.getLogger(__name__)
+
+
+#######################################################################
+
+
+def clip_grads(optimizer: torch.optim.Optimizer,
+               max_norm: Optional[Union[float, int]]) -> None:
+    """Clip the gradients of the parameters an optimizer steps, to a
+    maximum norm, before it takes its step.
+
+    Without it, a single batch whose gradients are large enough can take
+    the model out in one step - the loss becomes NaN, and stays NaN,
+    since NaN propagates through every parameter it touches.
+
+    The negative binomial output modules make that easy to run into. The
+    log-probability mass contains ``lgamma(k+r) - lgamma(r)``, and a gene
+    whose dispersion ``r`` is driven towards zero drives both terms
+    towards infinity, so their difference is the difference of two
+    infinities.
+
+    Parameters
+    ----------
+    optimizer : :class:`torch.optim.Optimizer`
+        The optimizer whose parameters' gradients should be clipped.
+
+    max_norm : :class:`float` or :class:`int`, optional
+        The norm to clip the gradients to. If :obj:`None`, the gradients
+        are not clipped.
+    """
+
+    # If no maximum norm was set, the gradients are not clipped.
+    if max_norm is None:
+        return
+
+    # Get the parameters the optimizer steps that have a gradient.
+    params = \
+        [p for group in optimizer.param_groups \
+         for p in group["params"] if p.grad is not None]
+
+    # If there are none, there is nothing to clip.
+    if not params:
+        return
+
+    # Clip the gradients.
+    torch.nn.utils.clip_grad_norm_(parameters = params,
+                                   max_norm = max_norm)
 
 
 #######################################################################
@@ -3599,6 +3645,17 @@ class BulkDGD(nn.Module):
         reporting_options = config_train["reporting_options"]
 
         #-------------------------------------------------------------#
+
+        # Get the norms to which the gradients are clipped before each
+        # optimizer takes its step. If not set, they are not clipped.
+        grad_clip_decoder = \
+            decoder_options.get("grad_clipping_max_norm")
+        grad_clip_rep = \
+            representations_options.get("grad_clipping_max_norm")
+        grad_clip_latent = \
+            latent_options.get("grad_clipping_max_norm")
+
+        #-------------------------------------------------------------#
         
         # Initialize the learning rate scheduler for the latent space.
         lr_scheduler_latent = None
@@ -4470,10 +4527,23 @@ class BulkDGD(nn.Module):
                 loss.backward()
 
                 #-----------------------------------------------------#
-                
+
+                # Clip the gradients, if a maximum norm was set for
+                # them, before any optimizer steps on them.
+                clip_grads(optimizer = optimizer_decoder,
+                           max_norm = grad_clip_decoder)
+                clip_grads(optimizer = optimizer_rep_train,
+                           max_norm = grad_clip_rep)
+
+                #-----------------------------------------------------#
+
                 # If the Gaussian mixture model is the legacy one
                 if isinstance(self.latent,
                               latents.GaussianMixtureModelLegacy):
+
+                    # Clip the Gaussian mixture model's gradients, too.
+                    clip_grads(optimizer = optimizer_latent,
+                               max_norm = grad_clip_latent)
 
                     # Take a step with the optimizer for the
                     # Gaussian mixture model.
