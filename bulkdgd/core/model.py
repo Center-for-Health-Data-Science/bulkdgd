@@ -110,9 +110,42 @@ def clip_grads(optimizer: torch.optim.Optimizer,
     if not params:
         return
 
-    # Clip the gradients.
-    torch.nn.utils.clip_grad_norm_(parameters = params,
-                                   max_norm = max_norm)
+    #-----------------------------------------------------------------#
+
+    # Zero out any gradient that is not finite, before clipping.
+    #
+    # Clipping cannot rescue an infinite gradient - scaling it by
+    # 'max_norm / inf' multiplies an infinity by zero, which is NaN, and
+    # NaN then propagates into every parameter the optimizer touches. A
+    # step whose gradients have already gone non-finite carries no usable
+    # information, so drop it rather than let it take the model out.
+    for p in params:
+
+        # If the parameter's gradient is not entirely finite
+        if not torch.isfinite(p.grad).all():
+
+            # Warn - this is rare, and worth knowing about.
+            logger.warning(\
+                "A non-finite gradient was produced and has been "
+                "zeroed. The step it came from is effectively skipped.")
+
+            # Drop it.
+            p.grad = torch.zeros_like(p.grad)
+
+    #-----------------------------------------------------------------#
+
+    # Clip the gradients. What is returned is the norm they had before
+    # being clipped, which is what tells you where to set the maximum:
+    # too low, and every step is scaled down, not just the rare one that
+    # would have blown the model up.
+    total_norm = \
+        torch.nn.utils.clip_grad_norm_(parameters = params,
+                                       max_norm = max_norm)
+
+    # Log the norm the gradients had, for whoever is choosing the
+    # maximum. This is a debug message - there is one per step.
+    logger.debug(f"Gradient norm before clipping: {float(total_norm):.4f} "
+                 f"(clipped to {max_norm}).")
 
 
 #######################################################################
