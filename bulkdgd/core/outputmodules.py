@@ -783,13 +783,39 @@ class OutputModuleNB(OutputModuleBase):
            log \\left( r \\cdot c \\right)
         """
 
-        # Convert the "number of successes" to a double-precision
-        # floating point number.
+        # Compute the log-probability mass in double precision.
+        #
+        # This is not fussiness - in single precision the formula below
+        # is unsafe. The r-values are the exponential of the parameters
+        # the model holds, and in single precision that exponential
+        # underflows to exactly zero once the parameter goes below about
+        # -104. 'lgamma(0)' is infinite, so 'lgamma(k+r) - lgamma(r)'
+        # becomes 'inf - inf', which is NaN - and a NaN in the loss
+        # propagates into every parameter the optimizer touches, taking
+        # the model out for good. The 'eps' below guards the logarithms,
+        # not this.
+        #
+        # In double precision the same exponential does not reach zero
+        # until the parameter goes below about -746, which the model
+        # does not do: at -110, where single precision has already given
+        # up, double precision holds an r-value of 1.7e-48 and a
+        # perfectly finite 'lgamma' of 110.
+        #
+        # Training the model on GTEx in single precision, the gradient
+        # norm sat around 350000 for a hundred epochs, reached 4.5e14 in
+        # a single epoch, and the loss was NaN in the next one - four of
+        # twelve models died this way. The r-values are exponentiated in
+        # double precision where they are created, and everything the
+        # formula touches is in double precision here.
         k = k.double()
-        
+        m = m.double()
+        r = r.double()
+
         # Set a small value used to prevent underflow and overflow.
         eps = 1.e-10
-        
+
+        #-------------------------------------------------------------#
+
         # Set a constant used later in the equation defining the
         # log-probability mass.
         c = 1.0 / (r + m + eps)
@@ -1056,7 +1082,10 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
                                    scaling_factors = scaling_factors)
 
         # Get the 'r' values of the negative binomial distributions.
-        r = torch.exp(self.log_r)
+        # Exponentiate in double precision. In single precision this
+        # underflows to exactly zero once the log-r-value goes below
+        # about -104, and 'lgamma(0)' is infinite - see 'log_prob_mass'.
+        r = torch.exp(self.log_r.double())
         
         # Return the log-probability mass for the negative binomial
         # distributions.
@@ -1159,7 +1188,10 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
                     scaling_factors = scaling_factors)
 
             # Get the r-values of the negative binomial distributions.
-            r = torch.exp(self.log_r)
+            # Exponentiate in double precision. In single precision this
+            # underflows to exactly zero once the log-r-value goes below
+            # about -104, and 'lgamma(0)' is infinite - see 'log_prob_mass'.
+            r = torch.exp(self.log_r.double())
             
             # Get the probabilities from the means using the formula:
             # m = p * r / (1-p), so p = m / (m+r)
@@ -1343,7 +1375,10 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
                                    scaling_factors = scaling_factors)
 
         # Get the r-values of the negative binomial distributions.
-        r = torch.exp(pred_log_r_values)
+        # Exponentiate in double precision. In single precision this
+        # underflows to exactly zero once the log-r-value goes below
+        # about -104, and 'lgamma(0)' is infinite - see 'log_prob_mass'.
+        r = torch.exp(pred_log_r_values.double())
 
         # Return the log-probability mass for the negative binomial
         # distributions.
@@ -1467,7 +1502,10 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
                     scaling_factors = scaling_factors)
 
             # Get the r-values of the negative binomial distributions.
-            r = torch.exp(pred_log_r_values)
+            # Exponentiate in double precision. In single precision this
+            # underflows to exactly zero once the log-r-value goes below
+            # about -104, and 'lgamma(0)' is infinite - see 'log_prob_mass'.
+            r = torch.exp(pred_log_r_values.double())
             
             # Get the probabilities from the means using the formula:
             # m = p * r / (1-p), so p = m / (m+r)
