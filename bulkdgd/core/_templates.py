@@ -973,6 +973,31 @@ _REPORTING_OPTIONS = {
     # The options for the optional outputs.
     "optional_outputs" : {
 
+        # The options for the model to output at the end of each epoch
+        # during training.
+        #
+        # Training writes the model out only when it is over, so a run
+        # that dies at the last epoch - or is killed, or runs out of
+        # time - leaves nothing behind. Enabling this saves the
+        # decoder's weights and the latent space's parameters as the
+        # run goes, so it can be picked up from where it got to.
+        "model_epoch" : {
+            "enabled" : {
+                "type": (bool,),
+                "default": False,
+                },
+            "stride" : {
+                "type": (int,),
+                "condition": lambda v: v > 0,
+                "message": "must be a positive integer",
+                "default": 1,
+                },
+            "dir" : {
+                "type": (str, type(None)),
+                "default": None,
+                },
+            },
+
         # The options for the representations to output at the end of
         # each epoch during training.
         "representations_epoch" : {
