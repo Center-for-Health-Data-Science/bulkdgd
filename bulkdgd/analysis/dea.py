@@ -56,7 +56,69 @@ from . import _util
 logger = log.getLogger(__name__)
 
 
+# Set the supported ways of computing the scaling factor of a sample.
+# This mirrors 'GeneExpressionDataset.SCALING_FACTORS', and the two
+# have to agree: the model is trained against one of these and the
+# analysis has to undo the same one.
+SCALING_FACTORS = ["mean", "median"]
+
+
 ########################## PRIVATE FUNCTIONS ##########################
+
+
+def _get_scaling_factor(obs_counts: np.ndarray,
+                        scaling_factor: str = "mean") -> float:
+    """Get the factor a sample's predicted means are multiplied by to
+    put them on the scale of the sample's own counts.
+
+    The decoder does not emit counts. It emits a sample's profile, and
+    the profile is multiplied by one number per sample to become the
+    counts the sample actually has. That number is a property of the
+    MODEL, not of this analysis: the decoder was fitted against it, and
+    undoing it here with a different one leaves every predicted mean
+    wrong by the ratio of the two - about a factor of three between the
+    median and the mean - while every p-value still comes out looking
+    like a p-value.
+
+    This is why 'scaling_factor' has to be carried from the model's own
+    configuration file to here, and why it is not simply assumed.
+
+    Parameters
+    ----------
+    obs_counts : :class:`numpy.ndarray`
+        The observed counts of the sample's genes.
+
+    scaling_factor : :class:`str`, {``"mean"``, ``"median"``}, \
+        ``"mean"``
+        Which factor to compute. It must be the one the model was
+        trained with.
+
+    Returns
+    -------
+    factor : :class:`float`
+        The factor.
+    """
+
+    # If the scaling factor is the mean.
+    if scaling_factor == "mean":
+
+        # Return the mean of the sample's counts.
+        return np.mean(obs_counts)
+
+    # If the scaling factor is the median.
+    elif scaling_factor == "median":
+
+        # Return the median of the sample's counts.
+        return np.median(obs_counts)
+
+    # Otherwise.
+    else:
+
+        # Raise an error.
+        raise ValueError(
+            f"Unsupported scaling factor '{scaling_factor}'. The "
+            f"supported scaling factors are: "
+            f"{', '.join(SCALING_FACTORS)}.")
 
 
 def _yield_p_values(obs_counts: torch.Tensor,
@@ -112,17 +174,25 @@ def _yield_p_values(obs_counts: torch.Tensor,
             # Get the r-value for the current gene.
             r_value_gene_i = r_values[i]
 
-            # Calculate the probability of "success" from the r-value
-            # (number of successes till the experiment is stopped) from
-            # the mean of the negative binomial. This is a single
-            # value, and is calculated from the mean 'm' of the
-            # negative binomial as:
+            # Calculate the probability of "failure" of the negative
+            # binomial from its mean 'm' and its r-value (the number of
+            # successes at which the experiment is stopped).
             #
-            # m = r(1-p) / p
-            # mp = r - rp
-            # mp + rp = r
-            # p(m+r) = r
-            # p = r / (m + r)
+            # The mean, written in terms of the probability 'q' of a
+            # FAILURE, is
+            #
+            #     m = r * q / (1 - q)
+            #
+            # so that
+            #
+            #     m (1 - q) = r q
+            #     m         = q (m + r)
+            #     q         = m / (m + r)
+            #
+            # which is what is calculated here. The derivation this
+            # comment used to give was of the probability of a SUCCESS,
+            # p = r / (m + r) - which is 1 - q, and not the line below.
+            # The arithmetic was right; the reason given for it was not.
             p_i = pred_mean_gene_i / \
                   (pred_mean_gene_i + r_value_gene_i)
 
@@ -133,9 +203,15 @@ def _yield_p_values(obs_counts: torch.Tensor,
 
             # Set the options to calculate the percent point function.
             #
-            # Since SciPy's negative binomial function is implemented
-            # as a function of the number of failures, their 'p' is
-            # equivalent to our '1-p' and their 'n' is our 'r'.
+            # SciPy's negative binomial counts the number of failures
+            # before 'n' successes, and its 'p' is the probability of a
+            # SUCCESS. Ours, above, is the probability of a failure, so
+            # SciPy is given 1 - p_i = r / (m + r), which returns the
+            # mean to 'm':
+            #
+            #     mean = n (1 - p) / p
+            #          = r * (m / (m + r)) / (r / (m + r))
+            #          = m
             ppf_options = \
                 {"q" : 0.99999,
                  "n" : float(r_value_gene_i),
@@ -338,13 +414,16 @@ def _get_tails(pred_means: np.ndarray,
     # counts
     if r_values is not None:
 
-        # Calculate the probability of "success" for all genes at once.
+        # Calculate the probability of "failure" for all genes at once,
+        # from the mean 'm' and the r-value: q = m / (m + r).
         p = pred_means / (pred_means + r_values)
 
-        # Get the tail of each gene's distribution. Since SciPy's
-        # negative binomial function is implemented as a function of
-        # the number of failures, their 'p' is equivalent to our '1-p'
-        # and their 'n' is our 'r'.
+        # Get the tail of each gene's distribution.
+        #
+        # SciPy's negative binomial counts the number of failures before
+        # 'n' successes, and its 'p' is the probability of a SUCCESS.
+        # Ours is the probability of a failure, so SciPy is given
+        # 1 - p = r / (m + r), which returns the mean to 'm'.
         tails = nbinom.ppf(q = 0.99999,
                            n = r_values,
                            p = 1 - p)
@@ -814,7 +893,8 @@ def get_p_values(obs_counts: pd.Series,
                  pseudocount: int = 1,
                  device: Union[str, torch.device] = "cpu",
                  p_values_method: str = "auto",
-                 max_elements: Optional[int] = None) -> \
+                 max_elements: Optional[int] = None,
+                 scaling_factor: str = "mean") -> \
                     tuple[pd.Series, pd.DataFrame, pd.DataFrame]:
     """Given the observed gene counts in a single sample, and the
     predicted mean gene counts in a single sample, calculate the
@@ -928,6 +1008,19 @@ def get_p_values(obs_counts: pd.Series,
         on a CPU, where the batch sits in RAM that several processes
         may be sharing.
 
+    scaling_factor : :class:`str`, \
+        {``"mean"``, ``"median"``}, ``"mean"``
+        How the model computes the scaling factor of a sample - the
+        number its predicted means are multiplied by to reach the scale
+        of the sample's own counts.
+
+        It must be the one the model was **trained** with, which is in
+        the model's own configuration file as ``"scaling_factor"``. The
+        decoder is fitted against it, and undoing it here with the
+        other one leaves every predicted mean wrong by the ratio of the
+        two - about three, between the median and the mean - while
+        every p-value still looks like a p-value.
+
     Returns
     -------
     p_values : :class:`pandas.Series`
@@ -1024,17 +1117,20 @@ def get_p_values(obs_counts: pd.Series,
 
     #-----------------------------------------------------------------#
 
-    # Get the mean gene counts for the sample.
+    # Get the sample's scaling factor - the mean or the median of its
+    # counts, whichever the model was trained against.
     #
     # The output is a single value.
-    obs_counts_mean = np.mean(obs_counts)
+    obs_counts_scale = \
+        _get_scaling_factor(obs_counts = obs_counts,
+                            scaling_factor = scaling_factor)
 
     #-----------------------------------------------------------------#
 
-    # Rescale the predicted means by the mean gene counts.
+    # Rescale the predicted means by it.
     #
     # The output is a 1D tensor containing the rescaled means.
-    pred_means = pred_means * obs_counts_mean
+    pred_means = pred_means * obs_counts_scale
 
     #-----------------------------------------------------------------#
 
@@ -1257,7 +1353,8 @@ def get_q_values(p_values: pd.Series,
 
 def get_log2_fold_changes(obs_counts: pd.Series,
                           pred_means: pd.Series,
-                          pseudocount: int = 1) -> pd.Series:
+                          pseudocount: int = 1,
+                          scaling_factor: str = "mean") -> pd.Series:
     """Get the log2-fold change of the expression of a set of genes.
 
     Parameters
@@ -1280,7 +1377,20 @@ def get_log2_fold_changes(obs_counts: pd.Series,
     pseudocount : :class:`int`, ``1``
         A pseudocount to add to both the predicted means and observed
         counts to avoid artifacts.
-    
+
+    scaling_factor : :class:`str`, \
+        {``"mean"``, ``"median"``}, ``"mean"``
+        How the model computes the scaling factor of a sample - the
+        number its predicted means are multiplied by to reach the scale
+        of the sample's own counts.
+
+        It must be the one the model was **trained** with, which is in
+        the model's own configuration file as ``"scaling_factor"``. The
+        decoder is fitted against it, and undoing it here with the
+        other one leaves every predicted mean wrong by the ratio of the
+        two - about three, between the median and the mean - while
+        every fold change still looks like a fold change.
+
     Returns
     -------
     log2_fold_changes : :class:`pandas.Series`
@@ -1333,26 +1443,46 @@ def get_log2_fold_changes(obs_counts: pd.Series,
 
     #-----------------------------------------------------------------#
 
-    # Get the mean gene counts for the sample.
+    # Get the sample's scaling factor - the mean or the median of its
+    # counts, whichever the model was trained against.
     #
     # The output is a single value.
-    obs_counts_mean = np.mean(obs_counts)
+    obs_counts_scale = \
+        _get_scaling_factor(obs_counts = obs_counts,
+                            scaling_factor = scaling_factor)
 
     #-----------------------------------------------------------------#
 
-    # Rescale the predicted means by the mean gene counts.
+    # Rescale the predicted means by it.
     #
     # The output is a 1D tensor containing the rescaled means.
-    pred_means = pred_means * obs_counts_mean
+    pred_means = pred_means * obs_counts_scale
 
     #-----------------------------------------------------------------#
 
-    # Get the log-fold change for each gene by dividing the predicted
-    # mean count by the observed count. A small value is added
+    # Get the log-fold change for each gene by dividing the observed
+    # count by the predicted mean count. A small value is added
     # to ensure we do not divide by zero and avoid artifacts.
+    #
+    # The observed count over the predicted one, and not the other way
+    # round: the sample over the healthy counterpart the model decoded
+    # for it. So a POSITIVE log2 fold change means the gene is HIGHER in
+    # the sample than the model expected of a healthy one, which is the
+    # convention DESeq2 uses for its case over its control, and the
+    # convention anybody reading the number will assume.
+    #
+    # It used to be the reciprocal - the predicted over the observed -
+    # so that a positive value meant the gene was LOWER in the sample.
+    # Nothing that CALLS a gene significant was affected, because
+    # everything thresholds on the absolute value; but every statement
+    # about a gene being up or down was backwards, and the fold changes
+    # compared against DESeq2's correlated at -0.74 where they should
+    # have been at +0.74. The pseudocount is symmetric, so the fix is
+    # exactly a change of sign, and the tables already computed were
+    # corrected by negating the column rather than by being recomputed.
     log2_fold_changes = \
-        np.log2((pred_means + pseudocount) / \
-                (obs_counts + pseudocount))
+        np.log2((obs_counts + pseudocount) / \
+                (pred_means + pseudocount))
 
     #-----------------------------------------------------------------#
 
@@ -1385,7 +1515,8 @@ def get_statistics(obs_counts: pd.Series,
                    pseudocount: int = 1,
                    device: Union[str, torch.device] = "cpu",
                    p_values_method: str = "auto",
-                   max_elements: Optional[int] = None) -> \
+                   max_elements: Optional[int] = None,
+                   scaling_factor: str = "mean") -> \
                         tuple[pd.DataFrame, Optional[str]]:
     """Compute p-values, q-values, and/or log2-fold changes.
 
@@ -1502,6 +1633,19 @@ def get_statistics(obs_counts: pd.Series,
         on a CPU, where the batch sits in RAM that several processes
         may be sharing.
 
+    scaling_factor : :class:`str`, \
+        {``"mean"``, ``"median"``}, ``"mean"``
+        How the model computes the scaling factor of a sample - the
+        number its predicted means are multiplied by to reach the scale
+        of the sample's own counts.
+
+        It must be the one the model was **trained** with, which is in
+        the model's own configuration file as ``"scaling_factor"``. The
+        decoder is fitted against it, and undoing it here with the
+        other one leaves every predicted mean wrong by the ratio of the
+        two - about three, between the median and the mean - while
+        every p-value still looks like a p-value.
+
     Returns
     -------
     df_stats : :class:`pandas.DataFrame`
@@ -1559,7 +1703,8 @@ def get_statistics(obs_counts: pd.Series,
                          pseudocount = pseudocount,
                          device = device,
                          p_values_method = p_values_method,
-                         max_elements = max_elements)
+                         max_elements = max_elements,
+                         scaling_factor = scaling_factor)
 
     #-----------------------------------------------------------------#
 
@@ -1580,7 +1725,8 @@ def get_statistics(obs_counts: pd.Series,
                              return_pmf_values = False,
                              device = device,
                              p_values_method = p_values_method,
-                             max_elements = max_elements)
+                             max_elements = max_elements,
+                             scaling_factor = scaling_factor)
 
         # Calculate the q-values.
         q_values, _ = \
@@ -1597,7 +1743,8 @@ def get_statistics(obs_counts: pd.Series,
         log2_fold_changes = \
             get_log2_fold_changes(obs_counts = obs_counts,
                                   pred_means = pred_means,
-                                  pseudocount = pseudocount)
+                                  pseudocount = pseudocount,
+                                  scaling_factor = scaling_factor)
 
     #-----------------------------------------------------------------#
 
@@ -1755,7 +1902,8 @@ def perform_dea(obs_counts: pd.DataFrame,
                 pseudocount: int = 1,
                 device: Union[str, torch.device] = "cpu",
                 p_values_method: str = "auto",
-                max_elements: Optional[int] = None) -> \
+                max_elements: Optional[int] = None,
+                scaling_factor: str = "mean") -> \
                     tuple[dict[str, pd.DataFrame],
                           pd.Series,
                           pd.DataFrame]:
@@ -1877,6 +2025,19 @@ def perform_dea(obs_counts: pd.DataFrame,
         on a CPU, where the batch sits in RAM that several processes
         may be sharing.
 
+    scaling_factor : :class:`str`, \
+        {``"mean"``, ``"median"``}, ``"mean"``
+        How the model computes the scaling factor of a sample - the
+        number its predicted means are multiplied by to reach the scale
+        of the sample's own counts.
+
+        It must be the one the model was **trained** with, which is in
+        the model's own configuration file as ``"scaling_factor"``. The
+        decoder is fitted against it, and undoing it here with the
+        other one leaves every predicted mean wrong by the ratio of the
+        two - about three, between the median and the mean - while
+        every p-value still looks like a p-value.
+
     Returns
     -------
     dfs_stats : :class:`dict`
@@ -1927,7 +2088,8 @@ def perform_dea(obs_counts: pd.DataFrame,
              "pseudocount" : pseudocount,
              "device" : device,
              "p_values_method" : p_values_method,
-             "max_elements" : max_elements}
+             "max_elements" : max_elements,
+             "scaling_factor" : scaling_factor}
 
         # If r-values were passed
         if r_values is not None:

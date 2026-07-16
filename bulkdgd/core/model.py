@@ -37,6 +37,7 @@ __doc__ = \
 
 
 # Import from the standard library.
+import contextlib
 import copy
 import logging as log
 import math
@@ -47,7 +48,7 @@ from typing import Optional, Union
 # Import from third-party libraries.
 import numpy as np
 import pandas as pd
-from scipy.stats import chi2
+from scipy.stats import chi2, nbinom
 import torch
 from torch import nn
 
@@ -176,6 +177,7 @@ class BulkDGD(nn.Module):
                  decoder_options: dict[str, object],
                  latent_type: str = "tgmm",
                  genes_txt_file: Optional[str] = None,
+                 scaling_factor: str = "mean",
                  device: str = "cpu") -> None:
         """Initialize an instance of the class.
 
@@ -224,7 +226,31 @@ class BulkDGD(nn.Module):
 
             The number of output units in the decoder is initialized
             from the number of genes found in this file.
-        
+
+        scaling_factor : :class:`str`, \
+            {``"mean"``, ``"median"``}, ``"mean"``
+            How to compute the scaling factor of a sample - the number
+            the decoder's predicted means are multiplied by to put them
+            on the scale of the sample's own counts.
+
+            The mean is not robust to the few genes that take a large
+            and variable share of a library: in GTEx the thirteen
+            mitochondrial genes take 14.49% of the reads, and their
+            share runs from 0.10% to 90.85% between samples, which moves
+            the mean by up to a factor of ten. The median is moved by
+            at most 3.7% by the same genes. See
+            :class:`bulkdgd.core.dataclasses.GeneExpressionDataset`.
+
+            This belongs to the model and not to a single run of it.
+            The median is about a third of the mean, and the decoder's
+            output is fitted against whichever the model was trained
+            with, so a model trained with one and used with the other
+            has its predicted means wrong by about a factor of three -
+            without failing. It is therefore written in the model's
+            configuration file, so that finding representations,
+            imputing, and the differential expression analysis all read
+            the same value the training did.
+
         device : :class:`str`, ``"cpu"``
             The device where the model will be initialized. The model
             is initialized on the CPU by default.
@@ -232,6 +258,28 @@ class BulkDGD(nn.Module):
 
         # Run the superclass' initialization.
         super(BulkDGD, self).__init__()
+
+        #-------------------------------------------------------------#
+
+        # If the scaling factor is not one that is supported.
+        if scaling_factor not in dataclasses.GeneExpressionDataset.\
+                                    SCALING_FACTORS:
+
+            # Raise an error.
+            raise ValueError(
+                f"Unsupported scaling factor '{scaling_factor}'. The "
+                "supported scaling factors are: "
+                f"{', '.join(dataclasses.GeneExpressionDataset.SCALING_FACTORS)}.")
+
+        # Save the scaling factor.
+        self._scaling_factor = scaling_factor
+
+        # Inform the user, since a model whose scaling factor is not
+        # the one its data was written for fails by being wrong rather
+        # than by stopping.
+        logger.info(
+            f"The scaling factor is the '{scaling_factor}' of a "
+            "sample's counts.")
 
         #-------------------------------------------------------------#
 
@@ -275,8 +323,24 @@ class BulkDGD(nn.Module):
         # Save the options for the decoder in the model's attributes.
         self._decoder_initial_options = decoder_options
 
+        # Keep the genes the model knows, in the order the decoder
+        # emits them. 'impute' needs them - it is given a sample missing
+        # most of them, and has to say which of the model's genes the
+        # sample is missing - and asking a model what it is a model OF
+        # should not require reading the file it was built from.
+        self._genes = genes
+
         #-------------------------------------------------------------#
-        
+
+        # By default, the competition between the candidate
+        # representations is not recorded - only its winner is, which is
+        # all the model needs and much less than it knows.
+        self._keep_selection_details = False
+
+        self._selection_details = []
+
+        #-------------------------------------------------------------#
+
         # By default, the model is initialized on the CPU.
         self._device = torch.device(device)
 
@@ -555,6 +619,60 @@ class BulkDGD(nn.Module):
 
 
     @property
+    def scaling_factor(self):
+        """How the scaling factor of a sample is computed - either
+        ``"mean"`` or ``"median"``.
+
+        It is a property of the model: the decoder's output is fitted
+        against it, so everything done with the model afterwards has to
+        use the one it was trained with.
+        """
+
+        return self._scaling_factor
+
+
+    @scaling_factor.setter
+    def scaling_factor(self,
+                       value) -> None:
+        """Raise an exception if the user tries to modify the value of
+        ``scaling_factor`` after initialization.
+        """
+
+        errstr = \
+            "The value of 'scaling_factor' is set at initialization, " \
+            "and the decoder is fitted against it. Changing it on a " \
+            "trained model would leave every predicted mean wrong by " \
+            "the ratio of the two. Set it in the model's " \
+            "configuration file instead."
+        raise ValueError(errstr)
+
+
+    @property
+    def genes(self):
+        """The genes the model knows, in the order the decoder emits
+        them.
+        """
+
+        return self._genes
+
+
+    @genes.setter
+    def genes(self,
+              value) -> None:
+        """Raise an exception if the user tries to modify the value of
+        ``genes`` after initialization.
+        """
+
+        errstr = \
+            "The value of 'genes' is set at initialization and cannot " \
+            "be changed. It is the genes the decoder was built to " \
+            "emit, and a model of one set of genes is not a model of " \
+            "another."
+
+        raise ValueError(errstr)
+
+
+    @property
     def latent(self):
         """The latent space.
         """
@@ -763,6 +881,77 @@ class BulkDGD(nn.Module):
         return lr_scheduler
 
     
+    @staticmethod
+    def _get_masked_scaling_factors(obs_counts: torch.Tensor,
+                                    pred_means: torch.Tensor,
+                                    mask: torch.Tensor,
+                                    n_genes: int) -> torch.Tensor:
+        """Get the scaling factor of a sample only some of whose genes
+        were measured.
+
+        The factor the model multiplies its predicted means by is the
+        sample's MEAN COUNT OVER ALL OF ITS GENES. That is the quantity
+        the decoder was trained against, and it is not negotiable: a
+        different factor means the decoder's output means something
+        different from what it was fitted to mean.
+
+        The trouble is that a sample only part of which was measured
+        does not have that quantity. The unmeasured genes are not in the
+        sum, and taking the mean over the genes that ARE there - or, what
+        is the same thing and what happens by default, taking the mean
+        over all of them with the unmeasured ones entered as zeros -
+        gives a number that is too small by however much of the
+        transcriptome is absent. A thousand-gene panel of a fourteen-
+        thousand-gene model would be scaled by about a fourteenth of
+        what it should be, and every predicted mean would come out that
+        much too low: the genes that WERE measured as much as the genes
+        that were not, because there is one representation and it is
+        fitted to all of them at once.
+
+        So the missing part of the sum is filled in by the model. Write
+        's' for the mean count over all G genes, 'M' for the genes that
+        were measured, and 'mu_g = s * pred_g' for what the model says a
+        gene's mean is. Then
+
+            s * G  =  sum_{g in M} obs_g  +  sum_{g not in M} mu_g
+
+                   =  sum_{g in M} obs_g  +  s * sum_{g not in M} pred_g
+
+        and solving for the 's' on both sides,
+
+                          sum_{g in M} obs_g
+            s  =  --------------------------------
+                   G  -  sum_{g not in M} pred_g
+
+        which is what is returned. The observed genes carry their own
+        counts; the unobserved ones are carried by the model's
+        expectation of them, which is the only thing there is to carry
+        them with.
+
+        It is exact when everything is measured. The second sum is then
+        empty, and 's' is 'sum(obs) / G' - the mean count over all the
+        genes, the factor the model always used. The masked path is
+        therefore a generalization of the unmasked one and not a rival to
+        it, which is a thing worth being able to prove rather than claim:
+        pass a mask of all ones and the answer must not move.
+        """
+
+        obs_measured = (obs_counts * mask).sum(dim = -1, keepdim = True)
+
+        pred_unmeasured = \
+            (pred_means * (1.0 - mask)).sum(dim = -1, keepdim = True)
+
+        # 'n_genes' minus the model's own predicted total over the genes
+        # it was not shown. It cannot go to zero for any model that is
+        # not badly broken - the predicted means average about one, so
+        # this is about the number of genes that WERE measured - but it
+        # is clamped, because a division that can produce an infinity
+        # will eventually produce one.
+        denominator = (n_genes - pred_unmeasured).clamp(min = 1e-6)
+
+        return obs_measured / denominator
+
+
     def _optimize_rep(self,
                       data_loader: torch.utils.data.DataLoader,
                       rep_layer: latents.RepresentationLayer,
@@ -773,7 +962,8 @@ class BulkDGD(nn.Module):
                       opt_num: int,
                       loss_reporting_options: dict[str, object],
                       loss_reduction_type: str,
-                      latent_lambda: Optional[float] = None) -> \
+                      latent_lambda: Optional[float] = None,
+                      genes_mask: Optional[torch.Tensor] = None) -> \
                         torch.Tensor:
         """Optimize the representation(s) found for each sample.
 
@@ -781,6 +971,23 @@ class BulkDGD(nn.Module):
         ----------
         data_loader : :class:`torch.utils.data.DataLoader`
             The data loader.
+
+        genes_mask : :class:`torch.Tensor`, optional
+            A 2D tensor of 1.0 and 0.0, one row per sample and one
+            column per gene, saying which of a sample's genes were
+            MEASURED.
+
+            A gene marked 0.0 contributes nothing to the reconstruction
+            loss, and the scaling factor of a sample's negative
+            binomials is estimated from its measured genes alone. This
+            is what makes a representation findable for a sample only
+            part of whose transcriptome was read - a gene panel - where
+            the unmeasured genes would otherwise be read as genes that
+            are switched off, which is a different thing entirely and a
+            thing the model would try to explain.
+
+            If not passed, every gene of every sample is taken to have
+            been measured, which is what a whole transcriptome is.
 
         rep_layer : :class:`bulkdgd.core.latents.RepresentationLayer`
             The representation layer containing the initial
@@ -1122,10 +1329,19 @@ class BulkDGD(nn.Module):
 
                 #-----------------------------------------------------#
 
+                # The mask of the samples in this batch, if there is
+                # one, shaped so that it broadcasts over the
+                # representations and the components.
+                mask_batch = \
+                    genes_mask[samples_ixs].unsqueeze(1).unsqueeze(1) \
+                        if genes_mask is not None else None
+
+                #-----------------------------------------------------#
+
                 # Reshape the predicted scaled means to match the
                 # shape required to compute the loss.
                 #
-                # The output is a 4D tensor with:   
+                # The output is a 4D tensor with:
                 #
                 # - 1st dimension:
                 #       the number of samples in the current batch
@@ -1140,11 +1356,42 @@ class BulkDGD(nn.Module):
                 #
                 # - 4th dimension:
                 #       the dimensionality of the output (= gene)
-                #       space    
+                #       space
                 pred_means = pred_means.view(n_samples_in_batch,
                                              n_rep_per_comp,
                                              n_components,
                                              n_genes)
+
+                #-----------------------------------------------------#
+
+                # If only some of the genes were measured, the scaling
+                # factor cannot be the mean over all of them.
+                #
+                # 'samples_mean_exp' is the mean count over EVERY gene
+                # of the sample, and the unmeasured genes enter it as
+                # zeros. A thousand-gene panel of a fourteen-thousand
+                # gene model would therefore be scaled by about a
+                # fourteenth of what it should be, and every predicted
+                # mean - of the genes that WERE measured as much as of
+                # the genes that were not - would come out that much too
+                # small. Masking the loss alone does not save it: the
+                # scale is wrong for the genes that are still in the
+                # loss.
+                #
+                # So the factor is estimated where the data still is:
+                # the one that makes the predicted total over the
+                # MEASURED genes equal the observed total over those
+                # same genes. It uses nothing the model was not given,
+                # it is one sum, and it is exact. It is re-estimated at
+                # every step, because 'pred_means' moves at every step.
+                if mask_batch is not None:
+
+                    scaling_factors = \
+                        self.__class__._get_masked_scaling_factors(
+                            obs_counts = obs_counts,
+                            pred_means = pred_means,
+                            mask = mask_batch,
+                            n_genes = n_genes)
 
                 #-----------------------------------------------------#
 
@@ -1197,7 +1444,27 @@ class BulkDGD(nn.Module):
                 recon_loss = self.decoder.nb.loss(**recon_loss_options)
 
                 #-----------------------------------------------------#
-                
+
+                # Take out the genes that were not measured.
+                #
+                # The loss comes back one value to a gene, and is only
+                # reduced below - so a gene is removed from the
+                # objective by zeroing its term, which is what
+                # marginalizing it out of a factorized likelihood
+                # amounts to. It is not a trick: the posterior over the
+                # representation given SOME of the genes is exactly the
+                # posterior with the other genes' terms absent.
+                #
+                # Without this, an unmeasured gene reads as a gene
+                # measured to be OFF, and the model will move the
+                # representation in order to explain a silence that was
+                # never observed.
+                if mask_batch is not None:
+
+                    recon_loss = recon_loss * mask_batch
+
+                #-----------------------------------------------------#
+
                 # If the reduction method is 'sum'
                 if loss_reduction_type == "sum":
 
@@ -1412,9 +1679,18 @@ class BulkDGD(nn.Module):
                          n_rep_per_comp: int,
                          loss_reduction_type: str,
                          latent_lambda: \
-                            Optional[float] = None) -> \
+                            Optional[float] = None,
+                         genes_mask: \
+                            Optional[torch.Tensor] = None) -> \
                                 torch.Tensor:
         """Select the best representation per sample.
+
+        'genes_mask' says which of a sample's genes were measured, and
+        it must be the same mask the optimization used. The candidates
+        compete on their loss, and a loss that counts the unmeasured
+        genes is a loss that rewards the candidate which best explains
+        a silence nobody observed - so the winner would be chosen on
+        the strength of the very genes that were never read.
 
         Parameters
         ----------
@@ -1686,10 +1962,17 @@ class BulkDGD(nn.Module):
 
             #---------------------------------------------------------#
 
+            # The mask of the samples in this batch, if there is one.
+            mask_batch = \
+                genes_mask[samples_ixs].unsqueeze(1).unsqueeze(1) \
+                    if genes_mask is not None else None
+
+            #---------------------------------------------------------#
+
             # Reshape the predicted scaled means to match the
             # shape required to compute the loss.
             #
-            # The output is a 4D tensor with:   
+            # The output is a 4D tensor with:
             #
             # - 1st dimension:
             #       the number of samples in the current batch
@@ -1709,7 +1992,23 @@ class BulkDGD(nn.Module):
                                          n_rep_per_comp,
                                          n_components,
                                          n_genes)
-     
+
+            #---------------------------------------------------------#
+
+            # The scaling factor, estimated on the measured genes alone.
+            # It is the same estimate the optimization used, and it must
+            # be: the candidates are being compared on their loss, and a
+            # loss computed with a different scale is not the loss they
+            # were optimized under.
+            if mask_batch is not None:
+
+                scaling_factors = \
+                    self.__class__._get_masked_scaling_factors(
+                        obs_counts = obs_counts,
+                        pred_means = pred_means,
+                        mask = mask_batch,
+                        n_genes = n_genes)
+
             #---------------------------------------------------------#
 
             # If the chosen output module means that the r-values
@@ -1759,6 +2058,12 @@ class BulkDGD(nn.Module):
             #       the dimensionality of the output (= gene)
             #       space
             recon_loss = self.decoder.nb.loss(**recon_loss_options)
+
+            # Take out the genes that were not measured, so that the
+            # candidates are compared on the genes that were.
+            if mask_batch is not None:
+
+                recon_loss = recon_loss * mask_batch
 
             # Get the total reconstruction loss by summing or averaging
             # over the last dimension of the 'recon_loss' tensor.
@@ -1907,6 +2212,67 @@ class BulkDGD(nn.Module):
             # representations for all samples.
             best_reps[samples_ixs] = rep
 
+            #---------------------------------------------------------#
+
+            # Keep what the 'argmin' is about to throw away.
+            #
+            # The competition between the candidates is the most
+            # informative thing this method does, and all that survives
+            # it is the index of the winner. The losses say HOW the
+            # winner won - by six hundred nats or by twelve - and the
+            # candidates' positions say whether the component a
+            # candidate was BORN in is the component it ARRIVED in,
+            # which, since the candidates are optimized before they are
+            # judged, is not a thing anybody should assume.
+            if self._keep_selection_details:
+
+                with torch.no_grad():
+
+                    z_cand = z.view(n_samples_in_batch,
+                                    n_rep_per_comp * n_components,
+                                    dim)
+
+                    # Which component each candidate ARRIVED in: the one
+                    # that claims it, out of the mixture, where it now
+                    # stands.
+                    log_prob_comp = \
+                        self.latent._get_log_prob_comp(
+                            z_cand.reshape(-1, dim))
+
+                    arrived = log_prob_comp.argmax(dim = 1).view(
+                        n_samples_in_batch,
+                        n_rep_per_comp * n_components)
+
+                    # Which component it was BORN in. The candidates are
+                    # laid out as (sample, rep, component), so the
+                    # component is the index modulo the number of them.
+                    born = torch.arange(
+                        n_rep_per_comp * n_components,
+                        device = arrived.device) % n_components
+
+                    born = born.unsqueeze(0).expand(
+                        n_samples_in_batch, -1)
+
+                    self._selection_details.append(
+                        {"samples_ixs" :
+                            samples_ixs.detach().cpu().clone(),
+                         "total_loss" :
+                            total_loss_reshaped.detach().cpu().clone(),
+                         "recon_loss" :
+                            recon_loss_final_reshaped.detach().cpu(
+                                ).view(n_samples_in_batch,
+                                       n_rep_per_comp *
+                                       n_components).clone(),
+                         "latent_loss" :
+                            latent_loss.detach().cpu().view(
+                                n_samples_in_batch,
+                                n_rep_per_comp *
+                                n_components).clone(),
+                         "born_in" : born.detach().cpu().clone(),
+                         "arrived_in" : arrived.detach().cpu().clone(),
+                         "winner" :
+                            best_rep_per_sample.detach().cpu().clone()})
+
         #-------------------------------------------------------------#
 
         # Return the best representations found for the samples.
@@ -1916,7 +2282,9 @@ class BulkDGD(nn.Module):
     def _get_representations_one_opt(
             self,
             dataset: dataclasses.GeneExpressionDataset,
-            config: dict[str, object]) -> torch.Tensor:
+            config: dict[str, object],
+            genes_mask: Optional[torch.Tensor] = None) -> \
+                torch.Tensor:
         """Get the representations for a set of samples by
         initializing ``n_rep_per_comp`` representations per each
         component of the Gaussian mixture model per sample, selecting
@@ -2113,7 +2481,8 @@ class BulkDGD(nn.Module):
                 rep_layer = rep_layer_init,
                 n_rep_per_comp = n_rep_per_comp,
                 loss_reduction_type = loss_reduction_type,
-                latent_lambda = latent_lambda)
+                latent_lambda = latent_lambda,
+                genes_mask = genes_mask)
 
         # Create a representation layer containing the best
         # representations found.
@@ -2147,7 +2516,8 @@ class BulkDGD(nn.Module):
                 loss_reduction_type = loss_reduction_type,
                 epochs = epochs,
                 opt_num = 1,
-                latent_lambda = latent_lambda)
+                latent_lambda = latent_lambda,
+                genes_mask = genes_mask)
 
         #-------------------------------------------------------------#
 
@@ -2164,7 +2534,8 @@ class BulkDGD(nn.Module):
     def _get_representations_two_opt(
             self,
             dataset: dataclasses.GeneExpressionDataset,
-            config: dict[str, object]) -> \
+            config: dict[str, object],
+            genes_mask: Optional[torch.Tensor] = None) -> \
                 tuple[torch.Tensor, torch.Tensor,
                       Optional[torch.Tensor], list[tuple]]:
         """Get the best representations for a set of samples by
@@ -2252,6 +2623,15 @@ class BulkDGD(nn.Module):
         loss_reduction_type = \
             config["scheme_options"]["loss_reduction_type"]
 
+        # Start the record of the competition between the candidates
+        # empty. Running this twice must not report the first run's
+        # candidates alongside the second's.
+        self._selection_details = []
+
+        self._settled_in = None
+
+        #-------------------------------------------------------------#
+
         # Get the configuration for the first optimization.
         config_opt_1 = config["scheme_options"]["optimization_1"]
 
@@ -2316,26 +2696,65 @@ class BulkDGD(nn.Module):
 
             # Get the number of components.
             n_components = self.latent.n_components
-            
+
             # Get the dimensionality.
             n_dim = self.latent.dim
+
+            #---------------------------------------------------------#
+
+            # Get the seed of the draw that places the candidates.
+            #
+            # Each candidate is drawn from its component's Gaussian. In a
+            # latent space of this many dimensions that does NOT put it
+            # near the component's mean: a Gaussian draw lands about
+            # 'sqrt(latent_dim)' standard deviations away, on the shell,
+            # which is where the trained representations turn out to live
+            # (median 5.46 sigma, against 5.59 for the draw). The draw is
+            # already well matched to them.
+            #
+            # It is NOT reproducible without a seed, and by default there
+            # is none: two runs of 'find_representations' on the same
+            # samples with the same model start from different points and
+            # do not end at the same representations.
+            init_options = \
+                config["scheme_options"].get("initialization", {})
+
+            seed = init_options.get("seed")
+
+            #---------------------------------------------------------#
 
             # Initialize a list to store the samples from each
             # component.
             component_samples = []
-            
-            # For each component
-            for comp_idx in range(n_components):
-                
-                # Sample n_samples * n_rep_per_comp points from this
-                # component.
-                samples_comp, _ = self.latent.sample(
-                    n_samples = n_samples * n_rep_per_comp,
-                    component = comp_idx)
 
-                # Add the samples to the list.
-                component_samples.append(samples_comp)
-            
+            # 'GaussianMixture.sample' draws on the GLOBAL generator and
+            # takes no generator of its own, so seeding one and handing
+            # it over does nothing at all for the default method - which
+            # is how a seeded run came back with different
+            # representations the first time this was tried.
+            #
+            # Seed the global generator instead, and put back the state
+            # it had, so that asking for a reproducible initialization
+            # does not quietly reseed the rest of the program.
+            with contextlib.ExitStack() as stack:
+
+                if seed is not None:
+
+                    stack.enter_context(
+                        torch.random.fork_rng(devices = []))
+
+                    torch.manual_seed(int(seed))
+
+                # For each component
+                for comp_idx in range(n_components):
+
+                    # Draw the candidates from the component.
+                    samples_comp, _ = self.latent.sample(
+                        n_samples = n_samples * n_rep_per_comp,
+                        component = comp_idx)
+
+                    component_samples.append(samples_comp)
+
             # Stack all component samples: shape (n_components,
             # n_samples * n_rep_per_comp, n_dim).
             component_samples = torch.stack(component_samples,
@@ -2392,7 +2811,8 @@ class BulkDGD(nn.Module):
                 loss_reduction_type = loss_reduction_type,
                 epochs = epochs_1,
                 opt_num = 1,
-                latent_lambda = latent_lambda)
+                latent_lambda = latent_lambda,
+                genes_mask = genes_mask)
 
         #-------------------------------------------------------------#
 
@@ -2417,7 +2837,8 @@ class BulkDGD(nn.Module):
                 rep_layer = rep_layer_1,
                 n_rep_per_comp = n_rep_per_comp,
                 loss_reduction_type = loss_reduction_type,
-                latent_lambda = latent_lambda)
+                latent_lambda = latent_lambda,
+                genes_mask = genes_mask)
 
         # Create a representation layer containing the best
         # representations found (one representation per sample).
@@ -2440,18 +2861,34 @@ class BulkDGD(nn.Module):
         # the distributions modelling the counts, the predicted
         # r-values of the distributions modelling the counts (if any),
         # and the time data.
+        # ONE representation per sample, not 'n_rep_per_comp' of them.
+        #
+        # '_select_best_rep' has just been over the
+        # 'n_rep_per_comp * n_components' candidates of each sample and
+        # kept exactly one, so 'rep_layer_best' holds one representation
+        # per sample and the second optimization must be told so - both
+        # here and in 'n_components', which is already 1 for the same
+        # reason.
+        #
+        # Passing 'n_rep_per_comp' straight through works only because
+        # it is 1 in every configuration written so far. Set it to 5 and
+        # '_optimize_rep' tries to read the layer as
+        # (n_samples, 5, 1, dim), which is five times the number of
+        # values it holds, and raises. So 'n_rep_per_comp' greater than
+        # 1 has never run with this scheme.
         rep_2, pred_means_2, pred_r_values_2, time_2 = \
             self._optimize_rep(\
                 data_loader = data_loader,
                 rep_layer = rep_layer_best,
                 optimizer = optimizer_2,
                 n_components = 1,
-                n_rep_per_comp = n_rep_per_comp,
+                n_rep_per_comp = 1,
                 loss_reporting_options = loss_reporting_options,
                 loss_reduction_type = loss_reduction_type,
                 epochs = epochs_2,
                 opt_num = 2,
-                latent_lambda = latent_lambda)
+                latent_lambda = latent_lambda,
+                genes_mask = genes_mask)
 
         #-------------------------------------------------------------#
 
@@ -2466,9 +2903,159 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
+        # The winner is not done moving when it is picked. It is
+        # optimized for 'epochs_2' more, and it can leave the component
+        # it was in when it won. Say where it ENDED, which is where the
+        # representation that goes into every downstream analysis
+        # actually is.
+        if self._keep_selection_details \
+                and isinstance(self.latent,
+                               latents.GaussianMixtureModelTGMM):
+
+            with torch.no_grad():
+
+                self._settled_in = \
+                    self.latent._get_log_prob_comp(
+                        rep_2.to(self.device)).argmax(
+                            dim = 1).detach().cpu().clone()
+
+        #-------------------------------------------------------------#
+
         # Return the representations, the predicted means and r-values,
         # the time information for both rounds of optimization.
         return rep_2, pred_means_2, pred_r_values_2, time
+
+
+    def keep_selection_details(self,
+                               keep: bool = True) -> None:
+        """Record the competition between the candidate representations,
+        and not only its winner.
+
+        Parameters
+        ----------
+        keep : :class:`bool`, ``True``
+            Whether to record it.
+        """
+
+        self._keep_selection_details = bool(keep)
+
+
+    def get_selection_details(
+            self,
+            samples_names: Optional[list] = None) -> pd.DataFrame:
+        """Get what the competition between the candidate
+        representations looked like, one row per candidate.
+
+        Every sample's representation is chosen by putting one candidate
+        in each component of the Gaussian mixture model (or
+        ``n_rep_per_comp`` of them), optimizing all of them, and keeping
+        the one whose total loss is smallest. Only the winner survives
+        ``argmin``. This is everything else.
+
+        The columns are:
+
+        * ``sample`` - the sample.
+
+        * ``candidate`` - which of the ``n_rep_per_comp * n_components``
+          candidates this row is.
+
+        * ``born_in`` - the component the candidate started in.
+
+        * ``arrived_in`` - the component that claims the candidate where
+          it stood WHEN IT WAS JUDGED. It need not be ``born_in``: the
+          candidates are optimized before they are compared, and they
+          move.
+
+        * ``settled_in`` - for the winner, the component that claims it
+          after the SECOND optimization, which is where the
+          representation that goes into every downstream analysis
+          actually is. It is the same for every row of a sample.
+
+        * ``recon_loss``, ``latent_loss``, ``total_loss`` - the losses,
+          in nats, kept apart so that it is possible to see which of
+          them decided.
+
+        * ``is_winner`` - whether ``argmin`` picked this candidate.
+
+        * ``margin`` - the total loss of this candidate minus the total
+          loss of the winner, in nats. It is zero for the winner, and for
+          the runner-up it is the number that says how close the thing
+          came. This is the honest measure of how sure the model was.
+
+        * ``softmax`` - ``softmax(-total_loss)`` over a sample's
+          candidates.
+
+          It is included because it was asked for, and it should be
+          looked at once and then not trusted: the reconstruction loss is
+          a sum over some sixteen thousand genes, so the gap between the
+          winner and the runner-up is of the order of a hundred nats, and
+          the softmax of that is 1.0 for the winner and 0.0 for everyone
+          else, for every sample ever scored. A gap of twenty nats
+          already gives 1 - 2e-9. Use ``margin``.
+
+        Parameters
+        ----------
+        samples_names : :class:`list`, optional
+            The samples' names, in the order the model was given them.
+
+        Returns
+        -------
+        df : :class:`pandas.DataFrame`
+            One row per candidate per sample.
+        """
+
+        if not self._selection_details:
+
+            raise RuntimeError(
+                "There is nothing recorded. Call "
+                "'keep_selection_details()' before "
+                "'get_representations()'.")
+
+        #-------------------------------------------------------------#
+
+        rows = []
+
+        for batch in self._selection_details:
+
+            ixs = batch["samples_ixs"]
+
+            total = batch["total_loss"]
+
+            best = total.min(dim = 1, keepdim = True).values
+
+            soft = torch.softmax(-total.double(), dim = 1)
+
+            n_cand = total.shape[1]
+
+            for i, ix in enumerate(ixs.tolist()):
+
+                name = samples_names[ix] \
+                    if samples_names is not None else ix
+
+                settled = int(self._settled_in[ix]) \
+                    if self._settled_in is not None else None
+
+                for c in range(n_cand):
+
+                    rows.append(
+                        {"sample" : name,
+                         "candidate" : c,
+                         "born_in" : int(batch["born_in"][i, c]),
+                         "arrived_in" : int(batch["arrived_in"][i, c]),
+                         "settled_in" : settled,
+                         "recon_loss" :
+                            float(batch["recon_loss"][i, c]),
+                         "latent_loss" :
+                            float(batch["latent_loss"][i, c]),
+                         "total_loss" : float(total[i, c]),
+                         "is_winner" :
+                            bool(c == int(batch["winner"][i])),
+                         "margin" : float(total[i, c] - best[i, 0]),
+                         "softmax" : float(soft[i, c])})
+
+        #-------------------------------------------------------------#
+
+        return pd.DataFrame(rows)
 
 
     def _get_saliency_map(self,
@@ -2558,7 +3145,8 @@ class BulkDGD(nn.Module):
                       max_iter: int,
                       is_full_refit_epoch: bool,
                       epoch: int,
-                      model_selection_metric: str) -> int:
+                      model_selection_metric: str,
+                      model_selection_step: int = 1) -> int:
         """Select the best TGMM candidate across nearby component
         counts.
 
@@ -2628,20 +3216,28 @@ class BulkDGD(nn.Module):
         # the current models' number of components.
         candidates_n_components = set([current_n_components])
 
-        # If the current numner of components is higher than one
-        if current_n_components > 1:
+        # Look 'step' components either side of where we are, and not
+        # one.
+        #
+        # A model that starts with sixty-four components and wants
+        # thirty cannot get there one at a time: the mixture is refit
+        # every few epochs, and each refit moves it by at most one, so
+        # it would need thirty-four refits and it may not have them. A
+        # step of four gets there in nine.
+        step = max(1, int(model_selection_step))
 
-            # Add the current number of components minus one to the
-            # candidates.
-            candidates_n_components.add(current_n_components - 1)
-        
-        # If the current number of components is lower than the ceiling
-        if current_n_components < gmm_n_components_ceiling:
+        # Below, but never below one: a mixture of no components is not
+        # a mixture.
+        if current_n_components - step >= 1:
 
-            # Add the current number of components plus one to the
-            # candidates.
-            candidates_n_components.add(current_n_components + 1)
-        
+            candidates_n_components.add(current_n_components - step)
+
+        # Above, but never above the ceiling, which is the number of
+        # components the configuration asked for.
+        if current_n_components + step <= gmm_n_components_ceiling:
+
+            candidates_n_components.add(current_n_components + step)
+
         # Sort the candidate number of components.
         candidates_n_components = sorted(candidates_n_components)
 
@@ -3981,13 +4577,46 @@ class BulkDGD(nn.Module):
             latent_model_selection_options = \
                 latent_options.get("model_selection_options")
 
+            # How far either side of the current number of components to
+            # look, when the model selection is dynamic. One, unless the
+            # configuration says otherwise.
+            latent_model_selection_step = 1
+
             # If the model selection is based on a metric
             if latent_model_selection_type == "metric" and \
                 latent_model_selection_options is not None:
 
+                # The options are a dictionary. They were described in
+                # the template as a single string - the metric's name -
+                # and a configuration written that way arrived here as a
+                # string and raised an 'AttributeError' on '.get'. Say
+                # so, rather than let it fail three lines further down
+                # with a message about strings.
+                if not isinstance(latent_model_selection_options, dict):
+
+                    errstr = \
+                        "'model_selection_options' must be a mapping, " \
+                        "with a 'metric' and, if you like, a 'step' - " \
+                        "for instance " \
+                        "'{'metric' : 'bic', 'step' : 4}'. It is a " \
+                        f"'{type(latent_model_selection_options).__name__}'."
+                    raise TypeError(errstr)
+
                 # Get the metric used to select candidate models.
                 latent_model_selection_metric = \
                     latent_model_selection_options.get("metric", "bic")
+
+                # Get how far to look either side.
+                latent_model_selection_step = \
+                    int(latent_model_selection_options.get("step", 1))
+
+                logger.info(
+                    f"The number of components of the Gaussian "
+                    f"mixture model is selected dynamically, on the "
+                    f"'{latent_model_selection_metric}', looking "
+                    f"{latent_model_selection_step} component(s) "
+                    f"either side of the current number at every "
+                    f"refit.")
             
             #---------------------------------------------------------#
 
@@ -4229,7 +4858,7 @@ class BulkDGD(nn.Module):
                         # If the model selection is based on a metric
                         if latent_model_selection_type == "metric":
                             
-                            # Compare k-1, k, and k+1 via the
+                            # Compare k, k - step and k + step via the
                             # configured selection metric and keep the
                             # best model.
                             self._get_best_latent_tgmm(
@@ -4240,6 +4869,8 @@ class BulkDGD(nn.Module):
                                 is_full_refit_epoch = \
                                     is_full_refit_epoch,
                                 epoch = epoch,
+                                model_selection_step = \
+                                    latent_model_selection_step,
                                 model_selection_metric = \
                                     latent_model_selection_metric)
 
@@ -5692,7 +6323,9 @@ class BulkDGD(nn.Module):
     def get_representations(self,
                             df_samples: pd.DataFrame,
                             config_rep: dict[str, object],
-                            get_saliency_map: bool = False) -> \
+                            get_saliency_map: bool = False,
+                            genes_mask: \
+                                Optional[torch.Tensor] = None) -> \
                                 tuple[pd.DataFrame, pd.DataFrame,
                                       Optional[pd.DataFrame],
                                       pd.DataFrame]:
@@ -5702,6 +6335,17 @@ class BulkDGD(nn.Module):
         ----------
         df_samples : :class:`pandas.DataFrame`
             A data frame containing the samples.
+
+        genes_mask : :class:`torch.Tensor`, optional
+            A 2D tensor of 1.0 and 0.0, one row per sample and one
+            column per gene, saying which of a sample's genes were
+            MEASURED. If not passed, all of them were, which is what a
+            whole transcriptome is.
+
+            Most callers want :meth:`impute` instead, which builds the
+            mask from the missing values of the data frame and returns
+            the imputed counts. This argument is here for the caller who
+            wants the representation itself.
 
         config_rep : :class:`dict`
             A dictionary of options for the optimization(s). It varies
@@ -5808,7 +6452,10 @@ class BulkDGD(nn.Module):
         #-------------------------------------------------------------#
 
         # Create the dataset.
-        dataset = dataclasses.GeneExpressionDataset(df = df_expr_data)
+        dataset = \
+            dataclasses.GeneExpressionDataset(\
+                df = df_expr_data,
+                scaling_factor = self._scaling_factor)
 
         #-------------------------------------------------------------#
 
@@ -5862,7 +6509,8 @@ class BulkDGD(nn.Module):
         # any), and the time data.
         rep, pred_means, pred_r_values, time_opt = \
             opt_method(dataset = dataset,
-                       config = config_rep)
+                       config = config_rep,
+                       genes_mask = genes_mask)
 
         #-------------------------------------------------------------#
 
@@ -5920,6 +6568,224 @@ class BulkDGD(nn.Module):
 
         # Return the data frames.
         return df_rep, df_pred_means, df_pred_r_values, df_time
+
+
+    def impute(self,
+               df_samples: pd.DataFrame,
+               config_rep: dict[str, object],
+               genes_measured: Optional[list[str]] = None,
+               quantiles: tuple[float, float] = (0.025, 0.975)) -> \
+                tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame,
+                      pd.DataFrame, pd.DataFrame]:
+        """Predict the counts of the genes a sample does not have.
+
+        A sample only part of whose transcriptome was read - a gene
+        panel, a targeted assay - is given, the genes that were read are
+        used to find its representation, and the decoder is asked for
+        the genes that were not.
+
+        THE MISSING GENES MUST BE MISSING, and not zero. A gene whose
+        count is :obj:`numpy.nan` was never measured; a gene whose count
+        is 0 was measured and found to be silent. They are different
+        facts, and the difference is the whole of this method: a zero is
+        evidence, and the model will move a sample's representation in
+        order to explain it. Hand it a panel with the unmeasured genes
+        written as zeros and it will conclude that the sample has
+        switched off nine tenths of its transcriptome - and it will
+        conclude it about the genes that WERE measured too, because the
+        representation is one thing and it is fitted to all of them at
+        once.
+
+        So the unmeasured genes are taken out of the likelihood
+        altogether, which for a factorized likelihood is exactly what
+        conditioning on the genes that were measured means, and the
+        scaling factor of the negative binomials - which is otherwise
+        the mean count over ALL of the genes, and would be deflated by
+        every gene that is not there - is estimated from the measured
+        genes alone.
+
+        Parameters
+        ----------
+        df_samples : :class:`pandas.DataFrame`
+            The samples, with :obj:`numpy.nan` in the genes that were
+            not measured.
+
+            A column of genes may be missing from the data frame
+            entirely; it is taken to have been measured in no sample.
+
+        config_rep : :class:`dict`
+            The options for finding the representations, as for
+            :meth:`get_representations`.
+
+        genes_measured : :class:`list`, optional
+            The genes that were measured, if it is more convenient to
+            say so than to write :obj:`numpy.nan` everywhere else. Every
+            other gene is taken to be unmeasured in every sample.
+
+        quantiles : :class:`tuple`, optional
+            The quantiles of the predicted negative binomial to report,
+            which give the imputed count an interval and not only a
+            point. Default: the central 95%.
+
+        Returns
+        -------
+        df_imputed : :class:`pandas.DataFrame`
+            The expected count of every gene of every sample, on that
+            sample's own scale - the mean of the negative binomial the
+            model predicts for it.
+
+            The genes that WERE measured are in it as well, and are the
+            model's expectation for them rather than what was observed.
+            The two should agree, and where they do not is worth
+            looking at: it is the same quantity a differential
+            expression analysis reports.
+
+        df_lower, df_upper : :class:`pandas.DataFrame`
+            The quantiles of the predicted distribution. An imputed
+            count without them is a number without an error bar, and a
+            gene the model is uncertain of looks exactly like a gene it
+            is sure of.
+
+        df_pred_r_values : :class:`pandas.DataFrame`
+            The r-values of those negative binomials.
+
+            With ``df_imputed``, they are the whole predicted
+            distribution of every gene - not a point and an interval,
+            but the thing the point and the interval were taken from. It
+            is what is needed to ask where an observed count LANDS in
+            what the model expected, which is the question a
+            differential expression analysis asks, and the question by
+            which an imputation is honestly judged.
+
+        df_rep : :class:`pandas.DataFrame`
+            The representations found from the measured genes.
+        """
+
+        # If the model's scaling factor is not the mean.
+        #
+        # The scale of a sample only part of which was measured is
+        # solved for, and the equation it is solved from is the one the
+        # MEAN satisfies: the mean over all the genes is the measured
+        # counts plus the model's expectation of the unmeasured ones,
+        # divided by the number of genes, and the scale can be taken
+        # out of that sum because a sum is linear. A median is not a
+        # sum of anything, the scale does not come out of it, and there
+        # is no closed form to solve. Nothing here would fail if it
+        # were used - it would return a scale that is simply wrong, and
+        # every imputed count with it.
+        if self._scaling_factor != "mean":
+
+            # Raise an error.
+            raise NotImplementedError(
+                "Imputation is only implemented for a model whose "
+                f"scaling factor is the mean, and this one's is the "
+                f"'{self._scaling_factor}'. The scale of a partly "
+                "measured sample is recovered by solving for it, and "
+                "that can be done for the mean because it is a sum "
+                "over the genes, of which the unmeasured part can be "
+                "filled in with the model's expectation. The median "
+                "is not a sum and does not give the same equation.")
+
+        #-------------------------------------------------------------#
+
+        genes_model = list(self.genes)
+
+        df = df_samples.reindex(columns = genes_model)
+
+        # What was measured. A gene absent from the data frame, and a
+        # gene present and NaN, are the same thing: not measured.
+        measured = df.notna().to_numpy()
+
+        if genes_measured is not None:
+
+            keep = np.isin(np.array(genes_model),
+                           np.array(list(genes_measured)))
+
+            measured = measured & keep[np.newaxis, :]
+
+        if not measured.any(axis = 1).all():
+
+            raise ValueError(
+                "At least one sample has no measured gene at all. There "
+                "is nothing to find a representation from.")
+
+        n_measured = measured.sum(axis = 1)
+
+        logger.info(
+            f"The samples have a median of "
+            f"{int(np.median(n_measured)):,} measured gene(s), of the "
+            f"{len(genes_model):,} the model knows.")
+
+        #-------------------------------------------------------------#
+
+        # The unmeasured genes are filled with zeros, and the zeros go
+        # nowhere: the mask takes their terms out of the loss. They are
+        # filled because a NaN multiplied by a mask of 0.0 is still a
+        # NaN, and the loss would be one too.
+        df_filled = df.fillna(0.0)
+
+        genes_mask = \
+            torch.tensor(measured.astype("float64"),
+                         dtype = torch.float64,
+                         device = self.device)
+
+        #-------------------------------------------------------------#
+
+        df_rep, df_pred_means, df_pred_r_values, _ = \
+            self.get_representations(df_samples = df_filled,
+                                     config_rep = config_rep,
+                                     genes_mask = genes_mask)
+
+        #-------------------------------------------------------------#
+
+        pred = df_pred_means[genes_model].to_numpy(dtype = "float64")
+
+        r = df_pred_r_values[genes_model].to_numpy(dtype = "float64")
+
+        obs = df_filled[genes_model].to_numpy(dtype = "float64")
+
+        # The scale, once more: the same estimate the optimization used,
+        # recomputed here because what comes back from
+        # 'get_representations' is the decoder's output, before any scale
+        # has been put on it. See '_get_masked_scaling_factors' for why
+        # it is this and not the mean of what is there.
+        obs_measured = (obs * measured).sum(axis = 1, keepdims = True)
+
+        pred_unmeasured = \
+            (pred * (~measured)).sum(axis = 1, keepdims = True)
+
+        scale = \
+            obs_measured / np.clip(len(genes_model) - pred_unmeasured,
+                                   1e-6, None)
+
+        means = pred * scale
+
+        #-------------------------------------------------------------#
+
+        # The negative binomial's own parameterization: scipy wants the
+        # probability of a success, which is 'r / (r + mean)'.
+        p = r / (r + means)
+
+        lower = nbinom.ppf(quantiles[0], r, p)
+
+        upper = nbinom.ppf(quantiles[1], r, p)
+
+        #-------------------------------------------------------------#
+
+        index = df.index
+
+        df_imputed = pd.DataFrame(means, index = index,
+                                  columns = genes_model)
+
+        df_lower = pd.DataFrame(lower, index = index,
+                                columns = genes_model)
+
+        df_upper = pd.DataFrame(upper, index = index,
+                                columns = genes_model)
+
+        df_r = pd.DataFrame(r, index = index, columns = genes_model)
+
+        return df_imputed, df_lower, df_upper, df_r, df_rep
 
 
     def get_probability_density(self,
@@ -6241,7 +7107,8 @@ class BulkDGD(nn.Module):
         dataset_train = \
             dataclasses.GeneExpressionDataset(\
                 df = df_expr_data_train,
-                labels = labels_train)
+                labels = labels_train,
+                scaling_factor = self._scaling_factor)
 
         # Create the data loader with the training samples.
         data_loader_train = \
@@ -6276,7 +7143,8 @@ class BulkDGD(nn.Module):
         dataset_test = \
             dataclasses.GeneExpressionDataset(\
                 df = df_expr_data_test,
-                labels = labels_test)
+                labels = labels_test,
+                scaling_factor = self._scaling_factor)
 
         # Create the data loader with the testing samples.
         data_loader_test = \
