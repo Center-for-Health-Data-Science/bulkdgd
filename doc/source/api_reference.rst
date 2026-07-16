@@ -11,6 +11,7 @@ API reference
    ioutil
    plotting
    recount3
+   reproducibility
    model_config_options
    rep_config_options
    train_config_options
@@ -28,6 +29,8 @@ bulkdgd consists of several packages:
 * :doc:`plotting <plotting>`, containing plotting utilities.
 
 * :doc:`recount3 <recount3>`, containing utilities to interact with the Recount3 platform.
+
+* :doc:`reproducibility <reproducibility>`, containing :func:`bulkdgd.reproducibility.set_seeds`, which seeds the generators a run draws from. It has to be called before the model is built, since building it already draws the decoder's weights.
 
 Some functions and methods use dictionary-based configurations for several tasks, such as setting up the bulkdgd model, finding the best representations for a new set of samples and training the bulkdgd model. More detailed descriptions of such configurations are available here:
 

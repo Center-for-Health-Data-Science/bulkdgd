@@ -29,6 +29,12 @@ import importlib.metadata as _importlib_metadata
 # Import everything from the 'defaults' module.
 from .defaults import *
 
+# Import what seeds a run's generators. It is here, and not in 'core',
+# because it has to be called before a model is built: by the time
+# 'BulkDGD' exists its decoder's weights have already been drawn, and
+# seeding afterwards seeds nothing that has already happened.
+from .reproducibility import set_seeds, get_seeds_state
+
 
 # Set the package's version, read from the installed distribution's
 # metadata (falls back to 'unknown' for an unpacked source checkout
