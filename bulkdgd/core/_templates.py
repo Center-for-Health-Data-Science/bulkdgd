@@ -624,18 +624,46 @@ _TRAIN_TGMM = {
     
     # The options for the model selection to use for selecting the best
     # model during training.
+    #
+    # This used to say that the options were a single string - the name
+    # of the metric - while the code that reads them asks them for a
+    # 'metric' key, as a dictionary. A configuration written the way the
+    # template described it therefore reached
+    # '.get("metric", "bic")' as a string and raised an
+    # 'AttributeError'. They are a dictionary, and they are described as
+    # one.
     "model_selection_options" : {
         "switch" : {
             "option" : "model_selection_type",
             "cases" : {
+
                 "metric" : {
-                    "type": (str,),
-                    "choices": [
-                        "bic",
-                        "silhouette_score",
-                        "calinski_harabasz_score",
-                        "davies_bouldin_score"],
-                    "default": "bic",
+
+                    "metric" : {
+                        "type": (str,),
+                        "choices": [
+                            "bic",
+                            "silhouette_score",
+                            "calinski_harabasz_score",
+                            "davies_bouldin_score"],
+                        "default": "bic",
+                        },
+
+                    # How far from the current number of components to
+                    # look.
+                    #
+                    # The search used to be over the current number of
+                    # components, one more, and one fewer, and nothing
+                    # else. A model that starts with sixty-four
+                    # components and needs thirty can only walk there
+                    # one component per refit, and it refits every few
+                    # epochs, so it may not arrive at all.
+                    "step" : {
+                        "type": (int,),
+                        "condition": lambda v: v >= 1,
+                        "message": "must be a positive integer",
+                        "default": 1,
+                        },
                     },
                 },
             },
