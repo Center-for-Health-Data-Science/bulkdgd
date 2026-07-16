@@ -206,17 +206,30 @@ def get_residuals(obs_counts: pd.Series,
             # Get the r-value for the current gene.
             r_value_gene_i = r_values[i]
 
-            # Calculate the probability of "success" from the r-value
-            # (number of successes till the experiment is stopped) from
-            # the mean of the negative binomial. This is a single
-            # value, and is calculated from the mean 'm' of the
-            # negative binomial as:
+            # Calculate the probability of "failure" of the negative
+            # binomial from its mean 'm' and its r-value (the number of
+            # successes at which the experiment is stopped).
             #
-            # m = r(1-p) / p
-            # mp = r - rp
-            # mp + rp = r
-            # p(m+r) = r
-            # p = r / (m + r)
+            # The mean of a negative binomial, written in terms of the
+            # probability 'q' of a FAILURE, is
+            #
+            #     m = r * q / (1 - q)
+            #
+            # so that
+            #
+            #     m (1 - q) = r q
+            #     m - m q   = r q
+            #     m         = q (m + r)
+            #     q         = m / (m + r)
+            #
+            # which is what is calculated here.
+            #
+            # The derivation this comment used to give was of the
+            # probability of a SUCCESS, p = r / (m + r), which is not
+            # what the line below computes - it computes 1 - p. The
+            # arithmetic was right and the comment described a different
+            # quantity, so the value handed to SciPy was correct and the
+            # reason given for it was not.
             p_i = pred_mean_gene_i / \
                   (pred_mean_gene_i + r_value_gene_i)
 
@@ -225,9 +238,15 @@ def get_residuals(obs_counts: pd.Series,
             # Get the value of the cumulative negative binomial
             # distribution.
             #
-            # Since SciPy's negative binomial function is implemented
-            # as function of the number of failures, their 'p' is
-            # equivalent to our '1-p' and their 'n' is our 'r'
+            # SciPy's negative binomial counts the number of failures
+            # before 'n' successes, and its 'p' is the probability of a
+            # SUCCESS. Ours, above, is the probability of a failure, so
+            # SciPy is given 1 - p_i = r / (m + r), which returns the
+            # mean to 'm':
+            #
+            #     mean = n (1 - p) / p
+            #          = r * (m / (m + r)) / (r / (m + r))
+            #          = m
             cdf_nb_value = \
                 nbinom.cdf(k = obs_count_gene_i,
                            n = r_value_gene_i,
@@ -277,6 +296,122 @@ def get_residuals(obs_counts: pd.Series,
 
     # Return the series with the residuals.
     return series_residuals
+
+
+#######################################################################
+
+
+def get_residuals_df(df_obs_counts: pd.DataFrame,
+                     df_pred_means: pd.DataFrame,
+                     df_r_values: Optional[pd.DataFrame] = None,
+                     clip: float = 0.0) -> pd.DataFrame:
+    """Calculate the residuals of many samples at once.
+
+    This is :func:`get_residuals`, which takes one sample and walks its
+    genes one at a time in Python. That is fine for a sample and slow for
+    a study: ten thousand samples of fifteen thousand genes is a hundred
+    and fifty million turns of that loop. The same arithmetic is done
+    here on the whole matrix, and gives the same numbers.
+
+    The residual of a gene is the standard normal deviate at the point
+    where the observed count falls in the distribution the model
+    predicted for it:
+
+    .. math::
+
+       r_{ij} = \\Phi^{-1}\\left( F(k_{ij}; \\mu_{ij}, r_{ij}) \\right)
+
+    Parameters
+    ----------
+    df_obs_counts : :class:`pandas.DataFrame`
+        The observed counts. Samples are rows and genes are columns.
+
+    df_pred_means : :class:`pandas.DataFrame`
+        The predicted scaled means, as the model writes them. They are
+        rescaled here by the mean count of each sample, which is what
+        turns them into counts.
+
+    df_r_values : :class:`pandas.DataFrame`, optional
+        The predicted r-values, if the genes' counts were modelled with
+        negative binomial distributions. If they are not given, the
+        counts are taken to have been modelled with Poisson
+        distributions.
+
+    clip : :class:`float`, ``0.0``
+        How far from nought and one to hold the cumulative distribution
+        before the inverse normal is taken of it.
+
+        Nought, by default, so that this function gives back exactly
+        what :func:`get_residuals` gives back - the two agree to
+        5e-11, which is the arithmetic and nothing else.
+
+        The inverse normal is infinite at nought and at one, though, and
+        a count far enough out in the tail of its own distribution will
+        put it there: a few dozen genes in every few thousand samples.
+        :func:`get_residuals` returns those infinities, and anything
+        that goes on to take a principal component of the residuals will
+        fail on them.
+
+        Passing ``1e-12`` holds the cumulative distribution just inside
+        its bounds, so that a gene the model finds impossible gets a
+        large residual (about 7) rather than an infinite one. It changes
+        nothing else: about one residual in two thousand, all of them in
+        the extreme tail.
+
+    Returns
+    -------
+    df_residuals : :class:`pandas.DataFrame`
+        The residuals. Samples are rows and genes are columns, as they
+        are in the inputs.
+    """
+
+    # The genes the counts and the predictions have in common, in the
+    # order the counts have them.
+    genes = [gene for gene in df_obs_counts.columns
+             if gene in df_pred_means.columns]
+
+    samples = df_obs_counts.index.intersection(df_pred_means.index)
+
+    obs = df_obs_counts.loc[samples, genes].to_numpy(dtype = np.float64)
+
+    means = df_pred_means.loc[samples, genes].to_numpy(
+        dtype = np.float64)
+
+    #-----------------------------------------------------------------#
+
+    # A predicted mean is not a count until it is rescaled by the mean
+    # count of the sample it was predicted for.
+    means = means * obs.mean(axis = 1, keepdims = True)
+
+    #-----------------------------------------------------------------#
+
+    # If the genes' counts were modelled with negative binomials
+    if df_r_values is not None:
+
+        r = df_r_values.loc[samples, genes].to_numpy(
+            dtype = np.float64)
+
+        r = np.clip(r, 1e-8, None)
+
+        # SciPy's negative binomial counts the failures, so its 'p' is
+        # our '1 - p'.
+        cdf = nbinom.cdf(k = obs,
+                         n = r,
+                         p = r / (r + means))
+
+    # Otherwise, they were modelled with Poissons.
+    else:
+
+        cdf = poisson.cdf(k = obs,
+                          mu = means)
+
+    #-----------------------------------------------------------------#
+
+    cdf = np.clip(cdf, clip, 1.0 - clip)
+
+    return pd.DataFrame(norm.ppf(cdf),
+                        index = samples,
+                        columns = genes)
 
 
 def get_significant_genes(
