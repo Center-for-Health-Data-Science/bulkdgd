@@ -82,12 +82,19 @@ class GeneExpressionDataset(object):
     """
 
 
+    # Set the supported ways of computing the scaling factor of a
+    # sample - the number the decoder's predicted means are multiplied
+    # by to put them on the sample's own scale.
+    SCALING_FACTORS = ["mean", "median"]
+
+
     ######################### INITIALIZATION ##########################
 
 
     def __init__(self,
                  df: pd.DataFrame,
-                 labels: Optional[list[str]] = None) -> None:
+                 labels: Optional[list[str]] = None,
+                 scaling_factor: str = "mean") -> None:
         """Initialize an instance of the class.
 
         Parameters
@@ -111,7 +118,55 @@ class GeneExpressionDataset(object):
         
         labels : :class:`list`, optional
             A list of labels for the samples.
+
+        scaling_factor : :class:`str`, \
+            {``"mean"``, ``"median"``}, ``"mean"``
+            How to compute the scaling factor of a sample - the number
+            the decoder's predicted means are multiplied by to put them
+            on the scale of the sample's own counts.
+
+            - ``"mean"``: the mean count over all of the sample's
+              genes.
+
+            - ``"median"``: the median count over all of the sample's
+              genes.
+
+            The mean is what the model has always used, and it is not
+            robust: a handful of genes take a large and variable share
+            of a library, and they drag the mean with them. In GTEx the
+            thirteen mitochondrial genes alone - 0.09% of the genes -
+            take 14.49% of the reads, and the share runs from 0.10% to
+            90.85% from one sample to the next. That moves the mean by
+            up to a factor of eleven between two samples, and the
+            factor is a property of how the sample was handled rather
+            than of the tissue it came from.
+
+            The median is not moved by them: over the same samples, the
+            mitochondrial genes change it by at most 3.7%.
+
+            The two are not interchangeable in a trained model. The
+            median is about a third of the mean, and the decoder is
+            fitted against whichever it was trained with - a model
+            trained with one and run with the other has its predicted
+            means off by a factor of about three. This is why the
+            option lives in the model's configuration and not in the
+            training one: it is a property of the model, and everything
+            done with the model afterwards has to use the same one.
         """
+
+        # If the scaling factor is not one that is supported.
+        if scaling_factor not in self.SCALING_FACTORS:
+
+            # Raise an error.
+            raise ValueError(
+                f"Unsupported scaling factor '{scaling_factor}'. The "
+                "supported scaling factors are: "
+                f"{', '.join(self.SCALING_FACTORS)}.")
+
+        # Save the scaling factor.
+        self._scaling_factor = scaling_factor
+
+        #-------------------------------------------------------------#
 
         # Get the samples' names.
         self._samples = df.index
@@ -173,8 +228,10 @@ class GeneExpressionDataset(object):
               genes whose expression is reported in the dataset.
 
         mean_exp : :class:`torch.Tensor`
-            The mean gene expression for each sample.
-            
+            The scaling factor of each sample - the mean or the median
+            of its gene expression, according to the dataset's
+            ``scaling_factor``.
+
             This is a 1D tensor whose length is equal to the
             number of samples in the dataset.
         """
@@ -185,10 +242,53 @@ class GeneExpressionDataset(object):
                 np.array(df.loc[self.samples, self.genes].values,
                          dtype = "float64"))
 
-        # Get the mean gene expression for each sample.
-        mean_exp = \
-            torch.mean(data_exp,
-                       dim = 1).unsqueeze(1)
+        #-------------------------------------------------------------#
+
+        # If the scaling factor is the mean.
+        if self._scaling_factor == "mean":
+
+            # Get the mean gene expression for each sample.
+            mean_exp = \
+                torch.mean(data_exp,
+                           dim = 1).unsqueeze(1)
+
+        # If the scaling factor is the median.
+        elif self._scaling_factor == "median":
+
+            # Get the median gene expression for each sample.
+            mean_exp = \
+                torch.median(data_exp,
+                             dim = 1).values.unsqueeze(1)
+
+        #-------------------------------------------------------------#
+
+        # If any sample's scaling factor is zero, every predicted mean
+        # for it would be zero, and the negative binomial would be
+        # undefined. The median can be zero where the mean cannot: it
+        # is zero as soon as half of a sample's genes are, which is a
+        # thing that happens to a gene list that has not been filtered
+        # to the genes that are expressed. The gene list this model is
+        # trained on has been, and no GTEx sample comes near it - the
+        # smallest median over the 14,895 genes is 8 - but a user's
+        # own gene list is their own, and this is the point at which
+        # they would otherwise get silent NaNs instead of an answer.
+        if (mean_exp == 0).any():
+
+            # Get how many samples are affected.
+            n_zero = int((mean_exp == 0).sum())
+
+            # Raise an error.
+            raise ValueError(
+                f"The '{self._scaling_factor}' scaling factor is zero "
+                f"for {n_zero} of the {mean_exp.shape[0]} samples, "
+                "which would make every predicted mean for them zero. "
+                "This usually means the genes include many that are "
+                "not expressed in these samples - the median count is "
+                "zero as soon as half of the genes are. Filter the "
+                "gene list to the genes that are expressed, or use "
+                "the 'mean' scaling factor.")
+
+        #-------------------------------------------------------------#
 
         # Return the two tensors.
         return data_exp, mean_exp
@@ -270,12 +370,36 @@ class GeneExpressionDataset(object):
 
 
     @property
+    def scaling_factor(self):
+        """How the scaling factor of a sample is computed - either
+        ``"mean"`` or ``"median"``.
+        """
+
+        return self._scaling_factor
+
+
+    @scaling_factor.setter
+    def scaling_factor(self,
+                       value):
+        """Raise an error if the user tries to modify the value of
+        ``scaling_factor`` after initialization.
+        """
+
+        errstr = \
+            "The value of 'scaling_factor' is set at initialization " \
+            "and the scaling factors have already been computed with " \
+            "it. Therefore, it cannot be changed."
+        raise ValueError(errstr)
+
+
+    @property
     def mean_exp(self):
         """A 1D tensor with length equal to the number of samples in
-        the dataset containing the mean gene expression for each
-        sample.
+        the dataset containing the scaling factor of each sample - the
+        mean or the median of its gene expression, according to
+        ``scaling_factor``.
         """
-        
+
         return self._mean_exp
 
 

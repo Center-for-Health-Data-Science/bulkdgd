@@ -105,6 +105,8 @@ The options that can be specified are described below.
    
      * ``"random_state"`` is the random seed used for initialization. This is an integer that specifies the random seed for reproducibility. If not specified, the default value is None, which means that the random seed will be determined by the PyTorch's internal seed.
 
+       Note that this reaches further than the GMM. When it is set, ``tgmm`` calls :func:`torch.manual_seed` with it as it places the mixture's components, which reseeds PyTorch's global generator for everything that is drawn after - the representations' initialization, the order of the batches, and the noise added during training. Leaving it unset and calling :func:`bulkdgd.reproducibility.set_seeds` once, before the model is built, makes the placement reproducible along with everything else and without the side effect. See :doc:`reproducibility <reproducibility>`.
+
      * ``"cem"`` is a boolean that specifies whether to use the classification expectation-maximization (CEM) algorithm for fitting the GMM. If not specified, the default value is False, which means that the standard expectation-maximization (EM) algorithm will be used.
 
 * ``"decoder_options"`` is a dictionary containing the options for the decoder.
@@ -147,8 +149,23 @@ The options that can be specified are described below.
       * For the negative binomial output module with r-values learned per gene and sample (``"nb_full_dispersion"``):
 
          * ``"activation"`` is the activation function to use in the output module. This is a string that can take one of the following values:
-               
+
             * ``"sigmoid"`` for sigmoid activation.
             * ``"softplus"`` for softplus activation.
+
+* ``"scaling_factor"`` is how the scaling factor of a sample is computed - the number the decoder's predicted means are multiplied by to put them on the scale of the sample's own counts. This is a string that can take one of the following values:
+
+   * ``"mean"`` for the mean count over all of the sample's genes. This is the default, and it is what every model built before this option existed was trained with.
+   * ``"median"`` for the median count over all of the sample's genes.
+
+  The mean is not robust to the few genes that take a large and variable share of a library. In GTEx, the thirteen mitochondrial genes - 0.09% of the 14,895 genes the model is trained on - take 14.49% of all the reads, and the share they take of a single library runs from 0.10% to 90.85%. That moves a sample's mean by up to a factor of eleven, and the mitochondrial fraction is a measure of how the sample was handled rather than of the tissue it came from. Over the same samples, those genes move the median by at most 3.7%.
+
+  Two things are worth knowing before setting this.
+
+  The first is that it belongs to the model rather than to a run of it, which is why it is here and not in the training configuration. The decoder is fitted against the scaling factor, and the median of a sample's counts is about a third of its mean, so a model trained with one and used with the other has every predicted mean wrong by about a factor of three - and nothing fails. The value is read back from this file by :func:`bulkdgd.ioutil.load_config_model` whenever the model is loaded, so that finding representations uses the one the training did.
+
+  The second is that the median is only safe on a gene list that has been filtered to the genes that are expressed in the samples. A median is zero as soon as half of a sample's genes are zero, and a scaling factor of zero makes every predicted mean zero and the negative binomial undefined. :class:`bulkdgd.core.dataclasses.GeneExpressionDataset` raises rather than let a zero through.
+
+  Note also that :meth:`bulkdgd.core.model.BulkDGD.impute` is implemented only for ``"mean"``. The scaling factor of a sample only some of whose genes were measured is solved for, and the equation it is solved from is one only the mean satisfies: a mean is a sum over the genes, so the unmeasured part of the sum can be filled in with the model's own expectation and the factor recovered. A median is not a sum, and there is no closed form.
 
 

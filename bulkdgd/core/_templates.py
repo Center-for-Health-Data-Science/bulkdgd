@@ -1323,6 +1323,24 @@ CONFIG_MODEL = {
     # The options for the decoder in the model.
     "decoder_options" : _MODEL_DECODER_OPTIONS,
 
+    # How the scaling factor of a sample is computed - the number the
+    # decoder's predicted means are multiplied by to put them on the
+    # scale of the sample's own counts.
+    #
+    # It belongs to the model and not to a run of it: the decoder is
+    # fitted against it, the median of a sample's counts is about a
+    # third of its mean, and a model trained with one and used with the
+    # other has every predicted mean wrong by that ratio - without
+    # failing.
+    #
+    # The default is the mean, which is what every model built before
+    # there was anything else to choose was trained with.
+    "scaling_factor" : {
+        "type" : (str,),
+        "choices" : ["mean", "median"],
+        "default" : "mean",
+        },
+
     }
 
 
