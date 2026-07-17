@@ -168,4 +168,13 @@ The options that can be specified are described below.
 
   Note also that :meth:`bulkdgd.core.model.BulkDGD.impute` is implemented only for ``"mean"``. The scaling factor of a sample only some of whose genes were measured is solved for, and the equation it is solved from is one only the mean satisfies: a mean is a sum over the genes, so the unmeasured part of the sum can be filled in with the model's own expectation and the factor recovered. A median is not a sum, and there is no closed form.
 
+* ``"dtype"`` is the precision the model's parameters are built in. This is a string that can take one of the following values:
+
+   * ``"float32"`` for single precision. This is the default, and torch's own.
+   * ``"float64"`` for double precision.
+
+  This is not a preference that can be applied after the model is built. A module's parameters are made in whatever torch's default dtype is at the moment the module is constructed, and :meth:`torch.nn.Module.load_state_dict` copies a checkpoint *into* the parameters that are already there, casting as it goes - so a float64 checkpoint read into a model built in float32 gives a float32 decoder, and nothing says so. The Gaussian mixture does not go quietly, which is the only luck in it: ``tgmm`` keeps the tensors it is handed rather than copying into its own, so it stays float64 while the decoder becomes float32, and the first matrix multiply of the two raises ``mat1 and mat2 must have the same dtype``.
+
+  So, like ``"scaling_factor"``, this belongs to the model and is read back from this file whenever the model is loaded: a model trained in double is read in double, without the caller having to set torch's default. The default is put back to what it was once the model is built, since it is global and a model asked for in double is not a reason for the rest of the program to be in double.
+
 

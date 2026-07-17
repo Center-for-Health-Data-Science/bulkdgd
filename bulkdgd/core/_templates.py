@@ -1341,6 +1341,25 @@ CONFIG_MODEL = {
         "default" : "mean",
         },
 
+    # The precision the model's parameters are built in.
+    #
+    # It belongs to the model for the same reason the scaling factor
+    # does, and more plainly: it decides what the parameters are made
+    # of, and a checkpoint is read back into the parameters that are
+    # already there. A float64 model read in float32 comes back a
+    # float32 model, and the only thing that objects is the mixture,
+    # which keeps its own tensors and then refuses to multiply with the
+    # decoder.
+    #
+    # The default is single precision, which is torch's own and what
+    # every model built before there was anything to choose was built
+    # in.
+    "dtype" : {
+        "type" : (str,),
+        "choices" : ["float32", "float64"],
+        "default" : "float32",
+        },
+
     }
 
 
