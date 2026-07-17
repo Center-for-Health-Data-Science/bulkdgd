@@ -167,6 +167,13 @@ class BulkDGD(nn.Module):
     # Set the supported Gaussian mixture model types.
     GMM_TYPES = ["lgmm", "tgmm"]
 
+    # Set the precisions a model can be built in, and what each one is
+    # in torch's terms.
+    DTYPES = ["float32", "float64"]
+
+    _DTYPES_TORCH = {"float32" : torch.float32,
+                     "float64" : torch.float64}
+
 
     ##################### INITIALIZATION METHODS ######################
 
@@ -178,6 +185,7 @@ class BulkDGD(nn.Module):
                  latent_type: str = "tgmm",
                  genes_txt_file: Optional[str] = None,
                  scaling_factor: str = "mean",
+                 dtype: str = "float32",
                  device: str = "cpu") -> None:
         """Initialize an instance of the class.
 
@@ -251,6 +259,30 @@ class BulkDGD(nn.Module):
             imputing, and the differential expression analysis all read
             the same value the training did.
 
+        dtype : :class:`str`, \
+            {``"float32"``, ``"float64"``}, ``"float32"``
+            The precision the model's parameters are built in.
+
+            This is not a preference that can be applied afterwards. A
+            module's parameters are made in whatever torch's default
+            dtype is at the moment the module is constructed, and
+            ``load_state_dict`` copies a checkpoint INTO the parameters
+            that are already there, casting as it goes - so a float64
+            checkpoint read into a model built in float32 gives a
+            float32 decoder, and nothing says so.
+
+            The Gaussian mixture does not go quietly, which is the only
+            piece of luck in it: ``tgmm`` keeps the tensors it is handed
+            rather than copying into its own, so it stays float64 while
+            the decoder becomes float32, and the first matrix multiply
+            of the two raises ``mat1 and mat2 must have the same
+            dtype``.
+
+            Torch's default dtype is put back to what it was once the
+            model is built: it is global, and a model asked for in
+            double is not a reason for the rest of the program to be in
+            double.
+
         device : :class:`str`, ``"cpu"``
             The device where the model will be initialized. The model
             is initialized on the CPU by default.
@@ -283,6 +315,19 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
+        # If the precision is not one that is supported.
+        if dtype not in self.DTYPES:
+
+            # Raise an error.
+            raise ValueError(
+                f"Unsupported dtype '{dtype}'. The supported dtypes "
+                f"are: {', '.join(self.DTYPES)}.")
+
+        # Save the precision.
+        self._dtype = dtype
+
+        #-------------------------------------------------------------#
+
         # Get the genes included in the model.
         genes = \
             self.__class__._load_genes_list(\
@@ -290,31 +335,58 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Get the latent space.
-        self._latent = \
-            self._get_latent(latent_dim = latent_dim,
-                             latent_type = latent_type,
-                             latent_options = latent_options,
-                             device = device)
-        
-        # Save the options for the latent space in the
-        # model's attributes.
-        self._latent_initial_options = latent_options
+        # Build the model in its own precision.
+        #
+        # A module's parameters are created in whatever torch's default
+        # dtype is at the moment the module is constructed, so this has
+        # to wrap the construction rather than follow it - by then the
+        # decoder's weights are single precision, and casting them to
+        # double afterwards gives double-precision copies of numbers
+        # that were rounded to single.
+        #
+        # It matters most when a trained model is READ back.
+        # 'load_state_dict' copies into the parameters that are already
+        # there, casting as it goes, so a float64 checkpoint read into a
+        # model built in float32 gives a float32 decoder. The mixture is
+        # not an ordinary module: 'tgmm' keeps the tensors it is handed
+        # rather than copying into its own, so it stays float64 while
+        # the decoder becomes float32, and the first matrix multiply of
+        # the two raises 'mat1 and mat2 must have the same dtype'. Which
+        # is the good case - it stops. Nothing checks that a float32
+        # model read a float32 checkpoint, so a model whose precision is
+        # not recorded is read in whatever precision the caller happened
+        # to be in.
+        #
+        # The default dtype is put back afterwards: it is global, and a
+        # model asked for in double should not leave the rest of the
+        # program in double.
+        with self._default_dtype(dtype):
 
-        # Inform the user that the latent space was set.
-        info_msg = \
-            "The latent space was successfully set " \
-            f"(type: '{self._latent.__class__.__name__}')."
-        logger.info(info_msg)
+            # Get the latent space.
+            self._latent = \
+                self._get_latent(latent_dim = latent_dim,
+                                 latent_type = latent_type,
+                                 latent_options = latent_options,
+                                 device = device)
 
-        #-------------------------------------------------------------#
+            # Save the options for the latent space in the
+            # model's attributes.
+            self._latent_initial_options = latent_options
 
-        # Get the decoder and the r-values.
-        self._decoder, self._r_values = \
-            self._get_decoder(latent_dim = latent_dim,
-                              genes = genes,
-                              decoder_options = decoder_options,
-                              device = device)
+            # Inform the user that the latent space was set.
+            info_msg = \
+                "The latent space was successfully set " \
+                f"(type: '{self._latent.__class__.__name__}')."
+            logger.info(info_msg)
+
+            #---------------------------------------------------------#
+
+            # Get the decoder and the r-values.
+            self._decoder, self._r_values = \
+                self._get_decoder(latent_dim = latent_dim,
+                                  genes = genes,
+                                  decoder_options = decoder_options,
+                                  device = device)
 
         # Inform the user that the decoder was set.
         info_msg = "The decoder was successfully set."
@@ -591,6 +663,43 @@ class BulkDGD(nn.Module):
         logger.info(info_msg)
 
 
+    @classmethod
+    @contextlib.contextmanager
+    def _default_dtype(cls, dtype: str):
+        """Set torch's default dtype for the duration of a block, and
+        put back the one that was there.
+
+        The default dtype is global and it decides what a module's
+        parameters are made of, so it has to be set around the building
+        of a model rather than after it - and it has to be put back,
+        because a model asked for in double is not a reason for the rest
+        of the program to be in double.
+
+        Parameters
+        ----------
+        dtype : :class:`str`, {``"float32"``, ``"float64"``}
+            The precision.
+        """
+
+        # Get the default dtype that is currently set.
+        previous = torch.get_default_dtype()
+
+        # Set the one that was asked for.
+        torch.set_default_dtype(cls._DTYPES_TORCH[dtype])
+
+        try:
+
+            yield
+
+        finally:
+
+            # Put back the one that was there, whatever happened in
+            # between - an exception raised while building a model in
+            # double would otherwise leave every module built after it
+            # in double.
+            torch.set_default_dtype(previous)
+
+
     @staticmethod
     def _load_genes_list(genes_list_file: str) -> list[str]:
         """Load a list of newline-separated genes from a plain text
@@ -643,6 +752,42 @@ class BulkDGD(nn.Module):
             "and the decoder is fitted against it. Changing it on a " \
             "trained model would leave every predicted mean wrong by " \
             "the ratio of the two. Set it in the model's " \
+            "configuration file instead."
+        raise ValueError(errstr)
+
+
+    @property
+    def dtype(self):
+        """The precision the model's parameters are in - either
+        ``"float32"`` or ``"float64"``.
+
+        It is a property of the model, because it decides what the
+        model's parameters are made of and a checkpoint has to be read
+        back into parameters of its own kind. It is not a preference
+        that can be applied afterwards.
+        """
+
+        return self._dtype
+
+
+    @dtype.setter
+    def dtype(self,
+              value) -> None:
+        """Raise an exception if the user tries to modify the value of
+        ``dtype`` after initialization.
+
+        Parameters
+        ----------
+        value : :class:`str`
+            The value.
+        """
+
+        errstr = \
+            "The value of 'dtype' is set at initialization, because " \
+            "it decides what the model's parameters are made of, and " \
+            "they are made when the model is built. Casting them " \
+            "afterwards gives double-precision copies of numbers that " \
+            "were rounded to single. Set it in the model's " \
             "configuration file instead."
         raise ValueError(errstr)
 
@@ -6507,10 +6652,23 @@ class BulkDGD(nn.Module):
         # Get the representations, the corresponding predicted means
         # of the distributions, the r-values of the distributions (if
         # any), and the time data.
-        rep, pred_means, pred_r_values, time_opt = \
-            opt_method(dataset = dataset,
-                       config = config_rep,
-                       genes_mask = genes_mask)
+        #
+        # This runs in the model's own precision. Finding a
+        # representation builds tensors of its own - the representations
+        # themselves, and the buffer the best of them are gathered into
+        # - and those are made in whatever torch's default dtype is,
+        # which need not be the model's. A float64 model whose
+        # representations are built in float32 fails the moment the two
+        # meet ('Index put requires the source and destination dtypes
+        # match'), and a float32 model run while the default happens to
+        # be double would waste twice the memory and say nothing. The
+        # model knows its precision; nothing else has to be set for it.
+        with self._default_dtype(self._dtype):
+
+            rep, pred_means, pred_r_values, time_opt = \
+                opt_method(dataset = dataset,
+                           config = config_rep,
+                           genes_mask = genes_mask)
 
         #-------------------------------------------------------------#
 
@@ -7117,10 +7275,16 @@ class BulkDGD(nn.Module):
                 config = config_train["data_loader_options"]["train"])
 
         # Create the representation layer for the training samples.
+        #
+        # In the model's own precision, so that it does not depend on
+        # what torch's default dtype happens to be when 'train' is
+        # called: a float64 model whose representations are single
+        # precision fails when the two are multiplied.
         rep_layer_train = \
             latents.RepresentationLayer(values = \
                 init_rep_scale * torch.randn(\
-                    size = (n_samples_train, self.latent.dim))).to(\
+                    size = (n_samples_train, self.latent.dim),
+                    dtype = self._DTYPES_TORCH[self._dtype])).to(\
                         self.device)
 
         #-------------------------------------------------------------#
@@ -7152,11 +7316,13 @@ class BulkDGD(nn.Module):
                 dataset = dataset_test,
                 config = config_train["data_loader_options"]["test"])
 
-        # Create the representation layer for the testing samples.
+        # Create the representation layer for the testing samples, in
+        # the model's own precision, for the reason given just above.
         rep_layer_test = \
             latents.RepresentationLayer(values = \
                 init_rep_scale * torch.randn(\
-                    size = (n_samples_test, self.latent.dim))).to(\
+                    size = (n_samples_test, self.latent.dim),
+                    dtype = self._DTYPES_TORCH[self._dtype])).to(\
                         self.device)
 
         #-------------------------------------------------------------#
