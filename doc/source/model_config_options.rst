@@ -127,7 +127,17 @@ The options that can be specified are described below.
       * ``"poisson"`` for the Poisson output module.
       * ``"nb_feature_dispersion"`` for the negative binomial output module with r-values learned per gene.
       * ``"nb_full_dispersion"`` for the negative binomial output module with r-values learned per gene and sample.
-      
+      * ``"nb_full_dispersion_shrunk"`` as ``"nb_full_dispersion"``, but with the per-sample dispersion shrunk toward a per-gene baseline (see below).
+      * ``"nb_full_dispersion_tied"`` as ``"nb_full_dispersion"``, but with the per-sample dispersion tied to the mean rather than predicted freely (see below).
+      * ``"nb_full_dispersion_shrunk_tied"`` tied to the mean and shrunk (see below).
+
+  The three variants of ``"nb_full_dispersion"`` exist because the per-sample dispersion it learns is the noisiest thing the model predicts: it is a free linear projection of the decoder's features to one log-r-value per gene per sample, anchored to nothing, and the likelihood constrains it far less than it constrains the mean. Two models trained alike agree closely on the mean but much less on the dispersion, and since a p-value is a tail probability of the negative binomial, the disagreement lands squarely on significance. The variants give the dispersion structure it otherwise lacks, without giving up the per-gene-per-sample flexibility that makes ``"nb_full_dispersion"`` better at differential expression than ``"nb_feature_dispersion"``:
+
+      * ``"nb_full_dispersion_shrunk"`` writes the log-r-value as a per-gene baseline (a parameter fitted across all samples, hence stable) plus a per-sample deviation, and penalizes the deviation - the empirical-Bayes shrinkage of DESeq2 and edgeR.
+      * ``"nb_full_dispersion_tied"`` makes the log-r-value a per-gene intercept plus a slope times the log of the predicted mean, and nothing else - the dispersion borrows the mean's stability, varying per sample only through the mean.
+      * ``"nb_full_dispersion_shrunk_tied"`` is the mean-trend of the tied variant plus a penalized per-sample deviation from it.
+
+
    * ``"output_module_options"`` is a dictionary containing the options for the output module. The options that can be specified in this dictionary depend on the type of output module used.
 
       * For the Poisson output module (``"poisson"``):
@@ -152,6 +162,15 @@ The options that can be specified are described below.
 
             * ``"sigmoid"`` for sigmoid activation.
             * ``"softplus"`` for softplus activation.
+
+      * For the shrunk and shrunk-and-tied variants (``"nb_full_dispersion_shrunk"``, ``"nb_full_dispersion_shrunk_tied"``), in addition to ``"activation"``:
+
+         * ``"shrinkage_lambda"`` is how hard the per-sample deviation is pulled toward the baseline. It is a non-negative number: ``0`` recovers the plain ``"nb_full_dispersion"`` module, and a large value recovers the per-gene ``"nb_feature_dispersion"`` module. If not specified, the default value is ``0.5``.
+         * ``"r_init"`` is the value the per-gene baseline dispersion starts at. If not specified, the default value is ``2``.
+
+      * For the tied variant (``"nb_full_dispersion_tied"``), in addition to ``"activation"``:
+
+         * ``"r_init"`` is the value the per-gene intercept of the dispersion-mean trend starts at. If not specified, the default value is ``2``.
 
 * ``"scaling_factor"`` is how the scaling factor of a sample is computed - the number the decoder's predicted means are multiplied by to put them on the scale of the sample's own counts. This is a string that can take one of the following values:
 

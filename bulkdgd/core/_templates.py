@@ -305,13 +305,80 @@ _MODEL_DECODER_OPTIONS = {
                     },
             
                 "nb_full_dispersion" : {
-                    
+
                     "activation" : {
                         "type" : (str,),
-                        "choices" : 
+                        "choices" :
                             core.outputmodules.
                                 OutputModuleNBFullDispersion.
                                     ACTIVATION_FUNCTIONS,
+                        },
+                    },
+
+                # Full dispersion, with the per-sample dispersion shrunk
+                # toward a per-gene baseline. 'shrinkage_lambda' is how
+                # hard the per-sample deviation is pulled to zero: zero
+                # is the plain full-dispersion module, and larger is
+                # closer to the per-gene 'feature-dispersion' module.
+                "nb_full_dispersion_shrunk" : {
+                    "activation" : {
+                        "type" : (str,),
+                        "choices" :
+                            core.outputmodules.
+                                OutputModuleNBFullDispersion.
+                                    ACTIVATION_FUNCTIONS,
+                        },
+                    "shrinkage_lambda" : {
+                        "type" : (float, int),
+                        "condition" : lambda v: v >= 0,
+                        "message" : "must be a non-negative number",
+                        "default" : 0.5,
+                        },
+                    "r_init" : {
+                        "type" : (float, int),
+                        "condition" : lambda v: v > 0,
+                        "message" : "must be a positive number",
+                        "default" : 2,
+                        },
+                    },
+
+                # Full dispersion, tied to the mean.
+                "nb_full_dispersion_tied" : {
+                    "activation" : {
+                        "type" : (str,),
+                        "choices" :
+                            core.outputmodules.
+                                OutputModuleNBFullDispersion.
+                                    ACTIVATION_FUNCTIONS,
+                        },
+                    "r_init" : {
+                        "type" : (float, int),
+                        "condition" : lambda v: v > 0,
+                        "message" : "must be a positive number",
+                        "default" : 2,
+                        },
+                    },
+
+                # Full dispersion, tied to the mean and shrunk.
+                "nb_full_dispersion_shrunk_tied" : {
+                    "activation" : {
+                        "type" : (str,),
+                        "choices" :
+                            core.outputmodules.
+                                OutputModuleNBFullDispersion.
+                                    ACTIVATION_FUNCTIONS,
+                        },
+                    "shrinkage_lambda" : {
+                        "type" : (float, int),
+                        "condition" : lambda v: v >= 0,
+                        "message" : "must be a non-negative number",
+                        "default" : 0.5,
+                        },
+                    "r_init" : {
+                        "type" : (float, int),
+                        "condition" : lambda v: v > 0,
+                        "message" : "must be a positive number",
+                        "default" : 2,
                         },
                     },
                 },

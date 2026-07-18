@@ -53,7 +53,7 @@ author = \
 author_email = "sora.valentina1@gmail.com"
 
 # Set the project's version.
-version = "2.2.0"
+version = "2.3.0"
 
 # Set a brief description of the project.
 description = \

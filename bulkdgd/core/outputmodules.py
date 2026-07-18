@@ -265,6 +265,44 @@ class OutputModuleBase(nn.Module):
         return means * scaling_factors
 
 
+    def dispersion_regularization(self,
+                                  pred_means,
+                                  pred_log_r_values,
+                                  reduction = "sum"):
+        """The penalty an output module adds to the training loss to
+        keep its predicted dispersions from wandering.
+
+        Most modules add nothing. The ones that shrink the per-sample
+        dispersion toward a per-gene, or mean-trend, baseline return the
+        size of the deviation, so that the training pulls it back toward
+        zero. It is a method on the module, and not a term written into
+        the training loop, because only the module knows what it is
+        deviating FROM - a per-gene constant, a function of the mean, or
+        nothing at all.
+
+        Parameters
+        ----------
+        pred_means : :class:`torch.Tensor`
+            The predicted scaled means, before the sample's scaling
+            factor is applied.
+
+        pred_log_r_values : :class:`torch.Tensor`
+            The predicted log-r-values.
+
+        reduction : :class:`str`, {``"sum"``, ``"mean"``}, ``"sum"``
+            How to reduce the penalty, matching how the reconstruction
+            loss it is added to is reduced.
+
+        Returns
+        -------
+        penalty : :class:`torch.Tensor` or :class:`float`
+            The penalty. ``0.0`` for a module that does not shrink.
+        """
+
+        # By default, a module shrinks nothing.
+        return 0.0
+
+
 class OutputModulePoisson(OutputModuleBase):
 
 
@@ -1523,6 +1561,234 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
 #######################################################################
 
 
+class OutputModuleNBFullDispersionShrunk(OutputModuleNBFullDispersion):
+
+    """The full-dispersion module, with the per-sample dispersion
+    shrunk toward a per-gene baseline.
+
+    The plain full-dispersion module predicts the log-r-value of every
+    gene in every sample as a free linear projection of the decoder's
+    features - nothing anchors it, and the likelihood barely constrains
+    it, so it is the noisiest thing the model predicts. This writes the
+    log-r-value as a per-gene baseline plus a per-sample deviation, and
+    penalizes the deviation. It is the same idea DESeq2 and edgeR use:
+    let each gene have its own stable dispersion, and let a sample move
+    it only as far as the data insists.
+
+    The per-gene baseline is a parameter fitted across all samples, so
+    it is stable; the per-sample deviation is what the free projection
+    used to be, but pulled back toward zero. The strength of the pull is
+    ``shrinkage_lambda`` - zero recovers the plain full-dispersion
+    module, and a large value recovers the per-gene 'feature-dispersion'
+    module.
+    """
+
+
+    def __init__(self,
+                 input_dim,
+                 output_dim,
+                 activation = "softplus",
+                 shrinkage_lambda = 0.5,
+                 r_init = 2):
+        """Initialize the module.
+
+        Parameters
+        ----------
+        input_dim : :class:`int`
+            The dimensionality of the input.
+
+        output_dim : :class:`int`
+            The number of genes.
+
+        activation : :class:`str`, {``"sigmoid"``, ``"softplus"``}, \
+            ``"softplus"``
+            The activation for the means.
+
+        shrinkage_lambda : :class:`float`, ``0.5``
+            How hard the per-sample deviation is pulled toward zero.
+
+        r_init : :class:`float`, ``2``
+            The r-value the per-gene baseline starts at.
+        """
+
+        super().__init__(input_dim = input_dim,
+                         output_dim = output_dim,
+                         activation = activation)
+
+        # The per-gene baseline log-r-value, fitted across all samples.
+        self._log_r_gene = \
+            nn.Parameter(torch.full(size = (output_dim,),
+                                    fill_value = math.log(r_init)))
+
+        # Start the per-sample deviation at zero, so the module begins
+        # at the stable per-gene baseline and moves away only as the
+        # training pulls it.
+        nn.init.zeros_(self._layer_r_values.weight)
+        nn.init.zeros_(self._layer_r_values.bias)
+
+        self._shrinkage_lambda = float(shrinkage_lambda)
+
+
+    def forward(self, x):
+
+        # The parent's 'log_r' is the free projection - here it is the
+        # per-sample deviation from the per-gene baseline.
+        m, deviation = super().forward(x)
+
+        return m, self._log_r_gene + deviation
+
+
+    def dispersion_regularization(self,
+                                  pred_means,
+                                  pred_log_r_values,
+                                  reduction = "sum"):
+
+        # The deviation is what the log-r-value has moved from the
+        # per-gene baseline.
+        deviation = pred_log_r_values - self._log_r_gene
+
+        penalty = deviation.pow(2)
+
+        penalty = penalty.sum() if reduction == "sum" else penalty.mean()
+
+        return self._shrinkage_lambda * penalty
+
+
+class OutputModuleNBFullDispersionTied(OutputModuleNBFullDispersion):
+
+    """The full-dispersion module, with the per-sample dispersion tied
+    to the mean.
+
+    In real RNA-seq the dispersion is a smooth, decreasing function of
+    the expression level, and the expression level - the mean - is the
+    thing the model estimates well and agrees on across seeds. So this
+    makes the log-r-value a per-gene intercept plus a slope times the
+    log of the predicted mean, and nothing else: the dispersion borrows
+    the mean's stability instead of being predicted freely.
+
+    It still varies per gene AND per sample, because the mean does - but
+    only THROUGH the mean. A sample whose dispersion genuinely departs
+    from what its mean implies cannot be represented here; whether that
+    costs anything at the differential expression analysis is what the
+    experiment measures.
+    """
+
+
+    def __init__(self,
+                 input_dim,
+                 output_dim,
+                 activation = "softplus",
+                 r_init = 2):
+
+        super().__init__(input_dim = input_dim,
+                         output_dim = output_dim,
+                         activation = activation)
+
+        # The free per-sample projection of the parent is not used: the
+        # dispersion is a function of the mean here, not of the features
+        # directly.
+        del self._layer_r_values
+
+        # The per-gene intercept of the dispersion-mean trend.
+        self._log_r_intercept = \
+            nn.Parameter(torch.full(size = (output_dim,),
+                                    fill_value = math.log(r_init)))
+
+        # The slope of the dispersion-mean trend, shared across genes,
+        # started at zero (no dependence on the mean) so the module
+        # begins at a flat per-gene dispersion and learns the trend.
+        self._log_r_slope = nn.Parameter(torch.zeros(1))
+
+
+    def forward(self, x):
+
+        # The mean, computed the parent's way.
+        _m = self._layer_means(x)
+
+        if self.activation == "sigmoid":
+            m = torch.sigmoid(_m)
+        else:
+            m = F.softplus(_m)
+
+        # The log-r-value as a function of the log-mean. The small
+        # constant keeps the log finite where the mean is zero.
+        log_r = \
+            self._log_r_intercept \
+            + self._log_r_slope * torch.log(m + 1e-8)
+
+        return m, log_r
+
+
+class OutputModuleNBFullDispersionShrunkTied(
+        OutputModuleNBFullDispersion):
+
+    """The full-dispersion module, tied to the mean AND with a shrunk
+    per-sample deviation.
+
+    The dispersion-mean trend of the 'tied' module, plus a per-sample
+    deviation from that trend that is penalized as in the 'shrunk'
+    module. The trend carries the stable part of the dispersion, and the
+    penalized deviation carries what a sample genuinely needs beyond the
+    trend - the two ideas together.
+    """
+
+
+    def __init__(self,
+                 input_dim,
+                 output_dim,
+                 activation = "softplus",
+                 shrinkage_lambda = 0.5,
+                 r_init = 2):
+
+        super().__init__(input_dim = input_dim,
+                         output_dim = output_dim,
+                         activation = activation)
+
+        self._log_r_intercept = \
+            nn.Parameter(torch.full(size = (output_dim,),
+                                    fill_value = math.log(r_init)))
+
+        self._log_r_slope = nn.Parameter(torch.zeros(1))
+
+        # The per-sample deviation from the trend starts at zero.
+        nn.init.zeros_(self._layer_r_values.weight)
+        nn.init.zeros_(self._layer_r_values.bias)
+
+        self._shrinkage_lambda = float(shrinkage_lambda)
+
+
+    def _trend(self, m):
+
+        # The dispersion the mean-trend predicts, in log space.
+        return self._log_r_intercept \
+            + self._log_r_slope * torch.log(m + 1e-8)
+
+
+    def forward(self, x):
+
+        m, deviation = super().forward(x)
+
+        return m, self._trend(m) + deviation
+
+
+    def dispersion_regularization(self,
+                                  pred_means,
+                                  pred_log_r_values,
+                                  reduction = "sum"):
+
+        # The deviation is what the log-r-value has moved from the trend.
+        deviation = pred_log_r_values - self._trend(pred_means)
+
+        penalty = deviation.pow(2)
+
+        penalty = penalty.sum() if reduction == "sum" else penalty.mean()
+
+        return self._shrinkage_lambda * penalty
+
+
+#######################################################################
+
+
 # Set the available output modules.
 OUTPUT_MODULES = {
     
@@ -1535,6 +1801,17 @@ OUTPUT_MODULES = {
 
     # Output module for negative binomial distributions with full
     # dispersion.
-    "nb_full_dispersion" : OutputModuleNBFullDispersion
+    "nb_full_dispersion" : OutputModuleNBFullDispersion,
+
+    # Full dispersion, with the per-sample dispersion shrunk toward a
+    # per-gene baseline.
+    "nb_full_dispersion_shrunk" : OutputModuleNBFullDispersionShrunk,
+
+    # Full dispersion, tied to the mean.
+    "nb_full_dispersion_tied" : OutputModuleNBFullDispersionTied,
+
+    # Full dispersion, tied to the mean and shrunk.
+    "nb_full_dispersion_shrunk_tied" : \
+        OutputModuleNBFullDispersionShrunkTied,
 
     }

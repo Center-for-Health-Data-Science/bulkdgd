@@ -440,12 +440,19 @@ class Decoder(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # If the output module is 'nb_full_dispersion'
-        elif output_module_name == "nb_full_dispersion":
+        # If the output module is 'nb_full_dispersion' or one of its
+        # variants that shrink or tie the per-sample dispersion. They
+        # all predict a mean and a per-sample log-r-value, so the
+        # decoder treats them the same; they differ only inside the
+        # module, in what the dispersion is anchored to.
+        elif output_module_name in \
+                ("nb_full_dispersion", "nb_full_dispersion_shrunk",
+                 "nb_full_dispersion_tied",
+                 "nb_full_dispersion_shrunk_tied"):
 
-            # Get the output module's class.
+            # Get the output module's class from the registry.
             out_module_class = \
-                outputmodules.OutputModuleNBFullDispersion
+                outputmodules.OUTPUT_MODULES[output_module_name]
 
         #-------------------------------------------------------------#
 
