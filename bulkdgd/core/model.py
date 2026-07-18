@@ -604,11 +604,16 @@ class BulkDGD(nn.Module):
             r_values = pd.Series(r_values,
                                  index = genes)
 
-        # If the output module is the 'nb_full_dispersion' or the
-        # 'poisson' one
-        elif output_module_name in ("nb_full_dispersion", "poisson"):
+        # If the output module is the 'nb_full_dispersion' one, one of
+        # its shrunk or tied variants, or the 'poisson' one
+        elif output_module_name in \
+                ("nb_full_dispersion", "nb_full_dispersion_shrunk",
+                 "nb_full_dispersion_tied",
+                 "nb_full_dispersion_shrunk_tied", "poisson"):
 
-            # The r-values will be None.
+            # The r-values will be None: they are predicted per sample,
+            # not stored per gene, so there is no single per-gene value
+            # to hand back here.
             r_values = None
         
         #-------------------------------------------------------------#
@@ -1673,11 +1678,27 @@ class BulkDGD(nn.Module):
 
                 #-----------------------------------------------------#
 
-                # Get the total loss by summing the reconstruction loss
-                # and the loss of the latent space.
+                # The dispersion regularization the output module asks
+                # for. It is zero for every module but the ones that
+                # shrink the per-sample dispersion toward a per-gene, or
+                # a mean-trend, baseline - for those it is the size of
+                # the deviation, reduced the same way the reconstruction
+                # loss was so that the two are on the same scale.
+                dispersion_reg = \
+                    self.decoder.nb.dispersion_regularization(
+                        pred_means = pred_means,
+                        pred_log_r_values = pred_log_r_values,
+                        reduction = loss_reduction_type)
+
+                #-----------------------------------------------------#
+
+                # Get the total loss by summing the reconstruction loss,
+                # the loss of the latent space, and the dispersion
+                # regularization.
                 #
                 # The output is a tensor containing a single value.
-                total_loss = recon_loss_final + latent_loss_final
+                total_loss = \
+                    recon_loss_final + latent_loss_final + dispersion_reg
 
                 #-----------------------------------------------------#
 
