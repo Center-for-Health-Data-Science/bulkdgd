@@ -335,7 +335,7 @@ class Decoder(nn.Module):
                 # Raise an error.
                 errstr = \
                     "Unsupported activation function " \
-                    f"'{activation}' provided. Supported " \
+                    f"'{activation_name}' provided. Supported " \
                     "activation functions are: " \
                     f"{supported_activations}."
                 raise ValueError(errstr)
