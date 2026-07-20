@@ -156,7 +156,7 @@ def get_residuals(obs_counts: pd.Series,
         # gene expression data for the predicted r-values - the 'loc'
         # syntax should return the columns in the order specified by
         # the selection.
-        r_values = pd.to_numeric(r_values.loc[genes_r_values]).values
+        r_values = pd.to_numeric(r_values.loc[genes_obs]).values
 
     #-----------------------------------------------------------------#
 

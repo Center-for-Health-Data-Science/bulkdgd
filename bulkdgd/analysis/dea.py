@@ -1097,7 +1097,7 @@ def get_p_values(obs_counts: pd.Series,
         # expression data for the predicted r-values - the 'loc' syntax
         # should return the columns in the order specified by the
         # selection.
-        r_values = pd.to_numeric(r_values.loc[genes_r_values]).values
+        r_values = pd.to_numeric(r_values.loc[genes_obs]).values
 
     #-----------------------------------------------------------------#
 
@@ -2142,17 +2142,17 @@ def perform_dea(obs_counts: pd.DataFrame,
         if genes_sets is not None:
 
             # Get the enrichment scores.
-            e_scores = \
+            df_e_scores_sample = \
                 get_enrichment_scores(\
                     df_significant_genes = df_significant_genes,
                     genes_sets = genes_sets,
                     genes_all = df_stats.index.tolist())
             
             # Add a column containing the sample's name.
-            e_scores["sample_name"] = sample_name
+            df_e_scores_sample["sample_name"] = sample_name
 
             # Append the enrichment scores to the list.
-            e_scores.append(e_scores)
+            e_scores.append(df_e_scores_sample)
 
     #-----------------------------------------------------------------#
 
@@ -2165,7 +2165,7 @@ def perform_dea(obs_counts: pd.DataFrame,
     if genes_sets is not None:
 
         # Create a data frame with the enrichment scores.
-        df_e_scores = pd.DataFrame(e_scores)
+        df_e_scores = pd.concat(e_scores, ignore_index = True)
 
         # Set the 'sample_name' column as the index.
         df_e_scores.set_index("sample_name", inplace = True)
