@@ -1713,6 +1713,7 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
                 device = args[0]
 
             # If the first argument is a torch.Tensor
+            elif isinstance(args[0], torch.Tensor):
                 device = args[0].device
 
         # If a device was specified in the keyword arguments
@@ -1934,6 +1935,12 @@ class RepresentationLayer(nn.Module):
         
         # Initialize an instance of the 'nn.Module' class.
         super().__init__()
+
+        #-------------------------------------------------------------#
+
+        # Set the device before sampling, as the sampling helpers use
+        # 'self.device' to place the created tensors.
+        self._device = device
 
         #-------------------------------------------------------------#
         
