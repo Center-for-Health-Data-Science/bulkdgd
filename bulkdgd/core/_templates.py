@@ -1242,6 +1242,27 @@ _REP_OPTIMIZATION = {
 # representations configuration for the 'one_opt' scheme when
 # the latent space is the legacy Gaussian mixture model.
 _REP_ONE_OPT_LGMM = {
+    # How much of a sample the model is allowed to give up on when
+    # FINDING A REPRESENTATION. Zero is the plain negative binomial and
+    # is what training uses; a small value bounds what a gene the model
+    # cannot reach may do to the representation, which matters for a
+    # tumour because those genes are the signal. See
+    # 'OutputModuleNBFullDispersion.loss'.
+    "contamination" : {
+        "type": (float, int),
+        "condition": lambda v: 0.0 <= v < 1.0,
+        "message": "must be in [0, 1)",
+        "default": 0.0,
+        },
+
+    # The r-value of the outlier component of that mixture.
+    "contamination_r" : {
+        "type": (float, int),
+        "condition": lambda v: v > 0,
+        "message": "must be a positive number",
+        "default": 0.05,
+        },
+
 
     # The reduction method to use for the loss.
     "loss_reduction_type" : {
@@ -1260,6 +1281,27 @@ _REP_ONE_OPT_LGMM = {
 # representations configuration for the 'one_opt' scheme when
 # the latent space is the TorchGMM wrapper.
 _REP_ONE_OPT_TGMM = {
+    # How much of a sample the model is allowed to give up on when
+    # FINDING A REPRESENTATION. Zero is the plain negative binomial and
+    # is what training uses; a small value bounds what a gene the model
+    # cannot reach may do to the representation, which matters for a
+    # tumour because those genes are the signal. See
+    # 'OutputModuleNBFullDispersion.loss'.
+    "contamination" : {
+        "type": (float, int),
+        "condition": lambda v: 0.0 <= v < 1.0,
+        "message": "must be in [0, 1)",
+        "default": 0.0,
+        },
+
+    # The r-value of the outlier component of that mixture.
+    "contamination_r" : {
+        "type": (float, int),
+        "condition": lambda v: v > 0,
+        "message": "must be a positive number",
+        "default": 0.05,
+        },
+
 
     # The reduction method to use for the loss.
     "loss_reduction_type" : {
@@ -1290,6 +1332,27 @@ _REP_ONE_OPT_TGMM = {
 # representations configuration for the 'two_opt' scheme when
 # the latent space is the legacy Gaussian mixture model.
 _REP_TWO_OPT_LGMM = {
+    # How much of a sample the model is allowed to give up on when
+    # FINDING A REPRESENTATION. Zero is the plain negative binomial and
+    # is what training uses; a small value bounds what a gene the model
+    # cannot reach may do to the representation, which matters for a
+    # tumour because those genes are the signal. See
+    # 'OutputModuleNBFullDispersion.loss'.
+    "contamination" : {
+        "type": (float, int),
+        "condition": lambda v: 0.0 <= v < 1.0,
+        "message": "must be in [0, 1)",
+        "default": 0.0,
+        },
+
+    # The r-value of the outlier component of that mixture.
+    "contamination_r" : {
+        "type": (float, int),
+        "condition": lambda v: v > 0,
+        "message": "must be a positive number",
+        "default": 0.05,
+        },
+
 
     # The reduction method to use for the loss.
     "loss_reduction_type" : {
@@ -1318,6 +1381,27 @@ _REP_TWO_OPT_LGMM = {
 # representations configuration for the 'two_opt' scheme when
 # the latent space is the TorchGMM wrapper.
 _REP_TWO_OPT_TGMM = {
+    # How much of a sample the model is allowed to give up on when
+    # FINDING A REPRESENTATION. Zero is the plain negative binomial and
+    # is what training uses; a small value bounds what a gene the model
+    # cannot reach may do to the representation, which matters for a
+    # tumour because those genes are the signal. See
+    # 'OutputModuleNBFullDispersion.loss'.
+    "contamination" : {
+        "type": (float, int),
+        "condition": lambda v: 0.0 <= v < 1.0,
+        "message": "must be in [0, 1)",
+        "default": 0.0,
+        },
+
+    # The r-value of the outlier component of that mixture.
+    "contamination_r" : {
+        "type": (float, int),
+        "condition": lambda v: v > 0,
+        "message": "must be a positive number",
+        "default": 0.05,
+        },
+
 
     # The reduction method to use for the loss.
     "loss_reduction_type" : {

@@ -1428,7 +1428,9 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
              obs_counts: torch.Tensor,
              pred_means: torch.Tensor,
              pred_log_r_values: torch.Tensor,
-             scaling_factors: torch.Tensor) -> torch.Tensor:
+             scaling_factors: torch.Tensor,
+             contamination: float = 0.0,
+             contamination_r: float = 0.05) -> torch.Tensor:
         """Compute the loss given observed the means ``obs_counts``,
         the predicted scaled means ``pred_means`` (rescaled by
         ``scaling_factors``), and the predicted logarithm of the
@@ -1436,7 +1438,48 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
         distributions
 
         The loss corresponds to the negative log-probability mass of
-        the negative binomial distributions.
+        the negative binomial distributions - or, if ``contamination``
+        is above zero, to that of a two-component mixture in which a
+        small fraction of the counts come from something the model does
+        not describe.
+
+        WHY THE MIXTURE EXISTS, AND WHERE IT SHOULD AND SHOULD NOT BE
+        USED.
+
+        The negative log-probability is UNBOUNDED. A gene the model
+        cannot predict at all does not contribute a large penalty, it
+        contributes an arbitrarily large one, and the optimizer will pay
+        almost anything elsewhere to reduce it. When what is being
+        optimized is a REPRESENTATION - one point in the latent space,
+        fitted to one sample - that means the handful of genes the model
+        cannot reach get to decide where the point lands.
+
+        For a tumour that is exactly the wrong outcome. The genes the
+        model cannot reach are the aberrant ones, which is to say the
+        SIGNAL, and letting them drag the representation gives back a
+        counterfactual that has already absorbed part of what it was
+        supposed to measure.
+
+        The mixture bounds their influence. A gene that cannot be
+        explained is explained as contamination instead, at a fixed
+        cost, and the representation is then decided by the majority of
+        genes that still look like the healthy tissue they came from.
+
+        Measured on this model, the regimes really are different. Over
+        healthy held-out GTEx the loss is almost evenly spread - the
+        worst 0.1% of gene-sample pairs carry 0.35% of it, and the very
+        worst pair is 31 times the median. Over TCGA tumours the pairs
+        above a negative log-probability of 20 are ELEVEN TIMES more
+        common, and over a tissue that is not in GTEx at all
+        (age-related macular degeneration, whose tissue is retina) the
+        worst 0.1% carry SIX TIMES the share.
+
+        So: **TRAINING does not need this and should not use it** -
+        there is nothing in healthy data with the leverage to justify
+        it, and a contamination component free to absorb genes during
+        training would teach the model less than it could learn.
+        **FINDING REPRESENTATIONS for a new sample should**, and that is
+        the only place it is switched on.
 
         Parameters
         ----------
@@ -1480,13 +1523,48 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
               and ``pred_log_r_values``.
         """  
             
-        # Return a tensor with as many values as the dimensions of the
-        # input 'x' (the loss for each of the negative binomial
-        # distributions associated with 'x').
-        return - self.log_prob(obs_counts = obs_counts,
-                               pred_means = pred_means,
-                               pred_log_r_values = pred_log_r_values,
-                               scaling_factors = scaling_factors)
+        # The loss for each of the negative binomial distributions
+        # associated with 'x', one value to a gene.
+        nll = - self.log_prob(obs_counts = obs_counts,
+                              pred_means = pred_means,
+                              pred_log_r_values = pred_log_r_values,
+                              scaling_factors = scaling_factors)
+
+        # Without a contamination fraction this is the plain negative
+        # log-probability, which is what training uses and what every
+        # result before July 2026 was computed with.
+        if not contamination:
+            return nll
+
+        #-------------------------------------------------------------#
+
+        # The component that stands for "something the model does not
+        # describe". It keeps the predicted MEAN - the scale of the gene
+        # is not in doubt, only whether the model can say where in that
+        # scale the count falls - and takes an r-value small enough that
+        # the distribution is almost flat over the range the gene could
+        # plausibly occupy.
+        log_r_outlier = \
+            torch.full_like(pred_log_r_values,
+                            math.log(contamination_r))
+
+        nll_outlier = \
+            - self.log_prob(obs_counts = obs_counts,
+                            pred_means = pred_means,
+                            pred_log_r_values = log_r_outlier,
+                            scaling_factors = scaling_factors)
+
+        #-------------------------------------------------------------#
+
+        # -log[ (1-eps) * NB(x; m, r) + eps * NB(x; m, r_outlier) ],
+        # computed with 'logsumexp' because the whole point is the genes
+        # whose probability under the first component has underflowed.
+        log_weights = \
+            torch.stack(
+                [math.log1p(-contamination) - nll,
+                 math.log(contamination) - nll_outlier])
+
+        return - torch.logsumexp(log_weights, dim = 0)
 
 
     def sample(self,

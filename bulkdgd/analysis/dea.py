@@ -28,7 +28,46 @@
 
 # Set the module's description.
 __doc__ = \
-	"Utilities to perform differential expression analysis (DEA)."
+    """Utilities to perform differential expression analysis (DEA).
+
+    .. warning::
+
+       **The default two-sided rule changed in July 2026, and it
+       changes results.**
+
+       ``get_p_values``, ``get_statistics`` and ``perform_dea`` now
+       take ``two_sided``, which defaults to ``"equal_tail"``. It used
+       to be a density region - the total probability mass of every
+       outcome no more likely than the observed one - and that is now
+       ``two_sided = "density"``.
+
+       A density region is the right two-sided test for a symmetric
+       distribution and a poor one for a skewed discrete distribution.
+       The region it picks is lopsided in log space and always the same
+       way, because a two-fold INCREASE is a deviation of +m from the
+       mean while a two-fold DECREASE is a deviation of only -m/2. On
+       simulated counts with a symmetric perturbation the density
+       region called 63.7 genes up for every 1 down; the equal-tail
+       rule called 1.45.
+
+       Pass ``two_sided = "density"`` to reproduce anything computed
+       before the change.
+
+       The new rule is also about 180 times faster - 0.23 s a sample
+       against 41 s - because the tails come from the cumulative
+       distribution function in closed form rather than from
+       enumerating a grid, and it needs neither ``resolution`` nor
+       ``max_elements`` nor a GPU.
+
+       ``get_statistics`` and ``perform_dea`` additionally emit
+       ``is_eligible_down``, which says whether a gene COULD have been
+       called down at all. A quarter of them cannot: the down
+       direction is bounded by zero counts, so a gene whose mass at
+       zero is above the sample's rejection threshold can never reach
+       it at any effect size. Absence from the down-calls was never
+       evidence of no change, and now it is possible to tell which is
+       which.
+    """
 
 
 #######################################################################
@@ -882,6 +921,181 @@ def _compute_p_values(obs_counts: np.ndarray,
     return p_values_t.cpu().numpy()
 
 
+def _compute_p_values_equal_tail(obs_counts: np.ndarray,
+                                 pred_means: np.ndarray,
+                                 r_values: Optional[np.ndarray] = None,
+                                 mid_p: bool = True) -> np.ndarray:
+    """Calculate two-sided p-values by doubling the smaller tail.
+
+    The alternative to :func:`_compute_p_values`, which sums the
+    probability mass of every outcome no more likely than the observed
+    one - a DENSITY REGION - and is what this module did originally.
+
+    A density region is the right two-sided test for a symmetric
+    distribution and is a poor one for a skewed discrete distribution,
+    which is what a negative binomial with a small mean is. The region
+    it selects is lopsided in log space, and the lopsidedness runs one
+    way: a two-fold INCREASE is a deviation of +m from the mean, and a
+    two-fold DECREASE is a deviation of only -m/2. The standard
+    deviation is much the same either way, so the same nominal fold
+    change carries about twice the evidence upwards.
+
+    Measured over 40 TCGA samples, the shipped density region called
+    38.7 genes up for every 1 down. This rule called 12.9. Neither is
+    1 - see 'results/<model>/call_asymmetry/FINDINGS.md' for what
+    accounts for the rest - but the difference is a rule and not a
+    model, and it costs nothing.
+
+    The tails are computed exactly from the cumulative distribution
+    function rather than by enumerating a grid, so this is also a good
+    deal faster than the density region and needs no 'resolution' and
+    no cap on the memory used.
+
+    Parameters
+    ----------
+    obs_counts : :class:`numpy.ndarray`
+        A one-dimensional array containing the observed counts for the
+        genes.
+
+    pred_means : :class:`numpy.ndarray`
+        A one-dimensional array containing the predicted scaled mean
+        counts for the genes.
+
+    r_values : :class:`numpy.ndarray`, optional
+        A one-dimensional array containing the r-values for the genes.
+        If not passed, the counts are taken to be Poisson-distributed.
+
+    mid_p : :class:`bool`, ``True``
+        Whether to apply the mid-p correction, which counts half of the
+        probability mass at the observed count instead of all of it.
+
+        A two-sided test on a discrete distribution is conservative -
+        its actual size is below the nominal one - because the mass at
+        the observed value is counted whole in both tails. The mid-p
+        correction removes most of that conservatism, and it matters
+        here because the genes where the discreteness bites are exactly
+        the low-mean genes where the asymmetry lives.
+
+    Returns
+    -------
+    p_values : :class:`numpy.ndarray`
+        A one-dimensional array containing the p-value of each gene.
+    """
+
+    # If the genes' counts were modelled using negative binomial
+    # distributions
+    if r_values is not None:
+
+        # SciPy parameterizes the negative binomial by the number of
+        # successes and the probability of one, and the model
+        # parameterizes it by the mean, so convert.
+        probs = r_values / (r_values + pred_means)
+
+        lower = nbinom.cdf(obs_counts, r_values, probs)
+        upper = nbinom.sf(obs_counts - 1, r_values, probs)
+        at_obs = nbinom.pmf(obs_counts, r_values, probs)
+
+    # If the genes' counts were modelled using Poisson distributions
+    else:
+
+        lower = poisson.cdf(obs_counts, pred_means)
+        upper = poisson.sf(obs_counts - 1, pred_means)
+        at_obs = poisson.pmf(obs_counts, pred_means)
+
+    #-----------------------------------------------------------------#
+
+    # Take half of the mass at the observed count out of both tails.
+    if mid_p:
+
+        lower = lower - 0.5 * at_obs
+        upper = upper - 0.5 * at_obs
+
+    #-----------------------------------------------------------------#
+
+    # Double the smaller tail, and keep the result a probability: the
+    # doubling can take it over 1 when the observed count sits on the
+    # mean.
+    p_values = 2.0 * np.minimum(lower, upper)
+
+    return np.clip(p_values, 0.0, 1.0)
+
+
+def _compute_direction_eligibility(pred_means: np.ndarray,
+                                   r_values: Optional[np.ndarray],
+                                   p_threshold: float,
+                                   mid_p: bool = True) -> np.ndarray:
+    """Whether each gene could be called DOWN at all.
+
+    The down direction is bounded and the up direction is not. No count
+    is lower than zero, so the whole of a gene's down tail is the mass
+    at zero, and if that mass is above the threshold the gene CANNOT BE
+    CALLED DOWN AT ANY EFFECT SIZE WHATSOEVER. It is not that the gene
+    was tested and found unchanged; it is that the test could not have
+    come out the other way.
+
+    On the model of choice this is a QUARTER OF THE GENE UNIVERSE -
+    25.3% per sample, median - and nothing in the output said so. Any
+    argument that reads a gene's ABSENCE from the down-calls as evidence
+    - a marker of the normal tissue that "did not come down" - is
+    conditioning on something it never measured, and roughly a quarter
+    of the time the conditioning is the whole answer.
+
+    The up direction is not checked. It has no ceiling: a count can
+    always be large enough.
+
+    Parameters
+    ----------
+    pred_means : :class:`numpy.ndarray`
+        A one-dimensional array containing the predicted scaled mean
+        counts for the genes.
+
+    r_values : :class:`numpy.ndarray`, optional
+        A one-dimensional array containing the r-values for the genes.
+
+    p_threshold : :class:`float`
+        The p-value a gene has to be able to reach. This is the
+        sample's Benjamini-Hochberg critical value - the largest
+        p-value that was rejected - and NOT alpha, because what a gene
+        has to clear is the bar the multiple-testing correction
+        actually set for this sample.
+
+    mid_p : :class:`bool`, ``True``
+        Whether the mid-p correction is in use, which has to match the
+        one used for the p-values themselves.
+
+    Returns
+    -------
+    eligible_down : :class:`numpy.ndarray`
+        A one-dimensional boolean array, ``True`` where the gene could
+        have been called down.
+    """
+
+    zeros = np.zeros_like(pred_means)
+
+    if r_values is not None:
+
+        probs = r_values / (r_values + pred_means)
+
+        mass_at_zero = nbinom.pmf(zeros, r_values, probs)
+
+    else:
+
+        mass_at_zero = poisson.pmf(zeros, pred_means)
+
+    #-----------------------------------------------------------------#
+
+    # The best a gene can do downwards, which is the p-value it would
+    # get if it were observed at zero.
+    lower = mass_at_zero
+
+    if mid_p:
+        lower = lower - 0.5 * mass_at_zero
+
+    best_possible = np.clip(2.0 * lower, 0.0, 1.0)
+
+    return best_possible < p_threshold
+
+
 ########################## PUBLIC FUNCTIONS ###########################
 
 
@@ -894,7 +1108,9 @@ def get_p_values(obs_counts: pd.Series,
                  device: Union[str, torch.device] = "cpu",
                  p_values_method: str = "auto",
                  max_elements: Optional[int] = None,
-                 scaling_factor: str = "mean") -> \
+                 scaling_factor: str = "mean",
+                 two_sided: str = "equal_tail",
+                 mid_p: bool = True) -> \
                     tuple[pd.Series, pd.DataFrame, pd.DataFrame]:
     """Given the observed gene counts in a single sample, and the
     predicted mean gene counts in a single sample, calculate the
@@ -1021,6 +1237,38 @@ def get_p_values(obs_counts: pd.Series,
         two - about three, between the median and the mean - while
         every p-value still looks like a p-value.
 
+    two_sided : :class:`str`, \
+        {``"equal_tail"``, ``"density"``}, ``"equal_tail"``
+        How the two tails are combined into one p-value.
+
+        ``"equal_tail"`` doubles the smaller tail. ``"density"`` sums
+        the probability mass of every outcome no more likely than the
+        observed one.
+
+        **The default changed to** ``"equal_tail"`` **in July 2026, and
+        it changes results.** A density region is the right two-sided
+        test for a symmetric distribution and a poor one for a skewed
+        discrete distribution: the region it picks is lopsided in log
+        space, and always the same way, because a two-fold increase is
+        a deviation of +m from the mean while a two-fold decrease is a
+        deviation of only -m/2.
+
+        Over 40 TCGA samples the density region called 38.7 genes up
+        for every 1 down and this rule called 12.9. Pass
+        ``"density"`` to reproduce results produced before the change.
+
+        See ``results/<model>/call_asymmetry/FINDINGS.md`` for what
+        accounts for the remaining asymmetry, which is NOT this.
+
+    mid_p : :class:`bool`, ``True``
+        Whether to apply the mid-p correction when ``two_sided`` is
+        ``"equal_tail"``, counting half the probability mass at the
+        observed count rather than all of it in each tail.
+
+        A two-sided test on a discrete distribution is conservative
+        without it, and the genes where the discreteness bites are the
+        low-mean genes where the asymmetry lives.
+
     Returns
     -------
     p_values : :class:`pandas.Series`
@@ -1139,6 +1387,32 @@ def get_p_values(obs_counts: pd.Series,
 
     # Add a pseudocount of 1 to the observed counts.
     obs_counts = obs_counts + pseudocount
+
+    #-----------------------------------------------------------------#
+
+    # If the two tails are to be compared to each other rather than a
+    # region of equal density taken, which needs no grid, no resolution
+    # and no device: the tails come from the cumulative distribution
+    # function in closed form.
+    if two_sided == "equal_tail":
+
+        p_values = \
+            _compute_p_values_equal_tail(obs_counts = obs_counts,
+                                         pred_means = pred_means,
+                                         r_values = r_values,
+                                         mid_p = mid_p)
+
+        series_p_values = pd.Series(p_values, index = genes_obs)
+
+        series_p_values.name = "p_value"
+
+        return series_p_values, pd.DataFrame(), pd.DataFrame()
+
+    if two_sided != "density":
+
+        raise ValueError(
+            f"Unsupported 'two_sided' rule '{two_sided}'. It must be "
+            f"'equal_tail' or 'density'.")
 
     #-----------------------------------------------------------------#
 
@@ -1516,7 +1790,9 @@ def get_statistics(obs_counts: pd.Series,
                    device: Union[str, torch.device] = "cpu",
                    p_values_method: str = "auto",
                    max_elements: Optional[int] = None,
-                   scaling_factor: str = "mean") -> \
+                   scaling_factor: str = "mean",
+                   two_sided: str = "equal_tail",
+                   mid_p: bool = True) -> \
                         tuple[pd.DataFrame, Optional[str]]:
     """Compute p-values, q-values, and/or log2-fold changes.
 
@@ -1669,6 +1945,7 @@ def get_statistics(obs_counts: pd.Series,
     p_values = None
     q_values = None
     log2_fold_changes = None
+    series_eligible_down = None
 
     #-----------------------------------------------------------------#
 
@@ -1704,7 +1981,9 @@ def get_statistics(obs_counts: pd.Series,
                          device = device,
                          p_values_method = p_values_method,
                          max_elements = max_elements,
-                         scaling_factor = scaling_factor)
+                         scaling_factor = scaling_factor,
+                         two_sided = two_sided,
+                         mid_p = mid_p)
 
     #-----------------------------------------------------------------#
 
@@ -1726,13 +2005,48 @@ def get_statistics(obs_counts: pd.Series,
                              device = device,
                              p_values_method = p_values_method,
                              max_elements = max_elements,
-                             scaling_factor = scaling_factor)
+                             scaling_factor = scaling_factor,
+                             two_sided = two_sided,
+                             mid_p = mid_p)
 
         # Calculate the q-values.
         q_values, _ = \
             get_q_values(p_values = p_values,
                          alpha = alpha,
                          method = method)
+
+        #-------------------------------------------------------------#
+
+        # Say, for each gene, whether it could have been called DOWN at
+        # all - which a quarter of them cannot, and which nothing in
+        # the output used to say. See
+        # '_compute_direction_eligibility'.
+        rejected = q_values.values < alpha
+
+        # The bar a gene had to clear is the largest p-value that was
+        # rejected, and not alpha. If nothing was rejected, it is the
+        # bar the most significant gene would have had to clear.
+        p_crit = \
+            p_values.values[rejected].max() if rejected.any() \
+            else alpha / len(p_values)
+
+        scaled_means = \
+            pred_means.values \
+            * _get_scaling_factor(obs_counts = obs_counts.values,
+                                  scaling_factor = scaling_factor)
+
+        eligible_down = \
+            _compute_direction_eligibility(
+                pred_means = scaled_means,
+                r_values = \
+                    r_values.values if r_values is not None else None,
+                p_threshold = p_crit,
+                mid_p = mid_p)
+
+        series_eligible_down = pd.Series(eligible_down,
+                                         index = q_values.index)
+
+        series_eligible_down.name = "is_eligible_down"
 
     #-----------------------------------------------------------------#
 
@@ -1751,7 +2065,8 @@ def get_statistics(obs_counts: pd.Series,
     # Get the results for the statistics that were computed.
     stats_results = \
         [stat if stat is not None else pd.Series()
-         for stat in (p_values, q_values, log2_fold_changes)]
+         for stat in (p_values, q_values, log2_fold_changes,
+                      series_eligible_down)]
 
     #-----------------------------------------------------------------#
 
@@ -1903,7 +2218,9 @@ def perform_dea(obs_counts: pd.DataFrame,
                 device: Union[str, torch.device] = "cpu",
                 p_values_method: str = "auto",
                 max_elements: Optional[int] = None,
-                scaling_factor: str = "mean") -> \
+                scaling_factor: str = "mean",
+                two_sided: str = "equal_tail",
+                mid_p: bool = True) -> \
                     tuple[dict[str, pd.DataFrame],
                           pd.Series,
                           pd.DataFrame]:
@@ -2089,7 +2406,9 @@ def perform_dea(obs_counts: pd.DataFrame,
              "device" : device,
              "p_values_method" : p_values_method,
              "max_elements" : max_elements,
-             "scaling_factor" : scaling_factor}
+             "scaling_factor" : scaling_factor,
+             "two_sided" : two_sided,
+             "mid_p" : mid_p}
 
         # If r-values were passed
         if r_values is not None:

@@ -1113,7 +1113,9 @@ class BulkDGD(nn.Module):
                       loss_reporting_options: dict[str, object],
                       loss_reduction_type: str,
                       latent_lambda: Optional[float] = None,
-                      genes_mask: Optional[torch.Tensor] = None) -> \
+                      genes_mask: Optional[torch.Tensor] = None,
+                      contamination: float = 0.0,
+                      contamination_r: float = 0.05) -> \
                         torch.Tensor:
         """Optimize the representation(s) found for each sample.
 
@@ -1573,6 +1575,17 @@ class BulkDGD(nn.Module):
                          "pred_log_r_values" : pred_log_r_values,
                          "scaling_factors" : scaling_factors}
 
+                # Bound what a gene the model cannot reach is allowed to
+                # do to the representation. Off unless asked for; see
+                # 'OutputModuleNBFullDispersion.loss' for why it belongs
+                # here and not in training.
+                if contamination:
+
+                    recon_loss_options["contamination"] = contamination
+
+                    recon_loss_options["contamination_r"] = \
+                        contamination_r
+
                 # Get the reconstruction loss.
                 #
                 # The output is a 4D tensor with:
@@ -1847,7 +1860,9 @@ class BulkDGD(nn.Module):
                          latent_lambda: \
                             Optional[float] = None,
                          genes_mask: \
-                            Optional[torch.Tensor] = None) -> \
+                            Optional[torch.Tensor] = None,
+                         contamination: float = 0.0,
+                         contamination_r: float = 0.05) -> \
                                 torch.Tensor:
         """Select the best representation per sample.
 
@@ -2204,6 +2219,18 @@ class BulkDGD(nn.Module):
                      "pred_means" : pred_means,
                      "pred_log_r_values" : pred_log_r_values,
                      "scaling_factors" : scaling_factors}
+
+                # The representation being SELECTED has to be scored the
+                # same way it was OPTIMIZED. Scoring candidates with the
+                # plain loss after optimizing them with the bounded one
+                # would hand the choice straight back to the genes the
+                # bound exists to keep out of it.
+                if contamination:
+
+                    recon_loss_options["contamination"] = contamination
+
+                    recon_loss_options["contamination_r"] = \
+                        contamination_r
 
             # Get the reconstruction loss.
             #
@@ -2630,6 +2657,29 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
+        # How much of a sample the model is allowed to give up on.
+        #
+        # Zero - the default - is the plain negative binomial, which is
+        # what every representation before July 2026 was found with. A
+        # small value bounds what a gene the model cannot reach may do
+        # to the representation, which matters for a TUMOUR because the
+        # genes it cannot reach are the aberrant ones and letting them
+        # place the representation returns a counterfactual that has
+        # already absorbed part of the signal. See
+        # 'OutputModuleNBFullDispersion.loss'.
+        contamination = \
+            float(config["scheme_options"].get("contamination", 0.0))
+
+        contamination_r = \
+            float(config["scheme_options"].get("contamination_r", 0.05))
+
+        if contamination:
+
+            log.info(
+                f"Representations will be found with a contaminated "
+                f"negative binomial (contamination "
+                f"{contamination:.2e}, r {contamination_r:g}).")
+
         # Create a representation layer containing the initialized
         # representations.
         rep_layer_init = \
@@ -2648,7 +2698,9 @@ class BulkDGD(nn.Module):
                 n_rep_per_comp = n_rep_per_comp,
                 loss_reduction_type = loss_reduction_type,
                 latent_lambda = latent_lambda,
-                genes_mask = genes_mask)
+                genes_mask = genes_mask,
+                contamination = contamination,
+                contamination_r = contamination_r)
 
         # Create a representation layer containing the best
         # representations found.
@@ -2683,7 +2735,9 @@ class BulkDGD(nn.Module):
                 epochs = epochs,
                 opt_num = 1,
                 latent_lambda = latent_lambda,
-                genes_mask = genes_mask)
+                genes_mask = genes_mask,
+                contamination = contamination,
+                contamination_r = contamination_r)
 
         #-------------------------------------------------------------#
 
@@ -2953,6 +3007,29 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
+        # How much of a sample the model is allowed to give up on.
+        #
+        # Zero - the default - is the plain negative binomial, which is
+        # what every representation before July 2026 was found with. A
+        # small value bounds what a gene the model cannot reach may do
+        # to the representation, which matters for a TUMOUR because the
+        # genes it cannot reach are the aberrant ones and letting them
+        # place the representation returns a counterfactual that has
+        # already absorbed part of the signal. See
+        # 'OutputModuleNBFullDispersion.loss'.
+        contamination = \
+            float(config["scheme_options"].get("contamination", 0.0))
+
+        contamination_r = \
+            float(config["scheme_options"].get("contamination_r", 0.05))
+
+        if contamination:
+
+            log.info(
+                f"Representations will be found with a contaminated "
+                f"negative binomial (contamination "
+                f"{contamination:.2e}, r {contamination_r:g}).")
+
         # Get the optimizer for the first optimization.
         optimizer_1 = \
             self._get_optimizer(\
@@ -2978,7 +3055,9 @@ class BulkDGD(nn.Module):
                 epochs = epochs_1,
                 opt_num = 1,
                 latent_lambda = latent_lambda,
-                genes_mask = genes_mask)
+                genes_mask = genes_mask,
+                contamination = contamination,
+                contamination_r = contamination_r)
 
         #-------------------------------------------------------------#
 
@@ -3004,7 +3083,9 @@ class BulkDGD(nn.Module):
                 n_rep_per_comp = n_rep_per_comp,
                 loss_reduction_type = loss_reduction_type,
                 latent_lambda = latent_lambda,
-                genes_mask = genes_mask)
+                genes_mask = genes_mask,
+                contamination = contamination,
+                contamination_r = contamination_r)
 
         # Create a representation layer containing the best
         # representations found (one representation per sample).
@@ -3054,7 +3135,9 @@ class BulkDGD(nn.Module):
                 epochs = epochs_2,
                 opt_num = 2,
                 latent_lambda = latent_lambda,
-                genes_mask = genes_mask)
+                genes_mask = genes_mask,
+                contamination = contamination,
+                contamination_r = contamination_r)
 
         #-------------------------------------------------------------#
 
