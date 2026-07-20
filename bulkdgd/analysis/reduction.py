@@ -142,7 +142,7 @@ def _perform_dim_red(df: pd.DataFrame,
     """
 
     # Create a copy of the options.
-    mod_options = dict(mod_options)
+    mod_options = dict(mod_options) if mod_options is not None else {}
 
     #-----------------------------------------------------------------#
 
@@ -190,6 +190,10 @@ def _perform_dim_red(df: pd.DataFrame,
 
     #-----------------------------------------------------------------#
 
+    # If no input columns were specified, use all the columns.
+    if input_columns is None:
+        input_columns = df.columns.tolist()
+
     # If the input columns are defined by a string
     if isinstance(input_columns, str):
 
@@ -222,13 +226,14 @@ def _perform_dim_red(df: pd.DataFrame,
         # Set up the model.
         mod = mod_class(**mod_options)
 
-        # Fit the model.
-        mod.fit(data_values)
+        # Fit the model and apply the dimensionality reduction.
+        projected = mod.fit_transform(data_values)
 
-    #-----------------------------------------------------------------#
-    
-    # Fit the model and apply the dimensionality reduction.
-    projected = mod.fit_transform(data_values)
+    # Otherwise, use the already-fitted model to project the data.
+    else:
+
+        mod = mod_fitted
+        projected = mod.transform(data_values)
 
     #-----------------------------------------------------------------#
 
@@ -590,7 +595,7 @@ def perform_tsne(df: pd.DataFrame,
     """
 
     # Create a copy of the options.
-    options = dict(options)
+    options = dict(options) if options is not None else {}
 
     #-----------------------------------------------------------------#
 
