@@ -48,34 +48,23 @@ from . import _templates, dataclasses, latents
 
 
 def _get_nested_value(obj: dict, path: str):
-    """Get a value from a nested dictionary using 'dot notation'.
-    
-    Resolves paths like "field.subfield.key" to retrieve values from
-    nested dictionaries. Returns None if any part of the path doesn't
-    exist.
-    
+    """Get a value from a nested dictionary using dot notation, e.g.
+    "field.subfield.key".
+
     Parameters
     ----------
     obj : :class:`dict`
         The dictionary to traverse.
-    
+
     path : :class:`str`
-        The path to the value using dot notation (e.g., 
+        The path to the value using dot notation (e.g.,
         "output_module_name" or "decoder_options.output_module_name").
-    
+
     Returns
     -------
     value : object or :obj:`None`
         The value at the specified path, or :obj:`None` if the path is
         invalid or does not exist.
-    
-    Examples
-    --------
-    >>> config = {"model": {"decoder": {"name": "test"}}}
-    >>> _get_nested_value(config, "model.decoder.name")
-    'test'
-    >>> _get_nested_value(config, "model.nonexistent")
-    None
     """
 
     # If the path is empty or the object is not a dictionary
@@ -117,69 +106,36 @@ def _check_config_recursive(
             tuple[dict[str, object],
                   list[str],
                   list[str]]:
-    """Recursively validate a configuration against a template.
-    
-    The template structure supports the following specifications:
-    
-    1. **Simple option** (leaf node):
-       "option_name": {
-           "type": (str,),
-           "choices": [...],
-           "condition": lambda v: ...,
-           "message": "error message if condition fails",
-           "default": value,
-           ...}
-    
-    2. **Switch** (conditional nested section):
-       "section_name": {
-           "switch": {
-               "option": "reference_option_name",
-               "cases": {
-                   "case_value_1": {nested_template},
-                   "case_value_2": {nested_template}
-               }
-           }
-       }
-    
-    The "default" key in leaf option specifications is used
-    to automatically populate missing configuration values.
-    
-    A warning is issued each time a default value is used.
+    """Recursively validate a configuration against a template,
+    filling in defaults for missing leaf options.
 
     Parameters
     ----------
     config : :class:`dict`
         The configuration (or configuration section) to validate.
-    
+
     template : :class:`dict`
-        The template defining valid options and structure.
-        Each key maps to either a validation spec (for
-        options) or a switch spec (for conditional sections).
-    
+        The template defining valid options and structure. Each key
+        maps to a validation spec, a switch spec, or a nested section.
+
     parent_config : :class:`dict`, optional
-        The root configuration dictionary. Used for resolving
-        switch references that may point to options at
-        different nesting levels. If None, the provided config
-        is treated as the root.
-    
+        The root configuration dictionary, used to resolve switch
+        references. Defaults to `config` if not given.
+
     path : :class:`str`, optional
-        The current path through the configuration hierarchy
-        using dot notation (e.g., "", "latent_options",
-        "latent_options.decoder_options"). This is
-        automatically constructed during recursion and is used
-        for error and warning messages. Default is "" (root
-        level).
+        The current dot-notation path through the configuration
+        hierarchy, used in error and warning messages.
 
     Returns
     -------
     config : :class:`dict`
-        The validated configuration with defaults applied
-        where applicable.
+        The validated configuration with defaults applied where
+        applicable.
 
     errors : :class:`list`
         A list of validation error messages found in the
         configuration.
-    
+
     warnings : :class:`list`
         A list of validation warning messages regarding the
         configuration.
@@ -443,11 +399,9 @@ def _check_config_recursive(
             # If the section does not exist in the configuraton
             if template_key not in config:
 
-                # A section marked optional is absent because it was
-                # not asked for, not because it was forgotten. Filling
-                # it in with its defaults would turn "no such thing"
-                # into "one of these, with every option defaulted",
-                # which is a different configuration.
+                # An absent optional section means "not requested",
+                # not "forgotten"; defaulting it in would turn it into
+                # a real (defaulted) section, changing the config.
                 if template_spec.get("__optional__"):
                     continue
 
@@ -802,9 +756,11 @@ def parse_config_model(config: dict[str, object],
             # be distributed with the package on PyPI), download it.
             if not os.path.isfile(default_decoder_pth_file):
 
+                # Download the decoder's weights.
                 _internals.download_decoder_pth(\
                     dest_path = default_decoder_pth_file)
 
+            # Point the configuration at the default decoder file.
             config_validated["decoder_options"]["decoder_pth_file"] = \
                 default_decoder_pth_file
 
@@ -899,24 +855,12 @@ def parse_config_train(
     return config_validated, errors, warnings
 
 
-def parse_config_fine_tune(
-        config: Optional[dict[str, object]]) -> \
-            tuple[dict[str, object], list[str], list[str]]:
-    """Validate a fine-tuning configuration strictly."""
-
-    # Import here to avoid another module-level dependency.
-    from . import fineconfig
-
-    return fineconfig.parse_config(config = config)
-
-
 def parse_config_rep(config: Optional[dict[str, object]]) -> \
         tuple[dict[str, object],
               list[str],
               list[str]]:
-    """Parse and check the configuration containing the options for the
-    optimization round(s) to find the best representations for a
-    set of samples.
+    """Parse and check the configuration for the optimization round(s)
+    that find the best representations for a set of samples.
 
     Parameters
     ----------
@@ -962,156 +906,210 @@ def parse_config_rep(config: Optional[dict[str, object]]) -> \
 
     #-----------------------------------------------------------------#
 
-    # Validate the initialization contract separately.  This block has
-    # mode-dependent required fields, and ``two_opt_multiseed`` uses a
-    # list of seeds where ``two_opt`` uses one.  Keeping those checks
-    # here makes the resulting errors explicit instead of letting a
-    # malformed configuration fail later while representations are
-    # already being computed.
+    # Validate the initialization contract separately: 'mode' controls
+    # which fields are required, and 'two_opt_multiseed' takes a list
+    # of seeds where 'two_opt' takes one, so checks live here to catch
+    # a malformed configuration before representations are computed.
     if config_validated.get("latent_type") == "tgmm":
 
+        # Get (or create) the scheme options section.
         scheme_options = config_validated.setdefault(
             "scheme_options", {})
 
+        # Get the initialization section.
         initialization = scheme_options.get("initialization", {})
 
+        # If it is not a dictionary
         if not isinstance(initialization, dict):
 
+            # Add an error.
             errors.append(
                 "scheme_options.initialization: must be a dictionary.")
 
+        # Otherwise
         else:
 
+            # Deep-copy it, since we will mutate it below.
             initialization = copy.deepcopy(initialization)
 
+            # Define the options 'initialization' is allowed to have.
             allowed = {
                 "mode", "seed", "seeds", "index_file",
                 "original_n_samples", "chunk_size"}
 
+            # Get any options that are not allowed.
             unknown = sorted(set(initialization) - allowed)
 
+            # If there are unknown options
             if unknown:
 
+                # Add an error.
                 errors.append(
                     "scheme_options.initialization: unsupported "
                     f"option(s): {', '.join(unknown)}.")
 
+            # If 'mode' is missing
             if "mode" not in initialization:
 
+                # Default it to 'sample_keyed'.
                 initialization["mode"] = "sample_keyed"
 
+                # Warn that the default was used.
                 warnings.append(
                     "scheme_options.initialization.mode: no 'mode' "
                     "found. The default value 'sample_keyed' will be "
                     "used.")
 
+            # Get the (possibly defaulted) mode.
             mode = initialization.get("mode")
 
+            # Define the supported modes.
             modes = {
                 "sample_keyed", "legacy_positional", "legacy_indexed"}
 
+            # If the mode is not one of the supported ones
             if mode not in modes:
 
+                # Add an error.
                 errors.append(
                     "scheme_options.initialization.mode: 'mode' must "
                     "be one of: legacy_indexed, legacy_positional, "
                     "sample_keyed.")
 
+            # Get the scheme type, which decides whether one seed or a
+            # list of seeds is expected.
             scheme_type = config_validated.get("scheme_type")
 
+            # If the scheme uses multiple seeds
             if scheme_type == "two_opt_multiseed":
 
+                # Get the seeds.
                 seeds = initialization.get("seeds")
 
+                # If they are missing, empty, or not a list/tuple
                 if not isinstance(seeds, (list, tuple)) or not seeds:
 
+                    # Add an error.
                     errors.append(
                         "scheme_options.initialization.seeds: "
                         "'two_opt_multiseed' requires a non-empty list "
                         "of integer seeds.")
 
+                # If any seed is not an integer
                 elif any(type(seed) is not int for seed in seeds):
 
+                    # Add an error.
                     errors.append(
                         "scheme_options.initialization.seeds: every "
                         "seed must be an integer.")
 
+                # If the seeds are not all distinct
                 elif len(set(seeds)) != len(seeds):
 
+                    # Add an error.
                     errors.append(
                         "scheme_options.initialization.seeds: seeds "
                         "must be distinct.")
 
+                # Otherwise
                 else:
 
+                    # Normalize the seeds to a list.
                     initialization["seeds"] = list(seeds)
 
+                # If a single 'seed' was also given
                 if "seed" in initialization:
 
+                    # Add an error.
                     errors.append(
                         "scheme_options.initialization.seed: use "
                         "'seeds' with 'two_opt_multiseed', not 'seed'.")
 
+            # Otherwise (the scheme uses a single seed)
             else:
 
+                # Get the seed.
                 seed = initialization.get("seed")
 
+                # If the mode requires an integer seed and it is not
+                # one
                 if mode in {"sample_keyed", "legacy_indexed"} and \
                         type(seed) is not int:
 
+                    # Add an error.
                     errors.append(
                         "scheme_options.initialization.seed: "
                         f"'{mode}' requires one integer seed.")
 
+                # If a seed was given but is not an integer
                 elif seed is not None and type(seed) is not int:
 
+                    # Add an error.
                     errors.append(
                         "scheme_options.initialization.seed: 'seed' "
                         "must be an integer when provided.")
 
+                # If a list of 'seeds' was given instead
                 if "seeds" in initialization:
 
+                    # Add an error.
                     errors.append(
                         "scheme_options.initialization.seeds: use "
                         "'seed' with 'two_opt', not 'seeds'.")
 
+            # Define the options that only apply to 'legacy_indexed'.
             indexed_options = {
                 "index_file", "original_n_samples", "chunk_size"}
 
+            # If the mode is 'legacy_indexed'
             if mode == "legacy_indexed":
 
+                # Get the index file's path.
                 index_file = initialization.get("index_file")
 
+                # If it is missing or not a non-empty string
                 if not isinstance(index_file, str) or not index_file:
 
+                    # Add an error.
                     errors.append(
                         "scheme_options.initialization.index_file: "
                         "'legacy_indexed' requires a non-empty path.")
 
+                # For each option required alongside the index file
                 for option in ("original_n_samples", "chunk_size"):
 
+                    # Get its value.
                     value = initialization.get(option)
 
+                    # If it is not a positive integer
                     if type(value) is not int or value <= 0:
 
+                        # Add an error.
                         errors.append(
                             f"scheme_options.initialization.{option}: "
                             "'legacy_indexed' requires a positive "
                             "integer.")
 
+            # Otherwise (not 'legacy_indexed')
             else:
 
+                # Get any 'legacy_indexed'-only options that were
+                # given anyway.
                 unexpected = sorted(
                     option for option in indexed_options
                     if option in initialization)
 
+                # If there are any
                 if unexpected:
 
+                    # Add an error.
                     errors.append(
                         "scheme_options.initialization: "
                         f"{', '.join(unexpected)} may only be used "
                         "with mode 'legacy_indexed'.")
 
+            # Store the (possibly defaulted/normalized) initialization
+            # section back in the configuration.
             scheme_options["initialization"] = initialization
 
     #-----------------------------------------------------------------#
@@ -1207,86 +1205,44 @@ def get_final_data_frames_rep(
             tuple[pd.DataFrame, pd.DataFrame, \
                   Optional[pd.DataFrame], pd.DataFrame]:
     """Get the final data frames containing the representations, the
-    decoder outputs corresponding to the representations, and the
-    time needed for the optimizations.
+    decoder outputs, and the optimization time.
 
     Parameters
     ----------
     rep : :class:`torch.Tensor`
-        A tensor containing the optimized representations.
-
-        This is a 2D tensor where:
-
-        - The first dimension has a length equal to the number of
-          samples.
-
-        - The second dimension has a length equal to the
-          dimensionality of the latent space where the
-          representations live.
+        The optimized representations (samples x latent dimensions).
 
     pred_means : :class:`torch.Tensor`
-        A tensor containing the predicted means of the
-        distributions modelling the genes' counts.
-
-        This is a 2D tensor where:
-
-        - The first dimension has a length equal to the number of
-          samples.
-
-        - The second dimension has a length equal to the
-          dimensionality of the gene space.
-
-        If the genes counts are modelled using negative binomial
-        distributions, the predicted means are scaled by the
-        corresponding distributions' r-values.
+        The predicted means of the distributions modelling the genes'
+        counts (samples x genes).
 
     time_opt : :class:`list`
-        A list of tuples storing, for each epoch, information about the
-        CPU and wall clock time used by the entire epoch and by the
-        backpropagation step run within the epoch.
+        Per-epoch CPU/wall clock timing tuples for the optimization.
 
     samples_names : :class:`list`
-        A list containing the samples' names.
+        The samples' names.
 
     genes_names : :class:`list`
-        A list containing the genes' names.
+        The genes' names.
 
     pred_r_values : :class:`torch.Tensor` or :obj:`None`
-        A tensor containing the predicted r-values of the negative
-        binomial distributions modelling the genes' counts, if the
-        counts are modelled by negative binomial distributions.
+        The predicted r-values of the negative binomial distributions
+        (samples x genes), or :obj:`None` for Poisson distributions.
 
-        This is a 2D tensor where:
-
-        - The first dimension has a length equal to the number of
-          samples.
-
-        - The second dimension has a length equal to the
-          dimensionality of the gene space.
-
-        ``pred_r_values`` is :obj:`None` if the counts are modelled
-        by Poisson distributions.
-    
     Returns
     -------
     df_rep : :class:`pandas.DataFrame`
-        A data frame containing the representations.
+        The representations.
 
     df_pred_means : :class:`pandas.DataFrame`
-        A data frame containing the predicted means of the
-        distributions modelling the genes' counts.
-
-        If the genes counts are modelled using negative binomial
-        distributions, the predicted means are scaled by the
-        corresponding distributions' r-values.
+        The predicted means of the distributions modelling the genes'
+        counts.
 
     df_pred_r_values : :class:`pandas.DataFrame` or :obj:`None`
-        A data frame containing the predicted r-values of the
-        negative binomials. It is :obj:`None` if the genes' counts
-        are modelled by Poisson distributions.
+        The predicted r-values, or :obj:`None` for Poisson counts.
 
     df_time_opt : :class:`pandas.DataFrame`
-        A data frame containing data about the optimization time.
+        Data about the optimization time.
     """
 
     # Convert the tensor containing the predicted scaled means
@@ -1395,153 +1351,62 @@ def get_final_data_frames_train(
                   Optional[tuple[pd.DataFrame, pd.DataFrame]],
                   pd.DataFrame,
                   pd.DataFrame]:
-    """Get the final data frames containing the losses calculated
-    during training and the time needed to train the model.
+    """Get the final data frames containing the representations, the
+    decoder outputs, the training losses, and the training time.
 
     Parameters
     ----------
     reps : :class:`tuple`
-        A tuple containing:
+        The optimized representations for the training and test
+        samples, as a ``(train, test)`` pair of tensors.
 
-        * A :class:`torch.Tensor` containing the optimized
-          representations for the training samples.
-
-        * A :class:`torch.Tensor` containing the optimized
-          representations for the testing samples.
-    
     pred_means : :class:`tuple`
-        A tuple containing:
-
-        * A :class:`torch.Tensor` containing the predicted means of
-          the representations for the training samples.
-        
-        * A :class:`torch.Tensor` containing the predicted means of
-          the representations for the testing samples. 
+        The predicted means for the training and test samples, as a
+        ``(train, test)`` pair of tensors.
 
     losses_list : :class:`list`
-        A list containing the losses calculated during each training
-        epoch.
-    
+        The losses calculated during each training epoch.
+
     time_train : :class:`list`
-        A list of tuples storing, for each epoch, information about the
-        CPU and wall clock time used by the entire epoch and by the
-        backpropagation step run within the epoch.
+        Per-epoch CPU/wall clock timing tuples for training.
 
     samples_names_train : :class:`list`
-        A list containing the training samples' names.
+        The training samples' names.
 
     samples_names_test : :class:`list`
-        A list containing the testing samples' names.
-    
+        The test samples' names.
+
     df_other_data_train : :class:`pandas.DataFrame`
-        A data frame containing the additional data about the training
-        samples.
-    
+        Additional data about the training samples.
+
     df_other_data_test : :class:`pandas.DataFrame`
-        A data frame containing the additional data about the test
-        samples.
-    
+        Additional data about the test samples.
+
     genes_names : :class:`list`
-        A list containing the genes' names.
+        The genes' names.
 
-    pred_r_values : :class:`tuple` or :class:`numpy.ndarray` or \
-       :obj:`None`
+    pred_r_values : :class:`tuple` or :class:`torch.Tensor` or \
+        :obj:`None`, optional
+        The predicted r-values: :obj:`None` for Poisson output, a
+        single tensor shared across samples for feature-dispersion
+        negative binomial output, or a ``(train, test)`` tensor pair
+        for full-dispersion negative binomial output.
 
-        If the decoder's output module is 
-        :class:`bulkdgd.core.outputmodules.OutputModulePoisson`, this
-        is :obj:`None`.
+    metrics_rows_train : :class:`list` or :obj:`None`, optional
+        Per-epoch clustering metric rows for the training samples.
 
-        If the decoder's output module is
-        :class:`bulkdgd.core.outputmodules.OutputModuleNBFeatureDispersion`,
-        this is a :class:`torch.Tensor` containing the predicted
-        r-values for all genes.
-
-        If the decoder's output module is
-        :class:`bulkdgd.core.outputmodules.OutputModuleNBFullDispersion`,
-        this is a :class:`tuple` containing:
-
-        * A :class:`torch.Tensor` containing the predicted r-values
-          for the training samples.
-
-        * A :class:`torch.Tensor` containing the predicted r-values
-          for the testing samples.
-
-    metrics_rows_train : :class:`list` or :obj:`None`
-        A list of dictionaries containing per-epoch clustering metrics
-        for training samples.
-
-    metrics_rows_test : :class:`list` or :obj:`None`
-        A list of dictionaries containing per-epoch clustering metrics
-        for test samples.
+    metrics_rows_test : :class:`list` or :obj:`None`, optional
+        Per-epoch clustering metric rows for the test samples.
 
     Returns
     -------
-    A :class:`tuple` containing:
-    
-        - Another :class:`tuple` with:
-            
-            - A :class:`pandas.DataFrame` containing the optimized
-              representations for the training samples.
-
-            - A :class:`pandas.DataFrame` containing the optimized
-              representations for the testing samples.
-
-        - Another :class:`tuple` with:
-
-            - A :class:`pandas.DataFrame` containing the predicted
-              means of the distributions modelling the genes' counts
-              for the training samples.
-
-            - A :class:`pandas.DataFrame` containing the predicted
-              means of the distributions modelling the genes' counts
-              for the testing samples.
-        
-        - :obj:`None`, or a :class:`tuple` depending on the decoder's
-          output module.
-
-          If the decoder's output module is
-          :class:`bulkdgd.core.outputmodules.OutputModulePoisson`,
-          this is :obj:`None`.
-
-          If the decoder's output module is
-          :class:`bulkdgd.core.outputmodules.OutputModuleNBFeatureDispersion`,
-          this is a :class:`tuple` with only one
-          :class:`pandas.DataFrame` containing the predicted
-          r-values for all samples.
-
-          If the decoder's output module is
-          :class:`bulkdgd.core.outputmodules.OutputModuleNBFullDispersion`,
-          a :class:`tuple` with:
-
-            - A :class:`pandas.DataFrame` containing the predicted
-              r-values of the negative binomial distributions
-              modelling the genes' counts for the training samples.
-            
-            - A :class:`pandas.DataFrame` containing the predicted
-              r-values of the negative binomial distributions
-               modelling the genes' counts for the testing samples.
-        
-        - A :class:`pandas.DataFrame` containing the losses
-          calculated during training.
-
-        - :obj:`None`, or a :class:`tuple` depending on whether
-          clustering metrics were calculated during training.
-
-          If no clustering metrics were calculated during training,
-          this is :obj:`None`.
-
-          If clustering metrics were calculated during training, this
-          is a :class:`tuple` with:
-        
-            - A :class:`pandas.DataFrame` containing data about the
-              metrics calculated during training for the training
-              samples.
-            
-            - A :class:`pandas.DataFrame` containing data about the
-              metrics calculated during training for the test samples.
-        
-        - A :class:`pandas.DataFrame` containing data about the
-          training time.
+    :class:`tuple`
+        A ``((df_rep_train, df_rep_test), (df_pred_means_train,
+        df_pred_means_test), dfs_pred_r_values, df_loss, dfs_metrics,
+        df_time)`` tuple. ``dfs_pred_r_values`` and ``dfs_metrics``
+        are :obj:`None` if not applicable, otherwise ``(train,
+        test)`` data frame pairs (a one-element tuple for
+        feature-dispersion r-values).
     """
 
     # Get the representations for the training and test samples.
@@ -1868,23 +1733,37 @@ def get_pathways_saliency_map(saliency_map: np.ndarray,
 
 def _save_epoch_df(df, path, sep = ","):
 
-    """Write a per-epoch table, as Parquet or as text.
+    """Write a per-epoch table as Parquet or as text, depending on the
+    path's extension.
 
-    The format follows the path's extension. Parquet is what these are
-    written as now: a training run emits one of these per epoch per
-    output, they are the record the run is reconstructed from, and a
-    float64 written to text comes back changed by up to about 1e-12.
+    Parameters
+    ----------
+    df : :class:`pandas.DataFrame`
+        The table to write.
+
+    path : :class:`str`
+        The output file path. A ``.parquet``/``.pq`` extension writes
+        Parquet; any other extension writes delimited text.
+
+    sep : :class:`str`, optional
+        The field separator used when writing as text.
     """
 
+    # If the path calls for Parquet
     if str(path).lower().endswith((".parquet", ".pq")):
 
+        # Parquet preserves float64 exactly; text round-trips it with
+        # up to ~1e-12 error, which matters since these files are the
+        # record the run is reconstructed from.
         df.to_parquet(path,
                       engine = "pyarrow",
                       compression = "snappy",
                       index = True)
 
+    # Otherwise
     else:
 
+        # Write as delimited text.
         df.to_csv(path, sep = sep, index = True, header = True)
 
 
@@ -2076,11 +1955,6 @@ def save_model_epoch(epoch: int,
     """Save the decoder's weights and the latent space's parameters at
     the end of a given epoch.
 
-    Training writes the model out only when it is over, so a run that
-    dies at the last epoch - or is killed, or runs out of time - leaves
-    nothing behind. Saving them as it goes means the model can be picked
-    up from where it got to.
-
     Parameters
     ----------
     epoch : :class:`int`
@@ -2097,7 +1971,9 @@ def save_model_epoch(epoch: int,
         working directory is used.
     """
 
-    # Get the directory where to save the model.
+    # Get the directory where to save the model. Saving at every
+    # epoch (rather than only at the end) lets a run be resumed if it
+    # is interrupted before training finishes.
     save_dir = \
         save_dir if save_dir is not None else os.getcwd()
 
@@ -2242,54 +2118,74 @@ def save_pathways_saliency_maps_epoch(
 
 def load_shipped_model(seed = None):
 
-    """The architecture and fitted parameters of one member of the
-    ensemble that ships with the package.
+    """Get the configuration of one member of the ensemble that ships
+    with the package.
 
-    Returns the keyword arguments 'BulkDGD' needs to be the trained
-    model, with the paths to the fitted parameters already filled in.
+    Parameters
+    ----------
+    seed : :class:`int`, optional
+        The seed identifying the ensemble member. If not provided,
+        the base member's seed is used.
 
-    THE PATHS ARE RESOLVED HERE, NOT LEFT AS "default". The "default"
-    sentinel resolves through 'DATA_FILES_MODEL', which names the base
-    member; a non-base seed asking for it would silently be handed the
-    base model's mixture and decoder, and since every member has the
-    same shape nothing downstream would complain. Naming the files
-    explicitly makes the seed asked for the seed loaded.
+    Returns
+    -------
+    :class:`dict`
+        The keyword arguments ``BulkDGD`` needs to load the trained
+        model, with the paths to the fitted parameters filled in.
     """
 
+    # Fall back to the base ensemble member if no seed was given.
     seed = seed if seed is not None else defaults.BASE_SEED
 
+    # If the seed does not identify a shipped ensemble member
     if seed not in defaults.ENSEMBLE_SEEDS:
         errstr = \
             f"'{seed}' is not a member of the shipped ensemble. The " \
             f"members are: {', '.join(defaults.ENSEMBLE_SEEDS)}."
         raise ValueError(errstr)
 
+    # Get the per-seed paths to the model's files.
     files = defaults.data_files_model(seed)
 
+    # Load the member's configuration file.
     with open(files["config"], "r") as f:
         config = yaml.safe_load(f)
 
-    # The mixture ships with the package; the decoder does not, and is
-    # fetched on first use into the same per-seed directory.
+    #-----------------------------------------------------------------#
+
+    # Resolve the paths explicitly here rather than leaving "default":
+    # that sentinel resolves through 'DATA_FILES_MODEL', which always
+    # names the base member, so a non-base seed would silently get the
+    # base model's files instead of its own.
     config["latent_options"]["latent_pth_file"] = files["gmm"]
 
+    # The mixture ships with the package; the decoder does not, and is
+    # fetched on first use into the same per-seed directory.
     if not os.path.isfile(files["dec"]):
         _internals.util.download_decoder_pth(dest_path = files["dec"],
                                              seed = seed)
 
+    # Point the configuration at the (now guaranteed present) decoder
+    # weights.
     config["decoder_options"]["decoder_pth_file"] = files["dec"]
 
-    # THE SENTINEL IS RESOLVED HERE TOO. "default" is understood by
-    # the configuration loader, not by 'BulkDGD.__init__', which hands
-    # what it is given straight to 'open' - so leaving it would make
-    # the constructor look for a file literally named "default".
+    #-----------------------------------------------------------------#
+
+    # Resolve this sentinel too: "default" is understood by the
+    # configuration loader, not by 'BulkDGD.__init__', which passes
+    # it straight to 'open'.
     genes = config.get("genes_txt_file", "default")
 
+    # Substitute the shipped gene list's path for the sentinel.
     config["genes_txt_file"] = \
         files["genes"] if genes in (None, "default") else genes
 
+    #-----------------------------------------------------------------#
+
+    # Fill in the defaults 'BulkDGD.__init__' otherwise expects.
     config.setdefault("latent_type", "tgmm")
     config.setdefault("scaling_factor", "mean")
     config.setdefault("dtype", "float32")
 
+    # Return the completed configuration.
     return config

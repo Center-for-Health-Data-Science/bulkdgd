@@ -12,11 +12,5 @@ core.outputmodules
    .. autoclass:: bulkdgd.core.outputmodules.OutputModuleNBFullDispersion
       :members: __init__, input_dim, output_dim, activation, rescale, log_prob_mass, forward, log_prob, loss, sample
 
-   .. autoclass:: bulkdgd.core.outputmodules.OutputModuleNBFullDispersionTied
-      :members: __init__, input_dim, output_dim, activation, rescale, log_prob_mass, forward, log_prob, loss, sample
-
-   .. autoclass:: bulkdgd.core.outputmodules.OutputModuleNBFullDispersionHierarchical
-      :members: __init__, input_dim, output_dim, activation, rescale, log_prob_mass, forward, log_prob, loss, sample
-
    .. autoclass:: bulkdgd.core.outputmodules.OutputModulePoisson
       :members: __init__, input_dim, output_dim, activation, rescale, log_prob_mass, forward, log_prob, loss, sample

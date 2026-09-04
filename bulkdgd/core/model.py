@@ -60,11 +60,9 @@ from bulkdgd import _internals, defaults
 from . import (
     dataclasses,
     decoders,
-    fineapi,
     latents,
     metrics,
     outputmodules,
-    traindiag,
     warmstart,
     _util)
 
@@ -81,18 +79,8 @@ logger = log.getLogger(__name__)
 
 def clip_grads(optimizer: torch.optim.Optimizer,
                max_norm: Optional[Union[float, int]]) -> None:
-    """Clip the gradients of the parameters an optimizer steps, to a
-    maximum norm, before it takes its step.
-
-    Without it, a single batch whose gradients are large enough can take
-    the model out in one step - the loss becomes NaN, and stays NaN,
-    since NaN propagates through every parameter it touches.
-
-    The negative binomial output modules make that easy to run into. The
-    log-probability mass contains ``lgamma(k+r) - lgamma(r)``, and a gene
-    whose dispersion ``r`` is driven towards zero drives both terms
-    towards infinity, so their difference is the difference of two
-    infinities.
+    """Clip an optimizer's gradients to a maximum norm before it steps,
+    to avoid a single large-gradient batch driving the loss to NaN.
 
     Parameters
     ----------
@@ -119,13 +107,9 @@ def clip_grads(optimizer: torch.optim.Optimizer,
 
     #-----------------------------------------------------------------#
 
-    # Zero out any gradient that is not finite, before clipping.
-    #
-    # Clipping cannot rescue an infinite gradient - scaling it by
-    # 'max_norm / inf' multiplies an infinity by zero, which is NaN, and
-    # NaN then propagates into every parameter the optimizer touches. A
-    # step whose gradients have already gone non-finite carries no usable
-    # information, so drop it rather than let it take the model out.
+    # Zero out any non-finite gradient before clipping - scaling an
+    # infinite gradient by a finite factor still yields NaN, which then
+    # propagates into every parameter the optimizer touches.
     for p in params:
 
         # If the parameter's gradient is not entirely finite
@@ -141,16 +125,13 @@ def clip_grads(optimizer: torch.optim.Optimizer,
 
     #-----------------------------------------------------------------#
 
-    # Clip the gradients. What is returned is the norm they had before
-    # being clipped, which is what tells you where to set the maximum:
-    # too low, and every step is scaled down, not just the rare one that
-    # would have blown the model up.
+    # Clip the gradients; the returned norm is the pre-clip norm, useful
+    # for calibrating 'max_norm'.
     total_norm = \
         torch.nn.utils.clip_grad_norm_(parameters = params,
                                        max_norm = max_norm)
 
-    # Log the norm the gradients had, for whoever is choosing the
-    # maximum. This is a debug message - there is one per step.
+    # Log the pre-clip gradient norm (one debug message per step).
     logger.debug(f"Gradient norm before clipping: {float(total_norm):.4f} "
                  f"(clipped to {max_norm}).")
 
@@ -158,7 +139,7 @@ def clip_grads(optimizer: torch.optim.Optimizer,
 #######################################################################
 
 
-class BulkDGD(fineapi.FineTuningMixin, nn.Module):
+class BulkDGD(nn.Module):
 
     """
     Class implementing the BulkDGD model.
@@ -195,10 +176,7 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                  dtype: Optional[str] = None,
                  device: str = "cpu",
                  seed: Optional[str] = None) -> None:
-        """Initialize an instance of the class.
-
-        The model is initialized on the CPU. To move the model to
-        another device, modify the ``device`` property.
+        """Initialize an instance of the class on the CPU.
 
         Parameters
         ----------
@@ -209,91 +187,38 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             ``"tgmm"``
             The type of the latent space to use.
 
-            The available options are:
-
-            - ``"lgmm"``: the legacy Gaussian mixture model
-                implementation, which uses the
-                :class:`bulkdgd.core.latents.GaussianMixtureModelLegacy`
-                class.
-
-            - ``"tgmm"``: the TGMM Gaussian mixture model
-                implementation, which uses the
-                :class:`bulkdgd.core.latents.GaussianMixtureModelTGMM`
-                class.
-
         latent_options : :class:`dict`
             The options for setting up the latent space.
-
-            For the available options, refer to the
-            :ref:`model_config_options` page.
 
         decoder_options : :class:`dict`
             The options for setting up the decoder.
 
-            For the available options, refer to the
-            :ref:`model_config_options` page.
+        gmm_final : :class:`dict`, optional
+            The options for the Gaussian mixture fitted to the
+            representations after training. If not given, no such
+            mixture is fitted.
 
         genes_txt_file : :class:`str`
             A plain text file containing the Ensembl IDs of the genes
             included in the model.
 
-            Training data will be checked to ensure counts are
-            reported for all genes.
-
-            The number of output units in the decoder is initialized
-            from the number of genes found in this file.
-
         scaling_factor : :class:`str`, \
             {``"mean"``, ``"median"``}, ``"mean"``
-            How to compute the scaling factor of a sample - the number
-            the decoder's predicted means are multiplied by to put them
-            on the scale of the sample's own counts.
-
-            The mean is not robust to the few genes that take a large
-            and variable share of a library: in GTEx the thirteen
-            mitochondrial genes take 14.49% of the reads, and their
-            share runs from 0.10% to 90.85% between samples, which moves
-            the mean by up to a factor of ten. The median is moved by
-            at most 3.7% by the same genes. See
-            :class:`bulkdgd.core.dataclasses.GeneExpressionDataset`.
-
-            This belongs to the model and not to a single run of it.
-            The median is about a third of the mean, and the decoder's
-            output is fitted against whichever the model was trained
-            with, so a model trained with one and used with the other
-            has its predicted means wrong by about a factor of three -
-            without failing. It is therefore written in the model's
-            configuration file, so that finding representations,
-            imputing, and the differential expression analysis all read
-            the same value the training did.
+            How to compute a sample's scaling factor, used to rescale
+            the decoder's predicted means to the sample's own counts.
 
         dtype : :class:`str`, \
             {``"float32"``, ``"float64"``}, ``"float32"``
-            The precision the model's parameters are built in.
-
-            This is not a preference that can be applied afterwards. A
-            module's parameters are made in whatever torch's default
-            dtype is at the moment the module is constructed, and
-            ``load_state_dict`` copies a checkpoint INTO the parameters
-            that are already there, casting as it goes - so a float64
-            checkpoint read into a model built in float32 gives a
-            float32 decoder, and nothing says so.
-
-            The Gaussian mixture does not go quietly, which is the only
-            piece of luck in it: ``tgmm`` keeps the tensors it is handed
-            rather than copying into its own, so it stays float64 while
-            the decoder becomes float32, and the first matrix multiply
-            of the two raises ``mat1 and mat2 must have the same
-            dtype``.
-
-            Torch's default dtype is put back to what it was once the
-            model is built: it is global, and a model asked for in
-            double is not a reason for the rest of the program to be in
-            double.
+            The precision the model's parameters are built in. Fixed
+            at construction time.
 
         device : :class:`str`, ``"cpu"``
-            The device where the model will be initialized. The model
-            is initialized on the CPU by default.
+            The device where the model will be initialized.
+
+        seed : :class:`str`, optional
+            The seed identifying which shipped ensemble member to
+            load. Only valid when ``latent_dim``, ``latent_options``,
+            and ``decoder_options`` are all not given.
         """
 
         # Run the superclass' initialization.
@@ -301,18 +226,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         #-------------------------------------------------------------#
 
-        # A BARE 'BulkDGD()' IS THE TRAINED MODEL.
-        #
-        # Describing the architecture by hand is what a user does to
-        # train a new model; asking for the published one should not
-        # require restating its shape correctly. When the architecture
-        # is not given, it is read from the shipped configuration of
-        # the requested member, together with the fitted parameters
-        # that go with it - the mixture from the package, the decoder
-        # fetched from the release on first use.
-        #
-        # Anything the caller did pass is kept, so a single argument
-        # can be overridden without restating the rest.
+        # If no architecture is given, load the shipped, trained model
+        # instead; any argument the caller did pass overrides it.
         if (latent_dim is None and latent_options is None
                 and decoder_options is None):
 
@@ -354,6 +269,7 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         if dtype is None:
             dtype = "float32"
 
+        # An architecture must be given in full, or not at all.
         if latent_dim is None or latent_options is None \
                 or decoder_options is None:
 
@@ -401,14 +317,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Get the genes included in the model.
-        #
-        # "default" IS RESOLVED HERE. The model configurations the
-        # package ships write it, and it is documented as meaning the
-        # gene list that comes with the package - but only the
-        # configuration loader used to understand it, so a caller
-        # passing it straight to the constructor got 'open("default")'
-        # and a file-not-found naming a file nobody wrote.
+        # Get the genes included in the model. Resolve the "default"
+        # sentinel here, since it is understood by the configuration
+        # loader but not by 'open'.
         if genes_txt_file in (None, "default"):
             genes_txt_file = defaults.DATA_FILES_MODEL["genes"]
 
@@ -418,31 +329,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Build the model in its own precision.
-        #
-        # A module's parameters are created in whatever torch's default
-        # dtype is at the moment the module is constructed, so this has
-        # to wrap the construction rather than follow it - by then the
-        # decoder's weights are single precision, and casting them to
-        # double afterwards gives double-precision copies of numbers
-        # that were rounded to single.
-        #
-        # It matters most when a trained model is READ back.
-        # 'load_state_dict' copies into the parameters that are already
-        # there, casting as it goes, so a float64 checkpoint read into a
-        # model built in float32 gives a float32 decoder. The mixture is
-        # not an ordinary module: 'tgmm' keeps the tensors it is handed
-        # rather than copying into its own, so it stays float64 while
-        # the decoder becomes float32, and the first matrix multiply of
-        # the two raises 'mat1 and mat2 must have the same dtype'. Which
-        # is the good case - it stops. Nothing checks that a float32
-        # model read a float32 checkpoint, so a model whose precision is
-        # not recorded is read in whatever precision the caller happened
-        # to be in.
-        #
-        # The default dtype is put back afterwards: it is global, and a
-        # model asked for in double should not leave the rest of the
-        # program in double.
+        # Build the model in its own precision - parameters are
+        # created in torch's default dtype at construction time, so
+        # casting afterwards would just copy already-rounded numbers.
         with self._default_dtype(dtype):
 
             # Get the latent space.
@@ -456,25 +345,16 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             # model's attributes.
             self._latent_initial_options = latent_options
 
-            # Keep the type of latent space the model was built with, so
-            # that the model can write out a configuration that rebuilds
-            # itself (for instance when 'prune' emits a pruned model).
+            # Keep the type of latent space the model was built with,
+            # so the model can write out a self-rebuilding config.
             self._latent_type = latent_type
 
-            # The options for the final Gaussian mixture model - the
-            # one fitted to the representations after training, which
-            # is the density of the latent space rather than the prior
-            # that produced it. It sits in the model's configuration,
-            # and not only in the training one, because it decides what
-            # 'gmm_final.pth' contains, and everything downstream that
-            # reads that file is reading a property of the model.
-            #
-            # It is optional: a model that does not ask for one is
-            # trained exactly as before and writes no such file.
+            # Options for the final Gaussian mixture fitted to the
+            # representations after training; optional, and stored on
+            # the model since it decides what 'gmm_final.pth' contains.
             self._gmm_final_options = gmm_final
 
-            # The final mixture itself, once it has been fitted. Until
-            # then there is none, and asking for it says so.
+            # The final mixture itself, once fitted; None until then.
             self._latent_final = None
 
             # Inform the user that the latent space was set.
@@ -503,34 +383,26 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         # Whether this model came from fitted parameters.
         #
-        # Taken from the decoder rather than from the mixture: a new
-        # model can legitimately start from a fitted mixture, but a
-        # fitted decoder is what makes it a trained model. 'train'
-        # refuses on one of these unless the configuration says
-        # 'continue_training'.
+        # A trained decoder (not just a fitted mixture) is what makes
+        # this a trained model.
         self._is_trained = \
             decoder_options.get("decoder_pth_file") is not None
 
-        # Keep the genes the model knows, in the order the decoder
-        # emits them. 'impute' needs them - it is given a sample missing
-        # most of them, and has to say which of the model's genes the
-        # sample is missing - and asking a model what it is a model OF
-        # should not require reading the file it was built from.
+        # Keep the genes the model knows, in decoder output order -
+        # needed by 'impute' without re-reading the source file.
         self._genes = genes
 
-        # Keep the file the genes were read from, if any. Pruning does
-        # not change which genes the model is OF, so a pruned model
-        # written by 'prune' points at the same gene list its parent
-        # did, rather than duplicating it.
+        # Keep the source gene list file; a pruned model reuses its
+        # parent's gene list rather than duplicating it.
         self._genes_txt_file = genes_txt_file
 
         #-------------------------------------------------------------#
 
-        # By default, the competition between the candidate
-        # representations is not recorded - only its winner is, which is
-        # all the model needs and much less than it knows.
+        # By default, only the winning representation is recorded,
+        # not the full candidate competition.
         self._keep_selection_details = False
 
+        # Initialize the list to hold the selection details.
         self._selection_details = []
 
         #-------------------------------------------------------------#
@@ -557,20 +429,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             The number of dimensions of the latent space.
 
         latent_type : :class:`str`, {``"lgmm"``, ``"tgmm"``}
-            The type of latent space to use.
+            The type of latent space to use: the legacy ("lgmm") or
+            TGMM ("tgmm") Gaussian mixture model implementation.
 
-            The available options are:
-
-            - ``"lgmm"``: the legacy Gaussian mixture model
-                implementation, which uses the
-                :class:`bulkdgd.core.latents.GaussianMixtureModelLegacy`
-                class.
-            
-            - ``"tgmm"``: the TorchGMM Gaussian mixture model
-                implementation, which uses the
-                :class:`bulkdgd.core.latents.GaussianMixtureModelTGMM`
-                class.
-        
         latent_options : :class:`dict`
             A dictionary of options for the latent space.
         
@@ -652,13 +513,13 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         ----------
         latent_dim : :obj:`int`
             The number of dimensions of the latent space.
-        
+
         genes : :class:`list`
             A list of the genes' Ensembl IDs.
-        
+
         decoder_options : :class:`dict`
             A dictionary of options for the decoder.
-        
+
         device : :class:`str`
             The device to load the parameters onto.
 
@@ -666,17 +527,11 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         -------
         dec : :class:`bulkdgd.core.decoders.Decoder`
             The decoder.
-        
+
         r_values : :class:`pandas.Series` or :obj:`None`
-            A series containing the r-values of the negative
-            binomials modeling the genes' counts, if the decoder's
-            output module is the 'nb_feature_dispersion' one.
-
-            The series' index contains the genes' Ensembl IDs, and
-            its values are the r-values.
-
-            If the decoder's output module is not the
-            'nb_feature_dispersion' one, ``r_values`` is :obj:`None`.
+            The negative binomials' r-values indexed by gene, or
+            :obj:`None` if the output module is not
+            'nb_feature_dispersion'.
         """
 
         # Create a copy of the configuration options for the
@@ -726,24 +581,11 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             r_values = pd.Series(r_values,
                                  index = genes)
 
-        # Otherwise - the 'poisson' module, the 'nb_full_dispersion'
-        # one, or any of its variants that shrink or tie the per-sample
-        # dispersion
+        # Otherwise (Poisson, full-dispersion NB, or a variant of it)
         else:
 
-            # The r-values will be None: they are predicted per sample,
-            # not stored per gene, so there is no single per-gene value
-            # to hand back here.
-            #
-            # This is an 'else' and not another list of module names.
-            # There were four such lists - here, the decoder's two, and
-            # the registry - and every one of them had to be edited to
-            # add a module. Three were missed, and each was found only
-            # by a job that had already run: the decoder rejected the
-            # module outright, and this one left 'r_values' unbound and
-            # raised on the line that returns it. Only the module that
-            # keeps ONE r-value per gene needs naming; everything else
-            # has none to hand back.
+            # The r-values are predicted per sample, not stored per
+            # gene, so there is no single per-gene value to return.
             r_values = None
         
         #-------------------------------------------------------------#
@@ -804,12 +646,6 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         """Set torch's default dtype for the duration of a block, and
         put back the one that was there.
 
-        The default dtype is global and it decides what a module's
-        parameters are made of, so it has to be set around the building
-        of a model rather than after it - and it has to be put back,
-        because a model asked for in double is not a reason for the rest
-        of the program to be in double.
-
         Parameters
         ----------
         dtype : :class:`str`, {``"float32"``, ``"float64"``}
@@ -828,10 +664,7 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         finally:
 
-            # Put back the one that was there, whatever happened in
-            # between - an exception raised while building a model in
-            # double would otherwise leave every module built after it
-            # in double.
+            # Put back the one that was there, even on an exception.
             torch.set_default_dtype(previous)
 
 
@@ -865,11 +698,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
     @property
     def scaling_factor(self):
         """How the scaling factor of a sample is computed - either
-        ``"mean"`` or ``"median"``.
-
-        It is a property of the model: the decoder's output is fitted
-        against it, so everything done with the model afterwards has to
-        use the one it was trained with.
+        ``"mean"`` or ``"median"``. Fixed at initialization since the
+        decoder is fitted against it.
         """
 
         return self._scaling_factor
@@ -880,6 +710,11 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                        value) -> None:
         """Raise an exception if the user tries to modify the value of
         ``scaling_factor`` after initialization.
+
+        Parameters
+        ----------
+        value
+            The value (rejected unconditionally).
         """
 
         errstr = \
@@ -894,12 +729,7 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
     @property
     def dtype(self):
         """The precision the model's parameters are in - either
-        ``"float32"`` or ``"float64"``.
-
-        It is a property of the model, because it decides what the
-        model's parameters are made of and a checkpoint has to be read
-        back into parameters of its own kind. It is not a preference
-        that can be applied afterwards.
+        ``"float32"`` or ``"float64"``. Fixed at initialization.
         """
 
         return self._dtype
@@ -941,6 +771,11 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
               value) -> None:
         """Raise an exception if the user tries to modify the value of
         ``genes`` after initialization.
+
+        Parameters
+        ----------
+        value
+            The value (rejected unconditionally).
         """
 
         errstr = \
@@ -965,6 +800,11 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             value):
         """Raise an exception if the user tries to modify the value
         of ``latent`` after initialization.
+
+        Parameters
+        ----------
+        value
+            The value (rejected unconditionally).
         """
 
         err_msg = \
@@ -977,14 +817,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
     @property
     def latent_final(self):
-        """The Gaussian mixture model fitted to the representations
-        after training - the density of the latent space, as opposed
-        to the prior that produced it.
-
-        This is ``None`` until the model has been trained with a
-        ``gmm_final`` section in its configuration. It is never the
-        prior: finding a representation for a new sample goes through
-        ``latent``, and always has.
+        """The Gaussian mixture fitted to the representations after
+        training. ``None`` until trained with a ``gmm_final`` section.
         """
 
         return self._latent_final
@@ -995,6 +829,11 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                      value):
         """Raise an exception if the user tries to set the final
         Gaussian mixture model by hand.
+
+        Parameters
+        ----------
+        value
+            The value (rejected unconditionally).
         """
 
         err_msg = \
@@ -1026,8 +865,13 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                 value):
         """Raise an exception if the user tries to modify the value of
         ``decoder`` after initialization.
+
+        Parameters
+        ----------
+        value
+            The value (rejected unconditionally).
         """
-        
+
         err_msg = \
             "The value of 'decoder' is set at initialization and " \
             "cannot be changed. If you want to change the decoder, " \
@@ -1046,8 +890,13 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
     def device(self,
                value):
         """Move the model to the selected device.
+
+        Parameters
+        ----------
+        value : :class:`str`
+            The device to move the model to.
         """
-        
+
         # Move the model to the specified device.
         self.to(device = torch.device(value))
 
@@ -1102,14 +951,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         # If it is the L-BFGS optimizer
         elif optimizer_type == "lbfgs":
 
-            # Set up the optimizer.
-            #
-            # Unlike the first-order optimizers above, this one needs
-            # a closure - it re-evaluates the objective several times
-            # per step while its line search walks the direction its
-            # curvature estimate picked. '_optimize_rep' provides one,
-            # and recognizes that it must by asking whether the
-            # optimizer is an L-BFGS.
+            # Set up the optimizer. Unlike the first-order optimizers
+            # above, this one needs a closure ('_optimize_rep' provides
+            # one when it detects an L-BFGS optimizer).
             optimizer = \
                 torch.optim.LBFGS(optimizer_parameters,
                                   **optimizer_options)
@@ -1136,15 +980,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         ----------
         lr_scheduler_target : :class:`str`, {``"decoder"``, \
             ``"representations"``}
-            The target for which to set up the learning rate scheduler.
-
-            The available options are:
-
-            - ``"decoder"``: the learning rate scheduler for the
-                decoder, which steps per batch.
-
-            - ``"representations"``: the learning rate scheduler for
-                the representations, which steps per epoch.
+            The target for the scheduler: the decoder (steps per
+            batch) or the representations (steps per epoch).
 
         lr_scheduler_type : :class:`str` or :obj:`None`
             The type of learning rate scheduler to set up,
@@ -1213,11 +1050,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         # If the type of scheduler is 'cosine'
         elif lr_scheduler_type == "cosine":
 
-            # Set the scheduler. It anneals the optimizer's own learning
-            # rate down to 'eta_min' over the whole run, so 'T_max' is
-            # the number of steps the scheduler takes - one per batch for
-            # the decoder, one per epoch for the representations - the
-            # same count 'one_cycle' uses as its 'total_steps'.
+            # Set the scheduler. 'T_max' is the number of steps it
+            # anneals over - the same count 'one_cycle' uses for
+            # 'total_steps'.
             lr_scheduler_opts = lr_scheduler_options.copy()
             lr_scheduler_opts.pop("enabled", None)
             lr_scheduler = \
@@ -1242,82 +1077,33 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         """Get the scaling factor of a sample only some of whose genes
         were measured.
 
-        The factor the model multiplies its predicted means by is the
-        sample's MEAN COUNT OVER ALL OF ITS GENES. That is the quantity
-        the decoder was trained against, and it is not negotiable: a
-        different factor means the decoder's output means something
-        different from what it was fitted to mean.
+        Parameters
+        ----------
+        obs_counts : :class:`torch.Tensor`
+            The observed counts for the sample(s).
 
-        The trouble is that a sample only part of which was measured
-        does not have that quantity. The unmeasured genes are not in the
-        sum, and taking the mean over the genes that ARE there - or, what
-        is the same thing and what happens by default, taking the mean
-        over all of them with the unmeasured ones entered as zeros -
-        gives a number that is too small by however much of the
-        transcriptome is absent. A thousand-gene panel of a fourteen-
-        thousand-gene model would be scaled by about a fourteenth of
-        what it should be, and every predicted mean would come out that
-        much too low: the genes that WERE measured as much as the genes
-        that were not, because there is one representation and it is
-        fitted to all of them at once.
+        pred_means : :class:`torch.Tensor`
+            The model's predicted, unscaled means for the sample(s).
 
-        So the missing part of the sum is filled in by the model. Write
-        's' for the mean count over all G genes, 'M' for the genes that
-        were measured, and 'mu_g = s * pred_g' for what the model says a
-        gene's mean is. Then
+        mask : :class:`torch.Tensor`
+            A 0/1 mask marking which genes were measured.
 
-            s * G  =  sum_{g in M} obs_g  +  sum_{g not in M} mu_g
+        n_genes : :class:`int`
+            The total number of genes the model was built for.
 
-                   =  sum_{g in M} obs_g  +  s * sum_{g not in M} pred_g
+        scaling_factor : :class:`str`, {``"mean"``, ``"median"``}, \
+            optional
+            Which scaling factor to compute.
 
-        and solving for the 's' on both sides,
-
-                          sum_{g in M} obs_g
-            s  =  --------------------------------
-                   G  -  sum_{g not in M} pred_g
-
-        which is what is returned. The observed genes carry their own
-        counts; the unobserved ones are carried by the model's
-        expectation of them, which is the only thing there is to carry
-        them with.
-
-        It is exact when everything is measured. The second sum is then
-        empty, and 's' is 'sum(obs) / G' - the mean count over all the
-        genes, the factor the model always used. The masked path is
-        therefore a generalization of the unmasked one and not a rival to
-        it, which is a thing worth being able to prove rather than claim:
-        pass a mask of all ones and the answer must not move.
-
-        THE MEDIAN. The argument above is an argument about a sum, and a
-        median is not a sum, so it does not carry over. What carries over
-        instead is something simpler. The fill-in exists because a PANEL
-        is a biased sample of the transcriptome - a thousand genes chosen
-        for being worth measuring are not a thousand genes drawn at
-        random, and neither their mean nor their median estimates the
-        whole sample's. But when the unmeasured genes are MISSING AT
-        RANDOM, the measured ones are a uniform subsample, and their
-        median estimates the median over all the genes directly, with no
-        model and no equation to solve.
-
-        So that is what is returned for a median-scaled model, and the
-        condition attaches to it: **the mask must be random**. For a
-        targeted panel it is biased, in the same direction and for the
-        same reason the naive mean would be.
-
-        It was worth checking rather than assuming, because the tempting
-        alternative is wrong. Requiring 's' to be the median of the
-        completed vector - the exact analogue of the equation the mean
-        solves - has a closed-form solution ('s * pred_g <= s' is just
-        'pred_g <= 1', so the unmeasured genes contribute a count that
-        does not depend on 's' and the answer is an order statistic of
-        the measured counts). It is elegant and it is biased by about
-        20% low, because it fills the unmeasured half with noiseless
-        expectations, and a median is moved by noise where a mean is not.
-        Under a random mask the naive median lands on the unmasked one to
-        within a count or two; that self-consistent one does not.
+        Returns
+        -------
+        :class:`torch.Tensor`
+            The scaling factor(s).
         """
 
-        # If the scaling factor is the median.
+        # If computing the median: a naive median over only the
+        # measured genes is biased when missingness isn't random, so
+        # find it directly rather than filling in and re-deriving it.
         if scaling_factor == "median":
 
             # Put the unmeasured genes beyond every measured one, so
@@ -1325,6 +1111,7 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             # selected.
             sortable = obs_counts.masked_fill(mask == 0.0, float("inf"))
 
+            # Count the measured genes per sample.
             n_measured = mask.sum(dim = -1, keepdim = True).long()
 
             # The lower of the two middle values when the count is even,
@@ -1332,21 +1119,23 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             # sample - the two paths must agree when nothing is masked.
             idx = ((n_measured - 1) // 2).clamp(min = 0)
 
+            # Gather the median value at the computed index.
             return sortable.sort(dim = -1).values.gather(-1, idx)
 
         #-------------------------------------------------------------#
 
+        # Otherwise, solve for 's' so the predicted total matches the
+        # observed total over measured genes plus the model's own
+        # expectation for the rest; reduces to the plain mean when all
+        # genes are measured.
         obs_measured = (obs_counts * mask).sum(dim = -1, keepdim = True)
 
+        # Sum the model's predicted means over the unmeasured genes.
         pred_unmeasured = \
             (pred_means * (1.0 - mask)).sum(dim = -1, keepdim = True)
 
-        # 'n_genes' minus the model's own predicted total over the genes
-        # it was not shown. It cannot go to zero for any model that is
-        # not badly broken - the predicted means average about one, so
-        # this is about the number of genes that WERE measured - but it
-        # is clamped, because a division that can produce an infinity
-        # will eventually produce one.
+        # Roughly the number of measured genes (predicted means
+        # average about one); clamped so the division cannot blow up.
         denominator = (n_genes - pred_unmeasured).clamp(min = 1e-6)
 
         return obs_measured / denominator
@@ -1377,21 +1166,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             The data loader.
 
         genes_mask : :class:`torch.Tensor`, optional
-            A 2D tensor of 1.0 and 0.0, one row per sample and one
-            column per gene, saying which of a sample's genes were
-            MEASURED.
-
-            A gene marked 0.0 contributes nothing to the reconstruction
-            loss, and the scaling factor of a sample's negative
-            binomials is estimated from its measured genes alone. This
-            is what makes a representation findable for a sample only
-            part of whose transcriptome was read - a gene panel - where
-            the unmeasured genes would otherwise be read as genes that
-            are switched off, which is a different thing entirely and a
-            thing the model would try to explain.
-
-            If not passed, every gene of every sample is taken to have
-            been measured, which is what a whole transcriptome is.
+            A 2D 1.0/0.0 mask (samples x genes) of measured genes;
+            unmeasured genes are excluded from the loss and the
+            scaling factor. Defaults to all genes measured.
 
         rep_layer : :class:`bulkdgd.core.latents.RepresentationLayer`
             The representation layer containing the initial
@@ -1401,102 +1178,62 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             The optimizer.
 
         n_components : :class:`int`
-            The number of components of the Gaussian mixture model
-            for which at least one representation was drawn per
-            sample.
+            The number of mixture components with at least one drawn
+            representation per sample.
 
         n_rep_per_comp : :class:`int`
-            The number of new representations taken per sample
-            per component of the Gaussian mixture model.
+            The number of new representations per sample per
+            component.
 
         epochs : :class:`int`
             The number of epochs to run the optimization for.
 
         opt_num : :class:`int`
-            The number of the optimization round (especially useful
-            if multiple rounds are run).
-        
+            The number of the optimization round.
+
         loss_reporting_options : :class:`dict`
             A dictionary containing the options for reporting the loss.
-        
+
         loss_reduction_type : :class:`str`
             The method to reduce the loss across the samples in the
             batch.
-        
+
         latent_lambda : :class:`float`, optional
             The weight of the latent loss term in the total loss.
 
-        noise_type : :class:`str`, optional
-            The type of noise to inject into the representations while
-            they are being optimized. Only ``"gaussian"`` does
-            anything; :obj:`None`, the default, injects nothing.
+        contamination : :class:`float`, optional
+            How much of a sample the model may give up on. Zero (the
+            default) disables it.
 
-            This is the same perturbation the decoder's own training
-            applies to its training representations, and it is off by
-            default here on purpose: a representation config written
-            before this existed has to keep producing the
-            representations it produced then.
+        contamination_r : :class:`float`, optional
+            The dispersion used for the contamination model.
+
+        noise_type : :class:`str`, optional
+            The type of noise to inject into the representations
+            during optimization; only ``"gaussian"`` is implemented,
+            :obj:`None` disables it.
 
         noise_options : :class:`dict`, optional
-            The options for the noise, with the same meaning as the
-            ``train_noise_options`` of training: ``scale`` (the base
-            scale, zero disables), ``start`` and ``end`` (the
-            multipliers the scale is annealed between, cosine, over
-            this optimization's epochs), ``within_radius_prob`` (the
-            probability defining the hypersphere the noise is
-            normalized against) and ``gain``.
+            The noise options: ``scale``, ``start``/``end`` (the
+            cosine-annealed scale multipliers), ``within_radius_prob``
+            and ``gain``.
 
         Returns
         -------
         rep : :class:`torch.Tensor`
-            A tensor containing the optimized representations.
-
-            This is a 2D tensor where:
-
-            - The first dimension has a length equal to the number
-              of samples.
-
-            - The second dimension has a length equal to the
-              dimensionality of the latent space where the
-              representations live.
+            The optimized representations, shaped (samples, latent
+            dimensionality).
 
         pred_means : :class:`torch.Tensor`
-            A tensor containing the predicted means of the
-            distributions modelling the genes' counts.
-
-            This is a 2D tensor where:
-
-            - The first dimension has a length equal to the number
-              of samples.
-
-            - The second dimension has a length equal to the
-              dimensionality of the gene space.
-
-            If the genes counts are modelled using negative binomial
-            distributions, the predicted means are scaled by the
-            corresponding distributions' r-values.
+            The predicted gene-count means, shaped (samples, genes).
 
         pred_r_values : :class:`torch.Tensor` or :obj:`None`
-            A tensor containing the predicted r-values of the negative
-            binomial distributions modelling the genes' counts, if
-            the counts are modelled by negative binomial distributions.
-
-            This is a 2D tensor where:
-
-            - The first dimension has a length equal to the number
-              of samples.
-
-            - The second dimension has a length equal to the
-              dimensionality of the gene space.
-
-            ``pred_r_values`` is :obj:`None` if the counts are modelled
-            by Poisson distributions.
+            The predicted negative-binomial r-values, same shape as
+            ``pred_means``, or :obj:`None` for Poisson counts.
 
         time_opt : :class:`list`
-            A list of tuples storing, for each epoch, information
-            about the CPU and wall clock time used by the entire
-            epoch and by the backpropagation step run within the
-            epoch.
+            Per-epoch CPU/wall-clock timing for the epoch and its
+            backpropagation step.
         """
 
         # Get the total number of samples.
@@ -1519,15 +1256,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         #-------------------------------------------------------------#
 
         # Unpack the noise options once, rather than once an epoch.
-        #
-        # The perturbation is the one training applies to its own
-        # representations - same options, same annealing, same
-        # normalization - so that "noise" means one thing in this
-        # package and not two. What differs is the default: training
-        # injects noise because its representations are being learned
-        # alongside the decoder, whereas here the decoder is fixed and
-        # the representations are an inference, so a config that says
-        # nothing about noise gets none.
+        # Same perturbation training applies to its own representations,
+        # but off by default here since this is inference, not learning.
         noise_options = noise_options or {}
 
         # Only Gaussian noise is implemented; anything else, including
@@ -1542,6 +1272,7 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         if noise_scale_base > 0:
 
+            # Unpack the annealing schedule.
             noise_start = float(noise_options["start"])
             noise_end = float(noise_options["end"])
             noise_gain = float(noise_options["gain"])
@@ -1570,16 +1301,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         # For each epoch
         for epoch in range(1, epochs+1):
 
-            # Get the scale of the noise to inject this epoch, cosine-
-            # annealed between 'start' and 'end' across the
-            # optimization, exactly as training anneals its own.
-            #
-            # Annealing is over THIS optimization's epochs. The two
-            # optimizations of the two-step scheme are annealed
-            # separately, because each is its own descent: the first
-            # explores from many candidates and the second refines the
-            # one that won, and a schedule shared across both would
-            # still be injecting the first one's noise into the second.
+            # Get the noise scale for this epoch, cosine-annealed
+            # between 'start' and 'end' over this optimization's own
+            # epochs (not shared with any other optimization round).
             if noise_scale_base > 0:
 
                 progress = (epoch - 1) / max(epochs - 1, 1)
@@ -1607,18 +1331,10 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             time_tot_bw_wall = 0.0
             rep_avg_loss_epoch = 0.0
 
-            # Everything the epoch does to the loss, as a closure.
-            #
-            # L-BFGS needs one: it probes the objective several times
-            # per step, along the direction its curvature estimate
-            # picked, and each probe has to re-evaluate the loss AND
-            # its gradient at a new point. A first-order optimizer
-            # never asks twice, which is why the loop could be written
-            # inline before.
-            #
-            # The three totals below are re-initialized inside, not
-            # outside, because a probe that reused them would add its
-            # timings and its loss to the previous probe's.
+            # Everything the epoch does to the loss, as a closure -
+            # L-BFGS re-evaluates it several times per step, so the
+            # totals below are reset inside, not outside, to avoid
+            # accumulating across probes.
             def closure():
 
                 nonlocal time_tot_bw_cpu, time_tot_bw_wall
@@ -1638,9 +1354,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                 # Initialize the loss for the current epoch to 0.0.
                 rep_avg_loss_epoch = 0.0
 
-                # For each batch of samples, the mean gene expression
-                # in the samples in the batch, and the unique indexes
-                # of the samples in the batch
+                # For each batch: gene expression, mean gene expression,
+                # and unique sample indexes.
                 for samples_exp, samples_mean_exp, samples_ixs \
                     in data_loader:
 
@@ -1659,61 +1374,21 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
                     #-----------------------------------------------------#
 
-                    # Get the representations' values from the
-                    # representation layer.
-                    # 
-                    # The representations are stored in a 2D tensor with:
-                    #
-                    # - 1st dimension:
-                    #       the total number of samples times the number of
-                    #       components in the Gaussian mixture model times
-                    #       the number of representations taken per
-                    #       component per sample
-                    #
-                    # - 2nd dimension:
-                    #       the dimensionality of the Gaussian mixture
-                    #       model
+                    # Get the representations from the representation
+                    # layer: shape (samples * components * reps, dim).
                     z_all = rep_layer()
 
                     #-----------------------------------------------------#
 
-                    # Reshape the tensor containing the representations.
-                    #
-                    # The output is a 4D tensor with:
-                    #
-                    # - 1st dimension:
-                    #       the total number of samples
-                    # 
-                    # - 2nd dimension:
-                    #       the number of representations taken per
-                    #        component per sample
-                    #
-                    # - 3rd dimension:
-                    #       the number of components in the Gaussian
-                    #       mixture model
-                    #
-                    # - 4th dimension:
-                    #       the dimensionality of the Gaussian mixture
-                    #       model
+                    # Reshape to (samples, reps, components, dim) and
+                    # select this batch's samples.
                     z_4d = z_all.view(n_samples,
                                       n_rep_per_comp,
                                       n_components,
                                       dim)[samples_ixs]
 
-                    # Reshape the tensor again.
-                    #
-                    # The output is a 2D tensor with:
-                    #
-                    # - 1st dimension:
-                    #       the number of samples in the current
-                    #       batch times the number of components
-                    #       in the Gaussian mixture model times
-                    #       the number of representations taken
-                    #       per component per sample
-                    #
-                    # - 2nd dimension:
-                    #       the dimensionality of the Gaussian mixture
-                    #       model
+                    # Flatten back to (batch * reps * components, dim)
+                    # for the decoder.
                     z = z_4d.view(n_samples_in_batch * \
                                     n_rep_per_comp * \
                                     n_components,
@@ -1721,16 +1396,10 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
                     #-----------------------------------------------------#
 
-                    # Inject the noise, if any was asked for.
-                    #
-                    # It is added to the value the decoder sees, not to
-                    # the representation itself: the parameter being
-                    # optimized keeps its own value, and what the
-                    # gradient is taken through is a perturbed copy of
-                    # it. That is what training does, and it is the
-                    # difference between a representation that is
-                    # noisy and a representation optimized to be robust
-                    # to noise - the second is what is wanted.
+                    # Inject the noise, if any was asked for, into the
+                    # value the decoder sees rather than the parameter
+                    # being optimized - this yields a representation
+                    # robust to noise, not merely a noisy one.
                     if noise_scale > 0:
 
                         z = z + noise_scale * noise_gain * \
@@ -1744,22 +1413,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                         self.decoder.nb,
                         (outputmodules.OutputModuleNBFeatureDispersion,
                          outputmodules.OutputModulePoisson)):
-                    
-                        # Get the predicted scaled means of the
-                        # distributions modelling the genes' counts.
-                        #
-                        # The output is a 2D tensor with:
-                        #
-                        # - 1st dimension:
-                        #       the number of samples in the current batch
-                        #       times the number of components in the
-                        #       Gaussian mixture model times the number of
-                        #       representations taken per component per
-                        #       sample
-                        #
-                        # - 2nd dimension:
-                        #       the dimensionality of the output (= gene)
-                        #       space
+
+                        # Get the predicted scaled means: shape
+                        # (batch * reps * components, genes).
                         pred_means = self.decoder(z = z)
 
                     # If the chosen output module means that the r-values
@@ -1768,43 +1424,12 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                         self.decoder.nb,
                         outputmodules.OutputModuleNBFullDispersion):
 
-                        # Get the predicted scaled means and r-values
-                        # of the negative binomial distributions modelling
-                        # the genes' counts.
-                        #
-                        # Both outputs are 2D tensors with:
-                        #
-                        # - 1st dimension:
-                        #       the number of samples in the current batch
-                        #       times the number of components in the
-                        #       Gaussian mixture model times the number of
-                        #       representations taken per component per
-                        #       sample
-                        #
-                        # - 2nd dimension:
-                        #       the dimensionality of the output (= gene)
-                        #       space
+                        # Get the predicted scaled means and r-values:
+                        # both shaped (batch * reps * components, genes).
                         pred_means, pred_log_r_values = self.decoder(z = z)
 
-                        # Reshape the predicted r-values to match the shape
-                        # required to compute the loss.
-                        #
-                        # The output is a 4D tensor with:   
-                        #
-                        # - 1st dimension:
-                        #       the number of samples in the current batch
-                        #
-                        # - 2nd dimension:
-                        #       the number of representations taken per
-                        #       component per sample
-                        #
-                        # - 3rd dimension:
-                        #       the number of components in the Gaussian
-                        #       mixture model
-                        #
-                        # - 4th dimension:
-                        #       the dimensionality of the output (= gene)
-                        #       space
+                        # Reshape the r-values to (batch, reps,
+                        # components, genes) to compute the loss.
                         pred_log_r_values = \
                             pred_log_r_values.view(n_samples_in_batch,
                                                    n_rep_per_comp,
@@ -1813,26 +1438,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
                     #-----------------------------------------------------#
 
-                    # Get the observed gene expression and "expand" the
-                    # resulting tensor to match the shape required to
-                    # compute the reconstruction loss.
-                    #
-                    # The output is a 4D tensor with:
-                    #
-                    # - 1st dimension:
-                    #       the number of samples in the current batch
-                    #
-                    # - 2nd dimension:
-                    #       the number of representations taken per
-                    #       component per sample
-                    #
-                    # - 3rd dimension:
-                    #       the number of components in the Gaussian
-                    #       mixture model
-                    #
-                    # - 4th dimension:
-                    #       the dimensionality of the output (= gene)
-                    #       space
+                    # Expand the observed gene expression to
+                    # (batch, reps, components, genes) to match the
+                    # shape required to compute the reconstruction loss.
                     obs_counts = \
                         samples_exp.unsqueeze(1).unsqueeze(1).expand(\
                             -1,
@@ -1842,55 +1450,24 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
                     #-----------------------------------------------------#
 
-                    # Get the scaling factors for the mean of each negative
-                    # binomial modelling the expression of a gene and
-                    # reshape it so that it matches the shape required to
-                    # compute the reconstruction loss.
-                    #
-                    # The output is a 4D tensor with:
-                    #
-                    # - 1st dimension:
-                    #       the number of samples in the current batch
-                    #
-                    # - 2nd dimension: 1
-                    #
-                    # - 3rd dimension: 1
-                    #
-                    # - 4th dimension: 1
+                    # Reshape the per-gene scaling factors to
+                    # (batch, 1, 1, 1), broadcastable over the loss.
                     scaling_factors = \
                         decoders.reshape_scaling_factors(samples_mean_exp,
                                                          4)
 
                     #-----------------------------------------------------#
 
-                    # The mask of the samples in this batch, if there is
-                    # one, shaped so that it broadcasts over the
-                    # representations and the components.
+                    # The batch's mask, if any, shaped to broadcast over
+                    # the representations and the components.
                     mask_batch = \
                         genes_mask[samples_ixs].unsqueeze(1).unsqueeze(1) \
                             if genes_mask is not None else None
 
                     #-----------------------------------------------------#
 
-                    # Reshape the predicted scaled means to match the
-                    # shape required to compute the loss.
-                    #
-                    # The output is a 4D tensor with:
-                    #
-                    # - 1st dimension:
-                    #       the number of samples in the current batch
-                    #
-                    # - 2nd dimension:
-                    #       the number of representations taken per
-                    #       component per sample
-                    #
-                    # - 3rd dimension:
-                    #       the number of components in the Gaussian
-                    #       mixture model
-                    #
-                    # - 4th dimension:
-                    #       the dimensionality of the output (= gene)
-                    #       space
+                    # Reshape the predicted means to (batch, reps,
+                    # components, genes) to compute the loss.
                     pred_means = pred_means.view(n_samples_in_batch,
                                                  n_rep_per_comp,
                                                  n_components,
@@ -1898,26 +1475,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
                     #-----------------------------------------------------#
 
-                    # If only some of the genes were measured, the scaling
-                    # factor cannot be the mean over all of them.
-                    #
-                    # 'samples_mean_exp' is the mean count over EVERY gene
-                    # of the sample, and the unmeasured genes enter it as
-                    # zeros. A thousand-gene panel of a fourteen-thousand
-                    # gene model would therefore be scaled by about a
-                    # fourteenth of what it should be, and every predicted
-                    # mean - of the genes that WERE measured as much as of
-                    # the genes that were not - would come out that much too
-                    # small. Masking the loss alone does not save it: the
-                    # scale is wrong for the genes that are still in the
-                    # loss.
-                    #
-                    # So the factor is estimated where the data still is:
-                    # the one that makes the predicted total over the
-                    # MEASURED genes equal the observed total over those
-                    # same genes. It uses nothing the model was not given,
-                    # it is one sum, and it is exact. It is re-estimated at
-                    # every step, because 'pred_means' moves at every step.
+                    # If only some genes were measured, re-estimate the
+                    # scaling factor from the measured genes alone every
+                    # step, since 'pred_means' moves at every step.
                     if mask_batch is not None:
 
                         scaling_factors = \
@@ -1958,10 +1518,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                              "pred_log_r_values" : pred_log_r_values,
                              "scaling_factors" : scaling_factors}
 
-                    # Bound what a gene the model cannot reach is allowed to
-                    # do to the representation. Off unless asked for; see
-                    # 'OutputModuleNBFullDispersion.loss' for why it belongs
-                    # here and not in training.
+                    # Bound what a gene the model cannot reach is allowed
+                    # to do to the representation. Off unless asked for.
                     if contamination:
 
                         recon_loss_options["contamination"] = contamination
@@ -1969,42 +1527,15 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                         recon_loss_options["contamination_r"] = \
                             contamination_r
 
-                    # Get the reconstruction loss.
-                    #
-                    # The output is a 4D tensor with:
-                    #
-                    # - 1st dimension:
-                    #       the number of samples in the current batch
-                    # 
-                    # - 2nd dimension:
-                    #       the number of representations taken per
-                    #       component per sample
-                    #
-                    # - 3rd dimension:
-                    #       the number of components in the Gaussian
-                    #       mixture model
-                    #
-                    # - 4th dimension:
-                    #       the dimensionality of the output (= gene)
-                    #       space
+                    # Get the reconstruction loss: shape (batch, reps,
+                    # components, genes).
                     recon_loss = self.decoder.nb.loss(**recon_loss_options)
 
                     #-----------------------------------------------------#
 
-                    # Take out the genes that were not measured.
-                    #
-                    # The loss comes back one value to a gene, and is only
-                    # reduced below - so a gene is removed from the
-                    # objective by zeroing its term, which is what
-                    # marginalizing it out of a factorized likelihood
-                    # amounts to. It is not a trick: the posterior over the
-                    # representation given SOME of the genes is exactly the
-                    # posterior with the other genes' terms absent.
-                    #
-                    # Without this, an unmeasured gene reads as a gene
-                    # measured to be OFF, and the model will move the
-                    # representation in order to explain a silence that was
-                    # never observed.
+                    # Zero out unmeasured genes' loss terms before the
+                    # reduction below, or an unmeasured gene would read
+                    # as one measured to be off.
                     if mask_batch is not None:
 
                         recon_loss = recon_loss * mask_batch
@@ -2074,12 +1605,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
                     #-----------------------------------------------------#
 
-                    # The dispersion regularization the output module asks
-                    # for. It is zero for every module but the ones that
-                    # shrink the per-sample dispersion toward a per-gene, or
-                    # a mean-trend, baseline - for those it is the size of
-                    # the deviation, reduced the same way the reconstruction
-                    # loss was so that the two are on the same scale.
+                    # The dispersion regularization the output module
+                    # asks for; zero except for modules that shrink the
+                    # per-sample dispersion toward a baseline.
                     dispersion_reg = \
                         self.decoder.nb.dispersion_regularization(
                             pred_means = pred_means,
@@ -2139,17 +1667,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
             #---------------------------------------------------------#
 
-            # Take an optimization step.
-            #
-            # L-BFGS drives the closure itself, since only it knows
-            # how many probes its line search needs. Every other
-            # optimizer is given one evaluation and then steps on the
-            # gradients that evaluation left behind.
-            #
-            # Asked of the optimizer rather than of a name passed in:
-            # the object already knows what it is, and a second copy of
-            # that knowledge in the signature is a second thing to keep
-            # in step.
+            # Take an optimization step. L-BFGS drives the closure
+            # itself (its line search needs multiple probes); every
+            # other optimizer gets one evaluation, then steps.
             if isinstance(optimizer, torch.optim.LBFGS):
 
                 optimizer.step(closure)
@@ -2275,13 +1795,6 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                                 torch.Tensor:
         """Select the best representation per sample.
 
-        'genes_mask' says which of a sample's genes were measured, and
-        it must be the same mask the optimization used. The candidates
-        compete on their loss, and a loss that counts the unmeasured
-        genes is a loss that rewards the candidate which best explains
-        a silence nobody observed - so the winner would be chosen on
-        the strength of the very genes that were never read.
-
         Parameters
         ----------
         data_loader : :class:`torch.utils.data.DataLoader`
@@ -2302,35 +1815,37 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         latent_lambda : :class:`float`, optional
             The weight of the GMM loss term in the total loss.
 
+        genes_mask : :class:`torch.Tensor`, optional
+            A 2D mask of which genes were measured, matching the one
+            passed to the optimization that produced the candidates.
+            Excludes unmeasured genes from the candidates' losses, so
+            the winner is not chosen on genes that were never read.
+
+        contamination : :class:`float`, optional
+            How much of a sample the model is allowed to give up on,
+            matching the value used during optimization.
+
+        contamination_r : :class:`float`, optional
+            The dispersion used for the contamination model, if
+            ``contamination`` is nonzero.
+
+        n_components : :class:`int`, optional
+            The number of components to lay the candidates out over.
+            If not given, the mixture's own component count is used.
+
         Returns
         -------
         rep : :class:`torch.Tensor`
-            A tensor containing the best representations found for the
-            given samples (one representation per sample).
-
-            This is a 2D tensor where:
-
-            - The first dimension has a length equal to the number
-              of samples.
-
-            - The second dimension has a length equal to the
-              dimensionality of the latent space, where the
-              representations live.
+            The best representation per sample, shaped (samples,
+            latent dimensionality).
         """
 
         # Get the total number of samples.
         n_samples = len(data_loader.dataset)
 
-        # Get the number of components in the Gaussian mixture model.
-        #
-        # A caller may override it. The candidates of a sample are laid
-        # out as 'n_rep_per_comp' * 'n_components' and this method
-        # reshapes by that product, so a layer that already holds ONE
-        # representation per sample - as it does after the second
-        # optimization, when what is wanted is the loss and not a
-        # competition - has to be able to say so. Left alone it is the
-        # mixture's own count, which is what the selection after the
-        # first optimization needs.
+        # Number of GMM components; a caller may override it (e.g. a
+        # layer already holding one representation per sample), else
+        # it defaults to the mixture's own count.
         n_components = \
             self.latent.n_components if n_components is None \
             else int(n_components)
@@ -2344,23 +1859,14 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         
         #-------------------------------------------------------------#
 
-        # Initialize an empty tensor to store the best representations
-        # found for all samples.
-        #
-        # This is a 2D tensor with:
-        #
-        # - 1st dimension:
-        #       the total number of samples
-        #
-        # - 2nd dimension:
-        #       the dimensionality of the Gaussian mixture model
+        # Initialize an empty tensor, shape (samples, dim), to store
+        # the best representations found for all samples.
         best_reps = torch.empty((n_samples, dim)).to(self.device)
-        
+
         #-------------------------------------------------------------#
 
-        # For each batch of samples, the mean gene expression
-        # in the samples in the batch, and the unique indexes
-        # of the samples in the batch
+        # For each batch: gene expression, mean gene expression, and
+        # unique sample indexes.
         for samples_exp, samples_mean_exp, samples_ixs \
             in data_loader:
 
@@ -2379,59 +1885,19 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
             #---------------------------------------------------------#
 
-            # Get the representations' values from the
-            # representation layer.
-            # 
-            # The representations are stored in a 2D tensor with:
-            #
-            # - 1st dimension:
-            #       the total number of samples times the number of
-            #       components in the Gaussian mixture model times
-            #       the number of representations taken per
-            #       component per sample
-            #
-            # - 2nd dimension:
-            #       the dimensionality of the Gaussian mixture
-            #       model
+            # Get the representations from the representation layer:
+            # shape (samples * components * reps, dim).
             z_all = rep_layer()
 
-            # Reshape the tensor containing the representations.
-            #
-            # The output is a 4D tensor with:
-            #
-            # - 1st dimension:
-            #       the total number of samples
-            # 
-            # - 2nd dimension:
-            #       the number of representations taken per
-            #        component per sample
-            #
-            # - 3rd dimension:
-            #       the number of components in the Gaussian
-            #       mixture model
-            #
-            # - 4th dimension:
-            #       the dimensionality of the Gaussian mixture
-            #       model
+            # Reshape to (samples, reps, components, dim) and select
+            # this batch's samples.
             z_4d = z_all.view(n_samples,
                               n_rep_per_comp,
                               n_components,
                               dim)[samples_ixs]
 
-            # Reshape the tensor again.
-            #
-            # The output is a 2D tensor with:
-            #
-            # - 1st dimension:
-            #       the number of samples in the current
-            #       batch times the number of components
-            #       in the Gaussian mixture model times
-            #       the number of representations taken
-            #       per component per sample
-            #
-            # - 2nd dimension:
-            #       the dimensionality of the Gaussian mixture
-            #       model
+            # Flatten back to (batch * reps * components, dim) for
+            # the decoder.
             z = z_4d.view(n_samples_in_batch * \
                             n_rep_per_comp * \
                             n_components,
@@ -2445,66 +1911,23 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                 self.decoder.nb,
                 (outputmodules.OutputModuleNBFeatureDispersion,
                  outputmodules.OutputModulePoisson)):
-                
-                # Get the predicted scaled means of the
-                # distributions modelling the genes' counts.
-                #
-                # The output is a 2D tensor with:
-                #
-                # - 1st dimension:
-                #       the number of samples in the current batch
-                #       times the number of components in the
-                #       Gaussian mixture model times the number of
-                #       representations taken per component per
-                #       sample
-                #
-                # - 2nd dimension:
-                #       the dimensionality of the output (= gene)
-                #       space
+
+                # Get the predicted scaled means: shape
+                # (batch * reps * components, genes).
                 pred_means = self.decoder(z = z)
-            
+
             # If the chosen output module means that the r-values
             # are learned
             elif isinstance(\
                 self.decoder.nb,
                 outputmodules.OutputModuleNBFullDispersion):
 
-                # Get the predicted scaled means of the
-                # distributions modelling the genes' counts.
-                #
-                # Both outputs are 2D tensors with:
-                #
-                # - 1st dimension:
-                #       the number of samples in the current batch
-                #       times the number of components in the
-                #       Gaussian mixture model times the number of
-                #       representations taken per component per
-                #       sample
-                #
-                # - 2nd dimension:
-                #       the dimensionality of the output (= gene)
-                #       space
+                # Get the predicted scaled means and r-values: both
+                # shaped (batch * reps * components, genes).
                 pred_means, pred_log_r_values = self.decoder(z = z)
 
-                # Reshape the predicted r-values to match the shape
-                # required to compute the loss.
-                #
-                # The output is a 4D tensor with:
-                #
-                # - 1st dimension:
-                #       the number of samples in the current batch
-                #
-                # - 2nd dimension:
-                #       the number of representations taken per
-                #       component per sample
-                #
-                # - 3rd dimension:
-                #       the number of components in the Gaussian
-                #       mixture model
-                #
-                # - 4th dimension:
-                #       the dimensionality of the output (= gene)
-                #       space
+                # Reshape the r-values to (batch, reps, components,
+                # genes) to compute the loss.
                 pred_log_r_values = \
                     pred_log_r_values.view(n_samples_in_batch,
                                            n_rep_per_comp,
@@ -2513,26 +1936,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
             #---------------------------------------------------------#
 
-            # Get the observed gene expression and "expand" the
-            # resulting tensor to match the shape required to
+            # Expand the observed gene expression to (batch, reps,
+            # components, genes) to match the shape required to
             # compute the reconstruction loss.
-            #
-            # The output is a 4D tensor with:
-            #
-            # - 1st dimension:
-            #       the number of samples in the current batch
-            #
-            # - 2nd dimension:
-            #       the number of representations taken per
-            #       component per sample
-            #
-            # - 3rd dimension:
-            #       the number of components in the Gaussian
-            #       mixture model
-            #
-            # - 4th dimension:
-            #       the dimensionality of the output (= gene)
-            #       space
             obs_counts = \
                 samples_exp.unsqueeze(1).unsqueeze(1).expand(\
                     -1,
@@ -2542,21 +1948,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
             #---------------------------------------------------------#
 
-            # Get the scaling factors for the mean of each negative
-            # binomial modelling the expression of a gene and
-            # reshape it so that it matches the shape required to
-            # compute the reconstruction loss.
-            #
-            # The output is a 4D tensor with:
-            #
-            # - 1st dimension:
-            #       the number of samples in the current batch
-            #
-            # - 2nd dimension: 1
-            #
-            # - 3rd dimension: 1
-            #
-            # - 4th dimension: 1
+            # Reshape the per-gene scaling factors to (batch, 1, 1, 1),
+            # broadcastable over the loss.
             scaling_factors = \
                 decoders.reshape_scaling_factors(samples_mean_exp,
                                                  4)
@@ -2570,25 +1963,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
             #---------------------------------------------------------#
 
-            # Reshape the predicted scaled means to match the
-            # shape required to compute the loss.
-            #
-            # The output is a 4D tensor with:
-            #
-            # - 1st dimension:
-            #       the number of samples in the current batch
-            #
-            # - 2nd dimension:
-            #       the number of representations taken per
-            #       component per sample
-            #
-            # - 3rd dimension:
-            #       the number of components in the Gaussian
-            #       mixture model
-            #
-            # - 4th dimension:
-            #       the dimensionality of the output (= gene)
-            #       space
+            # Reshape the predicted means to (batch, reps, components,
+            # genes) to compute the loss.
             pred_means = pred_means.view(n_samples_in_batch,
                                          n_rep_per_comp,
                                          n_components,
@@ -2596,11 +1972,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
             #---------------------------------------------------------#
 
-            # The scaling factor, estimated on the measured genes alone.
-            # It is the same estimate the optimization used, and it must
-            # be: the candidates are being compared on their loss, and a
-            # loss computed with a different scale is not the loss they
-            # were optimized under.
+            # Re-estimate the scaling factor on the measured genes
+            # alone, matching what the optimization used - candidates
+            # must be compared on the loss they were optimized under.
             if mask_batch is not None:
 
                 scaling_factors = \
@@ -2641,11 +2015,10 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                      "pred_log_r_values" : pred_log_r_values,
                      "scaling_factors" : scaling_factors}
 
-                # The representation being SELECTED has to be scored the
-                # same way it was OPTIMIZED. Scoring candidates with the
-                # plain loss after optimizing them with the bounded one
-                # would hand the choice straight back to the genes the
-                # bound exists to keep out of it.
+                # A representation being selected must be scored the
+                # same way it was optimized (with the same bound),
+                # or the choice reverts to the genes the bound exists
+                # to keep out of it.
                 if contamination:
 
                     recon_loss_options["contamination"] = contamination
@@ -2653,24 +2026,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                     recon_loss_options["contamination_r"] = \
                         contamination_r
 
-            # Get the reconstruction loss.
-            #
-            # The output is a 4D tensor with:
-            #
-            # - 1st dimension:
-            #       the number of samples in the current batch
-            # 
-            # - 2nd dimension:
-            #       the number of representations taken per
-            #       component per sample
-            #
-            # - 3rd dimension:
-            #       the number of components in the Gaussian
-            #       mixture model
-            #
-            # - 4th dimension:
-            #       the dimensionality of the output (= gene)
-            #       space
+            # Get the reconstruction loss: shape (batch, reps,
+            # components, genes).
             recon_loss = self.decoder.nb.loss(**recon_loss_options)
 
             # Take out the genes that were not measured, so that the
@@ -2679,33 +2036,17 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
                 recon_loss = recon_loss * mask_batch
 
-            # Get the total reconstruction loss by summing or averaging
-            # over the last dimension of the 'recon_loss' tensor.
-            #
-            # This means that the loss is not per-gene anymore, but it
-            # is summed over all genes. However, it is still one loss
-            # per representation per sample.
-            #
-            # The output is a 3D tensor with:
-            #
-            # - 1st dimension: the number of samples in the current
-            #                  batch -> 'n_samples_in_batch'
-            #
-            # - 2nd dimension: the number of representations taken per
-            #                  component per sample ->
-            #                  'n_rep_per_comp'
-            #
-            # - 3rd dimension: the number of components in the Gaussian
-            #                  mixture model ->
-            #                  'n_components'
-            
+            # Sum or average over genes, leaving one loss per
+            # representation per sample: shape (batch, reps,
+            # components).
+
             # If the reduction method is 'sum'
             if loss_reduction_type == "sum":
 
                 # Get the total reconstruction loss by summing over the
                 # last dimension of the 'recon_loss' tensor.
                 recon_loss_final = recon_loss.sum(-1).clone()
-            
+
             # If the reduction method is 'mean'
             elif loss_reduction_type == "mean":
 
@@ -2713,16 +2054,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                 # the last dimension of the 'recon_loss' tensor.
                 recon_loss_final = recon_loss.mean(-1).clone()
 
-            # Reshape the reconstruction loss so that it can be summed
-            # to the GMM loss (calculated below).
-            #
-            # The aim is to have one loss per representation per
-            # sample.
-            #
-            # The output is, therefore, a 1D tensor with the number of
-            # samples in the current batch times the number of
-            # components in the Gaussian mixture model times the number
-            # of representations taken per component per sample.
+            # Flatten to 1D (batch * reps * components) so it can be
+            # summed with the GMM loss below.
             recon_loss_final_reshaped = \
                 recon_loss_final.view(n_samples_in_batch * \
                                       n_rep_per_comp * \
@@ -2730,19 +2063,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
             #---------------------------------------------------------#
 
-            # Get the latent space loss. 
-            #
-            # For Gaussian mixture models, 'latent(z)' computes the
-            # negative log density of the probability of the
-            # representations 'z' being drawn from the model.
-            #
-            # The shape of the loss is consistent with the shape of the
-            # reconstruction loss in 'recon_loss_final_shaped'.
-            #
-            # The output is, therefore, a 1D tensor with the number of
-            # samples in the current batch times the number of
-            # components in the Gaussian mixture model times the number
-            # of representations taken per component per sample.
+            # Get the latent space loss - for Gaussian mixture models,
+            # 'latent(z)' is the negative log density of 'z' under the
+            # model, shaped like 'recon_loss_final_reshaped'.
 
             # If the latent space is the legacy Gaussian mixture model
             if isinstance(self.latent,
@@ -2776,45 +2099,22 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
             #---------------------------------------------------------#
 
-            # Reshape the tensor containing the total loss.
-            #
-            # The output is a 2D tensor with:
-            #
-            # - 1st dimension:
-            #       the number of samples in the current batch
-            #
-            # - 2nd dimension:
-            #       the number of representations taken per component
-            #       of the Gaussian mixture model per sample times the
-            #       number of components
+            # Reshape the total loss to (batch, reps * components).
             total_loss_reshaped = \
                 total_loss.view(n_samples_in_batch,
                                 n_rep_per_comp * n_components)
 
-
             #---------------------------------------------------------#
 
-            # Get the best representation for each sample in the
-            # current batch.
-            #
-            # The output is a 1D tensor with the number of samples in
-            # the current batch
+            # Get the index of the best candidate for each sample:
+            # shape (batch,).
             best_rep_per_sample = torch.argmin(total_loss_reshaped,
                                                dim = 1).squeeze(-1)
 
             #---------------------------------------------------------#
 
-            # Get the best representations for the samples in the batch
-            # from the 'n_rep_per_comp' * 'n_components' representations
-            # taken for each sample.
-            #
-            # The output is a 2D tensor with:
-            #
-            # - 1st dimension:
-            #       the number of samples in the current batch
-            #
-            # - 2nd dimension:
-            #       the dimensionality of the Gaussian mixture model
+            # Select the winning candidate's representation for each
+            # sample: shape (batch, dim).
             rep = z.view(n_samples_in_batch,
                          n_rep_per_comp * n_components,
                          dim)[range(n_samples_in_batch),
@@ -2829,16 +2129,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
             #---------------------------------------------------------#
 
-            # Keep what the 'argmin' is about to throw away.
-            #
-            # The competition between the candidates is the most
-            # informative thing this method does, and all that survives
-            # it is the index of the winner. The losses say HOW the
-            # winner won - by six hundred nats or by twelve - and the
-            # candidates' positions say whether the component a
-            # candidate was BORN in is the component it ARRIVED in,
-            # which, since the candidates are optimized before they are
-            # judged, is not a thing anybody should assume.
+            # Optionally keep the losses and each candidate's starting
+            # vs. final component (they may drift, since candidates are
+            # optimized before judging), not just the winner's index.
             if self._keep_selection_details:
 
                 with torch.no_grad():
@@ -2847,9 +2140,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                                     n_rep_per_comp * n_components,
                                     dim)
 
-                    # Which component each candidate ARRIVED in: the one
-                    # that claims it, out of the mixture, where it now
-                    # stands.
+                    # Which component each candidate now belongs to,
+                    # under the mixture.
                     log_prob_comp = \
                         self.latent._get_log_prob_comp(
                             z_cand.reshape(-1, dim))
@@ -2858,9 +2150,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                         n_samples_in_batch,
                         n_rep_per_comp * n_components)
 
-                    # Which component it was BORN in. The candidates are
-                    # laid out as (sample, rep, component), so the
-                    # component is the index modulo the number of them.
+                    # Which component it was born in - candidates are
+                    # laid out as (sample, rep, component), so this is
+                    # the index modulo the component count.
                     born = torch.arange(
                         n_rep_per_comp * n_components,
                         device = arrived.device) % n_components
@@ -2906,31 +2198,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                        original_n_samples: Optional[int] = None,
                        chunk_size: Optional[int] = None) -> \
             torch.Tensor:
-        """Draw the candidate representations for one seed.
-
-        This is the initialization step of the 'two_opt' scheme, pulled
-        out so that a scheme running several seeds can perform it once
-        per seed and get, for each, exactly what a single-seed run of
-        'two_opt' would have started from.
-
-        ``sample_keyed`` is the default.  It derives an independent
-        random stream from the configured seed and the sample's ID, so
-        a sample starts from the same candidates regardless of its row,
-        its neighbours, or how the input is chunked.
-
-        ``legacy_positional`` is the historical implementation.  Its
-        single global stream is consumed component by component, and a
-        sample's candidates therefore depend on the number and order of
-        samples in the current chunk.  Published configurations request
-        it explicitly so their representations remain reproducible.
-
-        ``legacy_indexed`` reconstructs those historical candidates
-        from an external table mapping sample IDs to their zero-based
-        absolute row positions in the old input. Together with the old
-        total sample count and chunk size, this identifies both the
-        sample's position inside its old chunk and the number of draws
-        the chunk consumed. The current input can then be reordered or
-        subsetted without changing the reconstructed starting points.
+        """Draw the candidate representations for one seed - the
+        initialization step of the 'two_opt' scheme, split out so a
+        multi-seed run can reproduce a single-seed one exactly.
 
         Parameters
         ----------
@@ -2942,15 +2212,20 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             mixture component for each sample.
 
         seed : :class:`int`, optional
-            The initialization seed. It is required by
-            ``sample_keyed`` and ``legacy_indexed``.
-
-        samples_names : :class:`list` of :class:`str`, optional
-            The sample names. They are required by ``sample_keyed`` and
+            The initialization seed, required by ``sample_keyed`` and
             ``legacy_indexed``.
 
-        mode : :class:`str`
-            The initialization mode.
+        samples_names : :class:`list` of :class:`str`, optional
+            The sample names, required by ``sample_keyed`` and
+            ``legacy_indexed``.
+
+        mode : :class:`str`, {``"sample_keyed"``, \
+            ``"legacy_positional"``, ``"legacy_indexed"``}
+            The initialization mode: ``sample_keyed`` derives an
+            independent stream per sample ID; ``legacy_positional``
+            consumes one global stream in chunk order; ``legacy_indexed``
+            reconstructs ``legacy_positional``'s draws from an index
+            table so the input can be reordered or subsetted.
 
         index_file : :class:`str`, optional
             The CSV file mapping sample names to historical absolute
@@ -2972,26 +2247,45 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         modes = {"sample_keyed", "legacy_positional", "legacy_indexed"}
 
+        # If the user provided an unsupported initialization mode
         if mode not in modes:
 
+            # Raise an error.
             raise ValueError(
                 f"Unsupported representation initialization mode "
                 f"'{mode}'. The supported modes are: "
                 f"{', '.join(sorted(modes))}.")
 
+        # Get the number of components in the Gaussian mixture model.
         n_components = self.latent.n_components
 
+        # Get the dimensionality of the latent space.
         n_dim = self.latent.dim
 
         #-------------------------------------------------------------#
 
         def draw_legacy_chunk(chunk_n_samples: int) -> torch.Tensor:
-            """Run the historical stream for one complete old chunk."""
+            """Draw candidates for one chunk, using the legacy
+            positional draw order.
 
+            Parameters
+            ----------
+            chunk_n_samples : :class:`int`
+                The number of samples in this chunk.
+
+            Returns
+            -------
+            :class:`torch.Tensor`
+                The drawn candidates for the chunk.
+            """
+
+            # Collect one draw per component, in component order.
             component_samples = []
 
             with contextlib.ExitStack() as stack:
 
+                # If a seed was given, fork the RNG so this draw does
+                # not disturb the global stream.
                 if seed is not None:
 
                     stack.enter_context(
@@ -2999,16 +2293,20 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
                     torch.manual_seed(int(seed))
 
+                # For each component, in order.
                 for comp_idx in range(n_components):
 
+                    # Draw this component's samples for the chunk.
                     samples_comp, _ = self.latent.sample(
                         n_samples = chunk_n_samples * n_rep_per_comp,
                         component = comp_idx)
 
                     component_samples.append(samples_comp)
 
+            # Stack the per-component draws into one tensor.
             component_samples = torch.stack(component_samples, dim = 0)
 
+            # Reshape into the legacy positional layout.
             component_samples = component_samples.view(
                 n_components,
                 chunk_n_samples,
@@ -3016,6 +2314,94 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                 n_dim)
 
             return component_samples.permute(1, 2, 0, 3)
+
+        #-------------------------------------------------------------#
+
+        def draw_sample_keyed(sample_ids: list[str]) -> torch.Tensor:
+            """Draw candidates keyed by sample identity, independent
+            of row, chunk and order.
+
+            Parameters
+            ----------
+            sample_ids : :class:`list`
+                The sample IDs to draw candidates for, in the order
+                the result is returned in.
+
+            Returns
+            -------
+            :class:`torch.Tensor`
+                One row per ``(sample, n_rep_per_comp, component)``
+                combination, in that order.
+            """
+
+            # One CPU generator call per sample, independent of row,
+            # chunk and every other sample; a cryptographic digest is
+            # used since Python's hash is randomized between processes.
+            standard_normal = []
+
+            # For each sample ID
+            for sample_id in sample_ids:
+
+                # Build the per-sample payload to seed the digest with.
+                payload = \
+                    f"{int(seed)}\0{sample_id}".encode("utf-8")
+
+                # Hash the payload into a fixed-size digest.
+                digest = hashlib.blake2b(
+                    payload,
+                    digest_size = 8,
+                    person = b"BulkDGD.init.v1").digest()
+
+                # Turn the digest into a valid torch seed.
+                sample_seed = \
+                    int.from_bytes(digest,
+                                   byteorder = "big",
+                                   signed = False) & ((1 << 63) - 1)
+
+                # Create a dedicated CPU generator for this sample.
+                generator = torch.Generator(device = "cpu")
+
+                # Seed the generator.
+                generator.manual_seed(sample_seed)
+
+                # Draw the standard normal samples for this sample ID.
+                standard_normal.append(
+                    torch.randn((n_rep_per_comp, n_components, n_dim),
+                                generator = generator,
+                                device = "cpu",
+                                dtype = self.latent.means.dtype))
+
+            # Stack the per-sample draws into one tensor.
+            standard_normal = torch.stack(standard_normal, dim = 0)
+
+            # Transform the standard normals by every component's
+            # covariance in one batched operation - the same law
+            # 'GaussianMixture.sample' uses, without its single
+            # global RNG stream.
+            means = self.latent.means
+
+            # Get the component indices.
+            components = torch.arange(n_components,
+                                      dtype = torch.long,
+                                      device = means.device)
+
+            # Build the covariances used for sampling.
+            covariances = \
+                self.latent._build_covariances_for_sampling(
+                    components, n_components)
+
+            # Get the Cholesky factor of the covariances.
+            scale_tril = torch.linalg.cholesky(covariances)
+
+            # Move the standard normals to the means' device.
+            standard_normal = standard_normal.to(device = means.device)
+
+            # Shift and scale the standard normals into the mixture's
+            # own space, and return them.
+            return means.view(1, 1, n_components, n_dim) + \
+                torch.einsum("srcj,cij->srci",
+                             standard_normal,
+                             scale_tril)
 
         #-------------------------------------------------------------#
 
@@ -3027,257 +2413,296 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         #-------------------------------------------------------------#
 
+        # If the legacy-indexed initialization mode was requested
         if mode == "legacy_indexed":
 
+            # If no seed was given
             if seed is None:
 
+                # Raise an error.
                 raise ValueError(
                     "The 'legacy_indexed' representation "
                     "initialization mode requires "
                     "'scheme_options.initialization.seed'.")
 
+            # If no sample names were given
             if samples_names is None:
 
+                # Raise an error.
                 raise ValueError(
                     "The 'legacy_indexed' representation "
                     "initialization mode requires the samples' IDs.")
 
+            # If no index file was given
             if index_file is None:
 
+                # Raise an error.
                 raise ValueError(
                     "The 'legacy_indexed' representation "
                     "initialization mode requires 'index_file'.")
 
+            # If the original number of samples is missing or invalid
             if original_n_samples is None or \
                     int(original_n_samples) <= 0:
 
+                # Raise an error.
                 raise ValueError(
                     "The 'legacy_indexed' representation "
                     "initialization mode requires a positive "
                     "'original_n_samples'.")
 
+            # If the chunk size is missing or invalid
             if chunk_size is None or int(chunk_size) <= 0:
 
+                # Raise an error.
                 raise ValueError(
                     "The 'legacy_indexed' representation "
                     "initialization mode requires a positive "
                     "'chunk_size'.")
 
+            # Convert the original number of samples to an integer.
             original_n_samples = int(original_n_samples)
 
+            # Convert the chunk size to an integer.
             chunk_size = int(chunk_size)
 
+            # Convert the sample names to strings.
             samples_names = \
                 [str(sample_id) for sample_id in samples_names]
 
+            # If the number of sample names does not match the number
+            # of samples to initialize
             if len(samples_names) != n_samples:
 
+                # Raise an error.
                 raise ValueError(
                     f"The indexed legacy initializer received "
                     f"{len(samples_names)} sample IDs for {n_samples} "
                     "samples.")
 
+            # If the sample names are not unique
             if len(set(samples_names)) != len(samples_names):
 
+                # Raise an error.
                 raise ValueError(
                     "Sample IDs must be unique after conversion to "
                     "strings when 'legacy_indexed' initialization is "
                     "used.")
 
+            # Load the table of historical positions.
             df_positions = pd.read_csv(index_file,
                                        sep = ",",
                                        index_col = 0)
 
+            # If the table does not have exactly one data column
             if df_positions.shape[1] != 1:
 
+                # Raise an error.
                 raise ValueError(
                     f"The legacy index file '{index_file}' must have "
                     "exactly one data column; found "
                     f"{df_positions.shape[1]}.")
 
+            # If the table has duplicate sample IDs
             if df_positions.index.has_duplicates:
 
+                # Raise an error.
                 raise ValueError(
                     f"The legacy index file '{index_file}' contains "
                     "duplicate sample IDs.")
 
+            # Convert the table's index to strings.
             df_positions.index = df_positions.index.map(str)
 
+            # Get the sample IDs missing a position in the table.
             missing = \
                 sorted(set(samples_names) - set(df_positions.index))
 
+            # If any sample IDs are missing
             if missing:
 
+                # Raise an error.
                 raise ValueError(
                     f"The legacy index file '{index_file}' has no "
                     "position for the following sample IDs: "
                     f"{missing}.")
 
-            positions_raw = df_positions.iloc[:, 0]
+            # A row whose value equals the sample's own ID means
+            # 'treat this sample as sample-keyed'; every other row
+            # must hold a numeric historical position.
+            positions_raw = df_positions.iloc[:, 0].astype(str)
 
-            positions_numeric = pd.to_numeric(positions_raw,
-                                              errors = "coerce")
+            keyed_ids = \
+                [sample_id for sample_id in samples_names
+                 if positions_raw.loc[sample_id] == sample_id]
 
-            if positions_numeric.isna().any():
+            legacy_ids = \
+                [sample_id for sample_id in samples_names
+                 if sample_id not in keyed_ids]
 
-                raise ValueError(
-                    f"Every position in the legacy index file "
-                    f"'{index_file}' must be an integer.")
+            drawn = {}
 
-            positions_float = \
-                positions_numeric.to_numpy(dtype = np.float64)
+            # Compute the self-keyed rows through the same
+            # identity-keyed mechanism 'sample_keyed' mode uses.
+            if keyed_ids:
 
-            if not np.equal(positions_float,
-                            np.floor(positions_float)).all():
+                keyed_samples = draw_sample_keyed(keyed_ids)
 
-                raise ValueError(
-                    f"Every position in the legacy index file "
-                    f"'{index_file}' must be an integer.")
+                for i, sample_id in enumerate(keyed_ids):
 
-            positions = \
-                {sample_id : int(positions_numeric.loc[sample_id])
-                 for sample_id in samples_names}
+                    drawn[sample_id] = keyed_samples[i]
 
-            if len(set(positions.values())) != len(positions):
+            #-----------------------------------------------------#
 
-                raise ValueError(
-                    "The requested samples map to duplicate historical "
-                    "positions in the legacy index file.")
+            # If there are non-keyed (legacy-positional) samples
+            if legacy_ids:
 
-            invalid = \
-                {sample_id : position
-                 for sample_id, position in positions.items()
-                 if position < 0 or position >= original_n_samples}
+                # Get their raw, string-typed positions.
+                legacy_positions_raw = positions_raw.loc[legacy_ids]
 
-            if invalid:
+                # Convert the positions to numbers.
+                positions_numeric = pd.to_numeric(
+                    legacy_positions_raw,
+                    errors = "coerce")
 
-                raise ValueError(
-                    f"Legacy positions must be in [0, "
-                    f"{original_n_samples - 1}]; got {invalid}.")
+                # If any position failed to convert
+                if positions_numeric.isna().any():
 
-            # Every full historical chunk has the same candidate tensor:
-            # the old code reset the same seed at the start of every
-            # call. Only the last, shorter chunk needs a second cached
-            # draw.
-            chunks_by_length = {}
+                    # Raise an error.
+                    raise ValueError(
+                        f"Every non-keyed position in the legacy "
+                        f"index file '{index_file}' must be an "
+                        "integer.")
 
-            selected = []
+                # Convert the positions to a float array.
+                positions_float = \
+                    positions_numeric.to_numpy(dtype = np.float64)
 
-            for sample_id in samples_names:
+                # If any position is not an integer value
+                if not np.equal(positions_float,
+                                np.floor(positions_float)).all():
 
-                absolute_position = positions[sample_id]
+                    # Raise an error.
+                    raise ValueError(
+                        f"Every non-keyed position in the legacy "
+                        f"index file '{index_file}' must be an "
+                        "integer.")
 
-                chunk_start = \
-                    (absolute_position // chunk_size) * chunk_size
+                # Map each sample ID to its integer position.
+                positions = \
+                    {sample_id : int(positions_numeric.loc[sample_id])
+                     for sample_id in legacy_ids}
 
-                old_chunk_n_samples = \
-                    min(chunk_size, original_n_samples - chunk_start)
+                # If two sample IDs map to the same position
+                if len(set(positions.values())) != len(positions):
 
-                position_in_chunk = absolute_position - chunk_start
+                    # Raise an error.
+                    raise ValueError(
+                        "The requested samples map to duplicate "
+                        "historical positions in the legacy index "
+                        "file.")
 
-                if old_chunk_n_samples not in chunks_by_length:
+                # Get any position outside the historical sample range.
+                invalid = \
+                    {sample_id : position
+                     for sample_id, position in positions.items()
+                     if position < 0 or position >= original_n_samples}
 
-                    chunks_by_length[old_chunk_n_samples] = \
-                        draw_legacy_chunk(old_chunk_n_samples)
+                # If any position is invalid
+                if invalid:
 
-                selected.append(
-                    chunks_by_length[old_chunk_n_samples][
-                        position_in_chunk])
+                    # Raise an error.
+                    raise ValueError(
+                        f"Legacy positions must be in [0, "
+                        f"{original_n_samples - 1}]; got {invalid}.")
 
+                # Every full historical chunk has the same candidate
+                # tensor (the old code reset the same seed each call),
+                # so cache one draw per distinct chunk length.
+                chunks_by_length = {}
+
+                # For each non-keyed sample
+                for sample_id in legacy_ids:
+
+                    # Get its absolute historical position.
+                    absolute_position = positions[sample_id]
+
+                    # Get the start of the historical chunk it fell in.
+                    chunk_start = \
+                        (absolute_position // chunk_size) * chunk_size
+
+                    # Get the size of that historical chunk.
+                    old_chunk_n_samples = \
+                        min(chunk_size, original_n_samples - chunk_start)
+
+                    # Get its position within that chunk.
+                    position_in_chunk = \
+                        absolute_position - chunk_start
+
+                    # If this chunk length has not been drawn yet
+                    if old_chunk_n_samples not in chunks_by_length:
+
+                        # Draw and cache it.
+                        chunks_by_length[old_chunk_n_samples] = \
+                            draw_legacy_chunk(old_chunk_n_samples)
+
+                    # Pick out this sample's candidates.
+                    drawn[sample_id] = \
+                        chunks_by_length[old_chunk_n_samples][
+                            position_in_chunk]
+
+            #-----------------------------------------------------#
+
+            # Reassemble in the caller's requested order.
+            selected = [drawn[sample_id] for sample_id in samples_names]
+
+            # Flatten and return the candidates.
             return torch.stack(selected, dim = 0).reshape(
                 n_samples * n_rep_per_comp * n_components, n_dim)
 
         #-------------------------------------------------------------#
 
-        # A keyed stream cannot be defined without the key's seed or
-        # sample IDs.  Failing here is safer than silently returning to
-        # positional behaviour in a mode whose name promises otherwise.
+        # A keyed stream needs both the seed and the sample IDs, so
+        # fail rather than silently falling back to positional draws.
+        # If no seed was given
         if seed is None:
 
+            # Raise an error.
             raise ValueError(
                 "The 'sample_keyed' representation initialization mode "
                 "requires 'scheme_options.initialization.seed'.")
 
+        # If no sample names were given
         if samples_names is None:
 
+            # Raise an error.
             raise ValueError(
                 "The 'sample_keyed' representation initialization mode "
                 "requires the samples' IDs.")
 
+        # Convert the sample names to strings.
         samples_names = [str(sample_id) for sample_id in samples_names]
 
+        # If the number of sample names does not match the number of
+        # samples to initialize
         if len(samples_names) != n_samples:
 
+            # Raise an error.
             raise ValueError(
                 "The sample-keyed initializer received "
                 f"{len(samples_names)} sample IDs for {n_samples} "
                 "samples.")
 
+        # If the sample names are not unique
         if len(set(samples_names)) != len(samples_names):
 
+            # Raise an error.
             raise ValueError(
                 "Sample IDs must be unique after conversion to strings "
                 "when 'sample_keyed' initialization is used.")
 
-        # One CPU generator call per sample is fast enough to remain a
-        # rounding error beside the optimization, and makes the stream
-        # independent of row, chunk and every other sample. A
-        # cryptographic digest is used because Python's built-in hash
-        # is deliberately randomized between processes.
-        standard_normal = []
-
-        for sample_id in samples_names:
-
-            payload = \
-                f"{int(seed)}\0{sample_id}".encode("utf-8")
-
-            digest = hashlib.blake2b(
-                payload,
-                digest_size = 8,
-                person = b"BulkDGD.init.v1").digest()
-
-            sample_seed = \
-                int.from_bytes(digest,
-                               byteorder = "big",
-                               signed = False) & ((1 << 63) - 1)
-
-            generator = torch.Generator(device = "cpu")
-
-            generator.manual_seed(sample_seed)
-
-            standard_normal.append(
-                torch.randn((n_rep_per_comp, n_components, n_dim),
-                            generator = generator,
-                            device = "cpu",
-                            dtype = self.latent.means.dtype))
-
-        standard_normal = torch.stack(standard_normal, dim = 0)
-
-        # Transform the standard normals by every component's covariance
-        # in one batched operation.  This is the same Gaussian law as
-        # 'GaussianMixture.sample', without its single global RNG
-        # stream.
-        means = self.latent.means
-
-        components = torch.arange(n_components,
-                                  dtype = torch.long,
-                                  device = means.device)
-
-        covariances = \
-            self.latent._build_covariances_for_sampling(
-                components, n_components)
-
-        scale_tril = torch.linalg.cholesky(covariances)
-
-        standard_normal = standard_normal.to(device = means.device)
-
-        component_samples = \
-            means.view(1, 1, n_components, n_dim) + \
-            torch.einsum("srcj,cij->srci",
-                         standard_normal,
-                         scale_tril)
-
-        return component_samples.reshape(
+        # Draw and return the candidates.
+        return draw_sample_keyed(samples_names).reshape(
             n_samples * n_rep_per_comp * n_components, n_dim)
 
 
@@ -3288,72 +2713,40 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             genes_mask: Optional[torch.Tensor] = None) -> \
                 tuple[torch.Tensor, torch.Tensor,
                       Optional[torch.Tensor], list[tuple]]:
-        """Get the best representations for a set of samples by
-        initializing ``n_rep_per_comp`` representations per each
-        component of the Gaussian mixture model per sample, optimizing
-        these representations, selecting the best representation for
-        for each sample, and optimizing these representations further.
+        """Get the best representations via the two-optimization
+        scheme: initialize candidates, optimize, select the best per
+        sample, then optimize those further.
 
         Parameters
         ----------
         dataset : \
             :class:`bulkdgd.core.dataclasses.GeneExpressionDataset`
             The dataset from which the data loader should be created.
-    
+
         config : :class:`dict`
             A dictionary with the options to run the optimization.
+
+        genes_mask : :class:`torch.Tensor`, optional
+            A 2D mask of which genes were measured for each sample.
+            If not passed, every gene of every sample is taken as
+            measured.
 
         Returns
         -------
         rep : :class:`torch.Tensor`
-            A tensor containing the optimized representations.
-
-            This is a 2D tensor where:
-
-            - The first dimension has a length equal to the number
-              of samples.
-
-            - The second dimension has a length equal to the
-              dimensionality of the latent space where the
-              representations live.
+            The optimized representations, shaped (samples, latent
+            dimensionality).
 
         pred_means : :class:`torch.Tensor`
-            A tensor containing the predicted means of the
-            distributions modelling the genes' counts.
-
-            This is a 2D tensor where:
-
-            - The first dimension has a length equal to the number
-              of samples.
-
-            - The second dimension has a length equal to the
-              dimensionality of the gene space.
-
-            If the genes counts are modelled using negative binomial
-            distributions, the predicted means are scaled by the
-            corresponding distributions' r-values.
+            The predicted gene-count means, shaped (samples, genes).
 
         pred_r_values : :class:`torch.Tensor` or :obj:`None`
-            A tensor containing the predicted r-values of the negative
-            binomial distributions modelling the genes' counts, if
-            the counts are modelled by negative binomial distributions.
-
-            This is a 2D tensor where:
-
-            - The first dimension has a length equal to the number
-              of samples.
-
-            - The second dimension has a length equal to the
-              dimensionality of the gene space.
-
-            ``pred_r_values`` is :obj:`None` if the counts are modelled
-            by Poisson distributions.
+            The predicted negative-binomial r-values, same shape as
+            ``pred_means``, or :obj:`None` for Poisson counts.
 
         time_opt : :class:`list`
-            A list of tuples storing, for each epoch, information
-            about the CPU and wall clock time used by the entire
-            epoch and by the backpropagation step run within the
-            epoch.
+            Per-epoch CPU/wall-clock timing for the epoch and its
+            backpropagation step.
         """
 
         # Get the number of samples from the length of the dataset.
@@ -3373,11 +2766,11 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         loss_reduction_type = \
             config["scheme_options"]["loss_reduction_type"]
 
-        # Start the record of the competition between the candidates
-        # empty. Running this twice must not report the first run's
-        # candidates alongside the second's.
+        # Reset the record of the candidate competition, so a second
+        # run does not report the first run's candidates too.
         self._selection_details = []
 
+        # Reset the record of which component each sample settled in.
         self._settled_in = None
 
         #-------------------------------------------------------------#
@@ -3394,10 +2787,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         # Get the number of epochs to run the first optimization for.
         epochs_1 = config_opt_1["epochs"]
 
-        # Get the noise to inject into the representations during the
-        # first optimization. Absent from the configuration means none,
-        # which is what every configuration written before this option
-        # existed says.
+        # Get the noise to inject during the first optimization;
+        # absent from the configuration means none.
         noise_type_1 = config_opt_1.get("noise_type")
         noise_options_1 = config_opt_1.get("noise_options")
 
@@ -3466,28 +2857,23 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
             #---------------------------------------------------------#
 
-            # Get the seed of the draw that places the candidates.
-            #
-            # Each candidate is drawn from its component's Gaussian. In a
-            # latent space of this many dimensions that does NOT put it
-            # near the component's mean: a Gaussian draw lands about
-            # 'sqrt(latent_dim)' standard deviations away, on the shell,
-            # which is where the trained representations turn out to live
-            # (median 5.46 sigma, against 5.59 for the draw). The draw is
-            # already well matched to them.
-            #
-            # A seeded sample-keyed draw is the default. Historical
-            # positional drawing and indexed reconstruction of it are
-            # available as explicit modes in the initialization block.
+            # Get the seed of the draw that places the candidates. A
+            # candidate drawn from its component's Gaussian lands about
+            # 'sqrt(latent_dim)' standard deviations from the mean in a
+            # high-dimensional space - near where trained
+            # representations actually live.
             init_options = \
                 config["scheme_options"].get("initialization", {})
 
+            # Get the initialization seed.
             seed = init_options.get("seed")
 
+            # Get the initialization mode (sample-keyed by default).
             mode = init_options.get("mode", "sample_keyed")
 
             #---------------------------------------------------------#
 
+            # Draw the initial candidates.
             rep_init = \
                 self._draw_rep_init(
                     n_samples = n_samples,
@@ -3502,38 +2888,34 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Seed the search with a data-driven starting point, if one was
-        # asked for.
-        #
-        # The prediction TAKES THE SLOT of a single mixture draw rather
-        # than being added as an extra candidate. That is deliberate:
-        # the number of candidates per sample, 'n_rep_per_comp' *
-        # 'n_components', is assumed in seven separate places
-        # downstream - every reshape and every argmin - and changing it
-        # would mean propagating arithmetic to all of them. Overwriting
-        # one slot leaves every count identical.
-        #
-        # Trading one draw of forty-eight for the ridge is favourable
-        # by RESULTS Sec.40.2: the ridge beats a random draw about half
-        # the time, so the winner can only improve, and the cost is one
-        # draw the competition would probably not have kept.
+        # Seed the search with a data-driven starting point, if asked
+        # for, by replacing one mixture draw rather than adding an
+        # extra candidate - this keeps the candidate count unchanged
+        # for the downstream reshapes and argmins.
         warm_start_cfg = \
             config.get("scheme_options", {}).get("warm_start") or {}
 
+        # If a warm-start checkpoint was given
         if warm_start_cfg.get("pth_file"):
 
+            # Load the ridge warm-start model.
             ws = warmstart.RidgeWarmStart.from_file(
                 warm_start_cfg["pth_file"])
 
+            # Predict a starting representation for each sample.
             z_ws = ws.predict(dataset.data_exp.cpu().numpy(),
                               device = rep_init.device).to(rep_init.dtype)
 
+            # Get the total number of candidates per sample.
             n_cand = n_rep_per_comp * n_components
 
+            # Overwrite the first candidate of each sample with the
+            # warm-start prediction.
             rep_init = rep_init.view(n_samples, n_cand, n_dim)
             rep_init[:, 0, :] = z_ws
             rep_init = rep_init.reshape(n_samples * n_cand, n_dim)
 
+            # Inform the user that the warm start was applied.
             logger.info(
                 f"The ridge warm start from "
                 f"'{warm_start_cfg['pth_file']}' replaced one of the "
@@ -3549,24 +2931,20 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         #-------------------------------------------------------------#
 
-        # How much of a sample the model is allowed to give up on.
-        #
-        # Zero - the default - is the plain negative binomial, which is
-        # what every representation before July 2026 was found with. A
-        # small value bounds what a gene the model cannot reach may do
-        # to the representation, which matters for a TUMOUR because the
-        # genes it cannot reach are the aberrant ones and letting them
-        # place the representation returns a counterfactual that has
-        # already absorbed part of the signal. See
-        # 'OutputModuleNBFullDispersion.loss'.
+        # How much of a sample the model may give up on. Zero (the
+        # default) is the plain negative binomial; a small value bounds
+        # what an unreachable gene may do to the representation.
         contamination = \
             float(config["scheme_options"].get("contamination", 0.0))
 
+        # Get the dispersion used for the contamination model.
         contamination_r = \
             float(config["scheme_options"].get("contamination_r", 0.05))
 
+        # If contamination is enabled
         if contamination:
 
+            # Inform the user.
             log.info(
                 f"Representations will be found with a contaminated "
                 f"negative binomial (contamination "
@@ -3648,25 +3026,10 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Get the optimized representations, the predicted means of
-        # the distributions modelling the counts, the predicted
-        # r-values of the distributions modelling the counts (if any),
-        # and the time data.
-        # ONE representation per sample, not 'n_rep_per_comp' of them.
-        #
-        # '_select_best_rep' has just been over the
-        # 'n_rep_per_comp * n_components' candidates of each sample and
-        # kept exactly one, so 'rep_layer_best' holds one representation
-        # per sample and the second optimization must be told so - both
-        # here and in 'n_components', which is already 1 for the same
-        # reason.
-        #
-        # Passing 'n_rep_per_comp' straight through works only because
-        # it is 1 in every configuration written so far. Set it to 5 and
-        # '_optimize_rep' tries to read the layer as
-        # (n_samples, 5, 1, dim), which is five times the number of
-        # values it holds, and raises. So 'n_rep_per_comp' greater than
-        # 1 has never run with this scheme.
+        # Get the optimized representations, predicted means and
+        # r-values (if any), and the time data. 'rep_layer_best' holds
+        # one representation per sample, so 'n_rep_per_comp' and
+        # 'n_components' are both passed as 1.
         rep_2, pred_means_2, pred_r_values_2, time_2 = \
             self._optimize_rep(\
                 data_loader = data_loader,
@@ -3698,11 +3061,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         #-------------------------------------------------------------#
 
-        # The winner is not done moving when it is picked. It is
-        # optimized for 'epochs_2' more, and it can leave the component
-        # it was in when it won. Say where it ENDED, which is where the
-        # representation that goes into every downstream analysis
-        # actually is.
+        # The winner keeps moving after being picked (it is optimized
+        # for 'epochs_2' more, and may leave its winning component), so
+        # record where it ended up, not where it was chosen.
         if self._keep_selection_details \
                 and isinstance(self.latent,
                                latents.GaussianMixtureModelTGMM):
@@ -3730,29 +3091,59 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                       contamination: float,
                       contamination_r: float) -> np.ndarray:
 
-        """The loss of ONE representation per sample, as it stands.
+        """Get the loss of the one representation per sample, as it
+        currently stands.
 
-        '_select_best_rep' already computes exactly this quantity on its
-        way to an 'argmin', and records it when asked to. With one
-        candidate per sample the 'argmin' is a formality and what comes
-        back is the per-sample loss, so the loss after the second
-        optimization is read out of the machinery that already exists
-        instead of a second implementation of the same arithmetic
-        drifting away from it.
+        Parameters
+        ----------
+        data_loader : :class:`torch.utils.data.DataLoader`
+            The data loader.
+
+        rep : :class:`torch.Tensor`
+            The current representations, one per sample.
+
+        loss_reduction_type : :class:`str`
+            The method to reduce the loss across the samples in the
+            batch.
+
+        latent_lambda : :class:`float` or :obj:`None`
+            The weight of the latent loss term in the total loss.
+
+        genes_mask : :class:`torch.Tensor` or :obj:`None`
+            A 2D mask of which genes were measured for each sample.
+
+        contamination : :class:`float`
+            How much of a sample the model is allowed to give up on.
+
+        contamination_r : :class:`float`
+            The dispersion used for the contamination model, if
+            ``contamination`` is nonzero.
+
+        Returns
+        -------
+        :class:`numpy.ndarray`
+            The per-sample loss.
         """
 
+        # Get the number of samples.
         n_samples = rep.shape[0]
 
+        # Save the selection-details state to restore afterwards.
         keep_before = self._keep_selection_details
 
         details_before = self._selection_details
 
+        # Turn on selection-details recording for this call.
         self._keep_selection_details = True
 
         self._selection_details = []
 
+        # Reuse '_select_best_rep' with one candidate per sample,
+        # rather than reimplementing the same loss computation.
         try:
 
+            # Run the "selection" with a single candidate per sample,
+            # to compute its loss.
             self._select_best_rep(
                 data_loader = data_loader,
                 rep_layer = latents.RepresentationLayer(
@@ -3765,14 +3156,19 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                 contamination_r = contamination_r,
                 n_components = 1)
 
+            # Initialize the per-sample loss array to NaN.
             out = np.full(n_samples, np.nan, dtype = np.float64)
 
+            # For each batch's recorded selection details
             for d in self._selection_details:
 
+                # Get the batch's sample indices.
                 ixs = d["samples_ixs"].numpy()
 
+                # Fill in their losses.
                 out[ixs] = d["total_loss"].squeeze(-1).numpy()
 
+            # Return the per-sample losses.
             return out
 
         finally:
@@ -3793,57 +3189,57 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                 tuple[torch.Tensor, torch.Tensor,
                       Optional[torch.Tensor], list[tuple]]:
 
-        """Run the two-optimization scheme once per seed, and keep every
-        seed's answer.
+        """Run the two-optimization scheme once per seed, and keep
+        every seed's answer.
 
-        WHAT IT IS FOR. The seed picks where the search starts and
-        nothing else: the candidates are drawn from the mixture's
-        components with it, and everything after - the descent, the
-        selection, the second descent - is deterministic given them. Two
-        seeds therefore end at two different local optima, and the genes
-        called from them differ by about a fifth. Which of the two is
-        right is not knowable from one run, but the genes both agree on
-        are measurably better than the genes only one finds, so the
-        agreement is worth having as a product and not as an accident.
+        Parameters
+        ----------
+        dataset : \
+            :class:`bulkdgd.core.dataclasses.GeneExpressionDataset`
+            The dataset from which the data loader should be created.
 
-        WHY IT IS A SCHEME OF ITS OWN. It could have been a flag on
-        'two_opt', and should not be: it returns one representation per
-        sample PER SEED and a table of losses that 'two_opt' has no
-        counterpart for, so the two would have differed in their outputs
-        while sharing a name.
+        config : :class:`dict`
+            A dictionary with the options to run the optimization.
 
-        WHY THE SEEDS RUN IN SEQUENCE AND NOT IN ONE TALL TENSOR. Every
-        candidate's gradient is independent of every other - the loss is
-        summed, there is no gradient clipping in this path, and AdamW is
-        elementwise - so the seeds COULD share one optimization and be
-        mathematically identical to separate runs. They would not be
-        bitwise identical: the decoder's forward pass is a batched
-        matrix multiply, and changing how many rows go through it lets
-        the library pick a different kernel, which moves the last bits
-        and, over eight hundred epochs, can move a near-tie between two
-        candidates. Running each seed at the shape a standalone run uses
-        makes reproducing that run a property of the arithmetic rather
-        than a hope about kernel selection. The cost is the efficiency
-        of the larger multiply, which is not worth the doubt.
+        genes_mask : :class:`torch.Tensor`, optional
+            A 2D mask of which genes were measured for each sample.
+            If not passed, every gene of every sample is taken as
+            measured.
 
-        Returns the FIRST seed's representations, predicted means and
-        r-values, so that everything downstream that expects the output
-        of a scheme keeps working unchanged. Every seed's answer, and
-        the losses, are left on the model as 'multiseed_results'.
+        Returns
+        -------
+        rep : :class:`torch.Tensor`
+            The optimized representations for the first seed.
+
+        pred_means : :class:`torch.Tensor`
+            The predicted means for the first seed.
+
+        pred_r_values : :class:`torch.Tensor` or :obj:`None`
+            The predicted r-values for the first seed, or :obj:`None`
+            if the counts are modelled by Poisson distributions.
+
+        time_opt : :class:`list`
+            A list of tuples storing, for each epoch, information
+            about the CPU and wall clock time used.
         """
 
+        # Get the seeds to run the scheme with.
         seeds = \
             config["scheme_options"]["initialization"]["seeds"]
 
+        # Convert the seeds to integers.
         seeds = [int(s) for s in seeds]
 
+        # If the seeds are not distinct
         if len(set(seeds)) != len(seeds):
 
+            # Raise an error.
             raise ValueError(
                 f"The seeds must be distinct; got {seeds}. Two runs "
                 f"from the same seed produce the same representation "
                 f"and their agreement measures nothing.")
 
+        # Inform the user.
         log.info(
             f"Representations will be found from {len(seeds)} "
             f"independent initializations (seeds "
@@ -3851,58 +3247,65 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         #-------------------------------------------------------------#
 
+        # Initialize the per-seed results.
         reps, pred_means, pred_r_values = {}, {}, {}
 
+        # Initialize the per-seed losses.
         losses = {}
 
+        # Initialize the combined timing data.
         time_all = []
 
-        # A data loader of this scheme's own, built exactly as 'two_opt'
-        # builds its one, for the final-loss pass. 'shuffle' is false in
-        # every configuration written, so the samples come back in the
-        # order their indices say either way.
+        # A data loader of this scheme's own, built like 'two_opt'
+        # builds its one, for the final-loss pass.
         data_loader = \
             _util.get_data_loader(
                 dataset = dataset,
                 config = config["data_loader_options"])
 
+        # Get the latent loss weight (TGMM only).
         latent_lambda = \
             config["scheme_options"]["latent_loss_calculation"]["lambda"] \
             if isinstance(self.latent,
                           latents.GaussianMixtureModelTGMM) else None
 
+        # Get the contamination options.
         contamination = \
             float(config["scheme_options"].get("contamination", 0.0))
 
         contamination_r = \
             float(config["scheme_options"].get("contamination_r", 0.05))
 
+        # Get the method to reduce the loss across a batch's samples.
         loss_reduction_type = \
             config["scheme_options"]["loss_reduction_type"]
 
+        # Get the total number of samples.
         n_samples = len(dataset.samples)
 
+        # Run each seed at the batch shape a standalone run would use
+        # (rather than batching seeds together), so results reproduce
+        # a single-seed run regardless of how many seeds are requested.
         for seed in seeds:
 
-            # ONE SEED, AND THE CONFIGURATION 'two_opt' WOULD HAVE SEEN.
-            # The scheme is run through its own method rather than
-            # reimplemented here, so the two cannot drift: whatever
-            # 'two_opt' does to a representation, this does too.
+            # Run the 'two_opt' scheme itself for this seed, rather
+            # than reimplementing it, so the two cannot drift apart.
             cfg = copy.deepcopy(config)
 
+            # Set this seed as the single initialization seed.
             cfg["scheme_options"]["initialization"] = \
                 {**cfg["scheme_options"].get("initialization", {}),
                  "seed" : seed}
 
+            # Remove the multiseed 'seeds' key from the copy.
             cfg["scheme_options"]["initialization"].pop("seeds", None)
 
+            # Inform the user.
             log.info(f"Optimizing from seed {seed}...")
 
-            # THE SELECTION IS RECORDED WHILE IT HAPPENS, which is the
-            # only moment the losses of the candidates exist. Turning
-            # the existing switch on around the call gets them without
-            # 'two_opt' having to know it is being watched, and the
-            # previous setting is restored afterwards.
+            # Turn on selection-detail recording for this call only,
+            # since the candidates' losses exist only while the
+            # selection happens; restore the previous setting after.
             keep_before = self._keep_selection_details
 
             details_before = self._selection_details
@@ -3913,6 +3316,7 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
             try:
 
+                # Run the two-optimization scheme for this seed.
                 rep, pm, prv, t = \
                     self._get_representations_two_opt(
                         dataset = dataset,
@@ -3924,27 +3328,36 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                 # candidate the 'argmin' kept.
                 won = np.full(n_samples, np.nan, dtype = np.float64)
 
+                # For each batch's recorded selection details
                 for d in self._selection_details:
 
+                    # Get the batch's sample indices.
                     ixs = d["samples_ixs"].numpy()
 
+                    # Get the batch's total losses.
                     tl = d["total_loss"].numpy()
 
+                    # Fill in the winner's loss for each sample.
                     won[ixs] = tl[np.arange(len(ixs)),
                                   d["winner"].numpy()]
 
             finally:
 
+                # Restore the selection-details state.
                 self._keep_selection_details = keep_before
 
                 self._selection_details = details_before
 
+            # Store this seed's representations and predicted means.
             reps[seed], pred_means[seed] = rep, pm
 
+            # Store this seed's predicted r-values.
             pred_r_values[seed] = prv
 
+            # Accumulate this seed's timing data.
             time_all.extend(t)
 
+            # Store this seed's first-optimization losses.
             losses[f"loss_opt1_seed{seed}"] = won
 
             # And the same representation's loss once the second
@@ -3965,15 +3378,21 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         # seeds were given so that the table reads as it was asked for.
         cols = []
 
+        # For each seed
         for seed in seeds:
 
+            # Add its two loss columns.
             cols += [f"loss_opt1_seed{seed}", f"loss_opt2_seed{seed}"]
 
+        # Assemble the losses data frame.
         df_losses = pd.DataFrame({c: losses[c] for c in cols},
                                  index = dataset.samples)
 
+        # Name the index.
         df_losses.index.name = "sample"
 
+        # Keep every seed's results here; only the first seed's are
+        # returned below, to match the single-seed scheme's output.
         self.multiseed_results = \
             {"seeds" : seeds,
              "representations" : reps,
@@ -3983,6 +3402,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         #-------------------------------------------------------------#
 
+        # Return the first seed's results, matching the single-seed
+        # scheme's output.
         first = seeds[0]
 
         return (reps[first], pred_means[first], pred_r_values[first],
@@ -4006,55 +3427,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
     def get_selection_details(
             self,
             samples_names: Optional[list] = None) -> pd.DataFrame:
-        """Get what the competition between the candidate
-        representations looked like, one row per candidate.
-
-        Every sample's representation is chosen by putting one candidate
-        in each component of the Gaussian mixture model (or
-        ``n_rep_per_comp`` of them), optimizing all of them, and keeping
-        the one whose total loss is smallest. Only the winner survives
-        ``argmin``. This is everything else.
-
-        The columns are:
-
-        * ``sample`` - the sample.
-
-        * ``candidate`` - which of the ``n_rep_per_comp * n_components``
-          candidates this row is.
-
-        * ``born_in`` - the component the candidate started in.
-
-        * ``arrived_in`` - the component that claims the candidate where
-          it stood WHEN IT WAS JUDGED. It need not be ``born_in``: the
-          candidates are optimized before they are compared, and they
-          move.
-
-        * ``settled_in`` - for the winner, the component that claims it
-          after the SECOND optimization, which is where the
-          representation that goes into every downstream analysis
-          actually is. It is the same for every row of a sample.
-
-        * ``recon_loss``, ``latent_loss``, ``total_loss`` - the losses,
-          in nats, kept apart so that it is possible to see which of
-          them decided.
-
-        * ``is_winner`` - whether ``argmin`` picked this candidate.
-
-        * ``margin`` - the total loss of this candidate minus the total
-          loss of the winner, in nats. It is zero for the winner, and for
-          the runner-up it is the number that says how close the thing
-          came. This is the honest measure of how sure the model was.
-
-        * ``softmax`` - ``softmax(-total_loss)`` over a sample's
-          candidates.
-
-          It is included because it was asked for, and it should be
-          looked at once and then not trusted: the reconstruction loss is
-          a sum over some sixteen thousand genes, so the gap between the
-          winner and the runner-up is of the order of a hundred nats, and
-          the softmax of that is 1.0 for the winner and 0.0 for everyone
-          else, for every sample ever scored. A gap of twenty nats
-          already gives 1 - 2e-9. Use ``margin``.
+        """Get the candidate-representation competition's details, one
+        row per candidate per sample (only the winner otherwise
+        survives ``argmin``).
 
         Parameters
         ----------
@@ -4064,11 +3439,20 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         Returns
         -------
         df : :class:`pandas.DataFrame`
-            One row per candidate per sample.
+            One row per candidate per sample. Columns: ``sample``,
+            ``candidate``; ``born_in``/``arrived_in``/``settled_in``,
+            the component at start, at judging, and (winner only)
+            after the second optimization; ``recon_loss``,
+            ``latent_loss``, ``total_loss`` in nats; ``is_winner``;
+            ``margin`` (loss above the winner's, zero for the winner);
+            ``softmax`` (unreliable at this loss scale - prefer
+            ``margin``).
         """
 
+        # If there is nothing recorded
         if not self._selection_details:
 
+            # Raise an error.
             raise RuntimeError(
                 "There is nothing recorded. Call "
                 "'keep_selection_details()' before "
@@ -4076,28 +3460,39 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         #-------------------------------------------------------------#
 
+        # Initialize the list of output rows.
         rows = []
 
+        # For each batch's recorded selection details
         for batch in self._selection_details:
 
+            # Get the batch's sample indices.
             ixs = batch["samples_ixs"]
 
+            # Get the batch's total losses.
             total = batch["total_loss"]
 
+            # Get each sample's best (lowest) loss.
             best = total.min(dim = 1, keepdim = True).values
 
+            # Get the softmax of the negated losses.
             soft = torch.softmax(-total.double(), dim = 1)
 
+            # Get the number of candidates per sample.
             n_cand = total.shape[1]
 
+            # For each sample in the batch
             for i, ix in enumerate(ixs.tolist()):
 
+                # Get the sample's name, if given.
                 name = samples_names[ix] \
                     if samples_names is not None else ix
 
+                # Get the component the sample settled in, if recorded.
                 settled = int(self._settled_in[ix]) \
                     if self._settled_in is not None else None
 
+                # For each candidate
                 for c in range(n_cand):
 
                     rows.append(
@@ -4118,6 +3513,7 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         #-------------------------------------------------------------#
 
+        # Assemble and return the rows as a data frame.
         return pd.DataFrame(rows)
 
 
@@ -4211,10 +3607,7 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                       model_selection_metric: str,
                       model_selection_step: int = 1) -> int:
         """Select the best TGMM candidate across nearby component
-        counts.
-
-        The configured metric can be any unsupervised metric exposed
-        by :mod:`bulkdgd.core.metrics`.
+        counts, ranked by an unsupervised model-selection metric.
 
         Parameters
         ----------
@@ -4236,10 +3629,12 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             The current epoch.
 
         model_selection_metric : :class:`str`
-            The metric used to rank candidates. Supported values are
-            any key in
-            :const:`bulkdgd.core.metrics.UNSUPERVISED_METRICS`.
-        
+            The metric used to rank candidates.
+
+        model_selection_step : :class:`int`, optional
+            How many components either side of the current count to
+            try as candidates.
+
         Returns
         -------
         best_n_components : :class:`int`
@@ -4279,14 +3674,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         # the current models' number of components.
         candidates_n_components = set([current_n_components])
 
-        # Look 'step' components either side of where we are, and not
-        # one.
-        #
-        # A model that starts with sixty-four components and wants
-        # thirty cannot get there one at a time: the mixture is refit
-        # every few epochs, and each refit moves it by at most one, so
-        # it would need thirty-four refits and it may not have them. A
-        # step of four gets there in nine.
+        # Look 'step' components either side of where we are - a
+        # larger step reaches a far-off target in fewer refits, since
+        # each refit moves the count by at most one step.
         step = max(1, int(model_selection_step))
 
         # Below, but never below one: a mixture of no components is not
@@ -4475,7 +3865,7 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         Parameters
         ----------
-        weight_threshold : :class:`float`
+        collapse_weight_threshold : :class:`float`
             Threshold below which a component is considered collapsed.
 
         epoch : :class:`int`
@@ -4886,6 +4276,19 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         epoch : :class:`int`
             The current epoch number (used for naming the saved
             outputs).
+
+        genes_names : :class:`list` of :class:`str`, optional
+            The names of the genes, needed to save per-gene saliency
+            maps.
+
+        pathways : :class:`dict`, optional
+            A dictionary where the keys are pathway names and the
+            values are lists of gene IDs belonging to each pathway,
+            needed to save per-pathway saliency maps.
+
+        pathways_names : :class:`list` of :class:`str`, optional
+            The names of the pathways, needed to save per-pathway
+            saliency maps.
         """
 
         # Get the configuration for the representations to save at each
@@ -5253,52 +4656,17 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         Returns
         -------
-        A tuple containing:
-
-            - A :class:`tuple` containing:
-        
-                - A :class:`torch.Tensor` containing the
-                  representations for the training samples.
-
-                - A :class:`torch.Tensor` containing the
-                  representations for the test samples.
-
-            - A :class:`tuple` containing:
-
-                - A :class:`torch.Tensor` containing the predicted
-                means for the training samples.
-                
-                - A :class:`torch.Tensor` containing the predicted
-                means for the test samples.
-
-        If the output module is
-        :class:`bulkdgd.core.outputmodules.OutputModuleNBFeatureDispersion`,
-        the tuple will also contain:
-
-            - A :class:`torch.Tensor` containing the predicted r-values
-              for all samples.
-
-        If the output module is
-        :class:`bulkdgd.core.outputmodules.OutputModuleNBFullDispersion`,
-        the tuple will instead contain:
-
-        - A :class:`tuple` containing:
-
-            - A :class:`torch.Tensor` containing the predicted r-values
-              for the training samples.
-
-            - A :class:`torch.Tensor` containing the predicted r-values
-              for the test samples.
-        
-        The :class:`tuple` will always also contain:
-
-        - A :class:`list` containing the losses for the training
-          and test samples (GMM loss, reconstruction loss, and
-          total loss) for each epoch.
-        
-        - A :class:`pandas.DataFrame` containing data about the CPU
-          and wall clock time used by each training epoch (and
-          backpropagation step within each epoch).
+        :class:`tuple`
+            ``((rep_train, rep_test), (pred_means_train,
+            pred_means_test), pred_r_values, losses,
+            (metrics_train, metrics_test), time_train)``.
+            ``pred_r_values`` is a single tensor for per-gene
+            r-values, a ``(train, test)`` tuple for per-sample
+            r-values, or :obj:`None` for Poisson counts. ``losses``
+            holds each epoch's GMM, reconstruction and total losses;
+            ``metrics_train``/``metrics_test`` hold each epoch's
+            reporting metrics; ``time_train`` holds the per-epoch
+            CPU/wall-clock timing.
         """
 
         # Parse and check the configuration.
@@ -5649,12 +5017,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             if latent_model_selection_type == "metric" and \
                 latent_model_selection_options is not None:
 
-                # The options are a dictionary. They were described in
-                # the template as a single string - the metric's name -
-                # and a configuration written that way arrived here as a
-                # string and raised an 'AttributeError' on '.get'. Say
-                # so, rather than let it fail three lines further down
-                # with a message about strings.
+                # Fail clearly if a bare metric-name string was passed
+                # instead of a mapping.
                 if not isinstance(latent_model_selection_options, dict):
 
                     errstr = \
@@ -5809,31 +5173,6 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                 early_stopping_active = True
 
         #-------------------------------------------------------------#
-
-        # Set up the per-sample training diagnostics, if they were
-        # asked for.
-        #
-        # They answer whether some samples drive the model more than
-        # others, and they are off unless a 'training_diagnostics'
-        # section says otherwise - the hooks are cheap but not free,
-        # and a diagnostic that is always on is a diagnostic nobody
-        # reads.
-        config_diag = config_train.get("training_diagnostics") or {}
-
-        # Where to write the per-epoch learning rates, if anywhere.
-        output_lr_file = config_train.get("output_lr_file")
-
-        lrs_list = []
-
-        diagnostics_train = \
-            traindiag.TrainingDiagnostics(
-                decoder = self.decoder,
-                output_dir = config_diag.get("output_dir",
-                                             "diagnostics"),
-                n_samples = len(samples_names_train),
-                checkpoint_every = config_diag.get("checkpoint_every", 0),
-                device = self.device) \
-            if config_diag.get("per_sample_grad_norm") else None
 
         #-------------------------------------------------------------#
 
@@ -6106,15 +5445,6 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                 # Get the representations for the current samples.
                 z = rep_layer_train(ixs = samples_ixs).to(self.device)
 
-                # Keep this tensor's gradient, if the diagnostics want
-                # it. 'z' is not a leaf - it is an indexing into the
-                # representation layer's parameter - and torch does not
-                # populate '.grad' for non-leaves, so without this the
-                # per-sample representation gradient would silently
-                # record as zero rather than fail.
-                if diagnostics_train is not None:
-                    z.retain_grad()
-
                 #-----------------------------------------------------#
 
                 # If noise injection is enabled
@@ -6205,25 +5535,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                     (outputmodules.OutputModuleNBFeatureDispersion,
                      outputmodules.OutputModulePoisson)):
                     
-                    # Get the predicted means of the distributions
-                    # modelling the genes' counts.
-                    #
-                    # The output is a 2D tensor with:
-                    #
-                    # - 1st dimension: the number of samples in the
-                    #                  current batch times the
-                    #                  number of components in the
-                    #                  Gaussian mixture model times
-                    #                  the number of
-                    #                  representations taken per
-                    #                  component per sample ->
-                    #                  'n_samples_in_batch' *
-                    #                  'n_components' *
-                    #                  'n_rep_per_comp'
-                    #
-                    # - 2nd dimension: the dimensionality of the
-                    #                  output (= gene) space ->
-                    #                  'n_genes'
+                    # Get the predicted means: shape (batch * reps *
+                    # components, genes).
                     pred_means = self.decoder(z = z)
 
                     # Set the options to compute the reconstruction
@@ -6239,25 +5552,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                     self.decoder.nb,
                     outputmodules.OutputModuleNBFullDispersion):
 
-                    # Get the predicted means and r-values of the
-                    # negative binomials.
-                    #
-                    # Both outputs are 2D tensors with:
-                    #
-                    # - 1st dimension: the number of samples in the
-                    #                  current batch times the
-                    #                  number of components in the
-                    #                  Gaussian mixture model times
-                    #                  the number of
-                    #                  representations taken per
-                    #                  component per sample ->
-                    #                  'n_samples_in_batch' *
-                    #                  'n_components' *
-                    #                  'n_rep_per_comp'
-                    #
-                    # - 2nd dimension: the dimensionality of the
-                    #                  output (= gene) space ->
-                    #                  'n_genes'
+                    # Get the predicted means and r-values: both
+                    # shaped (batch * reps * components, genes).
                     pred_means, pred_log_r_values = self.decoder(z = z)
 
                     # Set the options to compute the reconstruction
@@ -6319,53 +5615,18 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
                 #-----------------------------------------------------#
 
-                # Backpropagate the loss.
-
-                #-----------------------------------------------------#
-
                 # The dispersion regularization the output module asks
-                # for. Zero for every module but the ones that anchor
-                # the per-sample dispersion to a per-gene baseline or a
-                # mean trend - and for those it is what makes them what
-                # they are.
-                #
-                # IT WAS MISSING HERE. The identical call sits in
-                # '_optimize_rep', so the penalty was applied when
-                # representations were FOUND and never while the
-                # decoder was TRAINED - which is the half that decides
-                # what the dispersion learns to be. A model trained
-                # with 'nb_full_dispersion_shrunk' was therefore not a
-                # shrunk model at all: with no penalty the module is
-                # 'nb_full_dispersion' in a different parameterization,
-                # free to represent exactly the same thing.
-                #
-                # It was found by instrumenting a divergence, not by
-                # reading the code: a new module's learned widths never
-                # moved from their initial value through eighty epochs,
-                # its per-gene baseline moved freely, and its
-                # unpenalized deviation grew without bound - three
-                # symptoms of one absent gradient.
+                # for (zero except for modules anchoring per-sample
+                # dispersion to a baseline); applied here too, matching
+                # '_optimize_rep', so the decoder learns the shrinkage.
                 loss = loss + \
                     self.decoder.nb.dispersion_regularization(
                         pred_means = pred_means,
                         pred_log_r_values = pred_log_r_values,
                         reduction = loss_reduction_type)
 
+                # Backpropagate the loss.
                 loss.backward()
-
-                #-----------------------------------------------------#
-
-                # Fold this batch into the per-sample diagnostics.
-                #
-                # It has to happen HERE - after the backward pass, so
-                # the hooks hold this batch's gradients, and before the
-                # clipping, which rescales them and would make one
-                # sample's recorded pull depend on the rest of its
-                # batch.
-                if diagnostics_train is not None:
-
-                    diagnostics_train.set_batch(samples_ixs)
-                    diagnostics_train.record_batch(z = z)
 
                 #-----------------------------------------------------#
 
@@ -6626,25 +5887,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                     (outputmodules.OutputModuleNBFeatureDispersion,
                      outputmodules.OutputModulePoisson)):
                     
-                    # Get the predicted means of the distributions
-                    # modelling the genes' counts.
-                    #
-                    # The output is a 2D tensor with:
-                    #
-                    # - 1st dimension: the number of samples in the
-                    #                  current batch times the
-                    #                  number of components in the
-                    #                  Gaussian mixture model times
-                    #                  the number of
-                    #                  representations taken per
-                    #                  component per sample ->
-                    #                  'n_samples_in_batch' *
-                    #                  'n_components' *
-                    #                  'n_rep_per_comp'
-                    #
-                    # - 2nd dimension: the dimensionality of the
-                    #                  output (= gene) space ->
-                    #                  'n_genes'
+                    # Get the predicted means: shape (batch * reps *
+                    # components, genes).
                     pred_means = self.decoder(z = z)
 
                     # Set the options to compute the reconstruction
@@ -6660,25 +5904,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                     self.decoder.nb,
                     outputmodules.OutputModuleNBFullDispersion):
 
-                    # Get the predicted means and r-values of the
-                    # negative binomials.
-                    #
-                    # Both outputs are 2D tensors with:
-                    #
-                    # - 1st dimension: the number of samples in the
-                    #                  current batch times the
-                    #                  number of components in the
-                    #                  Gaussian mixture model times
-                    #                  the number of
-                    #                  representations taken per
-                    #                  component per sample ->
-                    #                  'n_samples_in_batch' *
-                    #                  'n_components' *
-                    #                  'n_rep_per_comp'
-                    #
-                    # - 2nd dimension: the dimensionality of the
-                    #                  output (= gene) space ->
-                    #                  'n_genes'
+                    # Get the predicted means and r-values: both
+                    # shaped (batch * reps * components, genes).
                     pred_means, pred_log_r_values = self.decoder(z = z)
 
                     # Set the options to compute the reconstruction
@@ -6740,26 +5967,15 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
                 #-----------------------------------------------------#
 
-                # Backpropagate the loss.
-
-                #-----------------------------------------------------#
-
-                # The same penalty, for the test samples' own
-                # representations.
-                #
-                # The decoder is frozen here, so this reaches only the
-                # representations - which is exactly what it does in
-                # '_optimize_rep', where a new dataset's
-                # representations are found. Leaving it out of one of
-                # the two paths that find representations, and in the
-                # other, is the inconsistency that hid the missing
-                # training term for as long as it did.
+                # Same penalty as training, but the decoder is frozen
+                # here, so it only reaches the representations.
                 loss = loss + \
                     self.decoder.nb.dispersion_regularization(
                         pred_means = pred_means,
                         pred_log_r_values = pred_log_r_values,
                         reduction = loss_reduction_type)
 
+                # Backpropagate the loss.
                 loss.backward()
 
                 #-----------------------------------------------------#
@@ -6919,25 +6135,10 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
             #---------------------------------------------------------#
 
-            # Whatever the output module has to say about its own
-            # internals, on its own line so that the loss line keeps
-            # the shape everything that reads it expects.
-            #
-            # Most modules say nothing. The ones that carry parameters
-            # of their own report them here because a diverging loss
-            # says only THAT something left the rails: when a module
-            # holds a per-gene dispersion, a per-gene prior width and a
-            # free per-sample deviation, the loss alone cannot say
-            # which of the three went first, and guessing costs a
-            # training run per guess.
-            # Write the epoch's per-sample influence record, if the
-            # diagnostics are on.
-            if diagnostics_train is not None:
-
-                diagnostics_train.end_epoch(
-                    epoch = epoch,
-                    sample_names = samples_names_train)
-
+            # Report the output module's own internals separately from
+            # the loss line: a diverging loss alone cannot say which of
+            # a module's several parameters (e.g. per-gene dispersion,
+            # per-gene prior width, per-sample deviation) caused it.
             diagnostics = self.decoder.nb.diagnostics()
 
             if diagnostics:
@@ -6993,59 +6194,6 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             # Add a period at the end of the log string and log it.
             info_msg += "."
             logger.info(info_msg)
-
-            #---------------------------------------------------------#
-
-            # Record the learning rates of this epoch, if a file was
-            # asked for.
-            #
-            # They exist nowhere else. The block above reads them only
-            # when a scheduler is enabled and only to build a log
-            # string, so 'loss.csv' has no learning-rate column and
-            # anything that needs the schedule after the fact - TracIn
-            # weights each checkpoint by the rate in force there - has
-            # to parse them back out of the log text or do without.
-            # Doing without is what happened: an influence analysis
-            # silently fell back to a weight of one for every
-            # checkpoint.
-            #
-            # The rates are read from the optimizers rather than the
-            # schedulers, so they are recorded whether or not a
-            # schedule is in use, and the file is rewritten every epoch
-            # so that it is complete for the epochs that ran even if
-            # the run does not finish.
-            if output_lr_file is not None:
-
-                lrs_list.append(
-                    {"epoch": epoch,
-                     "lr_decoder":
-                         optimizer_decoder.param_groups[0]["lr"],
-                     "lr_rep_train":
-                         optimizer_rep_train.param_groups[0]["lr"],
-                     # 'optimizer_latent' exists ONLY for the legacy
-                     # mixture - with tgmm the name is never bound at
-                     # all, so testing it for None raises rather than
-                     # returning False. The isinstance check is the one
-                     # the rest of the loop uses.
-                     "lr_latent":
-                         optimizer_latent.param_groups[0]["lr"]
-                         if isinstance(
-                             self.latent,
-                             latents.GaussianMixtureModelLegacy)
-                         else float("nan")})
-
-                # Parquet if asked for by extension, text otherwise -
-                # the same rule the rest of the training outputs follow.
-                _df_lrs = pd.DataFrame(lrs_list).set_index("epoch")
-
-                if str(output_lr_file).lower().endswith((".parquet",
-                                                         ".pq")):
-                    _df_lrs.to_parquet(output_lr_file,
-                                       engine = "pyarrow",
-                                       compression = "snappy",
-                                       index = True)
-                else:
-                    _df_lrs.to_csv(output_lr_file)
 
             #---------------------------------------------------------#
 
@@ -7452,39 +6600,19 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         Parameters
         ----------
         df_pred_means : :class:`pandas.DataFrame`
-            A data frame containing the predicted scaled means of
-            the negative binomials modeling the genes' counts.
-
-            Here, each row contains the scaled mean for a given
-            representation/sample, and the columns contain either the
-            values of the scaled means or additional information.
-
-            The columns containing the scaled means must be
-            named after the corresponding genes' Ensembl IDs.
+            One row per representation/sample; columns named after
+            genes' Ensembl IDs hold the scaled means.
 
         df_pred_r_values : :class:`pandas.DataFrame`
-            A data frame containing the predicted r-values of
-            the negative binomials modeling the genes' counts.
+            One row per representation/sample, same shape as
+            ``df_pred_means``; columns named after genes' Ensembl IDs
+            hold the r-values.
 
-            Here, each row contains the r-value for a given
-            representation/sample, and the columns contain either the
-            r-values or additional information.
-
-            The columns containing the r-values must be
-            named after the corresponding genes' Ensembl IDs.
-        
         Returns
         -------
         df_scaled : :class:`pandas.DataFrame`
-            A data frame containing the predicted means.
-
-            It contains the same columns of the ``df_pred_means`` data
-            frame, in the same order they appear in the
-            ``df_pred_means`` data frame.
-
-            However, the values in the columns containing the
-            predicted means are scaled back by the corresponding
-            r-values.
+            Same columns and order as ``df_pred_means``, with the
+            gene columns' values scaled back by the r-values.
         """
 
         # Get whether the rows' names of the two input data frames
@@ -7583,96 +6711,43 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             A data frame containing the samples.
 
         genes_mask : :class:`torch.Tensor`, optional
-            A 2D tensor of 1.0 and 0.0, one row per sample and one
-            column per gene, saying which of a sample's genes were
-            MEASURED. If not passed, all of them were, which is what a
-            whole transcriptome is.
-
-            Most callers want :meth:`impute` instead, which builds the
-            mask from the missing values of the data frame and returns
-            the imputed counts. This argument is here for the caller who
-            wants the representation itself.
+            A 2D 1.0/0.0 mask (samples x genes) of which genes were
+            measured. Defaults to all genes measured.
 
         config_rep : :class:`dict`
-            A dictionary of options for the optimization(s). It varies
-            according to the selected ``method``.
-
-            The supported options for all available methods can be
-            found :doc:`here <../rep_config_options>`.
+            A dictionary of options for the optimization(s), varying
+            by the selected ``method``.
 
         get_saliency_map : :class:`bool`, optional
-            Whether to also compute and return the saliency maps
-            showing the importance of each latent dimension for each
-            gene's expression based on the obtained representations.
+            Whether to also compute and return the saliency maps.
             Default: ``False``.
 
         Returns
         -------
         df_rep : :class:`pandas.DataFrame`
-            A data frame containing the representations.
-
-            Here, each row contains a representation and the
-            columns contain either the values of the representations'
-            along the latent space's dimensions or additional
-            information about the input samples found in the
-            input data frame. Columns containing additional
-            information, if present in the input data frame, will
-            appear last in the data frame.
+            One row per representation; columns are the latent
+            dimensions, followed by any additional input columns.
 
         df_pred_means : :class:`pandas.DataFrame`
-            A data frame containing the predicted means of the
-            distributions modelling the genes' counts for the
-            representations found.
-
-            Here, each row contains the predicted means for a
-            given representation, and the columns contain either the
-            mean of a distribution or additional information about the
-            input samples found in the input data frame. Columns
-            containing additional information, if present in the input
-            data frame, will appear last in the data frame.
-
-            If the genes counts are modelled using negative binomial
-            distributions, the predicted means are scaled by the
-            corresponding distributions' r-values.
+            One row per representation; columns are the predicted
+            gene-count means (scaled by the r-values for negative
+            binomial counts), followed by any additional input
+            columns.
 
         df_pred_r_values : :class:`pandas.DataFrame`, optional
-            A data frame containing the predicted r-values of the
-            negative binomials for the representations found, if the
-            genes' counts are modelled by negative binomial
-            distributions
-
-            Here, each row contains the predicted r-values for a given
-            representation, and the columns contain either the
-            r-value of a negative binomial or additional information
-            about the input samples found in the input
-            data frame. Columns containing additional
-            information, if present in the input data frame, will
-            appear last in the data frame.
-
-            ``df_pred_r_values`` is :obj:`None` if the genes' counts
-            are modelled by Poisson distributions.
+            One row per representation; columns are the predicted
+            negative-binomial r-values, followed by any additional
+            input columns. :obj:`None` for Poisson counts.
 
         df_time : :class:`pandas.DataFrame`
-            A data frame containing data about the CPU and wall
-            clock time used by each epoch (and backpropagation
-            step within each epoch) in each optimization step.
-
-            Here, each row represents an epoch of an optimization
-            step, and the columns contain data about the platform
-            where the calculation was run, the number of CPU threads
-            used by the computation, and the CPU and wall clock
-            time used by the entire epoch and by the backpropagation
-            step run inside it.
+            One row per optimization epoch, with the platform, CPU
+            thread count, and CPU/wall-clock time for the epoch and
+            its backpropagation step.
 
         df_saliency_map : :class:`pandas.DataFrame`, optional
-            A data frame containing the gradients indicating the
-            importance of each latent dimension for each gene's
-            expression.
-            
-            Here, each row is a gene (indexed by ENSG naming) and
-            columns  correspond to each latent dimension.
-            Returned as an element of a tuple uniquely when
-            ``get_saliency_map`` is ``True``.
+            One row per gene (ENSG-indexed), one column per latent
+            dimension. Only returned when ``get_saliency_map`` is
+            ``True``.
         """
 
         # Get the columns containing gene expression data.
@@ -7740,25 +6815,16 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         #-------------------------------------------------------------#
 
-        # If the user selected the two-optimizations scheme
-        #
-        # This is the only scheme. A 'one_opt' scheme - one optimization
-        # over the candidates, with no selection step and no second
-        # descent - was retired, having produced no result in this
-        # project while still having to be kept working.
-        #
-        # The dispatch is kept rather than inlined: adding a scheme
-        # should be adding a branch here and a case to 'CONFIG_REP',
-        # not rebuilding how a scheme is chosen.
+        # If the user selected the two-optimizations scheme (the only
+        # scheme implemented; adding one means a branch here and a
+        # case in 'CONFIG_REP')
         if opt_scheme == "two_opt":
 
             # Select the corresponding method.
             opt_method = self._get_representations_two_opt
 
         # If the user selected the multi-seed two-optimizations scheme
-        #
-        # The same scheme run once per initialization seed, keeping
-        # every seed's answer instead of one. See the method.
+        # (the same scheme run once per seed, keeping every answer)
         elif opt_scheme == "two_opt_multiseed":
 
             opt_method = self._get_representations_two_opt_multiseed
@@ -7766,9 +6832,7 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         # If it is a scheme this version does not implement
         else:
 
-            # Say so, rather than leaving 'opt_method' unbound for the
-            # call below to fail on with a NameError that names
-            # nothing.
+            # Raise an error, rather than leaving 'opt_method' unbound.
             raise ValueError(
                 f"Unsupported optimization scheme '{opt_scheme}'. "
                 f"The schemes are 'two_opt' and "
@@ -7776,20 +6840,10 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         #-------------------------------------------------------------#
             
-        # Get the representations, the corresponding predicted means
-        # of the distributions, the r-values of the distributions (if
-        # any), and the time data.
-        #
-        # This runs in the model's own precision. Finding a
-        # representation builds tensors of its own - the representations
-        # themselves, and the buffer the best of them are gathered into
-        # - and those are made in whatever torch's default dtype is,
-        # which need not be the model's. A float64 model whose
-        # representations are built in float32 fails the moment the two
-        # meet ('Index put requires the source and destination dtypes
-        # match'), and a float32 model run while the default happens to
-        # be double would waste twice the memory and say nothing. The
-        # model knows its precision; nothing else has to be set for it.
+        # Get the representations, predicted means, r-values (if any),
+        # and timing data, in the model's own precision - otherwise the
+        # tensors are built in torch's default dtype, which may not
+        # match the model's.
         with self._default_dtype(self._dtype):
 
             rep, pred_means, pred_r_values, time_opt = \
@@ -7862,85 +6916,44 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                quantiles: tuple[float, float] = (0.025, 0.975)) -> \
                 tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame,
                       pd.DataFrame, pd.DataFrame]:
-        """Predict the counts of the genes a sample does not have.
+        """Predict the counts of the genes a sample does not have,
+        from the genes it does.
 
-        A sample only part of whose transcriptome was read - a gene
-        panel, a targeted assay - is given, the genes that were read are
-        used to find its representation, and the decoder is asked for
-        the genes that were not.
-
-        THE MISSING GENES MUST BE MISSING, and not zero. A gene whose
-        count is :obj:`numpy.nan` was never measured; a gene whose count
-        is 0 was measured and found to be silent. They are different
-        facts, and the difference is the whole of this method: a zero is
-        evidence, and the model will move a sample's representation in
-        order to explain it. Hand it a panel with the unmeasured genes
-        written as zeros and it will conclude that the sample has
-        switched off nine tenths of its transcriptome - and it will
-        conclude it about the genes that WERE measured too, because the
-        representation is one thing and it is fitted to all of them at
-        once.
-
-        So the unmeasured genes are taken out of the likelihood
-        altogether, which for a factorized likelihood is exactly what
-        conditioning on the genes that were measured means, and the
-        scaling factor of the negative binomials - which is otherwise
-        the mean count over ALL of the genes, and would be deflated by
-        every gene that is not there - is estimated from the measured
-        genes alone.
+        Missing genes must be :obj:`numpy.nan`, not zero - a zero is
+        evidence the model fits the representation to, and would be
+        read as those genes being silenced.
 
         Parameters
         ----------
         df_samples : :class:`pandas.DataFrame`
             The samples, with :obj:`numpy.nan` in the genes that were
-            not measured.
-
-            A column of genes may be missing from the data frame
-            entirely; it is taken to have been measured in no sample.
+            not measured. A gene column missing entirely is taken as
+            unmeasured in every sample.
 
         config_rep : :class:`dict`
             The options for finding the representations, as for
             :meth:`get_representations`.
 
         genes_measured : :class:`list`, optional
-            The genes that were measured, if it is more convenient to
-            say so than to write :obj:`numpy.nan` everywhere else. Every
-            other gene is taken to be unmeasured in every sample.
+            The genes that were measured, as an alternative to writing
+            :obj:`numpy.nan` everywhere else. Every other gene is
+            taken to be unmeasured in every sample.
 
         quantiles : :class:`tuple`, optional
-            The quantiles of the predicted negative binomial to report,
-            which give the imputed count an interval and not only a
-            point. Default: the central 95%.
+            The quantiles of the predicted negative binomial to
+            report. Default: the central 95%.
 
         Returns
         -------
         df_imputed : :class:`pandas.DataFrame`
-            The expected count of every gene of every sample, on that
-            sample's own scale - the mean of the negative binomial the
-            model predicts for it.
-
-            The genes that WERE measured are in it as well, and are the
-            model's expectation for them rather than what was observed.
-            The two should agree, and where they do not is worth
-            looking at: it is the same quantity a differential
-            expression analysis reports.
+            The expected count of every gene of every sample (the
+            negative binomial's mean), including the measured genes.
 
         df_lower, df_upper : :class:`pandas.DataFrame`
-            The quantiles of the predicted distribution. An imputed
-            count without them is a number without an error bar, and a
-            gene the model is uncertain of looks exactly like a gene it
-            is sure of.
+            The requested quantiles of the predicted distribution.
 
         df_pred_r_values : :class:`pandas.DataFrame`
-            The r-values of those negative binomials.
-
-            With ``df_imputed``, they are the whole predicted
-            distribution of every gene - not a point and an interval,
-            but the thing the point and the interval were taken from. It
-            is what is needed to ask where an observed count LANDS in
-            what the model expected, which is the question a
-            differential expression analysis asks, and the question by
-            which an imputation is honestly judged.
+            The r-values of the predicted negative binomials.
 
         df_rep : :class:`pandas.DataFrame`
             The representations found from the measured genes.
@@ -7955,13 +6968,11 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         # and gives no such equation.
         #
         # What it gives instead is a condition. The measured genes'
-        # median estimates the whole sample's WHEN THE UNMEASURED GENES
-        # ARE MISSING AT RANDOM, and does not when they are a panel
-        # chosen for being worth measuring - such a panel is biased
-        # upward, and so is its median. The mean-scaled path is
-        # indifferent to which of the two it was handed; this one is
-        # not, and 'genes_measured' is exactly how a caller says
-        # 'panel'.
+        # median estimates the whole sample's only when the unmeasured
+        # genes are missing at random, not when they are a panel chosen
+        # for being worth measuring (which biases the panel's median
+        # upward). The mean-scaled path is indifferent to which of the
+        # two it was handed; this one is not.
         if self._scaling_factor == "median" \
            and genes_measured is not None:
 
@@ -7980,29 +6991,38 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         #-------------------------------------------------------------#
 
+        # Get the genes the model knows.
         genes_model = list(self.genes)
 
+        # Reindex the samples to the model's own gene order.
         df = df_samples.reindex(columns = genes_model)
 
         # What was measured. A gene absent from the data frame, and a
         # gene present and NaN, are the same thing: not measured.
         measured = df.notna().to_numpy()
 
+        # If an explicit list of measured genes was given
         if genes_measured is not None:
 
+            # Get which of the model's genes are in that list.
             keep = np.isin(np.array(genes_model),
                            np.array(list(genes_measured)))
 
+            # Combine it with the NaN-derived mask.
             measured = measured & keep[np.newaxis, :]
 
+        # If any sample has no measured gene at all
         if not measured.any(axis = 1).all():
 
+            # Raise an error.
             raise ValueError(
                 "At least one sample has no measured gene at all. There "
                 "is nothing to find a representation from.")
 
+        # Get the number of measured genes per sample.
         n_measured = measured.sum(axis = 1)
 
+        # Inform the user.
         logger.info(
             f"The samples have a median of "
             f"{int(np.median(n_measured)):,} measured gene(s), of the "
@@ -8016,6 +7036,7 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         # NaN, and the loss would be one too.
         df_filled = df.fillna(0.0)
 
+        # Build the genes mask tensor.
         genes_mask = \
             torch.tensor(measured.astype("float64"),
                          dtype = torch.float64,
@@ -8023,6 +7044,7 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         #-------------------------------------------------------------#
 
+        # Find the representations from the measured genes.
         df_rep, df_pred_means, df_pred_r_values, _ = \
             self.get_representations(df_samples = df_filled,
                                      config_rep = config_rep,
@@ -8030,23 +7052,20 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         #-------------------------------------------------------------#
 
+        # Get the predicted means as a plain array.
         pred = df_pred_means[genes_model].to_numpy(dtype = "float64")
 
+        # Get the predicted r-values as a plain array.
         r = df_pred_r_values[genes_model].to_numpy(dtype = "float64")
 
+        # Get the (zero-filled) observed counts as a plain array.
         obs = df_filled[genes_model].to_numpy(dtype = "float64")
 
-        # The scale, once more: the same estimate the optimization used,
-        # recomputed here because what comes back from
-        # 'get_representations' is the decoder's output, before any scale
-        # has been put on it. See '_get_masked_scaling_factors' for why
-        # it is this and not the mean of what is there.
-        #
-        # It is that method that is called, and not a second copy of its
-        # arithmetic written out here, because the two must agree and
-        # the only way to be sure they agree is for there to be one of
-        # them. A copy was here once, and it computed the mean-scaled
-        # estimate whatever the model's scaling factor was.
+        # Re-estimate the scaling factor from the measured genes alone
+        # (the same estimate the optimization used) - 'get_representations'
+        # returns the decoder's output before any scale is applied.
+        # Reusing the same method, rather than a second copy of its
+        # arithmetic, keeps the two from drifting apart.
         scale = \
             self.__class__._get_masked_scaling_factors(
                 obs_counts = torch.from_numpy(obs),
@@ -8056,6 +7075,7 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                 n_genes = len(genes_model),
                 scaling_factor = self._scaling_factor).numpy()
 
+        # Scale the predicted means.
         means = pred * scale
 
         #-------------------------------------------------------------#
@@ -8064,34 +7084,42 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         # probability of a success, which is 'r / (r + mean)'.
         p = r / (r + means)
 
+        # Get the lower quantile of the predicted distribution.
         lower = nbinom.ppf(quantiles[0], r, p)
 
+        # Get the upper quantile of the predicted distribution.
         upper = nbinom.ppf(quantiles[1], r, p)
 
         #-------------------------------------------------------------#
 
+        # Get the samples' index.
         index = df.index
 
+        # Assemble the imputed-means data frame.
         df_imputed = pd.DataFrame(means, index = index,
                                   columns = genes_model)
 
+        # Assemble the lower-quantile data frame.
         df_lower = pd.DataFrame(lower, index = index,
                                 columns = genes_model)
 
+        # Assemble the upper-quantile data frame.
         df_upper = pd.DataFrame(upper, index = index,
                                 columns = genes_model)
 
+        # Assemble the r-values data frame.
         df_r = pd.DataFrame(r, index = index, columns = genes_model)
 
+        # Return the imputed means, quantiles, r-values, and
+        # representations.
         return df_imputed, df_lower, df_upper, df_r, df_rep
 
 
     def get_probability_density(self,
                                 df_rep: pd.DataFrame) -> pd.DataFrame:
-        """Given a set of representations, get the probability density
-        of each component of the Gaussian mixture model for each
-        representation and the representation(s) having the maximum
-        probability density for each component.
+        """Get each component's probability density for each
+        representation, and the representation(s) of maximum density
+        per component.
 
         Parameters
         ----------
@@ -8101,16 +7129,13 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         Returns
         -------
         df_prob_rep : :class:`pandas.DataFrame`
-            A data frame containing the probability densities for each
-            representation, together with an indication of what the
-            maximum probability density found is and for which
-            component it is found.
+            The per-component probability densities for each
+            representation, plus its maximum density and the
+            component it belongs to.
 
         df_prob_comp : :class:`pandas.DataFrame`
-            A data frame containing, for each component, the
-            representation(s) having the maximum probability density
-            for the component, together with the probability density
-            for that(those) representation(s).
+            For each component, the representation(s) of maximum
+            density and that density.
         """
 
         # Set the name of the column that will contain the maximum
@@ -8219,22 +7244,27 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         """Fit the Gaussian mixture model that describes the latent
         space after training, and save it.
 
-        This is not the prior. The prior is what training used, what
-        `gmm.pth` holds, and what finding a representation for a new
-        sample goes through; it is left exactly as training left it.
-        What is fitted here is the density of the space the training
-        arrived at, for everything that asks a question about that
-        density - the probability density of a sample, which component
-        it belongs to, how atypical it is, and which directions a
-        sampler should draw in.
+        Parameters
+        ----------
+        reps_train : :class:`torch.Tensor`
+            The representations found for the training samples.
+
+        config_final : :class:`dict`
+            The configuration for fitting the final Gaussian mixture
+            model.
+
+        gmm_final_pth_file : :class:`str`
+            The path where the final Gaussian mixture model's
+            parameters will be saved.
         """
 
-        # Get a copy of the options, so that the model's own are not
-        # modified by reading them, and add what the fit itself is
-        # allowed to move - the two live in different sections of the
-        # configuration, and the fitting takes them together.
+        # Fits the density of the space training arrived at, not the
+        # prior (which stays as training left it, in 'gmm.pth'). Copy
+        # the options so the model's own are not modified by reading
+        # them.
         options = dict(self._gmm_final_options)
 
+        # Fall back to the fit-time configuration for what is not set.
         options.setdefault("fit",
                            config_final.get("fit", "covariance_only"))
 
@@ -8265,12 +7295,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                          reps: torch.Tensor,
                          options: dict[str, object]):
         """Fit a Gaussian mixture model to a set of representations,
-        and return it.
-
-        This is the fitting that both the final mixture written at the
-        end of training and :meth:`fit_gmm` go through, so that a
-        mixture fitted after the fact is fitted exactly as one fitted
-        during training would have been.
+        and return it - shared by the end-of-training fit and
+        :meth:`fit_gmm`, so both fit identically.
 
         Parameters
         ----------
@@ -8391,26 +7417,10 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                 input_reps: Union[str, pd.DataFrame,
                                   list[Union[str, pd.DataFrame]]],
                 config_fit: dict[str, object]) -> "BulkDGD":
-        """Fit a new Gaussian mixture model to a trained model's
-        representations, and return a new model that uses it.
-
-        The mixture a model is trained with is a PRIOR: it is what the
-        representations were pulled towards while they were being
-        learnt, and it is deliberately simple, because a prior that
-        describes the data too well stops pulling. Once training is
-        over the representations are where they are, and the mixture
-        that best describes WHERE THEY ENDED UP is a different, and
-        generally a richer, one.
-
-        This fits that mixture, after the fact and without retraining
-        anything: the decoder is untouched, and so is the prior in the
-        file it was saved to. Both the fitted mixture and a
-        configuration that rebuilds the new model are written, so the
-        result can be loaded again like any other model.
-
-        Fit it to the representations the model was TRAINED on. A
-        mixture fitted to the representations of the samples it is
-        about to be used on has been told the answer.
+        """Fit a new Gaussian mixture to a trained model's
+        representations, and return a new model using it. Fit it to
+        the representations the model was trained on, not the ones
+        it is about to be used on.
 
         Parameters
         ----------
@@ -8422,45 +7432,18 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             in-memory :class:`pandas.DataFrame` in the same format.
 
         config_fit : :class:`dict`
-            The configuration for the fit. The keys are:
-
-            * ``"gmm_new_pth_file"`` (:class:`str`) - the file where
-              the fitted mixture's parameters will be written.
-
-            * ``"config_model_new"`` (:class:`str`) - the YAML file
-              where the new model's configuration will be written.
-
-            * ``"dec_pth_file"`` (:class:`str`, optional) - the file
-              with the trained decoder's parameters, which the new
-              model reuses unchanged. It defaults to the one the
-              model's own configuration points at.
-
-            * ``"gmm_options"`` (:class:`dict`) - the options for the
-              fit:
-
-              - ``"covariance_type"`` (:class:`str`): the covariance
-                the new mixture is to have. There is no default: a
-                mixture fitted after training is being asked for a
-                covariance the prior did not have, and which one is
-                the whole of the request.
-              - ``"shrinkage"`` (:class:`float`, optional): how far
-                each component's covariance is pulled towards the one
-                shared by all of them. A ``"full"`` covariance needs a
-                non-zero value, since each component would otherwise
-                estimate a full covariance matrix from the samples it
-                alone collected.
-              - ``"reg_covar"`` (:class:`float`, optional): the value
-                added to the diagonal of the covariance.
-              - ``"fit"`` (:class:`str`, optional):
-                ``"covariance_only"`` refits the covariance and leaves
-                the means and the weights where training left them, so
-                the components
-                are still the ones anything downstream was labelled
-                against. ``"full_em"`` re-estimates everything, and
-                the components are then NOT the prior's. It defaults
-                to ``"covariance_only"``.
-              - ``"max_iter"`` (:class:`int`, optional): the
-                iterations a ``"full_em"`` fit may take.
+            The configuration for the fit: ``gmm_new_pth_file`` (the
+            file the fitted mixture is written to), ``config_model_new``
+            (the YAML file the new model's configuration is written
+            to), ``dec_pth_file`` (optional, the trained decoder's
+            parameters, defaulting to the model's own), and
+            ``gmm_options`` (a dict with ``covariance_type``, required;
+            ``shrinkage``, required non-zero for ``"full"`` covariance;
+            ``reg_covar``; ``fit`` - ``"covariance_only"`` (default,
+            keeps the prior's means/weights/components) or
+            ``"full_em"`` (re-estimates everything, so components no
+            longer match the prior's); and ``max_iter`` for
+            ``"full_em"``).
 
         Returns
         -------
@@ -8528,11 +7511,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Assemble the new model's configuration and write it. The
-        # latent space is the one just fitted, whose covariance is not
-        # the prior's, so the configuration has to say so - a model
-        # rebuilt with the prior's shape would refuse the file it is
-        # pointed at.
+        # Assemble the new model's configuration, recording the just-
+        # fitted covariance type so a rebuild does not expect the
+        # prior's shape.
         config = self._get_config_for_rebuilding()
 
         config["latent_options"]["covariance_type"] = \
@@ -8605,101 +7586,40 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
               input_reps: Union[str, pd.DataFrame,
                                 list[Union[str, pd.DataFrame]]],
               config_prune: dict[str, object]) -> "BulkDGD":
-        """Prune a trained decoder to the hidden units it actually uses,
-        without retraining, and return a new, smaller model that
-        computes the same function.
-
-        A hidden unit contributes to the next layer as its activation
-        times its outgoing weights. Two kinds of unit can be removed
-        without changing the decoder's output: a *dead* one (its ReLU
-        output is zero for every input, so its outgoing weights multiply
-        zero) and a *constant* one (its output has no variance across
-        the inputs, so it can be folded into the next layer's bias). A
-        unit that encodes tissue identity has real variance - high on
-        its tissue, low elsewhere - and is therefore never a candidate:
-        the rare-tissue units are kept by construction. This is why the
-        decoder is *not* retrained narrow (a narrow retrain loses those
-        rare-tissue directions under weight decay); the units the wide
-        decoder already learned are kept, and only what it does not use
-        is discarded.
-
-        **The probe set matters.** A unit that is dead on healthy tissue
-        but alive on a tumour must be *seen* alive or it is cut. Pass in
-        ``input_reps`` every representation the model has produced - its
-        own train and test representations *and* whatever out-of-
-        distribution representations exist (tumour, metastatic, ...) -
-        not just the healthy ones.
-
-        The only approximation is the "no variance" threshold, and it is
-        verified: the pruned decoder is run against the full one on the
-        real representations, and the run raises if the maximum relative
-        error on the outputs (the means and the log-r-values) exceeds
-        ``verification_tol``.
-
-        The latent space (the Gaussian mixture model) is *not* touched -
-        pruning is a property of the decoder alone. The pruned model
-        returned by this method points at the same ``gmm_pth_file`` its
-        parent used.
+        """Prune a trained decoder to the hidden units it actually
+        uses (dead or constant ones removed), without retraining, and
+        return a new, smaller model computing the same function. The
+        latent space is untouched; the probe set should include every
+        representation the model has produced, in and out of
+        distribution, or a unit alive only off-distribution gets cut.
 
         Parameters
         ----------
         input_reps : :class:`str`, :class:`pandas.DataFrame`, or a \
             :class:`list` of either
-            The representations that make up the probe set. Each may be
-            a path to a CSV file (samples on the rows, the latent
-            dimensions in columns named ``latent_dim_*``, as written by
-            :meth:`get_representations`) or an in-memory
-            :class:`pandas.DataFrame` in the same format. Pass all the
-            representations the model has produced, in and out of
-            distribution - see the note above.
+            The probe-set representations. Each may be a path to a CSV
+            file (samples on the rows, the latent dimensions in
+            columns named ``latent_dim_*``) or an in-memory
+            :class:`pandas.DataFrame` in the same format.
 
         config_prune : :class:`dict`
-            The configuration for the pruning. The keys are:
-
-            * ``"gmm_pth_file"`` (:class:`str`) - the file with the
-              trained latent space's parameters. It is referenced by the
-              pruned model unchanged; the latent space is not pruned.
-
-            * ``"dec_pth_file"`` (:class:`str`) - the file with the
-              trained decoder's parameters. These are the parameters
-              that get pruned.
-
-            * ``"dec_pruned_pth_file"`` (:class:`str`) - the file where
-              the pruned decoder's parameters will be written.
-
-            * ``"config_model_pruned"`` (:class:`str`) - the YAML file
-              where the pruned model's configuration will be written. It
-              can be loaded later to rebuild the pruned model.
-
-            * ``"pruning_options"`` (:class:`dict`, optional) - the
-              options controlling the pruning:
-
-              - ``"rel_tol"`` (:class:`float`, default ``1e-7``): a unit
-                is kept when its footprint (its activation's standard
-                deviation across the probes, times the norm of its
-                outgoing weights) is at least this fraction of the
-                largest footprint in its layer.
-              - ``"verification_tol"`` (:class:`float`, default
-                ``1e-4``): the maximum relative error, on the real
-                representations, that the pruned decoder is allowed
-                before the method raises.
-              - ``"n_jitter_copies"`` (:class:`int`, default ``2``): how
-                many Gaussian-jittered copies of the probes to add, so a
-                unit that is only ever *nearly* constant on the observed
-                representations is still exercised.
-              - ``"jitter_sd"`` (:class:`float`, default ``0.25``): the
-                scale of the jitter, as a fraction of each latent
-                dimension's standard deviation.
-              - ``"seed"`` (:class:`int`, default ``0``): the seed for
-                the jitter, so the pruning is reproducible.
+            The configuration for the pruning: ``gmm_pth_file`` (the
+            latent space, unchanged and referenced as-is),
+            ``dec_pth_file`` (the decoder to prune),
+            ``dec_pruned_pth_file`` and ``config_model_pruned`` (where
+            the results are written), and optional ``pruning_options``
+            - ``rel_tol`` (keep-footprint threshold, default
+            ``1e-7``), ``verification_tol`` (max allowed relative
+            error against the unpruned decoder, default ``1e-4``),
+            ``n_jitter_copies`` (default ``2``), ``jitter_sd``
+            (default ``0.25``), and ``seed`` (default ``0``).
 
         Returns
         -------
         pruned_model : :class:`BulkDGD`
-            A new model whose decoder has been pruned to its live units.
-            Its parameters have already been written to
-            ``dec_pruned_pth_file`` and ``config_model_pruned``, so it
-            can also be rebuilt from those files later.
+            A new model with the pruned decoder. Its files have
+            already been written, so it can also be rebuilt from them
+            later.
         """
 
         # Get the required paths from the configuration.
@@ -8708,11 +7628,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         dec_pruned_pth_file = config_prune["dec_pruned_pth_file"]
         config_model_pruned = config_prune["config_model_pruned"]
 
-        # Get the pruning options, falling back on the defaults. The
-        # defaults are the conservative, vetted values: a unit is kept
-        # unless its footprint is below a ten-millionth of the largest,
-        # which drops only what carries essentially nothing while still
-        # verifying to 1e-4.
+        # Get the pruning options, falling back on the conservative,
+        # vetted defaults.
         p_opts = config_prune.get("pruning_options") or {}
         rel_tol = float(p_opts.get("rel_tol", 1e-7))
         verification_tol = float(p_opts.get("verification_tol", 1e-4))
@@ -8730,10 +7647,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         device = str(self.device)
 
         # Build the trained ("full") decoder from the model's own
-        # architecture and load the trained parameters into it. It is
-        # built in the model's precision: a float64 checkpoint read into
-        # a decoder built in float32 would silently lose precision, and
-        # the verification below runs at 1e-4.
+        # architecture, in the model's own precision (so a float64
+        # checkpoint is not silently cast down), and load its
+        # parameters.
         full_options = \
             {k: v for k, v in self._decoder_initial_options.items()
              if k != "decoder_pth_file"}
@@ -8897,6 +7813,21 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             means_pruned, log_r_pruned = dec_pruned(z_real)
 
         def _rel_error(a, b):
+            """Get the maximum relative error between two tensors.
+
+            Parameters
+            ----------
+            a : :class:`torch.Tensor`
+                The reference tensor.
+
+            b : :class:`torch.Tensor`
+                The tensor to compare against the reference.
+
+            Returns
+            -------
+            :class:`float`
+                The maximum relative error.
+            """
             return (a - b).abs().max().item() \
                 / (a.abs().max().item() + 1e-30)
 
@@ -8994,6 +7925,7 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             cols = [c for c in df.columns
                     if str(c).startswith("latent_dim_")]
 
+            # If none of the expected columns were found.
             if not cols:
                 raise ValueError(
                     "No 'latent_dim_*' columns were found in one of "
@@ -9001,6 +7933,7 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                     "representations as written by "
                     "'get_representations'.")
 
+            # Add this item's representations to the collected ones.
             frames.append(df[cols].to_numpy(dtype = "float64"))
 
         z = np.concatenate(frames, axis = 0)
@@ -9057,6 +7990,7 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
         decoder_options["n_units_hidden_layers"] = n_units_hidden_layers
         decoder_options["decoder_pth_file"] = dec_pruned_pth_file
 
+        # Assemble the pruned model's configuration.
         config = {
             "latent_dim": int(self.latent.dim),
             "latent_type": self._latent_type,
@@ -9138,17 +8072,10 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
             parameters (weights and biases).
 
         gmm_final_pth_file : :class:`str`, ``"gmm_final.pth"``
-            The .pth file where to save the parameters of the Gaussian
-            mixture model fitted to the representations after
-            training.
-
-            It is only written if the model's configuration has a
-            ``gmm_final`` section. It is a **separate** file from
-            ``gmm_pth_file``, which keeps the prior the model was
-            trained with: finding a representation for a new sample
-            goes through the prior, and swapping the two would put a
-            mixture fitted to the representations in charge of
-            producing them.
+            The .pth file for the Gaussian mixture fitted to the
+            representations after training, written only if the
+            configuration has a ``gmm_final`` section. Separate from
+            ``gmm_pth_file``, which keeps the training prior.
 
         pathways : :class:`dict`, optional
             A dictionary where the keys are pathway names and the
@@ -9177,44 +8104,27 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         dfs_pred_r_values  : :obj:`None` or \
             :class:`pandas.DataFrame` or :class:`tuple`
-            The predicted r-values, depending on the output module:
-
-            - :obj:`None` for
-              :class:`bulkdgd.core.outputmodules.OutputModulePoisson`.
-            - A single :class:`pandas.DataFrame` for
-              :class:`bulkdgd.core.outputmodules.OutputModuleNBFeatureDispersion`.
-            - A tuple ``(df_pred_r_values_train,
-              df_pred_r_values_test)`` for
-              :class:`bulkdgd.core.outputmodules.OutputModuleNBFullDispersion`.
+            The predicted r-values: :obj:`None` for Poisson counts, a
+            single data frame for per-gene r-values, or a
+            ``(train, test)`` tuple for per-sample r-values.
 
         df_loss : :class:`pandas.DataFrame`
-            A data frame containing the losses calculated during
-            training.
-        
-        dfs_metrics : :obj:`None` or :class:`tuple`
-            The per-epoch metrics rows for training and testing
-            samples, depending on whether the user requested to
-            calculate metrics during training:
+            The losses calculated during training.
 
-            - :obj:`None` if the user did not request to calculate
-              metrics during training.
-            - A tuple ``(df_metrics_train, df_metrics_test)`` of
-              data frames, where each data frame contains the
-              metrics calculated for the training or test samples in a
-              given epoch, if the user requested to calculate metrics
-              during training.
+        dfs_metrics : :obj:`None` or :class:`tuple`
+            :obj:`None` if metrics were not requested, else a
+            ``(df_metrics_train, df_metrics_test)`` tuple with each
+            epoch's metrics.
 
         df_time : :class:`pandas.DataFrame`
-            A data frame containing the training-time metrics.
+            The training-time metrics.
         """
 
         #-------------------------------------------------------------#
 
-        # NO CONFIGURATION MEANS THE ONE THE SHIPPED MODELS USED.
-        #
-        # Imported here, not at module level: 'ioutil' imports
-        # 'core._util', so importing it at the top of this module
-        # would close a cycle.
+        # No configuration means the one the shipped models used.
+        # Imported here, not at module level, to avoid a circular
+        # import ('ioutil' imports 'core._util').
         if config_train is None:
 
             from bulkdgd.ioutil import configio
@@ -9227,20 +8137,9 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
         #-------------------------------------------------------------#
 
-        # TRAINING A TRAINED MODEL IS ALMOST ALWAYS A MISTAKE.
-        #
-        # A model built from fitted parameters - which is what a bare
-        # 'BulkDGD()' gives - starts from the published optimum, and
-        # calling 'train' on it moves it away from that silently: the
-        # object still answers to the same name, the results it then
-        # produces are no longer the published model's, and nothing in
-        # the output says so.
-        #
-        # Continuing to train one IS legitimate, for fine-tuning on a
-        # new cohort, so it is allowed when the configuration asks for
-        # it in as many words. Absent the keyword the answer is no,
-        # because the mistake is silent and the deliberate case is
-        # not.
+        # Training an already-trained model would silently move it
+        # away from its optimum, so allow it only when the
+        # configuration explicitly asks for it.
         continue_training = bool(config_train.get("continue_training",
                                                   False)) \
             if hasattr(config_train, "get") else False
@@ -9249,9 +8148,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
             errstr = \
                 "This model was built from trained parameters, and " \
-                "training it would move it away from them. If you " \
-                "mean to continue training it - to fine-tune it on " \
-                "new data, for instance - set 'continue_training: " \
+                "training it would move it away from them. To " \
+                "continue training it, set 'continue_training: " \
                 "true' at the top level of the training " \
                 "configuration. To train a new model instead, build " \
                 "one from an architecture rather than from a " \
@@ -9282,14 +8180,8 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
                 "init_rep_scale", 0.0)
 
         # Get the distribution the initial representations are drawn
-        # from, and the options for it.
-        #
-        # The initialization used to be a scaled normal written out by
-        # hand here, which meant that the distributions the
-        # 'RepresentationLayer' already supports could not be reached
-        # from a training configuration at all. Naming one here selects
-        # it; naming none keeps the previous behaviour exactly, so
-        # configurations written before this change train as they did.
+        # from, and the options for it. Naming none defaults to a
+        # scaled normal, matching 'RepresentationLayer's default.
         init_rep_dist = \
             config_train["representations_training_options"].get(
                 "init_rep_dist", None)
@@ -9304,15 +8196,22 @@ class BulkDGD(fineapi.FineTuningMixin, nn.Module):
 
             """Build a representation layer for `n_samples` samples.
 
-            In the model's own precision, so that it does not depend
-            on what torch's default dtype happens to be when 'train'
-            is called: a float64 model whose representations are
-            single precision fails when the two are multiplied. The
-            samplers in 'RepresentationLayer' call 'torch.randn'
-            without a dtype and so return the default one, which is
-            why the cast below is not optional.
+            Parameters
+            ----------
+            n_samples : :class:`int`
+                The number of samples to build representations for.
+
+            Returns
+            -------
+            :class:`bulkdgd.core.latents.RepresentationLayer`
+                The representation layer.
             """
 
+            # Cast to the model's own precision explicitly:
+            # 'RepresentationLayer's samplers call 'torch.randn'
+            # without a dtype, so they would otherwise follow
+            # whatever torch's default dtype is when 'train' is
+            # called, which need not match the model's.
             dtype = self._DTYPES_TORCH[self._dtype]
 
             # No distribution named - the behaviour this had before

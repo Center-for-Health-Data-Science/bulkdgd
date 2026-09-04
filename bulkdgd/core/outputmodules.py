@@ -69,9 +69,6 @@ logger = log.getLogger(__name__)
 #######################################################################
 
 
-########################### PUBLIC CLASSES ############################
-
-
 class OutputModuleBase(nn.Module):
 
     """
@@ -268,17 +265,6 @@ class OutputModuleBase(nn.Module):
     def diagnostics(self) -> dict:
         """The module's internal state, for the training loop to log
         once an epoch.
-
-        Most modules have nothing to say and return an empty
-        dictionary, which the training loop prints as nothing at all.
-
-        It exists because a diverging loss says only THAT something
-        left the rails, and a module that carries several parameters -
-        a per-gene baseline dispersion, a per-gene prior width, a free
-        per-sample deviation - gives no way to tell which of them went
-        first. Three separate hypotheses were tried against one such
-        divergence and each cost a training run to reject; the numbers
-        that would have distinguished them were never written down.
         """
 
         # By default, a module reports nothing.
@@ -291,14 +277,6 @@ class OutputModuleBase(nn.Module):
                                   reduction = "sum"):
         """The penalty an output module adds to the training loss to
         keep its predicted dispersions from wandering.
-
-        Most modules add nothing. The ones that shrink the per-sample
-        dispersion toward a per-gene, or mean-trend, baseline return the
-        size of the deviation, so that the training pulls it back toward
-        zero. It is a method on the module, and not a term written into
-        the training loop, because only the module knows what it is
-        deviating FROM - a per-gene constant, a function of the mean, or
-        nothing at all.
 
         Parameters
         ----------
@@ -324,6 +302,11 @@ class OutputModuleBase(nn.Module):
 
 
 class OutputModulePoisson(OutputModuleBase):
+
+    """
+    Class for the decoder's output modules modelling Poisson
+    distributions.
+    """
 
 
     ######################### INITIALIZATION ##########################
@@ -842,29 +825,6 @@ class OutputModuleNB(OutputModuleBase):
         """
 
         # Compute the log-probability mass in double precision.
-        #
-        # This is not fussiness - in single precision the formula below
-        # is unsafe. The r-values are the exponential of the parameters
-        # the model holds, and in single precision that exponential
-        # underflows to exactly zero once the parameter goes below about
-        # -104. 'lgamma(0)' is infinite, so 'lgamma(k+r) - lgamma(r)'
-        # becomes 'inf - inf', which is NaN - and a NaN in the loss
-        # propagates into every parameter the optimizer touches, taking
-        # the model out for good. The 'eps' below guards the logarithms,
-        # not this.
-        #
-        # In double precision the same exponential does not reach zero
-        # until the parameter goes below about -746, which the model
-        # does not do: at -110, where single precision has already given
-        # up, double precision holds an r-value of 1.7e-48 and a
-        # perfectly finite 'lgamma' of 110.
-        #
-        # Training the model on GTEx in single precision, the gradient
-        # norm sat around 350000 for a hundred epochs, reached 4.5e14 in
-        # a single epoch, and the loss was NaN in the next one - four of
-        # twelve models died this way. The r-values are exponentiated in
-        # double precision where they are created, and everything the
-        # formula touches is in double precision here.
         k = k.double()
         m = m.double()
         r = r.double()
@@ -1140,9 +1100,7 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
                                    scaling_factors = scaling_factors)
 
         # Get the 'r' values of the negative binomial distributions.
-        # Exponentiate in double precision. In single precision this
-        # underflows to exactly zero once the log-r-value goes below
-        # about -104, and 'lgamma(0)' is infinite - see 'log_prob_mass'.
+        # Exponentiate in double precision.
         r = torch.exp(self.log_r.double())
         
         # Return the log-probability mass for the negative binomial
@@ -1246,9 +1204,7 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
                     scaling_factors = scaling_factors)
 
             # Get the r-values of the negative binomial distributions.
-            # Exponentiate in double precision. In single precision this
-            # underflows to exactly zero once the log-r-value goes below
-            # about -104, and 'lgamma(0)' is infinite - see 'log_prob_mass'.
+            # Exponentiate in double precision.
             r = torch.exp(self.log_r.double())
             
             # Get the probabilities from the means using the formula:
@@ -1270,7 +1226,7 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
     Class implementing an output layer representing the means of the
     negative binomial distributions modeling the outputs (i.e., the
     means of the gene expression counts). One negative binomial
-    distribution with trainable parameters  is used for each gene.
+    distribution with trainable parameters is used for each gene.
     """
 
 
@@ -1433,9 +1389,7 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
                                    scaling_factors = scaling_factors)
 
         # Get the r-values of the negative binomial distributions.
-        # Exponentiate in double precision. In single precision this
-        # underflows to exactly zero once the log-r-value goes below
-        # about -104, and 'lgamma(0)' is infinite - see 'log_prob_mass'.
+        # Exponentiate in double precision.
         r = torch.exp(pred_log_r_values.double())
 
         # Return the log-probability mass for the negative binomial
@@ -1455,51 +1409,11 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
         the predicted scaled means ``pred_means`` (rescaled by
         ``scaling_factors``), and the predicted logarithm of the
         r-values (``pred_log_r_values``) of the negative binomial
-        distributions
-
-        The loss corresponds to the negative log-probability mass of
-        the negative binomial distributions - or, if ``contamination``
-        is above zero, to that of a two-component mixture in which a
-        small fraction of the counts come from something the model does
-        not describe.
-
-        WHY THE MIXTURE EXISTS, AND WHERE IT SHOULD AND SHOULD NOT BE
-        USED.
-
-        The negative log-probability is UNBOUNDED. A gene the model
-        cannot predict at all does not contribute a large penalty, it
-        contributes an arbitrarily large one, and the optimizer will pay
-        almost anything elsewhere to reduce it. When what is being
-        optimized is a REPRESENTATION - one point in the latent space,
-        fitted to one sample - that means the handful of genes the model
-        cannot reach get to decide where the point lands.
-
-        For a tumour that is exactly the wrong outcome. The genes the
-        model cannot reach are the aberrant ones, which is to say the
-        SIGNAL, and letting them drag the representation gives back a
-        counterfactual that has already absorbed part of what it was
-        supposed to measure.
-
-        The mixture bounds their influence. A gene that cannot be
-        explained is explained as contamination instead, at a fixed
-        cost, and the representation is then decided by the majority of
-        genes that still look like the healthy tissue they came from.
-
-        Measured on this model, the regimes really are different. Over
-        healthy held-out GTEx the loss is almost evenly spread - the
-        worst 0.1% of gene-sample pairs carry 0.35% of it, and the very
-        worst pair is 31 times the median. Over TCGA tumours the pairs
-        above a negative log-probability of 20 are ELEVEN TIMES more
-        common, and over a tissue that is not in GTEx at all
-        (age-related macular degeneration, whose tissue is retina) the
-        worst 0.1% carry SIX TIMES the share.
-
-        So: **TRAINING does not need this and should not use it** -
-        there is nothing in healthy data with the leverage to justify
-        it, and a contamination component free to absorb genes during
-        training would teach the model less than it could learn.
-        **FINDING REPRESENTATIONS for a new sample should**, and that is
-        the only place it is switched on.
+        distributions. The loss corresponds to the negative
+        log-probability mass of the negative binomial distributions,
+        or, if ``contamination`` is above zero, to that of a
+        two-component mixture in which a small fraction of the counts
+        come from something the model does not describe.
 
         Parameters
         ----------
@@ -1551,19 +1465,14 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
                               scaling_factors = scaling_factors)
 
         # Without a contamination fraction this is the plain negative
-        # log-probability, which is what training uses and what every
-        # result before July 2026 was computed with.
+        # log-probability.
         if not contamination:
             return nll
 
         #-------------------------------------------------------------#
 
         # The component that stands for "something the model does not
-        # describe". It keeps the predicted MEAN - the scale of the gene
-        # is not in doubt, only whether the model can say where in that
-        # scale the count falls - and takes an r-value small enough that
-        # the distribution is almost flat over the range the gene could
-        # plausibly occupy.
+        # describe".
         log_r_outlier = \
             torch.full_like(pred_log_r_values,
                             math.log(contamination_r))
@@ -1638,9 +1547,7 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
                     scaling_factors = scaling_factors)
 
             # Get the r-values of the negative binomial distributions.
-            # Exponentiate in double precision. In single precision this
-            # underflows to exactly zero once the log-r-value goes below
-            # about -104, and 'lgamma(0)' is infinite - see 'log_prob_mass'.
+            # Exponentiate in double precision.
             r = torch.exp(pred_log_r_values.double())
             
             # Get the probabilities from the means using the formula:
@@ -1654,378 +1561,6 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
             
             # Get 'n' samples from the distributions.
             return nb.sample([n]).squeeze()
-
-
-#######################################################################
-class OutputModuleNBFullDispersionTied(OutputModuleNBFullDispersion):
-
-    """The full-dispersion module, with the per-sample dispersion tied
-    to the mean.
-
-    In real RNA-seq the dispersion is a smooth, decreasing function of
-    the expression level, and the expression level - the mean - is the
-    thing the model estimates well and agrees on across seeds. So this
-    makes the log-r-value a per-gene intercept plus a slope times the
-    log of the predicted mean, and nothing else: the dispersion borrows
-    the mean's stability instead of being predicted freely.
-
-    It still varies per gene AND per sample, because the mean does - but
-    only THROUGH the mean. A sample whose dispersion genuinely departs
-    from what its mean implies cannot be represented here; whether that
-    costs anything at the differential expression analysis is what the
-    experiment measures.
-    """
-
-
-    def __init__(self,
-                 input_dim,
-                 output_dim,
-                 activation = "softplus",
-                 r_init = 2):
-
-        super().__init__(input_dim = input_dim,
-                         output_dim = output_dim,
-                         activation = activation)
-
-        # The free per-sample projection of the parent is not used: the
-        # dispersion is a function of the mean here, not of the features
-        # directly.
-        del self._layer_r_values
-
-        # The per-gene intercept of the dispersion-mean trend.
-        self._log_r_intercept = \
-            nn.Parameter(torch.full(size = (output_dim,),
-                                    fill_value = math.log(r_init)))
-
-        # The slope of the dispersion-mean trend, shared across genes,
-        # started at zero (no dependence on the mean) so the module
-        # begins at a flat per-gene dispersion and learns the trend.
-        self._log_r_slope = nn.Parameter(torch.zeros(1))
-
-
-    def forward(self, x):
-
-        # The mean, computed the parent's way.
-        _m = self._layer_means(x)
-
-        if self.activation == "sigmoid":
-            m = torch.sigmoid(_m)
-        else:
-            m = F.softplus(_m)
-
-        # The log-r-value as a function of the log-mean. The small
-        # constant keeps the log finite where the mean is zero.
-        log_r = \
-            self._log_r_intercept \
-            + self._log_r_slope * torch.log(m + 1e-8)
-
-        return m, log_r
-class OutputModuleNBFullDispersionHierarchical(
-        OutputModuleNBFullDispersion):
-
-    """The full-dispersion module, with the per-sample dispersion given
-    a proper hierarchical prior whose width is LEARNED.
-
-    'nb_full_dispersion_shrunk' writes the log-r-value as a per-gene
-    baseline plus a per-sample deviation and penalizes the deviation
-    with a fixed ``shrinkage_lambda``. That fixed strength is the whole
-    of its trouble: it was measured fixing the tail of the null - a
-    fourteen-fold inflation down to under two - and wrecking the bulk
-    at the same time, five times too conservative where the test was
-    already right, because ONE number decided how hard every gene in
-    every sample was pulled back.
-
-    A penalty of ``lambda * deviation^2`` is the negative log of a
-    Gaussian prior on the deviation whose width is fixed at
-    ``1/sqrt(2*lambda)``. Written that way what is missing is obvious,
-    and so is the reason the strength could not simply be made a
-    parameter: the prior's normalizing constant. With no ``log sigma``
-    term, widening the prior only ever lowers the loss, so a free
-    strength runs straight to no shrinkage at all.
-
-    So this writes the prior properly:
-
-        log r[gene, sample] = log r[gene] + deviation[gene, sample]
-        deviation[gene, sample] ~ Normal(0, sigma[gene]^2)
-
-    and adds its whole negative log-density, the ``log sigma``
-    included. That makes ``sigma`` estimable, and it is estimated PER
-    GENE: each gene learns how far its own dispersion may move from
-    sample to sample, rather than inheriting one number chosen for all
-    of them.
-
-    The two modules it sits between are its own limiting cases. As
-    ``sigma`` goes to zero the deviation is pinned and this becomes
-    'nb_feature_dispersion', one dispersion per gene; as ``sigma``
-    grows the prior stops constraining anything and this becomes
-    'nb_full_dispersion'. Neither is imposed - a gene whose dispersion
-    genuinely moves between samples keeps a wide ``sigma``, one whose
-    does not gets a narrow one, and the likelihood decides which is
-    which.
-
-    Every term here belongs to the joint log-likelihood the model
-    already maximizes, so nothing about the inference changes in kind:
-    the representations are still found by the same MAP, with one more
-    properly normalized prior in the objective.
-    """
-
-
-    def __init__(self,
-                 input_dim,
-                 output_dim,
-                 activation = "softplus",
-                 sigma_init = 0.1,
-                 sigma_min = 0.01,
-                 sigma_prior = 0.1,
-                 sigma_prior_tau = 1.0,
-                 r_init = 2):
-        """Initialize the module.
-
-        Parameters
-        ----------
-        input_dim : :class:`int`
-            The dimensionality of the input.
-
-        output_dim : :class:`int`
-            The number of genes.
-
-        activation : :class:`str`, {``"sigmoid"``, ``"softplus"``}, \
-            ``"softplus"``
-            The activation for the means.
-
-        sigma_init : :class:`float`, ``0.1``
-            The width each gene's prior starts at, in log-r units.
-
-            It starts narrow, so that training begins near the stable
-            per-gene dispersion and widens only for the genes whose
-            data ask for it. Starting wide would begin at the free
-            per-sample dispersion, which is the thing being moved away
-            from.
-
-        sigma_min : :class:`float`, ``0.01``
-            The smallest width the prior may take.
-
-            A gene whose deviations all went to zero would send its own
-            ``sigma`` there too, and the ``log sigma`` term diverges
-            when it arrives.
-
-            It is 0.01 and not something smaller because the floor is
-            not only a numerical guard, it is a statement about how
-            tight a prior is meant to be believed. The per-sample
-            log-r-values move by about 0.2 in natural-log units between
-            two runs that differ only in a seed, so a width of 1e-3
-            calls a perfectly ordinary deviation a two-hundred-sigma
-            event and returns a penalty near 1e8. Training survived to
-            epoch 151 at that floor and then went to NaN in a single
-            step.
-
-        sigma_prior : :class:`float`, ``0.1``
-            The width the per-gene widths are themselves pulled
-            towards.
-
-            Without a prior on the widths the objective is unbounded -
-            a gene whose deviations reach zero sends its own width down
-            after them, and ``log sigma`` with it. This is what makes
-            the optimum exist.
-
-        sigma_prior_tau : :class:`float`, ``1.0``
-            How far a gene's width may wander from ``sigma_prior``, in
-            natural-log units, before the prior objects.
-
-            One is deliberately weak: it leaves a gene free to sit
-            anywhere between roughly a third and three times
-            ``sigma_prior`` without penalty worth the name, and only
-            bites at the collapse the funnel drives towards.
-
-        r_init : :class:`float`, ``2``
-            The r-value the per-gene baseline starts at.
-        """
-
-        super().__init__(input_dim = input_dim,
-                         output_dim = output_dim,
-                         activation = activation)
-
-        # The per-gene baseline log-r-value, fitted across all samples.
-        self._log_r_gene = \
-            nn.Parameter(torch.full(size = (output_dim,),
-                                    fill_value = math.log(r_init)))
-
-        # The width of each gene's prior, carried as the logarithm of
-        # the amount ABOVE the floor, so that it cannot go negative
-        # however the optimizer moves it and never reaches the floor
-        # where the penalty's gradient would blow up.
-        self._log_sigma = \
-            nn.Parameter(
-                torch.full(size = (output_dim,),
-                           fill_value = \
-                               math.log(max(sigma_init - sigma_min,
-                                            1.0e-12))))
-
-        # Start the per-sample deviation at zero, so the module begins
-        # at the stable per-gene baseline and moves away only as the
-        # training pulls it.
-        nn.init.zeros_(self._layer_r_values.weight)
-        nn.init.zeros_(self._layer_r_values.bias)
-
-        self._sigma_min = float(sigma_min)
-        self._sigma_prior = float(sigma_prior)
-        self._sigma_prior_tau = float(sigma_prior_tau)
-        # Filled in by 'dispersion_regularization' and read once an
-        # epoch by 'diagnostics'.
-        self._last_deviation_absmax = None
-        self._last_deviation_absmed = None
-
-
-    @property
-    def sigma(self):
-        """The learned width of each gene's dispersion prior.
-
-        The floor is ADDED rather than clamped, which matters and was
-        found the hard way. A ``clamp`` has zero gradient below its
-        threshold, so a gene whose width reached the floor stopped
-        being able to move - while the penalty went on being evaluated
-        at the floor, where ``0.5 * (deviation / 1e-3)^2`` multiplies
-        the deviation's gradient by a million. Training ran cleanly to
-        epoch 151 and then went to NaN in one step.
-
-        Adding the floor keeps ``sigma`` above it by construction, and
-        leaves the gradient finite everywhere, so a width that wants to
-        be small approaches the floor smoothly instead of hitting a
-        wall and taking the decoder with it.
-        """
-
-        return self._sigma_min + self._log_sigma.exp()
-
-
-    def forward(self,
-                x):
-
-        # The parent's 'log_r' is the free projection - here it is the
-        # per-sample deviation from the per-gene baseline.
-        m, deviation = super().forward(x)
-
-        return m, self._log_r_gene + deviation
-
-
-    def diagnostics(self) -> dict:
-        """Every quantity this module carries that could be the one
-        that diverges, so that a divergence names itself.
-
-        The last per-batch deviation is kept because it is the only one
-        of the four that is not a parameter - it is the free
-        projection's output, and it is the most likely of them to run.
-        """
-
-        with torch.no_grad():
-
-            sigma = self.sigma
-
-            out = {"sigma_min" : sigma.min().item(),
-                   "sigma_med" : sigma.median().item(),
-                   "sigma_max" : sigma.max().item(),
-                   "log_r_gene_min" : self._log_r_gene.min().item(),
-                   "log_r_gene_med" : self._log_r_gene.median().item(),
-                   "log_r_gene_max" : self._log_r_gene.max().item()}
-
-            # The free projection's weights, which is what turns a
-            # representation into a per-sample deviation. If the
-            # deviation runs, this is where it comes from.
-            out["dev_w_absmax"] = \
-                self._layer_r_values.weight.abs().max().item()
-
-            # The deviations themselves, as last seen.
-            if self._last_deviation_absmax is not None:
-                out["dev_absmax"] = self._last_deviation_absmax
-                out["dev_absmed"] = self._last_deviation_absmed
-
-        return out
-
-
-    def dispersion_regularization(self,
-                                  pred_means,
-                                  pred_log_r_values,
-                                  reduction = "sum"):
-
-        # The deviation is what the log-r-value has moved from the
-        # per-gene baseline.
-        deviation = pred_log_r_values - self._log_r_gene
-
-        # The width of each gene's prior, broadcast over the samples.
-        sigma = self.sigma
-
-        # Kept for 'diagnostics', which runs once an epoch and outside
-        # the graph - detached so that holding on to it cannot keep a
-        # batch's graph alive.
-        with torch.no_grad():
-            self._last_deviation_absmax = deviation.abs().max().item()
-            self._last_deviation_absmed = deviation.abs().median().item()
-
-        # The negative log-density of the deviation under its own
-        # gene's prior. The second term is the normalizing constant,
-        # and it is the whole reason 'sigma' can be learned at all:
-        # without it, widening the prior would always pay.
-        penalty = 0.5 * (deviation / sigma).pow(2) + torch.log(sigma)
-
-        # The constant half-log-two-pi is left out. It depends on no
-        # parameter, so it moves no gradient - but it does move the
-        # printed loss, so a number from this module is not comparable
-        # to one from a module that keeps it.
-        penalty = penalty.sum() if reduction == "sum" else penalty.mean()
-
-        #-------------------------------------------------------------#
-
-        # The prior on the widths themselves, WITHOUT WHICH THERE IS NO
-        # OPTIMUM TO FIND.
-        #
-        # The two terms above are a hierarchical model estimated by
-        # MAP, and the joint MAP of a hierarchical model over both the
-        # deviations and their width is unbounded - it is Neal's
-        # funnel. Drive a gene's deviations to zero and its own 'sigma'
-        # then wants to follow them down, where 'log sigma' goes to
-        # minus infinity and the objective with it. Nothing in the
-        # likelihood stops it, because the reward for a narrow prior
-        # grows without limit while the cost stays at zero.
-        #
-        # That is not a hypothesis about what went wrong. Training ran
-        # to epoch 160 at a loss better than the plain module's and
-        # then went to 5e56 in five epochs; clamping the width had
-        # already produced a NaN at epoch 151, and a floor only moves
-        # the funnel's mouth rather than closing it.
-        #
-        # So the widths get a prior of their own, log-normal about
-        # 'sigma_prior': narrow widths are now paid for, the objective
-        # is bounded below, and the optimum exists. 'sigma_prior_tau'
-        # is how far a gene may wander from it, in natural-log units,
-        # before the prior starts to object.
-        log_sigma_prior = math.log(self._sigma_prior)
-
-        prior = \
-            0.5 * ((torch.log(sigma) - log_sigma_prior)
-                   / self._sigma_prior_tau).pow(2)
-
-        # Scaled by the number of samples in the batch, which is not a
-        # fudge - it is what makes the width's optimum independent of
-        # how the data happen to be batched.
-        #
-        # 'log sigma' above is counted once per SAMPLE, since it
-        # normalizes one deviation each; the prior is a statement about
-        # one width per GENE. Counted once against a batch of 64 the
-        # prior is outvoted 64 to 1, and the width collapses anyway -
-        # measured, with the deviations pinned at zero it went straight
-        # to the floor with the prior in place. Solving the stationary
-        # point shows the size of it: with a batch of B the width
-        # settles at 'log sigma_prior - B * tau^2', so at B = 64 and
-        # tau = 1 that is e^-66.
-        #
-        # Scaling by B puts the two on the same footing - one width
-        # against one observation's worth of prior - and the stationary
-        # point becomes 'log sigma_prior - tau^2', which does not move
-        # when the batch size does.
-        n_samples = deviation.shape[0] if deviation.dim() > 1 else 1
-
-        penalty = penalty + n_samples * prior.sum()
-
-        return penalty
 
 
 #######################################################################
@@ -2044,13 +1579,5 @@ OUTPUT_MODULES = {
     # Output module for negative binomial distributions with full
     # dispersion.
     "nb_full_dispersion" : OutputModuleNBFullDispersion,
-
-    # Full dispersion, tied to the mean.
-    "nb_full_dispersion_tied" : OutputModuleNBFullDispersionTied,
-
-    # Full dispersion, with a per-gene hierarchical prior whose width
-    # is learned rather than fixed.
-    "nb_full_dispersion_hierarchical" : \
-        OutputModuleNBFullDispersionHierarchical,
 
     }

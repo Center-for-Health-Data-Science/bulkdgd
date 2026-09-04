@@ -153,6 +153,50 @@ def test_legacy_indexed_replays_old_chunks_from_any_subset(tmp_path):
     assert torch.equal(replayed, expected)
 
 
+def test_legacy_indexed_self_id_row_draws_sample_keyed(tmp_path):
+
+    model = _model_fixture()
+
+    old_ids = ["sample-a", "sample-b", "sample-c",
+               "sample-d", "sample-e"]
+
+    old_chunks = torch.cat(
+        [_draw(model, old_ids[:3], "legacy_positional"),
+         _draw(model, old_ids[3:], "legacy_positional")],
+        dim = 0)
+
+    index_file = tmp_path / "positions.csv"
+
+    rows = {sample_id : str(i)
+            for i, sample_id in enumerate(old_ids)}
+
+    rows["sample-new"] = "sample-new"
+
+    pd.DataFrame(
+        {"position" : list(rows.values())},
+        index = list(rows.keys())).to_csv(index_file)
+
+    current_ids = ["sample-new", "sample-e", "sample-a"]
+
+    mixed = _draw(
+        model,
+        current_ids,
+        "legacy_indexed",
+        index_file = str(index_file),
+        original_n_samples = len(old_ids),
+        chunk_size = 3)
+
+    expected_new = _draw(model, ["sample-new"], "sample_keyed")[0]
+
+    assert torch.equal(mixed[0], expected_new)
+
+    assert torch.equal(
+        mixed[1], old_chunks[old_ids.index("sample-e")])
+
+    assert torch.equal(
+        mixed[2], old_chunks[old_ids.index("sample-a")])
+
+
 def test_rep_config_defaults_to_sample_keyed_and_validates_modes():
 
     config_path = Path(__file__).parents[1] / \

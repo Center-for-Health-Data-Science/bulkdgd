@@ -131,28 +131,6 @@ class GeneExpressionDataset(object):
 
             - ``"median"``: the median count over all of the sample's
               genes.
-
-            The mean is what the model has always used, and it is not
-            robust: a handful of genes take a large and variable share
-            of a library, and they drag the mean with them. In GTEx the
-            thirteen mitochondrial genes alone - 0.09% of the genes -
-            take 14.49% of the reads, and the share runs from 0.10% to
-            90.85% from one sample to the next. That moves the mean by
-            up to a factor of eleven between two samples, and the
-            factor is a property of how the sample was handled rather
-            than of the tissue it came from.
-
-            The median is not moved by them: over the same samples, the
-            mitochondrial genes change it by at most 3.7%.
-
-            The two are not interchangeable in a trained model. The
-            median is about a third of the mean, and the decoder is
-            fitted against whichever it was trained with - a model
-            trained with one and run with the other has its predicted
-            means off by a factor of about three. This is why the
-            option lives in the model's configuration and not in the
-            training one: it is a property of the model, and everything
-            done with the model afterwards has to use the same one.
         """
 
         # If the scaling factor is not one that is supported.
@@ -200,13 +178,7 @@ class GeneExpressionDataset(object):
 
         #-------------------------------------------------------------#
 
-        # Which genes were actually measured. A sample only part of
-        # which was measured has no scaling factor over 'all of its
-        # genes' - the quantity is not there to be computed - so the
-        # unmeasured ones are kept out of it. Without this, they enter
-        # as the zeros they were filled with, and a median-scaled model
-        # with half its genes hidden gets a scaling factor of exactly
-        # zero, which is not a deflated answer but no answer at all.
+        # Which genes were actually measured.
         self._mask = mask
 
         # Get the expression data for all samples and the
@@ -267,31 +239,25 @@ class GeneExpressionDataset(object):
 
         n_measured = mask.sum(dim = 1, keepdim = True)
 
-        # If the scaling factor is the mean.
+        # If the scaling factor is the mean
         if self._scaling_factor == "mean":
 
-            # Get the mean gene expression for each sample. With a
-            # mask this is only a starting value - the optimization
-            # re-solves for the scale at every step, because the
-            # measured genes' mean is not the whole sample's unless
-            # they are a random subset of it.
+            # Get the mean gene expression for each sample.
             mean_exp = \
                 ((data_exp * mask).sum(dim = 1, keepdim = True)
                  / n_measured.clamp(min = 1.0))
 
-        # If the scaling factor is the median.
+        # If the scaling factor is the median
         elif self._scaling_factor == "median":
 
             # Get the median gene expression for each sample, over the
-            # measured genes. Unmeasured ones are pushed past every
-            # measured one so that sorting cannot select them, and the
-            # lower of the two middle values is taken, which is what
-            # 'torch.median' returns when nothing is masked - the two
-            # paths must agree there.
+            # measured genes.
             sortable = data_exp.masked_fill(mask == 0.0, float("inf"))
 
+            # Get the index.
             idx = ((n_measured.long() - 1) // 2).clamp(min = 0)
 
+            # Get the mean (median) expression.
             mean_exp = \
                 sortable.sort(dim = 1).values.gather(1, idx)
 
@@ -299,14 +265,7 @@ class GeneExpressionDataset(object):
 
         # If any sample's scaling factor is zero, every predicted mean
         # for it would be zero, and the negative binomial would be
-        # undefined. The median can be zero where the mean cannot: it
-        # is zero as soon as half of a sample's genes are, which is a
-        # thing that happens to a gene list that has not been filtered
-        # to the genes that are expressed. The gene list this model is
-        # trained on has been, and no GTEx sample comes near it - the
-        # smallest median over the 14,895 genes is 8 - but a user's
-        # own gene list is their own, and this is the point at which
-        # they would otherwise get silent NaNs instead of an answer.
+        # undefined.
         if (mean_exp == 0).any():
 
             # Get how many samples are affected.
@@ -316,12 +275,7 @@ class GeneExpressionDataset(object):
             raise ValueError(
                 f"The '{self._scaling_factor}' scaling factor is zero "
                 f"for {n_zero} of the {mean_exp.shape[0]} samples, "
-                "which would make every predicted mean for them zero. "
-                "This usually means the genes include many that are "
-                "not expressed in these samples - the median count is "
-                "zero as soon as half of the genes are. Filter the "
-                "gene list to the genes that are expressed, or use "
-                "the 'mean' scaling factor.")
+                "which would make every predicted mean for them zero.")
 
         #-------------------------------------------------------------#
 

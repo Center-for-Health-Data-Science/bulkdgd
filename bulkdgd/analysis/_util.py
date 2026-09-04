@@ -352,17 +352,6 @@ def log_prob_mass_nb_torch(k: torch.Tensor,
     of negative binomial distributions, using :mod:`torch` so that the
     computation can run on a GPU.
 
-    This is the :mod:`torch` counterpart of :func:`log_prob_mass_nb`.
-    It evaluates the same formula, with the same ``eps``, and is meant
-    to be numerically equivalent to it when run in double precision.
-
-    Unlike :func:`log_prob_mass_nb`, the inputs are broadcast against
-    each other, so that the log-probability mass of several
-    distributions can be evaluated at several points at once. For
-    instance, passing a ``k`` of shape ``(n_genes, n_points)`` together
-    with an ``m`` and an ``r`` of shape ``(n_genes, 1)`` evaluates, for
-    each gene, the log-probability mass at all the given points.
-
     Parameters
     ----------
     k : :class:`torch.Tensor`
@@ -405,15 +394,6 @@ def log_prob_mass_poisson_torch(k: torch.Tensor,
     """Compute the natural logarithm of the probability mass for a set
     of Poisson distributions, using :mod:`torch` so that the
     computation can run on a GPU.
-
-    This is the :mod:`torch` counterpart of
-    :func:`log_prob_mass_poisson`. It evaluates the same formula, with
-    the same ``eps``, and is meant to be numerically equivalent to it
-    when run in double precision.
-
-    Unlike :func:`log_prob_mass_poisson`, the inputs are broadcast
-    against each other, so that the log-probability mass of several
-    distributions can be evaluated at several points at once.
 
     Parameters
     ----------

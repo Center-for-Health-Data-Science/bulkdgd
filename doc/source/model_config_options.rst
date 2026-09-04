@@ -136,12 +136,6 @@ The options that can be specified are described below.
          * ``"tied_full"`` for a full tied covariance matrix.
          * ``"tied_diag"`` for a diagonal tied covariance matrix.
          * ``"tied_spherical"`` for a spherical tied covariance matrix.
-         * ``"low_rank"`` for a low-rank (factor-analyser) covariance matrix, where each component's covariance is :math:`W_k W_k^\top + \mathrm{diag}(\psi_k)` with :math:`W_k` of rank ``"rank"``. This has ``rank * dim + dim`` free numbers per component instead of the ``dim * (dim + 1) / 2`` a full covariance needs, so it can be anisotropic without being quadratic in the dimensionality. It is the type to use when the components' clouds are much lower-dimensional than the latent space they sit in.
-
-     * ``"rank"`` is the rank of the covariance and is used only when ``"covariance_type"`` is ``"low_rank"``, where it is the number of directions each component is allowed to be broad in. This is a positive integer, and the default is ``4``. Every other covariance type ignores it.
-
-       .. note::
-          A ``"low_rank"`` mixture keeps its ``factors_`` and ``psi_`` outside ``covariances_``, so its checkpoint carries keys that no other covariance type writes. Loading a checkpoint written by a different type into a ``"low_rank"`` model raises: the covariance would otherwise stay at its random initialization while every other parameter came from the file, and the model would run without complaint.
 
      * ``"init_means"`` is the method used to initialize the means of the GMM components. This is a string that can take one of the following values:
 
@@ -211,28 +205,12 @@ The options that can be specified are described below.
       * ``"poisson"`` for the Poisson output module.
       * ``"nb_feature_dispersion"`` for the negative binomial output module with r-values learned per gene.
       * ``"nb_full_dispersion"`` for the negative binomial output module with r-values learned per gene and sample.
-      * ``"nb_full_dispersion_tied"`` as ``"nb_full_dispersion"``, but with the per-sample dispersion tied to the mean instead of predicted freely (see below).
-      * ``"nb_full_dispersion_hierarchical"`` as ``"nb_full_dispersion"``, but with the per-sample dispersion pulled toward a per-gene baseline by a strength that is **learned per gene** (see below).
 
   These are the only names accepted: the configuration is checked against the modules the package registers, so a name that is not in this list is an error at load time.
 
   .. note::
 
-     ``"nb_full_dispersion_shrunk"`` and ``"nb_full_dispersion_shrunk_tied"`` were previously implemented and have been **retired**, together with their ``"shrinkage_lambda"`` option: their shrinkage penalty was never applied during training. A configuration that names either of them is rejected when it is loaded. ``"nb_full_dispersion_hierarchical"`` is what to use instead.
-
-  The two variants of ``"nb_full_dispersion"`` exist because the per-sample dispersion it learns is the noisiest thing the model predicts: it is a free linear projection of the decoder's features to one log-r-value per gene per sample, anchored to nothing, and the likelihood constrains it far less than it constrains the mean. Two models trained alike agree closely on the mean but much less on the dispersion, and since a p-value is a tail probability of the negative binomial, the disagreement lands squarely on significance. The variants give the dispersion structure it otherwise lacks, without giving up the per-gene-per-sample flexibility that makes ``"nb_full_dispersion"`` better at differential expression than ``"nb_feature_dispersion"``:
-
-      * ``"nb_full_dispersion_tied"`` makes the log-r-value a per-gene intercept plus a slope times the log of the predicted mean, and nothing else - the dispersion borrows the mean's stability, varying per sample only through the mean.
-      * ``"nb_full_dispersion_hierarchical"`` writes the log-r-value as a per-gene baseline (a parameter fitted across all samples, hence stable) plus a per-sample deviation, gives the deviation a proper Gaussian prior, ``deviation ~ Normal(0, sigma[gene]^2)``, and **learns** ``sigma`` for each gene.
-
-  The second one is worth a paragraph, because what distinguishes it from the empirical-Bayes shrinkage of DESeq2 and edgeR is not a bigger or smaller penalty but whether the penalty is estimated at all.
-
-  A penalty of ``lambda * deviation^2`` is the negative log of a Gaussian prior whose width is fixed at ``1/sqrt(2*lambda)``. One number therefore decides how hard **every** gene in **every** sample is pulled back, and that was the observed failure mode of the retired ``"nb_full_dispersion_shrunk"``: it corrected the tail of the null and made the bulk far too conservative at the same time, because the pull that is right for an unstable gene is much too strong for a well-behaved one.
-
-  The strength cannot simply be turned into a parameter, because a squared penalty has no normalizing constant: widening the prior would only ever lower the loss, so a free strength runs to no shrinkage at all. ``"nb_full_dispersion_hierarchical"`` adds the missing ``log sigma`` term, which is what makes ``sigma`` estimable, and estimates one per gene. Its two limits are the modules on either side of it - as ``sigma`` goes to zero it becomes ``"nb_feature_dispersion"`` (one dispersion per gene), and as ``sigma`` grows it becomes ``"nb_full_dispersion"`` (a free per-sample dispersion) - and which of those a gene sits nearer is decided by its own data instead of imposed.
-
-  Every term is part of the joint log-likelihood the model already maximizes, so finding representations is unchanged in kind: the same MAP, with one more properly normalized prior in the objective.
-
+     ``"nb_full_dispersion_shrunk"`` and ``"nb_full_dispersion_shrunk_tied"`` were previously implemented and have been **retired**, together with their ``"shrinkage_lambda"`` option: their shrinkage penalty was never applied during training. A configuration that names either of them is rejected when it is loaded.
 
    * ``"output_module_options"`` is a dictionary containing the options for the output module. The options that can be specified in this dictionary depend on the type of output module used.
 
@@ -258,20 +236,6 @@ The options that can be specified are described below.
 
             * ``"sigmoid"`` for sigmoid activation.
             * ``"softplus"`` for softplus activation.
-
-      * For the tied variant (``"nb_full_dispersion_tied"``), in addition to ``"activation"``:
-
-         * ``"r_init"`` is the value the per-gene intercept of the dispersion-mean trend starts at. If not specified, the default value is ``2``.
-
-      * For the hierarchical variant (``"nb_full_dispersion_hierarchical"``), in addition to ``"activation"``:
-
-         * ``"sigma_init"`` is the width each gene's prior on the per-sample deviation starts at, in log-r units. It is a positive number, and it should be **small**: training then begins near the stable per-gene dispersion and widens only for the genes whose data ask for it, whereas starting wide begins at the free per-sample dispersion this module exists to move away from. If not specified, the default value is ``0.1``.
-         * ``"sigma_min"`` is the smallest width the prior may take. It is needed because the ``log sigma`` term diverges at zero, and a gene whose per-sample deviations all vanish would otherwise send its own width there. It is ``0.01`` and not something smaller because the floor states how tight a prior is meant to be believed: per-sample log-r-values move by about 0.2 in natural-log units between two runs differing only in a seed, so a width of 1e-3 calls an ordinary deviation a two-hundred-sigma event and returns a penalty near 1e8. If not specified, the default value is ``0.01``.
-         * ``"sigma_prior"`` is the width the per-gene widths are themselves pulled towards. It is a positive number, and it is what makes the optimum exist: without a prior on the widths the objective is unbounded, since a gene whose deviations reach zero sends its own width down after them and ``log sigma`` with it. If not specified, the default value is ``0.1``.
-         * ``"sigma_prior_tau"`` is how far a gene's width may wander from ``"sigma_prior"``, in natural-log units, before that prior objects. It is a positive number, and ``1.0`` is deliberately weak: it leaves a gene free to sit anywhere between roughly a third and three times ``"sigma_prior"`` without a penalty worth the name, and bites only at the collapse the funnel drives towards. If not specified, the default value is ``1.0``.
-         * ``"r_init"`` is the value the per-gene baseline dispersion starts at. If not specified, the default value is ``2``.
-
-        Note that there is no fixed shrinkage strength here, and its absence is the point: the strength of the pull is what this module estimates instead of what it is told. Note also that its reported loss is **not comparable** to the other modules' - the prior's constant half-log-two-pi term is dropped, since it moves no gradient, but it does move the printed number.
 
 * ``"scaling_factor"`` is how the scaling factor of a sample is computed - the number the decoder's predicted means are multiplied by to put them on the scale of the sample's own counts. This is a string that can take one of the following values:
 

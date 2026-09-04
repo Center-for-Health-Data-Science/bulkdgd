@@ -457,18 +457,6 @@ def get_bic_score(gmm_model: object,
         cov_params = n_features
     elif covariance_type == "tied_spherical":
         cov_params = 1
-    elif covariance_type == "low_rank":
-
-        # W W' + diag(psi) per component: 'rank * n_features' loadings
-        # and 'n_features' diagonal entries each.
-        #
-        # The rank is read off the model rather than assumed, and
-        # defaults to the class default if it is somehow absent, so
-        # that a mixture fitted at one rank is not scored as if it had
-        # another.
-        rank = int(getattr(gmm_model, "rank", 0) or 4)
-        cov_params = k * (rank * n_features + n_features)
-
     else:
         errstr = \
             "Unsupported covariance type for BIC: " \

@@ -112,14 +112,6 @@ class Decoder(nn.Module):
 
 
     # Set the names of the available output modules.
-    #
-    # Read from the registry rather than written out again. There were
-    # three copies of this list - this one, the tuple that decides
-    # which names take the full-dispersion path, and the registry
-    # itself - and adding a module to the registry left the other two
-    # behind, so the decoder rejected a module the rest of the package
-    # already knew about, and said in its error message that only three
-    # existed.
     OUTPUT_MODULES = list(outputmodules.OUTPUT_MODULES)
 
     # Set the names of the supported activation functions.
@@ -146,63 +138,24 @@ class Decoder(nn.Module):
             The number of neurons in the input layer.
 
         n_units_hidden_layers : :class:`list`
-            The number of units in each of the hidden layers. As many
-            hidden layers as the number of items in the list will be
-            created.
+            The number of units in each hidden layer (one layer per
+            entry).
 
         activations : :class:`list`
-            A list containing the names of the activation functions to
-            use in each hidden layer. Available activation functions
-            are:
+            The activation function for each hidden layer ('relu',
+            'elu', or 'gelu').
 
-            - ``"relu"`` : the ReLU function.
-
-            - ``"elu"`` : the ELU function.
-
-        output_module_name : :class:`str`, \
-            {``"nb_feature_dispersion"``, ``"nb_full_dispersion"``, \
-            ``"poisson"``}
-            The name of the output module that will be set. Available
-            output modules are:
-
-            - ``"nb_feature_dispersion"`` for negative binomial
-              distributions with means learned per gene per sample and
-              r-values learned per gene.
-
-            - ``"nb_full_dispersion"`` for negative binomial
-              distributions with both means and r-values learned per
-              gene per sample.
-
-            - ``"poisson"`` for Poisson distributions with means
-              learned per gene per sample.
+        output_module_name : :class:`str`
+            The output module to use ('nb_feature_dispersion',
+            'nb_full_dispersion', or 'poisson').
 
         output_module_options : :class:`dict`
-            A dictionary of options for setting up the output module.
+            The options for the chosen output module (an
+            'activation', plus 'r_init' for
+            'nb_feature_dispersion').
 
-            For the ``"nb_feature_dispersion"`` output module, the
-            following options must be provided:
-
-            - ``"activation"`` : the name of the activation function to
-              be used in the output module.
-
-            - ``"r_init"`` : the initial r-value for the negative
-              binomial distributions modeling the genes' counts.
-
-            For the ``"nb_full_dispersion"`` output module, the
-            following options must be provided:
-
-            - ``"activation"`` : the name of the activation function to
-              be used in the output module.
-
-            For the ``"poisson"`` output module, the following options
-            must be provided:
-
-            - ``"activation"`` : the name of the activation function to
-              be used in the output module.
-        
         dropout : :class:`float`
-            The dropout rate to be used in the decoder. By default, it
-            is 0.0 (no dropout).
+            The dropout rate used in the decoder (default: 0.0).
         """
 
         # Initialize the class.
@@ -249,18 +202,12 @@ class Decoder(nn.Module):
             The number of neurons in the input layer.
 
         n_units_hidden_layers : :class:`list`
-            The number of units in each of the hidden layers. As many
-            hidden layers as the number of items in the list will be
-            created.
+            The number of units in each hidden layer (one layer per
+            entry).
 
         activations : :class:`list`
-            A list containing the names of the activation functions to
-            use in each hidden layer. Available activation functions
-            are:
-
-            - ``"relu"`` : the ReLU function.
-
-            - ``"elu"`` : the ELU function.
+            The activation function for each hidden layer ('relu',
+            'elu', or 'gelu').
 
         Returns
         -------
@@ -335,9 +282,7 @@ class Decoder(nn.Module):
             # If the activation function is a GELU
             elif activation_name == "gelu":
 
-                # Set it. GELU is smooth everywhere, unlike ReLU's
-                # kink, so the decoder map has no activation
-                # boundaries - there is no 'inplace' option.
+                # Set it.
                 activation = nn.GELU()
 
             # Otherwise
@@ -399,43 +344,13 @@ class Decoder(nn.Module):
             The number of units in the last hidden layer.
 
         output_module_name : :class:`str`
-            The name of the output module that will be set. Available
-            output modules are:
-
-            - ``"nb_feature_dispersion"`` for negative binomial
-              distributions with means learned per gene per sample and
-              r-values learned per gene.
-
-            - ``"nb_full_dispersion"`` for negative binomial
-              distributions with both means and r-values learned per
-              gene per sample.
-
-            - ``"poisson"`` for Poisson distributions with means
-              learned per gene per sample.
+            The output module to use ('nb_feature_dispersion',
+            'nb_full_dispersion', or 'poisson').
 
         output_module_options : :class:`dict`
-            A dictionary of options for setting up the output module.
-
-            For the ``"nb_feature_dispersion"`` output module, the
-            following options must be provided:
-
-            - ``"activation"`` : the name of the activation function to
-              be used in the output module.
-
-            - ``"r_init"`` : the initial r-value for the negative
-               binomial distributions modeling the genes' counts.
-
-            For the ``"nb_full_dispersion"`` output module, the
-            following options must be provided:
-
-            - ``"activation"`` : the name of the activation function to
-              be used in the output module.
-
-            For the ``"poisson"`` output module, the following options
-            must be provided:
-
-            - ``"activation"`` : the name of the activation function to
-              be used in the output module.
+            The options for the chosen output module (an
+            'activation', plus 'r_init' for
+            'nb_feature_dispersion').
 
         Returns
         -------
@@ -455,23 +370,15 @@ class Decoder(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # If the output module is 'nb_full_dispersion' or one of its
-        # variants that shrink or tie the per-sample dispersion. They
-        # all predict a mean and a per-sample log-r-value, so the
-        # decoder treats them the same; they differ only inside the
-        # module, in what the dispersion is anchored to.
+        # If the output module is 'nb_full_dispersion' (matched via
+        # the registry so a future subclass would work too, though
+        # none is currently registered)
         elif output_module_name in outputmodules.OUTPUT_MODULES \
                 and issubclass(
                     outputmodules.OUTPUT_MODULES[output_module_name],
                     outputmodules.OutputModuleNBFullDispersion):
 
             # Get the output module's class from the registry.
-            #
-            # Asked of the registry rather than of a list of names
-            # written out here: every variant that shrinks or ties the
-            # dispersion is a subclass of the full-dispersion module
-            # and is built the same way, so being one is the condition,
-            # and a new variant needs no edit here to be reachable.
             out_module_class = \
                 outputmodules.OUTPUT_MODULES[output_module_name]
 

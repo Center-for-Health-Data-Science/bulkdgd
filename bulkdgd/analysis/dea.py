@@ -29,36 +29,6 @@
 # Set the module's description.
 __doc__ = \
     """Utilities to perform differential expression analysis (DEA).
-
-    .. warning::
-
-       **The default two-sided rule changed in July 2026, and it
-       changes results.**
-
-       ``get_p_values``, ``get_statistics`` and ``perform_dea`` now
-       take ``two_sided``, which defaults to ``"equal_tail"``. It used
-       to be a density region - the total probability mass of every
-       outcome no more likely than the observed one - and that is now
-       ``two_sided = "density"``.
-
-       A density region is the right two-sided test for a symmetric
-       distribution and a poor one for a skewed discrete distribution.
-       The region it picks is lopsided in log space and always the same
-       way, because a two-fold INCREASE is a deviation of +m from the
-       mean while a two-fold DECREASE is a deviation of only -m/2. On
-       simulated counts with a symmetric perturbation the density
-       region called 63.7 genes up for every 1 down; the equal-tail
-       rule called 1.45.
-
-       Pass ``two_sided = "density"`` to reproduce anything computed
-       before the change.
-
-       The new rule is also about 180 times faster - 0.23 s a sample
-       against 41 s - because the tails come from the cumulative
-       distribution function in closed form rather than from
-       enumerating a grid, and it needs neither ``resolution`` nor
-       ``max_elements`` nor a GPU.
-
     """
 
 
@@ -87,11 +57,14 @@ from . import _util
 logger = log.getLogger(__name__)
 
 
+#######################################################################
+
+
 # Set the supported ways of computing the scaling factor of a sample.
-# This mirrors 'GeneExpressionDataset.SCALING_FACTORS', and the two
-# have to agree: the model is trained against one of these and the
-# analysis has to undo the same one.
 SCALING_FACTORS = ["mean", "median"]
+
+# Set the methods available to compute the p-values.
+P_VALUES_METHODS = ["auto", "batched", "per-gene"]
 
 
 ########################## PRIVATE FUNCTIONS ##########################
@@ -101,18 +74,6 @@ def _get_scaling_factor(obs_counts: np.ndarray,
                         scaling_factor: str = "mean") -> float:
     """Get the factor a sample's predicted means are multiplied by to
     put them on the scale of the sample's own counts.
-
-    The decoder does not emit counts. It emits a sample's profile, and
-    the profile is multiplied by one number per sample to become the
-    counts the sample actually has. That number is a property of the
-    MODEL, not of this analysis: the decoder was fitted against it, and
-    undoing it here with a different one leaves every predicted mean
-    wrong by the ratio of the two - about a factor of three between the
-    median and the mean - while every p-value still comes out looking
-    like a p-value.
-
-    This is why 'scaling_factor' has to be carried from the model's own
-    configuration file to here, and why it is not simply assumed.
 
     Parameters
     ----------
@@ -157,22 +118,19 @@ def _yield_p_values(obs_counts: torch.Tensor,
                     r_values: Optional[torch.Tensor] = None,
                     resolution: Optional[int] = None) -> \
                         Iterator[tuple[float, np.ndarray, np.ndarray]]:
-    """For each gene, yield the p-value, the points at which the
-    log-probability mass function was evaluated, and the values of
-    the log-probability mass function at those points.
+    """For each gene, yield its p-value and the log-probability mass
+    function's evaluation points and values.
 
     Parameters
     ----------
     obs_counts : :class:`torch.Tensor`
-        A one-dimensional tensor containing the observed counts
-        for the genes.
+        The observed counts for the genes.
 
     pred_means : :class:`torch.Tensor`
-        A one-dimensional tensor containing the predicted scaled
-        mean counts for the genes.
+        The predicted scaled mean counts for the genes.
 
     r_values : :class:`torch.Tensor`, optional
-        A one-dimensional tensor containing the r-values for the genes.
+        The r-values for the genes, if negative binomial.
 
     resolution : :class:`int`, optional
         The resolution at which to perform the p-value calculation.
@@ -180,16 +138,15 @@ def _yield_p_values(obs_counts: torch.Tensor,
     Yields
     ------
     p_val : :class:`float`
-        The calculated p-values for all genes.
+        The p-value for the gene.
 
     k : :class:`numpy.ndarray`
-        A two-dimensional array containing the points at which the
-        log-probability mass function was evaluated for each gene.
+        The points at which the log-probability mass function was
+        evaluated for the gene.
 
     pmf : :class:`numpy.ndarray`
-        A two-dimensional array containing the values of the
-        log-probability mass function evaluated at each ``k`` point
-        for each gene.
+        The values of the log-probability mass function at each
+        ``k`` point for the gene.
     """
 
     # For each gene's observed count, predicted mean count, and r-value
@@ -205,25 +162,8 @@ def _yield_p_values(obs_counts: torch.Tensor,
             # Get the r-value for the current gene.
             r_value_gene_i = r_values[i]
 
-            # Calculate the probability of "failure" of the negative
-            # binomial from its mean 'm' and its r-value (the number of
-            # successes at which the experiment is stopped).
-            #
-            # The mean, written in terms of the probability 'q' of a
-            # FAILURE, is
-            #
-            #     m = r * q / (1 - q)
-            #
-            # so that
-            #
-            #     m (1 - q) = r q
-            #     m         = q (m + r)
-            #     q         = m / (m + r)
-            #
-            # which is what is calculated here. The derivation this
-            # comment used to give was of the probability of a SUCCESS,
-            # p = r / (m + r) - which is 1 - q, and not the line below.
-            # The arithmetic was right; the reason given for it was not.
+            # Get the probability 'q' of a failure from the mean 'm'
+            # and the r-value: m = r*q/(1-q), so q = m/(m+r).
             p_i = pred_mean_gene_i / \
                   (pred_mean_gene_i + r_value_gene_i)
 
@@ -232,17 +172,9 @@ def _yield_p_values(obs_counts: torch.Tensor,
             # Set the percent point function to be calculated.
             ppf_dist = nbinom
 
-            # Set the options to calculate the percent point function.
-            #
-            # SciPy's negative binomial counts the number of failures
-            # before 'n' successes, and its 'p' is the probability of a
-            # SUCCESS. Ours, above, is the probability of a failure, so
-            # SciPy is given 1 - p_i = r / (m + r), which returns the
-            # mean to 'm':
-            #
-            #     mean = n (1 - p) / p
-            #          = r * (m / (m + r)) / (r / (m + r))
-            #          = m
+            # SciPy's negative binomial is parameterized by the
+            # probability 'p' of a SUCCESS (1 - q), so pass 1 - p_i to
+            # keep the mean at 'm'.
             ppf_options = \
                 {"q" : 0.99999,
                  "n" : float(r_value_gene_i),
@@ -262,27 +194,15 @@ def _yield_p_values(obs_counts: torch.Tensor,
                  "mu" : float(pred_mean_gene_i)}
 
         #-------------------------------------------------------------#
-        
-        # Get the count value at which the value of the percent
-        # point function (the inverse of the cumulative mass
-        # function) is 0.99999.
-        #
-        # This corresponds to the value in the probability mass
-        # function beyond which lies 0.00001 of the mass. This is a
-        # single value.
+
+        # Get the count value beyond which lies 0.00001 of the
+        # distribution's mass.
         tail = float(ppf_dist.ppf(**ppf_options))
 
-        # A negative binomial with a vanishingly small r-value (as can
-        # happen for genes the decoder predicts as essentially
-        # unexpressed) drives 'p' to (numerically) exactly 1, which is
-        # a degenerate parameterization SciPy's 'nbinom.ppf' resolves
-        # to NaN instead of a finite value -- even though the
-        # distribution's mass is, in this limit, concentrated at 0
-        # (consistent with the finite, non-NaN 'tail' SciPy itself
-        # returns for the same gene at slightly less extreme
-        # parameter values). Fall back to 0 in that case rather than
-        # letting a single near-zero-dispersion gene crash the entire
-        # sample's DEA.
+        # A vanishingly small r-value drives 'p' to (numerically)
+        # exactly 1, a degenerate case where 'nbinom.ppf' returns NaN
+        # instead of the tail (which is 0 in this limit). Fall back
+        # to 0 in that case.
         if not np.isfinite(tail):
             tail = 0.0
 
@@ -386,7 +306,7 @@ def _yield_p_values(obs_counts: torch.Tensor,
         # Find the probability that a point falls lower than the
         # observed count (= sum over all values of 'k' lower than
         # the value of the log-probability mass function at the actual
-        # count value. Exponentiate it since for now we dealt with
+        # count value). Exponentiate it since for now we dealt with
         # log-probability masses, and we want the actual probability.
         #
         # The output is a single value.
@@ -417,13 +337,8 @@ def _yield_p_values(obs_counts: torch.Tensor,
 
 def _get_tails(pred_means: np.ndarray,
                r_values: Optional[np.ndarray] = None) -> np.ndarray:
-    """For each gene, get the count value at which the value of the
-    percent point function (the inverse of the cumulative mass
-    function) is 0.99999.
-
-    This is the vectorized counterpart of the per-gene percent point
-    function evaluation performed in :func:`_yield_p_values`, and
-    returns the same values.
+    """For each gene, get the count value beyond which lies 0.00001
+    of its distribution's mass.
 
     Parameters
     ----------
@@ -445,16 +360,13 @@ def _get_tails(pred_means: np.ndarray,
     # counts
     if r_values is not None:
 
-        # Calculate the probability of "failure" for all genes at once,
+        # Get the probability of "failure" for all genes at once,
         # from the mean 'm' and the r-value: q = m / (m + r).
         p = pred_means / (pred_means + r_values)
 
-        # Get the tail of each gene's distribution.
-        #
-        # SciPy's negative binomial counts the number of failures before
-        # 'n' successes, and its 'p' is the probability of a SUCCESS.
-        # Ours is the probability of a failure, so SciPy is given
-        # 1 - p = r / (m + r), which returns the mean to 'm'.
+        # Get the tail of each gene's distribution. SciPy's 'p' is
+        # the probability of a success, so pass 1 - p to keep the
+        # mean at 'm'.
         tails = nbinom.ppf(q = 0.99999,
                            n = r_values,
                            p = 1 - p)
@@ -466,20 +378,13 @@ def _get_tails(pred_means: np.ndarray,
         tails = poisson.ppf(q = 0.99999,
                             mu = pred_means)
 
-    # A negative binomial with a vanishingly small r-value (as can
-    # happen for genes the decoder predicts as essentially unexpressed)
-    # drives 'p' to (numerically) exactly 1, which is a degenerate
-    # parameterization SciPy's 'nbinom.ppf' resolves to NaN instead of
-    # a finite value. Fall back to 0 in that case, as
-    # '_yield_p_values' does.
+    # A vanishingly small r-value drives 'p' to (numerically) exactly
+    # 1, a degenerate case where 'nbinom.ppf' returns NaN. Fall back
+    # to 0, matching the per-gene calculation.
     tails = np.where(np.isfinite(tails), tails, 0.0)
 
     # Return the tails.
     return tails
-
-
-# Set the methods available to compute the p-values.
-P_VALUES_METHODS = ["auto", "batched", "per-gene"]
 
 
 def _resolve_p_values_method(method: str,
@@ -568,16 +473,6 @@ def _resolve_p_values_method(method: str,
 
     # On a CPU, it depends on how the log-probability mass function is
     # evaluated.
-    #
-    # At a fixed resolution, every gene is evaluated at the same number
-    # of points, so the batch is a dense rectangle with no padding in
-    # it, and evaluating it in one go is faster than looping over the
-    # genes in Python.
-    #
-    # In the exact calculation, instead, each gene is evaluated at as
-    # many points as its own tail requires. The batch is then ragged,
-    # and has to be padded - and, on a CPU, there are no spare cores to
-    # absorb the cost of the padding. So, go gene by gene.
     if resolution is not None:
 
         # Compute the p-values for all the genes at once.
@@ -594,25 +489,6 @@ def _compute_p_values(obs_counts: np.ndarray,
                       device: Union[str, torch.device] = "cpu",
                       max_elements: int = 2**26) -> np.ndarray:
     """Calculate the p-value for all the genes in a sample at once.
-
-    This is a vectorized re-formulation of :func:`_yield_p_values`. It
-    evaluates the log-probability mass function of all the genes'
-    distributions in a batch instead of gene by gene, which makes the
-    calculation suitable for running on a GPU.
-
-    The p-value of a gene depends only on that gene's distribution, so
-    the genes are independent of each other, and the calculation
-    parallelizes exactly.
-
-    The genes' distributions have different tails, so the points at
-    which the log-probability mass function needs to be evaluated form
-    a "ragged" set. Here, the genes are sorted by the length of their
-    set of points and split into chunks. Inside a chunk, the sets of
-    points are padded to the length of the longest one, and the
-    log-probability mass at the padded points is set to negative
-    infinity so that it contributes zero probability mass. Sorting the
-    genes beforehand keeps the amount of padding (and, therefore, the
-    amount of wasted computation) small.
 
     Parameters
     ----------
@@ -799,16 +675,9 @@ def _compute_p_values(obs_counts: np.ndarray,
 
             # The log-probability mass function is evaluated at
             # 'resolution' evenly spaced points between 0 and the
-            # gene's tail, rounded.
-            #
-            # The points are built the way 'numpy.linspace' builds
-            # them - as 'arange(resolution) * step', with the last
-            # point pinned to the gene's tail - so that they are
-            # bit-for-bit the ones the per-gene calculation uses.
-            # Computing them in any other way (say, as
-            # 'linspace(0, 1) * tail') can be off by one unit in the
-            # last place, which is enough to make a point that sits
-            # exactly halfway between two integers round the other way.
+            # gene's tail, rounded. The points are built the way
+            # 'numpy.linspace' builds them so that they match the
+            # per-gene calculation bit-for-bit.
             tails_trunc = torch.trunc(tails_chunk)
 
             # Get the points at which to evaluate the function.
@@ -919,30 +788,6 @@ def _compute_p_values_equal_tail(obs_counts: np.ndarray,
                                  mid_p: bool = True) -> np.ndarray:
     """Calculate two-sided p-values by doubling the smaller tail.
 
-    The alternative to :func:`_compute_p_values`, which sums the
-    probability mass of every outcome no more likely than the observed
-    one - a DENSITY REGION - and is what this module did originally.
-
-    A density region is the right two-sided test for a symmetric
-    distribution and is a poor one for a skewed discrete distribution,
-    which is what a negative binomial with a small mean is. The region
-    it selects is lopsided in log space, and the lopsidedness runs one
-    way: a two-fold INCREASE is a deviation of +m from the mean, and a
-    two-fold DECREASE is a deviation of only -m/2. The standard
-    deviation is much the same either way, so the same nominal fold
-    change carries about twice the evidence upwards.
-
-    Measured over 40 TCGA samples, the shipped density region called
-    38.7 genes up for every 1 down. This rule called 12.9. Neither is
-    1 - see 'results/<model>/call_asymmetry/FINDINGS.md' for what
-    accounts for the rest - but the difference is a rule and not a
-    model, and it costs nothing.
-
-    The tails are computed exactly from the cumulative distribution
-    function rather than by enumerating a grid, so this is also a good
-    deal faster than the density region and needs no 'resolution' and
-    no cap on the memory used.
-
     Parameters
     ----------
     obs_counts : :class:`numpy.ndarray`
@@ -961,13 +806,6 @@ def _compute_p_values_equal_tail(obs_counts: np.ndarray,
         Whether to apply the mid-p correction, which counts half of the
         probability mass at the observed count instead of all of it.
 
-        A two-sided test on a discrete distribution is conservative -
-        its actual size is below the nominal one - because the mass at
-        the observed value is counted whole in both tails. The mid-p
-        correction removes most of that conservatism, and it matters
-        here because the genes where the discreteness bites are exactly
-        the low-mean genes where the asymmetry lives.
-
     Returns
     -------
     p_values : :class:`numpy.ndarray`
@@ -983,6 +821,8 @@ def _compute_p_values_equal_tail(obs_counts: np.ndarray,
         # parameterizes it by the mean, so convert.
         probs = r_values / (r_values + pred_means)
 
+        # Get the lower-tail, upper-tail, and at-the-observed-count
+        # probabilities.
         lower = nbinom.cdf(obs_counts, r_values, probs)
         upper = nbinom.sf(obs_counts - 1, r_values, probs)
         at_obs = nbinom.pmf(obs_counts, r_values, probs)
@@ -990,6 +830,8 @@ def _compute_p_values_equal_tail(obs_counts: np.ndarray,
     # If the genes' counts were modelled using Poisson distributions
     else:
 
+        # Get the lower-tail, upper-tail, and at-the-observed-count
+        # probabilities.
         lower = poisson.cdf(obs_counts, pred_means)
         upper = poisson.sf(obs_counts - 1, pred_means)
         at_obs = poisson.pmf(obs_counts, pred_means)
@@ -1029,187 +871,73 @@ def get_p_values(obs_counts: pd.Series,
                  two_sided: str = "equal_tail",
                  mid_p: bool = True) -> \
                     tuple[pd.Series, pd.DataFrame, pd.DataFrame]:
-    """Given the observed gene counts in a single sample, and the
-    predicted mean gene counts in a single sample, calculate the
-    p-value associated with the predicted mean of each distribution
-    modeling a gene's counts by comparing it to the actual gene count.
+    """Compute, for each gene, the p-value of its predicted mean count
+    against its actual observed count in a single sample.
 
     Parameters
     ----------
     obs_counts : :class:`pandas.Series`
-        The observed gene counts in a single sample.
-
-        This is a series whose index contains either the genes'
-        Ensembl IDs or names of fields containing additional
-        information about the sample.
+        Observed gene counts, indexed by Ensembl ID or metadata field.
 
     pred_means : :class:`pandas.Series`
-        The predicted means of the distributions modelling
-        the genes' counts in a single sample.
-
-        This is a series whose index contains either the genes'
-        Ensembl IDs or names of fields containing additional
-        information about the sample.
-
-        If the genes' counts were modelled using negative binomial
-        distributions, the predicted means are scaled by the
-        corresponding distributions' r-values.
+        Predicted means of the genes' count distributions.
 
     r_values : :class:`pandas.Series`, optional
-        The predicted r-values of the negative binomial distributions
-        modelling the genes' counts in a single sample, if the genes'
-        counts were modelled using negative binomial distributions.
-
-        This is a series whose index contains either the genes'
-        Ensembl IDs or names of fields containing additional
-        information about the sample.
-
-        If ``r_values`` is not provided, it is assumed that the genes'
-        counts were modelled using Poisson distributions.
+        Predicted r-values of the negative binomial distributions;
+        if omitted, the counts are taken to be Poisson-distributed.
 
     resolution : :class:`int`, optional
-        How accurate the calculation of the p-values should be.
-
-        The ``resolution`` corresponds to the coarseness of the sum
-        over the probability mass function of each distribution
-        to compute the corresponding p-value.
-
-        The higher the ``resolution``, the more accurate (and more
-        computationally expensive) the calculation of the p-values
-        will be.
-
-        If not passed, the calculation will be exact.
+        Coarseness of the p-value sum over the probability mass
+        function; exact if not passed.
 
     return_pmf_values : :class:`bool`, :obj:`False`
-        Return the points at which the log-probability mass function
-        was evaluated and the corresponding values of the log-
-        probability mass function, together with the p-values.
-
-        Set it to ``True`` only if you have a low resolution
-        (for instance, ``1e3`` or lower) or a lot of RAM available
-        since the arrays containing the points at which the log-
-        probability mass function was evaluated and the corresponding
-        values of the function will contain ``resolution``
-        floating-point numbers for each gene.
-
-        Setting it to ``True`` forces the p-values to be computed gene
-        by gene on the CPU, ignoring ``device``.
+        Also return the evaluation points and values of the log-
+        probability mass function; forces per-gene, CPU-only
+        computation, ignoring ``device``.
 
     pseudocount : :class:`int`, ``1``
-        A pseudocount to add to both the predicted means and observed
-        counts to avoid artifacts.
+        Pseudocount added to observed counts and predicted means to
+        avoid artifacts.
 
     device : :class:`str` or :class:`torch.device`, ``"cpu"``
-        The device on which to compute the p-values.
-
-        The genes are independent of each other, so the calculation of
-        the p-values parallelizes exactly, and running it on a GPU
-        (for instance, by passing ``"cuda"``) speeds it up
-        considerably.
-
-        It is ignored if ``return_pmf_values`` is ``True``.
+        Device on which to compute the p-values.
 
     p_values_method : :class:`str`, ``"auto"``
-        How to compute the p-values. The methods give the same
-        p-values, but differ in how they use the machine.
-
-        ``"batched"`` computes the p-values for all the genes at once.
-        This is what allows them to be computed on a GPU. On a CPU,
-        :mod:`torch` spreads the computation over the cores by itself,
-        so it should be used in a single process.
-
-        ``"per-gene"`` computes the p-values one gene at a time. It is
-        meant to be parallelized over the samples - by
-        :func:`perform_dea`'s caller, or by ``bulkdgd_dea``'s ``-n``
-        option - which is how to use a machine with many cores.
-
-        The two kinds of parallelism do not compose: several processes
-        each running a ``"batched"`` computation would fight over the
-        CPU's cores, and the result would be slower than either kind of
-        parallelism on its own.
-
-        ``"auto"`` uses ``"batched"`` on a GPU, and ``"per-gene"`` on a
-        CPU for the exact calculation (where the batch would have to be
-        padded), and ``"batched"`` on a CPU otherwise.
+        How to compute the p-values: ``"batched"`` (all genes at
+        once, GPU-capable), ``"per-gene"``, or ``"auto"``.
 
     max_elements : :class:`int`, optional
-        The maximum number of points at which the log-probability mass
-        function is evaluated in one batch, which caps the memory used
-        by the ``"batched"`` method.
-
-        If not passed, it defaults to ``2**26`` on a GPU and ``2**22``
-        on a CPU, where the batch sits in RAM that several processes
-        may be sharing.
+        Cap on points evaluated per batch by the ``"batched"``
+        method, to limit memory use.
 
     scaling_factor : :class:`str`, \
         {``"mean"``, ``"median"``}, ``"mean"``
-        How the model computes the scaling factor of a sample - the
-        number its predicted means are multiplied by to reach the scale
-        of the sample's own counts.
-
-        It must be the one the model was **trained** with, which is in
-        the model's own configuration file as ``"scaling_factor"``. The
-        decoder is fitted against it, and undoing it here with the
-        other one leaves every predicted mean wrong by the ratio of the
-        two - about three, between the median and the mean - while
-        every p-value still looks like a p-value.
+        How the model scales a sample's predicted means to the
+        scale of the sample's own counts.
 
     two_sided : :class:`str`, \
         {``"equal_tail"``, ``"density"``}, ``"equal_tail"``
-        How the two tails are combined into one p-value.
-
-        ``"equal_tail"`` doubles the smaller tail. ``"density"`` sums
-        the probability mass of every outcome no more likely than the
-        observed one.
-
-        **The default changed to** ``"equal_tail"`` **in July 2026, and
-        it changes results.** A density region is the right two-sided
-        test for a symmetric distribution and a poor one for a skewed
-        discrete distribution: the region it picks is lopsided in log
-        space, and always the same way, because a two-fold increase is
-        a deviation of +m from the mean while a two-fold decrease is a
-        deviation of only -m/2.
-
-        Over 40 TCGA samples the density region called 38.7 genes up
-        for every 1 down and this rule called 12.9. Pass
-        ``"density"`` to reproduce results produced before the change.
-
-        See ``results/<model>/call_asymmetry/FINDINGS.md`` for what
-        accounts for the remaining asymmetry, which is NOT this.
+        How the two tails are combined into one p-value:
+        ``"equal_tail"`` doubles the smaller tail, ``"density"`` sums
+        every outcome no more likely than the observed one.
 
     mid_p : :class:`bool`, ``True``
-        Whether to apply the mid-p correction when ``two_sided`` is
-        ``"equal_tail"``, counting half the probability mass at the
-        observed count rather than all of it in each tail.
-
-        A two-sided test on a discrete distribution is conservative
-        without it, and the genes where the discreteness bites are the
-        low-mean genes where the asymmetry lives.
+        Whether to apply the mid-p correction under the
+        ``"equal_tail"`` rule.
 
     Returns
     -------
     p_values : :class:`pandas.Series`
-        A series containing one p-value per gene.
-    
+        One p-value per gene.
+
     ks : :class:`pandas.DataFrame`
-        A data frame containing the count values at which the log-
-        probability mass function was evaluated to compute the
-        p-values.
+        Count values at which the log-probability mass function was
+        evaluated, one row per gene. Empty if ``return_pmf_values``
+        is ``False``.
 
-        The data frame has as many rows as the number of genes and as
-        many columns as the number of count values.
-
-        This is an empty data frame if ``return_pmf_values`` is
-        ``False``.
-    
     pmfs : :class:`numpy.ndarray`
-        A data frame containing the value of the log-probability mass
-        function for each count value at which it was evaluated.
-
-        The data frame has as many rows as the number of genes and as
-        many columns as the number of count values.
-
-        This is an empty data frame if ``return_pmf_values`` is
+        Log-probability mass function values at each ``ks`` point,
+        one row per gene. Empty if ``return_pmf_values`` is
         ``False``.
     """
 
@@ -1308,25 +1036,29 @@ def get_p_values(obs_counts: pd.Series,
     #-----------------------------------------------------------------#
 
     # If the two tails are to be compared to each other rather than a
-    # region of equal density taken, which needs no grid, no resolution
-    # and no device: the tails come from the cumulative distribution
-    # function in closed form.
+    # region of equal density taken.
     if two_sided == "equal_tail":
 
+        # Get the p-values.
         p_values = \
             _compute_p_values_equal_tail(obs_counts = obs_counts,
                                          pred_means = pred_means,
                                          r_values = r_values,
                                          mid_p = mid_p)
 
+        # Make them into a series.
         series_p_values = pd.Series(p_values, index = genes_obs)
 
+        # Set the series' name.
         series_p_values.name = "p_value"
 
+        # Return the series and two empty data frames.
         return series_p_values, pd.DataFrame(), pd.DataFrame()
 
+    # If the legacy method is chosen
     if two_sided != "density":
 
+        # Raise an error.
         raise ValueError(
             f"Unsupported 'two_sided' rule '{two_sided}'. It must be "
             f"'equal_tail' or 'density'.")
@@ -1468,10 +1200,8 @@ def get_q_values(p_values: pd.Series,
                  alpha: float = 0.05,
                  method: str = "fdr_bh") -> \
                     tuple[pd.Series, pd.Series]:
-    """Get the q-values associated with a set of p-values.
-
-    The q-values are the p-values adjusted for the false discovery
-    rate.
+    """Get the q-values (p-values adjusted for the false discovery
+    rate) for a set of p-values.
 
     Parameters
     ----------
@@ -1482,25 +1212,16 @@ def get_q_values(p_values: pd.Series,
         The family-wise error rate for the calculation of the q-values.
 
     method : :class:`str`, ``"fdr_bh"``
-        The method used to adjust the p-values. The available methods
-        are listed in the documentation for
-        ``statsmodels.stats.multitest.multipletests``.
+        The method used to adjust the p-values (see
+        ``statsmodels.stats.multitest.multipletests``).
 
     Returns
     -------
     q_values : :class:`pandas.Series`
-        A series containing the q-values.
-
-        The index of the series is equal to the index of the input
-        series of p-values.
+        The q-values, indexed like ``p_values``.
 
     rejected : :class:`pandas.Series`
-        A series containing booleans indicating whether a p-value in
-        the input data frame was rejected (``True``) or not
-        (``False``).
-
-        The index of the series is equal to the index of the input
-        series of p-values.
+        Whether each p-value was rejected, indexed like ``p_values``.
     """
 
     # Get the genes' names from the index of the input series.
@@ -1551,44 +1272,24 @@ def get_log2_fold_changes(obs_counts: pd.Series,
     Parameters
     ----------
     obs_counts : :class:`pandas.Series`
-        The observed gene counts in a single sample.
-
-        This is a series whose index contains either the genes'
-        Ensembl IDs or names of fields containing additional
-        information about the sample.
+        Observed gene counts, indexed by Ensembl ID or metadata field.
 
     pred_means : :class:`pandas.Series`
-        The predicted means of the distributions modelling
-        the genes' counts in a single sample.
-
-        This is a series whose index contains either the genes'
-        Ensembl IDs or names of fields containing additional
-        information about the sample.
+        Predicted means of the genes' count distributions.
 
     pseudocount : :class:`int`, ``1``
-        A pseudocount to add to both the predicted means and observed
-        counts to avoid artifacts.
+        Pseudocount added to observed counts and predicted means to
+        avoid artifacts.
 
     scaling_factor : :class:`str`, \
         {``"mean"``, ``"median"``}, ``"mean"``
-        How the model computes the scaling factor of a sample - the
-        number its predicted means are multiplied by to reach the scale
-        of the sample's own counts.
-
-        It must be the one the model was **trained** with, which is in
-        the model's own configuration file as ``"scaling_factor"``. The
-        decoder is fitted against it, and undoing it here with the
-        other one leaves every predicted mean wrong by the ratio of the
-        two - about three, between the median and the mean - while
-        every fold change still looks like a fold change.
+        How the model scales a sample's predicted means to the
+        scale of the sample's own counts.
 
     Returns
     -------
     log2_fold_changes : :class:`pandas.Series`
-        The log2-fold change associated with each gene in the given
-        sample.
-
-        This is a series whose index correspond to the one of
+        The log2-fold change for each gene, indexed like
         ``obs_counts`` and ``pred_means``.
     """
 
@@ -1654,23 +1355,6 @@ def get_log2_fold_changes(obs_counts: pd.Series,
     # Get the log-fold change for each gene by dividing the observed
     # count by the predicted mean count. A small value is added
     # to ensure we do not divide by zero and avoid artifacts.
-    #
-    # The observed count over the predicted one, and not the other way
-    # round: the sample over the healthy counterpart the model decoded
-    # for it. So a POSITIVE log2 fold change means the gene is HIGHER in
-    # the sample than the model expected of a healthy one, which is the
-    # convention DESeq2 uses for its case over its control, and the
-    # convention anybody reading the number will assume.
-    #
-    # It used to be the reciprocal - the predicted over the observed -
-    # so that a positive value meant the gene was LOWER in the sample.
-    # Nothing that CALLS a gene significant was affected, because
-    # everything thresholds on the absolute value; but every statement
-    # about a gene being up or down was backwards, and the fold changes
-    # compared against DESeq2's correlated at -0.74 where they should
-    # have been at +0.74. The pseudocount is symmetric, so the fix is
-    # exactly a change of sign, and the tables already computed were
-    # corrected by negating the column rather than by being recomputed.
     log2_fold_changes = \
         np.log2((obs_counts + pseudocount) / \
                 (pred_means + pseudocount))
@@ -1711,142 +1395,66 @@ def get_statistics(obs_counts: pd.Series,
                    two_sided: str = "equal_tail",
                    mid_p: bool = True) -> \
                         tuple[pd.DataFrame, Optional[str]]:
-    """Compute p-values, q-values, and/or log2-fold changes.
+    """Compute p-values, q-values, and/or log2-fold changes for a
+    single sample.
 
     Parameters
     ----------
     obs_counts : :class:`pandas.Series`
-        The observed gene counts in a single sample.
-
-        This is a series whose index contains either the genes'
-        Ensembl IDs or names of fields containing additional
-        information about the sample.
+        Observed gene counts, indexed by Ensembl ID or metadata field.
 
     pred_means : :class:`pandas.Series`
-        The predicted means of the distributions modelling
-        the genes' counts in a single sample.
-
-        This is a series whose index contains either the genes'
-        Ensembl IDs or names of fields containing additional
-        information about the sample.
-
-        If the genes' counts were modelled using negative binomial
-        distributions, the predicted means are scaled by the
-        corresponding distributions' r-values.
+        Predicted means of the genes' count distributions.
 
     r_values : :class:`pandas.Series`, optional
-        The predicted r-values of the negative binomial distributions
-        modelling the genes' counts in a single sample, if the genes'
-        counts were modelled using negative binomial distributions.
-
-        This is a series whose index contains either the genes'
-        Ensembl IDs or names of fields containing additional
-        information about the sample.
-
-        If ``r_values`` is not provided, it is assumed that the genes'
-        counts were modelled using Poisson distributions.
+        Predicted r-values of the negative binomial distributions;
+        if omitted, the counts are taken to be Poisson-distributed.
 
     sample_name : :class:`str`, optional
-        The name of the sample under consideration.
-
-        It is returned together with the results of the analysis
-        to facilitate the identification of the sample when running
-        the analysis in parallel for multiple samples (i.e., launching
-        the function in parallel on multiple samples).
+        Name of the sample, returned alongside the results so callers
+        running this in parallel over samples can identify them.
 
     statistics : :class:`list`, \
         {``["p_values", "q_values", "log2_fold_changes"]``}
-        The statistics to be computed. By default, all of them
-        will be computed.
+        The statistics to compute; by default, all of them.
 
     resolution : :class:`int`, optional
-        How accurate the calculation of the p-values should be.
-
-        The ``resolution`` corresponds to the coarseness of the sum
-        over the probability mass function of each distribution
-        to compute the corresponding p-value.
-
-        The higher the ``resolution``, the more accurate (and more
-        computationally expensive) the calculation of the p-values
-        will be.
-
-        If not passed, the calculation will be exact.
+        Coarseness of the p-value sum over the probability mass
+        function; exact if not passed.
 
     alpha : :class:`float`, ``0.05``
         The family-wise error rate for the calculation of the
         q-values (adjusted p-values).
 
     method : :class:`str`, ``"fdr_bh"``
-        The method used to calculate the q-values (in other words, to
-        adjust the p-values). The available methods are listed in the
-        documentation for
-        ``statsmodels.stats.multitest.multipletests``.
-    
+        The method used to calculate the q-values (see
+        ``statsmodels.stats.multitest.multipletests``).
+
     pseudocount : :class:`int`, ``1``
-        A pseudocount to add to both the predicted means and observed
-        counts to avoid artifacts.
+        Pseudocount added to observed counts and predicted means to
+        avoid artifacts.
 
     device : :class:`str` or :class:`torch.device`, ``"cpu"``
-        The device on which to compute the p-values.
-
-        The genes are independent of each other, so the calculation of
-        the p-values parallelizes exactly, and running it on a GPU
-        (for instance, by passing ``"cuda"``) speeds it up
-        considerably.
+        Device on which to compute the p-values.
 
     p_values_method : :class:`str`, ``"auto"``
-        How to compute the p-values. The methods give the same
-        p-values, but differ in how they use the machine.
-
-        ``"batched"`` computes the p-values for all the genes at once.
-        This is what allows them to be computed on a GPU. On a CPU,
-        :mod:`torch` spreads the computation over the cores by itself,
-        so it should be used in a single process.
-
-        ``"per-gene"`` computes the p-values one gene at a time. It is
-        meant to be parallelized over the samples - by
-        :func:`perform_dea`'s caller, or by ``bulkdgd_dea``'s ``-n``
-        option - which is how to use a machine with many cores.
-
-        The two kinds of parallelism do not compose: several processes
-        each running a ``"batched"`` computation would fight over the
-        CPU's cores, and the result would be slower than either kind of
-        parallelism on its own.
-
-        ``"auto"`` uses ``"batched"`` on a GPU, and ``"per-gene"`` on a
-        CPU for the exact calculation (where the batch would have to be
-        padded), and ``"batched"`` on a CPU otherwise.
+        How to compute the p-values: ``"batched"`` (all genes at
+        once, GPU-capable), ``"per-gene"``, or ``"auto"``.
 
     max_elements : :class:`int`, optional
-        The maximum number of points at which the log-probability mass
-        function is evaluated in one batch, which caps the memory used
-        by the ``"batched"`` method.
-
-        If not passed, it defaults to ``2**26`` on a GPU and ``2**22``
-        on a CPU, where the batch sits in RAM that several processes
-        may be sharing.
+        Cap on points evaluated per batch by the ``"batched"``
+        method, to limit memory use.
 
     scaling_factor : :class:`str`, \
         {``"mean"``, ``"median"``}, ``"mean"``
-        How the model computes the scaling factor of a sample - the
-        number its predicted means are multiplied by to reach the scale
-        of the sample's own counts.
-
-        It must be the one the model was **trained** with, which is in
-        the model's own configuration file as ``"scaling_factor"``. The
-        decoder is fitted against it, and undoing it here with the
-        other one leaves every predicted mean wrong by the ratio of the
-        two - about three, between the median and the mean - while
-        every p-value still looks like a p-value.
+        How the model scales a sample's predicted means to the
+        scale of the sample's own counts.
 
     Returns
     -------
     df_stats : :class:`pandas.DataFrame`
-        A data frame whose rows represent the genes on which the DEA
-        was performed, and whose columns contain the statistics
-        computed (p-values, q_values, log2-fold changes). If not all
-        statistics were computed, the columns corresponding to the
-        missing ones will be empty.
+        The computed statistics, one row per gene. Columns for
+        statistics that were not requested are empty.
 
     sample_name : :class:`str` or :obj:`None`
         The name of the sample under consideration.
@@ -2112,144 +1720,75 @@ def perform_dea(obs_counts: pd.DataFrame,
     Parameters
     ----------
     obs_counts : :class:`pandas.DataFrame`
-        The observed gene counts in multiple sample.
+        Observed gene counts, indexed by sample name (rows) and
+        Ensembl ID or metadata field (columns).
 
-        This is a data frame whose index contains the samples's names,
-        and the columns contain either the genes' Ensembl IDs or
-        names of fields containing additional information about the
-        samples.
-    
     pred_means : :class:`pandas.DataFrame`
-        The predicted means of the distributions modelling the genes'
-        counts in each sample.
+        Predicted means of the genes' count distributions, shaped
+        like ``obs_counts``.
 
-        This is a data frame whose index contains the samples' names,
-        and the columns contain either the genes' Ensembl IDs or
-        names of fields containing additional information about the
-        samples.
-    
     r_values : :class:`pandas.DataFrame`, optional
-        The predicted r-values of the negative binomial distributions
-        modelling the genes' counts in each sample, if the genes'
-        counts were modelled using negative binomial distributions.
+        Predicted r-values of the negative binomial distributions,
+        shaped like ``obs_counts``; if omitted, the counts are taken
+        to be Poisson-distributed.
 
-        This is a data frame whose index contains the samples' names,
-        and the columns contain either the genes' Ensembl IDs or
-        names of fields containing additional information about the
-        samples.
-
-        If ``r_values`` is not provided, it is assumed that the genes'
-        counts were modelled using Poisson distributions.
-    
     resolution : :class:`int`, optional
-        How accurate the calculation of the p-values should be.
+        Coarseness of the p-value sum over the probability mass
+        function; exact if not passed.
 
-        The ``resolution`` corresponds to the coarseness of the sum
-        over the probability mass function of each distribution
-        to compute the corresponding p-value.
-
-        The higher the ``resolution``, the more accurate (and more
-        computationally expensive) the calculation of the p-values
-        will be.
-
-        If not passed, the calculation will be exact.
-    
     alpha : :class:`float`, ``0.05``
         The family-wise error rate for the calculation of the
         q-values (adjusted p-values).
-    
+
     method : :class:`str`, ``"fdr_bh"``
-        The method used to calculate the q-values (in other words, to
-        adjust the p-values). The available methods are listed in the
-        documentation for
-        ``statsmodels.stats.multitest.multipletests``.
-    
+        The method used to calculate the q-values (see
+        ``statsmodels.stats.multitest.multipletests``).
+
     p_val : :class:`float`, ``0.05``
         The p-value threshold to consider a gene as significant.
-    
+
     q_val : :class:`float`, ``0.05``
         The q-value threshold to consider a gene as significant.
-    
-    log2_fold_change : :class:`float`, ``2``
-        The log2-fold change threshold to consider a gene as
-        significant. This value and its negative are used as the
-        thresholds for the log2-fold change.
-    
-    genes_sets : :class:`dict`, optional
-        A dictionary containing sets of genes of interest.
 
-        The keys are the names of the gene sets, and the values are
-        lists of genes.
-    
+    log2_fold_change : :class:`float`, ``2``
+        The log2-fold change threshold (positive and negative) to
+        consider a gene as significant.
+
+    genes_sets : :class:`dict`, optional
+        Named sets of genes of interest, as gene-set name -> list of
+        gene names.
+
     pseudocount : :class:`int`, ``1``
-        A pseudocount to add to both the predicted means and observed
-        counts to avoid artifacts.
+        Pseudocount added to observed counts and predicted means to
+        avoid artifacts.
 
     device : :class:`str` or :class:`torch.device`, ``"cpu"``
-        The device on which to compute the p-values.
-
-        The genes are independent of each other, so the calculation of
-        the p-values parallelizes exactly, and running it on a GPU
-        (for instance, by passing ``"cuda"``) speeds it up
-        considerably.
+        Device on which to compute the p-values.
 
     p_values_method : :class:`str`, ``"auto"``
-        How to compute the p-values. The methods give the same
-        p-values, but differ in how they use the machine.
-
-        ``"batched"`` computes the p-values for all the genes at once.
-        This is what allows them to be computed on a GPU. On a CPU,
-        :mod:`torch` spreads the computation over the cores by itself,
-        so it should be used in a single process.
-
-        ``"per-gene"`` computes the p-values one gene at a time. It is
-        meant to be parallelized over the samples, which is how to use
-        a machine with many cores.
-
-        The two kinds of parallelism do not compose: several processes
-        each running a ``"batched"`` computation would fight over the
-        CPU's cores, and the result would be slower than either kind of
-        parallelism on its own.
-
-        ``"auto"`` uses ``"batched"`` on a GPU, and ``"per-gene"`` on a
-        CPU for the exact calculation (where the batch would have to be
-        padded), and ``"batched"`` on a CPU otherwise.
+        How to compute the p-values: ``"batched"`` (all genes at
+        once, GPU-capable), ``"per-gene"``, or ``"auto"``.
 
     max_elements : :class:`int`, optional
-        The maximum number of points at which the log-probability mass
-        function is evaluated in one batch, which caps the memory used
-        by the ``"batched"`` method.
-
-        If not passed, it defaults to ``2**26`` on a GPU and ``2**22``
-        on a CPU, where the batch sits in RAM that several processes
-        may be sharing.
+        Cap on points evaluated per batch by the ``"batched"``
+        method, to limit memory use.
 
     scaling_factor : :class:`str`, \
         {``"mean"``, ``"median"``}, ``"mean"``
-        How the model computes the scaling factor of a sample - the
-        number its predicted means are multiplied by to reach the scale
-        of the sample's own counts.
-
-        It must be the one the model was **trained** with, which is in
-        the model's own configuration file as ``"scaling_factor"``. The
-        decoder is fitted against it, and undoing it here with the
-        other one leaves every predicted mean wrong by the ratio of the
-        two - about three, between the median and the mean - while
-        every p-value still looks like a p-value.
+        How the model scales a sample's predicted means to the
+        scale of the sample's own counts.
 
     Returns
     -------
     dfs_stats : :class:`dict`
-        A dictionary containing the data frames with the statistics
-        for each sample.
-    
-    series_significant_genes : :class:`pandas.Series`
-        A series containing the significant genes per sample.
-    
-    df_e_scores : :class:`pandas.DataFrame`
-        A data frame containing the enrichment scores for each sample.
+        The data frames with the statistics for each sample.
 
-        If no gene sets were passed, the data frame will be empty.
+    series_significant_genes : :class:`pandas.Series`
+        The significant genes per sample.
+
+    df_e_scores : :class:`pandas.DataFrame`
+        The enrichment scores for each sample. Empty if no gene sets
+        were passed.
     """
 
     # Initialize an empty dictionary to store the data frames

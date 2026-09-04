@@ -399,20 +399,6 @@ The options that can be specified are described below.
 
       For the ``"cosine"`` scheduler, the only option is ``"eta_min"``, the learning rate the schedule anneals down to by the end of training (its peak is the optimizer's own ``"lr"``). This is a non-negative float that defaults to ``0.0``.
 
-* ``"training_diagnostics"`` is an optional dictionary that records, for every epoch, how much each individual training sample drives the decoder. It is absent by default, and the hooks it installs cost a few percent of the epoch time. It can contain:
-
-   * ``"per_sample_grad_norm"`` is whether to record each sample's contribution to the decoder's gradient norm. This is a boolean and the default is ``False``.
-
-     The instrument is the GRADIENT rather than the loss, deliberately: a sample the model fits badly can sit at a high loss for the whole run without changing any parameter that matters, whereas a sample that changes the model is one whose gradient is large. The norms are obtained from the identity :math:`\lVert \delta a^\top \rVert_F = \lVert a \rVert \lVert \delta \rVert` for a linear layer, so they need two vector norms per layer rather than one backward pass per sample.
-
-   * ``"checkpoint_every"`` is how often, in epochs, to save the decoder's state so that an influence analysis such as TracIn can be run offline afterwards. This is a non-negative integer and the default is ``0``, which saves nothing.
-
-   * ``"output_dir"`` is where the per-epoch records and any checkpoints are written, relative to the model's working directory. The default is ``"diagnostics"``.
-
-* ``"output_lr_file"`` is an optional path to a CSV of the learning rates, one row per epoch, indexed by epoch and holding one column per optimizer. It is absent by default.
-
-  The rates appear nowhere else: the training loop reads them only when a scheduler is enabled and only to build a log line, so ``loss.csv`` has no learning-rate column and anything needing the schedule after the fact must parse it out of the log text. The file is rewritten every epoch, so it is complete for the epochs that ran even if the run does not finish, and the rates are read from the optimizers rather than the schedulers, so they are recorded whether or not a schedule is in use.
-
 * ``"early_stopping_type"`` is the type of early stopping criteria to use during training. This can be:
 
    * ``None``, which disables early stopping. This is the default value if not specified.

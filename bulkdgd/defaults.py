@@ -61,14 +61,6 @@ CONFIG_DIRS = {
     
     #-----------------------------------------------------------------#
 
-    # Set the directory containing the configurations for deriving a
-    # model by fine-tuning a trained parent.
-    "fine_tuning" : \
-        os.path.join(os.path.dirname(__file__),
-                     "configs/fine_tuning"),
-
-    #-----------------------------------------------------------------#
-
     # Set the directory containing the configuration files specifying
     # the options to generate plots.
     "plotting" : \

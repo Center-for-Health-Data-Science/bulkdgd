@@ -14,7 +14,6 @@ API reference
    reproducibility
    model_config_options
    rep_config_options
-   fine_tuning_config_options
    train_config_options
 
 bulkdgd consists of several packages:
@@ -40,7 +39,5 @@ Some functions and methods use dictionary-based configurations for several tasks
 * :doc:`configuration used to set up the bulkdgd model <model_config_options>`.
 
 * :doc:`configuration used to set the optimization scheme <rep_config_options>` when finding representations for a new set of samples.
-
-* :doc:`Fine-tuning configuration <fine_tuning_config_options>`.
 
 * :doc:`configuration used to train the bulkdgd model <train_config_options>`.
