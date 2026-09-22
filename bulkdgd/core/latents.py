@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 # -*- Mode: python; tab-width: 4; indent-tabs-mode:nil; coding:utf-8 -*-
 
-#    latent.py
+#    latents.py
 #
 #    This module contains the classes implementing the components of
 #    the latent space of the :class:`core.model.BulkDGD`, namely
-#    the Gaussian mixture model
-#    (:class:`core.latent.GaussianMixtureModel`) and the representation
-#    layer (:class:`core.latent.RepresentationLayer`).
+#    the Gaussian mixture models
+#    (:class:`core.latents.GaussianMixtureModelLegacy` and
+#    :class:`core.latents.GaussianMixtureModelTGMM`) and the
+#    representation layer (:class:`core.latents.RepresentationLayer`).
 #
 #    The code was originally developed by Viktoria Schuster,
 #    Inigo Prada Luengo, and Anders Krogh.
@@ -46,11 +47,13 @@
 
 # Set the module's description.
 __doc__ = \
-    "This module contains the classes implementing the components " \
-    "of the latent space of the :class:`core.model.BulkDGD`, " \
-    "namely the Gaussian mixture model " \
-    "(:class:`core.latent.GaussianMixtureModel`) and the " \
-    "representation layer (:class:`core.latent.RepresentationLayer`)."
+    "The latent space of :class:`core.model.BulkDGD`: the Gaussian " \
+    "mixture models " \
+    "(:class:`core.latents.GaussianMixtureModelLegacy` and " \
+    ":class:`core.latents.GaussianMixtureModelTGMM`), the " \
+    "representation layer " \
+    "(:class:`core.latents.RepresentationLayer`), and the refit of " \
+    "the final mixture (:func:`core.latents.fit_final_gmm`)."
 
 
 #######################################################################
@@ -82,10 +85,11 @@ logger = log.getLogger(__name__)
 
 
 class GaussianMixtureModelLegacy(nn.Module):
-    
+
     """
-    A class implementing the legacy mixture of multivariate Gaussian
-    distributions (Gaussian mixture model or GMM).
+    A class implementing a mixture of multivariate Gaussian
+    distributions (Gaussian mixture model or GMM) with priors over
+    its parameters.
     """
 
     # Set the supported priors over the means of the components of
@@ -101,7 +105,7 @@ class GaussianMixtureModelLegacy(nn.Module):
     LOG_VAR_PRIORS = ["gaussian"]
 
     # Set the supported types of covariance matrix.
-    COVARIANCE_TYPES = ["fixed", "isotropic", "diagonal"] 
+    COVARIANCE_TYPES = ["fixed", "isotropic", "diagonal"]
 
 
     def __init__(self,
@@ -188,7 +192,7 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         # Initialize an instance of 'nn.Module'.
         super().__init__()
-        
+
         # Set the dimensionality of the Gaussian mixture model.
         self._dim = dim
 
@@ -332,8 +336,8 @@ class GaussianMixtureModelLegacy(nn.Module):
 
 
     def _get_means(self) -> nn.Parameter:
-        """Return the prior on the means of the Gaussian distributions
-        and the means themselves.
+        """Get the means of the components of the Gaussian mixture
+        model, sampled from the prior.
 
         Returns
         -------
@@ -342,7 +346,7 @@ class GaussianMixtureModelLegacy(nn.Module):
             the prior.
 
             This is a 2D tensor where:
-            
+
             * The first dimension has a length equal to the number of
               components in the Gaussian mixture.
 
@@ -353,8 +357,8 @@ class GaussianMixtureModelLegacy(nn.Module):
         # Get the distribution representing the prior.
         dist_prior = self.means_prior["dist"]
 
-        # Get the means of the mixture. This is a two dimensional
-        # entity with dimensionality 'n_components', 'dim'.
+        # Get the means of the mixture, with shape
+        # ('n_components', 'dim').
         means = \
             nn.Parameter(dist_prior.sample(
                             n_samples = self.n_components),
@@ -437,8 +441,8 @@ class GaussianMixtureModelLegacy(nn.Module):
         -------
         weights : :class:`torch.nn.Parameter`
             The weights of the components in the Gaussian mixture.
-            
-            The is a 1D tensor having a length equal to the number
+
+            This is a 1D tensor having a length equal to the number
             of components in the Gaussian mixture model.
         """
 
@@ -450,7 +454,8 @@ class GaussianMixtureModelLegacy(nn.Module):
     def _get_log_var_prior(
             self,
             log_var_prior_name: str,
-            log_var_prior_options: dict[str, object]) -> object:
+            log_var_prior_options: dict[str, object]) -> \
+                dict[str, object]:
         """Get the prior over the log-variance of the components of
         the Gaussian mixture model.
 
@@ -533,10 +538,10 @@ class GaussianMixtureModelLegacy(nn.Module):
                 requires_grad = True
 
             #---------------------------------------------------------#
-        
+
             # If the covariance matrix is diagonal
             elif self.covariance_type == "diagonal":
-                
+
                 # The log-variance factor will be 1/2.
                 dist_factor = 0.5
 
@@ -573,7 +578,7 @@ class GaussianMixtureModelLegacy(nn.Module):
         # Otherwise
         else:
 
-            # Raise an error
+            # Raise an error.
             errstr = \
                 f"Unrecognized prior '{log_var_prior_name}' " \
                 "passed to 'log_var_prior_name'. Supported " \
@@ -587,22 +592,24 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         Returns
         -------
-        log_var : :class:`torch.Tensor`
-            The negative log-variance of the components.
+        log_var : :class:`torch.nn.Parameter`
+            The log-variance of the components.
 
             It is a 2D tensor where:
 
             * The first dimension has a length equal to the number
               of components in the Gaussian mixture.
 
-            * The second dimension has a length equal to the
-              dimensionality of the Gaussian mixture model.
+            * The second dimension has a length equal to 1 for a
+              fixed or isotropic covariance, and to the
+              dimensionality of the Gaussian mixture model for a
+              diagonal one.
         """
 
         # Get the dimension of the log-variance of the components.
         log_var_dim = \
             self.log_var_prior["options"]["dim"]
-        
+
         # Get whether the log-variance requires gradient calculation.
         requires_grad = \
             self.log_var_prior["options"]["requires_grad"]
@@ -661,15 +668,21 @@ class GaussianMixtureModelLegacy(nn.Module):
             value):
         """Raise an exception if the user tries to modify the value of
         ``dim`` after initialization.
+
+        Parameters
+        ----------
+        value
+            The new value.
         """
-        
+
+        # Raise an error.
         errstr = \
             "The value of 'dim' is set at initialization and cannot " \
             "be changed. If you want to change the dimensionality " \
             "of the Gaussian mixture model, initialize a new " \
             f"instance of '{self.__class__.__name__}'."
         raise ValueError(errstr)
-    
+
 
     #-----------------------------------------------------------------#
 
@@ -684,11 +697,17 @@ class GaussianMixtureModelLegacy(nn.Module):
 
     @n_components.setter
     def n_components(self,
-               value):
+                     value):
         """Raise an exception if the user tries to modify the value of
         ``n_components`` after initialization.
+
+        Parameters
+        ----------
+        value
+            The new value.
         """
-        
+
+        # Raise an error.
         errstr = \
             "The value of 'n_components' is set at initialization " \
             "and cannot be changed. If you want to change the " \
@@ -705,22 +724,28 @@ class GaussianMixtureModelLegacy(nn.Module):
     def covariance_type(self):
         """The type of the covariance matrix.
         """
-        
+
         return self._covariance_type
 
 
     @covariance_type.setter
     def covariance_type(self,
-                value):
+                        value):
         """Raise an exception if the user tries to modify the value of
         ``covariance_type`` after initialization.
+
+        Parameters
+        ----------
+        value
+            The new value.
         """
-        
+
+        # Raise an error.
         errstr = \
-            "The value of 'covariance_type' is set at initialization and " \
-            "cannot be changed. If you want to change the type of " \
-            "covariance matrix used for the Gaussian mixture model, " \
-            "initialize a new instance of " \
+            "The value of 'covariance_type' is set at initialization " \
+            "and cannot be changed. If you want to change the type " \
+            "of covariance matrix used for the Gaussian mixture " \
+            "model, initialize a new instance of " \
             f"'{self.__class__.__name__}'."
         raise ValueError(errstr)
 
@@ -743,8 +768,14 @@ class GaussianMixtureModelLegacy(nn.Module):
                     value):
         """Raise an exception if the user tries to modify the value of
         ``means_prior`` after initialization.
+
+        Parameters
+        ----------
+        value
+            The new value.
         """
-        
+
+        # Raise an error.
         errstr = \
             "The value of 'means_prior' is set at initialization " \
             "and cannot be changed. If you want to change the prior " \
@@ -771,8 +802,14 @@ class GaussianMixtureModelLegacy(nn.Module):
               value):
         """Raise an exception if the user tries to modify the value
         of ``means`` after initialization.
+
+        Parameters
+        ----------
+        value
+            The new value.
         """
-        
+
+        # Raise an error.
         errstr = \
             "The value of 'means' is set at initialization and " \
             "cannot be changed. The means of the components of the " \
@@ -800,8 +837,14 @@ class GaussianMixtureModelLegacy(nn.Module):
                       value):
         """Raise an exception if the user tries to modify the value of
         ``weights_prior`` after initialization.
+
+        Parameters
+        ----------
+        value
+            The new value.
         """
-        
+
+        # Raise an error.
         errstr = \
             "The value of 'weights_prior' is set at initialization " \
             "and cannot be changed. If you want to change the prior " \
@@ -813,7 +856,7 @@ class GaussianMixtureModelLegacy(nn.Module):
 
 
     #-----------------------------------------------------------------#
-    
+
 
     @property
     def weights(self):
@@ -828,8 +871,14 @@ class GaussianMixtureModelLegacy(nn.Module):
                 value):
         """Raise an exception if the user tries to modify the value of
         ``weights`` after initialization.
+
+        Parameters
+        ----------
+        value
+            The new value.
         """
-        
+
+        # Raise an error.
         errstr = \
             "The value of 'weights' is set at initialization and " \
             "cannot be changed. The weights of the components of " \
@@ -857,8 +906,14 @@ class GaussianMixtureModelLegacy(nn.Module):
                       value):
         """Raise an exception if the user tries to modify the value of
         ``log_var_prior`` after initialization.
+
+        Parameters
+        ----------
+        value
+            The new value.
         """
-        
+
+        # Raise an error.
         errstr = \
             "The value of 'log_var_prior' is set at initialization " \
             "and cannot be changed. If you want to change the prior " \
@@ -886,8 +941,14 @@ class GaussianMixtureModelLegacy(nn.Module):
                 value):
         """Raise an exception if the user tries to modify the value of
         ``log_var`` after initialization.
+
+        Parameters
+        ----------
+        value
+            The new value.
         """
-        
+
+        # Raise an error.
         errstr = \
             "The value of 'log_var' is set at initialization and " \
             "cannot be changed. The log-variance of the components " \
@@ -918,15 +979,15 @@ class GaussianMixtureModelLegacy(nn.Module):
         Returns
         -------
         log_prob_comp : :class:`torch.Tensor`
-            The per-sample, per-component negative log-probability.
+            The per-sample, per-component log-probability.
 
             This is a 2D tensor where:
 
             * The first dimension has a length equal to the number
               of data points in the input tensor.
 
-            * The second dimension has a length equal to the
-              dimensionality of the data points.
+            * The second dimension has a length equal to the number
+              of components in the Gaussian mixture.
         """
 
         # Get the log-variance factor.
@@ -934,9 +995,8 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Compute the covariance matrix of the components of the
-        # Gaussian mixture model. The covariance matrix is
-        # the exponential of the log-variance.
+        # Get the covariance of the components from the
+        # log-variance.
         covariance = torch.exp(self.log_var)
 
         #-------------------------------------------------------------#
@@ -950,7 +1010,7 @@ class GaussianMixtureModelLegacy(nn.Module):
         y = \
             -(x.unsqueeze(-2) - self.means).square().div(\
                 2 * covariance).sum(-1)
-        
+
         # Add the log-variance term.
         y = y - (log_var_factor * self.log_var.sum(-1))
 
@@ -964,7 +1024,7 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Return the tensor
+        # Return the tensor.
         return y
 
 
@@ -973,7 +1033,8 @@ class GaussianMixtureModelLegacy(nn.Module):
 
     def set_means(self,
                   means: torch.Tensor) -> None:
-        """Set the means of the components of the Gaussian mixture model.
+        """Set the means of the components of the Gaussian mixture
+        model.
 
         Parameters
         ----------
@@ -1009,7 +1070,7 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         # Set the weights.
         self._weights = weights
-    
+
 
     def set_log_var(self,
                     log_var: torch.Tensor) -> None:
@@ -1047,7 +1108,7 @@ class GaussianMixtureModelLegacy(nn.Module):
             This is a 1D tensor whose size equals the number of
             components in the Gaussian mixture model.
         """
-        
+
         # Return the mixture probabilities.
         return torch.softmax(self.weights,
                              dim = -1)
@@ -1084,7 +1145,7 @@ class GaussianMixtureModelLegacy(nn.Module):
             # If the alpha is different from 1
             if alpha != 1:
 
-                # Add the log-probability to the mixture coefficients.
+                # Add the log-probability of the mixture coefficients.
                 p = p + \
                     (alpha - 1.0) * \
                     (self.get_mixture_probs().log().sum())
@@ -1111,7 +1172,7 @@ class GaussianMixtureModelLegacy(nn.Module):
 
             # Get the prior distribution.
             dist_means_prior = self.means_prior["dist"]
-            
+
             # Add the log probability of the means.
             p = p + dist_means_prior.log_prob(self.means).sum()
 
@@ -1156,11 +1217,11 @@ class GaussianMixtureModelLegacy(nn.Module):
         # Return the probability.
         return p
 
-          
+
     def forward(self,
                 x: torch.Tensor) -> torch.Tensor:
-        """Forward pass - compute the absolute log-probability density
-        for a set of data points.
+        """Compute the negative log-probability density of a set of
+        data points (forward pass).
 
         Parameters
         ----------
@@ -1172,7 +1233,7 @@ class GaussianMixtureModelLegacy(nn.Module):
 
             * The second dimension has a length equal to the
               dimensionality of the data points.
-            
+
         Returns
         -------
         y : :class:`torch.Tensor`
@@ -1181,34 +1242,29 @@ class GaussianMixtureModelLegacy(nn.Module):
             This is a 1D tensor whose size is equal to the number of
             input data points.
 
-            Each element of the tensor is the absolute log-probability
+            Each element of the tensor is the negative log-probability
             density of a data point.
         """
 
         # Get the per-sample, per-component log-probability.
         y = self._get_log_prob_comp(x = x)
 
-        # Get the log of summed exponentials of each row of the tensor
-        # in the last dimension (= the number of components in the
-        # mixture).
-        #
-        # The output is a 1D tensor whose length is equal to the number
-        # of samples.
+        # Sum the probabilities over the components, in log space.
         y = torch.logsumexp(y,
                             dim = -1)
-        
-        # Add the log-probability of the priors.
-        # We divide by the batch size so that upon .sum(), the prior
-        # is added exactly once for the batch instead of multiplied.
+
+        # Add the log-probability of the priors, divided by the batch
+        # size so that summing over the batch adds it once.
         y = y + self.get_prior_log_prob() / x.shape[0]
-        
+
         # Return the negative log-probability density.
         return -y
 
 
     def sample_probs(self,
                      x: torch.Tensor) -> torch.Tensor:
-        """Get the probability density per sample per component.
+        """Get the joint probability density of each data point and
+        each component (the component's weight times its density).
 
         Parameters
         ----------
@@ -1224,7 +1280,7 @@ class GaussianMixtureModelLegacy(nn.Module):
         Returns
         -------
         probs : :class:`torch.Tensor`
-            The probability densities.
+            The joint probability densities.
 
             This is a 2D tensor where:
 
@@ -1234,8 +1290,8 @@ class GaussianMixtureModelLegacy(nn.Module):
             * The second dimension has a length equal to the number
               of components in the Gaussian mixture.
 
-            Each element of the tensor stores a per-data point,
-            per-component probability density.
+            The rows are not normalized: each sums to the mixture's
+            probability density at the data point, without the priors.
         """
 
         # Get the per-sample, per-component log-probability.
@@ -1271,7 +1327,8 @@ class GaussianMixtureModelLegacy(nn.Module):
             The tensor has a size equal to the number of data points
             passed.
         """
-        
+
+        # Return the log-probability density.
         return - self.forward(x)
 
 
@@ -1310,7 +1367,7 @@ class GaussianMixtureModelLegacy(nn.Module):
             This is a 2D tensor where:
 
             * The first dimension has a length equal to
-              ``n_points * n_reps_per_mix_comp * n_components``.
+              ``n_points * n_samples_per_comp * n_components``.
 
             * The second dimension has a length equal to the
               dimensionality of the Gaussian mixture model.
@@ -1326,7 +1383,7 @@ class GaussianMixtureModelLegacy(nn.Module):
         #-------------------------------------------------------------#
 
         # If the user selected the option to take the mean of each
-        # component as initial representation for each data point.
+        # component as initial representation for each data point
         if sampling_method == "mean":
 
             # Disable gradient calculation.
@@ -1346,34 +1403,22 @@ class GaussianMixtureModelLegacy(nn.Module):
 
             # Raise an error.
             errstr = \
-                "Please specify how to correctly initialize new " \
-                "representations. The supported methods are: " \
+                f"Unsupported sampling method '{sampling_method}'. " \
+                "The supported methods are: " \
                 f"{', '.join(SAMPLING_METHODS)}."
             raise ValueError(errstr)
 
         #-------------------------------------------------------------#
-        
-        # Return the representations for the new points as a 2D tensor
-        # with:
-        #
-        # - 1st dimension: the number of data points times number of
-        #                  samples drawn per component per data point
-        #                  times the number of components in the
-        #                  mixture ->
-        #                  'n_points' *
-        #                  'n_components' *
-        #                  'n_samples_per_comp'
-        #
-        # - 2nd dimension: the dimensionality of the Gaussian mixture
-        #                  model ->
-        #                  'dim'
+
+        # Return the representations as a 2D tensor of shape
+        # ('n_points' * 'n_samples_per_comp' * 'n_components', 'dim').
         return out.view(n_samples * self.n_components,
                         self.dim)
 
 
     def save(self,
              file: str) -> None:
-        """Save the legacy GMM parameters to a .pth file.
+        """Save the GMM parameters to a .pth file.
 
         Parameters
         ----------
@@ -1388,7 +1433,9 @@ class GaussianMixtureModelLegacy(nn.Module):
 
 class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
 
-    """Compatibility wrapper for :class:`tgmm.GaussianMixture`.
+    """
+    A class implementing a Gaussian mixture model through
+    :class:`tgmm.GaussianMixture`.
     """
 
     # Set the supported types of covariance matrix.
@@ -1396,7 +1443,7 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
         ["full", "spherical", "diag", "tied_full", "tied_spherical",
          "tied_diag"]
 
-    # Set the supported initializaton methods for the means of the
+    # Set the supported initialization methods for the means of the
     # components of the Gaussian mixture model.
     INIT_MEANS_METHODS = \
         ["kmeans", "kpp", "random", "points", "maxdist"]
@@ -1405,7 +1452,7 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
     # components of the Gaussian mixture model.
     INIT_WEIGHTS_METHODS = \
         ["uniform", "random", "kmeans"]
-    
+
     # Set the supported initialization methods for the covariance of
     # the components of the Gaussian mixture model.
     INIT_COVARIANCES_METHODS = \
@@ -1417,15 +1464,25 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
 
     @property
     def dim(self):
-        """Alias for TGMM ``n_features``."""
+        """The dimensionality of the Gaussian mixture model (alias for
+        ``n_features``).
+        """
 
         return self.n_features
+
 
     @dim.setter
     def dim(self,
             value):
-        """Alias setter for TGMM ``n_features``."""
+        """Set the dimensionality of the Gaussian mixture model.
 
+        Parameters
+        ----------
+        value : :class:`int`
+            The dimensionality.
+        """
+
+        # Set the dimensionality.
         self.n_features = value
 
 
@@ -1434,15 +1491,26 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
 
     @property
     def means(self):
-        """Alias for TGMM ``means_``."""
+        """The means of the components of the Gaussian mixture model
+        (alias for ``means_``).
+        """
 
         return self.means_
+
 
     @means.setter
     def means(self,
               value):
-        """Alias setter for TGMM ``means_``."""
+        """Set the means of the components of the Gaussian mixture
+        model.
 
+        Parameters
+        ----------
+        value : :class:`torch.Tensor`
+            The means.
+        """
+
+        # Set the means.
         self.means_ = value
 
 
@@ -1451,17 +1519,28 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
 
     @property
     def weights(self):
-        """Alias for TGMM ``weights_``."""
+        """The weights of the components of the Gaussian mixture model
+        (alias for ``weights_``).
+        """
 
         return self.weights_
+
 
     @weights.setter
     def weights(self,
                 value):
-        """Alias setter for TGMM ``weights_``."""
+        """Set the weights of the components of the Gaussian mixture
+        model.
 
+        Parameters
+        ----------
+        value : :class:`torch.Tensor`
+            The weights.
+        """
+
+        # Set the weights.
         self.weights_ = value
-    
+
 
     ######################## PRIVATE METHODS ##########################
 
@@ -1469,7 +1548,7 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
     def _get_log_prob_comp(self,
                            x: torch.Tensor) -> torch.Tensor:
         """Get per-sample, per-component log-joint probabilities.
-        
+
         Parameters
         ----------
         x : :class:`torch.Tensor`
@@ -1480,7 +1559,7 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
 
             * The second dimension has a length equal to the
               dimensionality of the data points.
-        
+
         Returns
         -------
         log_prob_comp : :class:`torch.Tensor`
@@ -1493,7 +1572,6 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
 
             * The second dimension has a length equal to the
               number of components in the Gaussian mixture model.
-
         """
 
         # Get the per-sample, per-component responsibilities and the
@@ -1510,7 +1588,7 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
 
     def get_mixture_probs(self) -> torch.Tensor:
         """Get the mixture probabilities.
-        
+
         Returns
         -------
         mixture_probs : :class:`torch.Tensor`
@@ -1530,8 +1608,9 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
 
     def forward(self,
                 x: torch.Tensor) -> torch.Tensor:
-        """Return negative log-density.
-        
+        """Compute the negative log-probability density of a set of
+        data points (forward pass).
+
         Parameters
         ----------
         x : :class:`torch.Tensor`
@@ -1542,7 +1621,7 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
 
             * The second dimension has a length equal to the
               dimensionality of the data points.
-            
+
         Returns
         -------
         y : :class:`torch.Tensor`
@@ -1559,8 +1638,8 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
 
     def log_prob(self,
                  x: torch.Tensor) -> torch.Tensor:
-        """Return the log-density.
-        
+        """Get the log-probability density of a set of data points.
+
         Parameters
         ----------
         x : :class:`torch.Tensor`
@@ -1571,12 +1650,15 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
 
             * The second dimension has a length equal to the
               dimensionality of the data points.
-        
+
         Returns
         -------
         log_prob : :class:`torch.Tensor`
             A 1D tensor whose size is equal to the number of input
             data points.
+
+            Each element of the tensor is the log-probability density
+            of a data point.
         """
 
         # Return the log-probability density.
@@ -1585,8 +1667,9 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
 
     def sample_probs(self,
                      x: torch.Tensor) -> torch.Tensor:
-        """Sample probabilities.
-        
+        """Get the posterior probability of each component for each
+        data point.
+
         Parameters
         ----------
         x : :class:`torch.Tensor`
@@ -1597,11 +1680,11 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
 
             * The second dimension has a length equal to the
               dimensionality of the data points.
-        
+
         Returns
         -------
         probs : :class:`torch.Tensor`
-            The probability densities.
+            The posterior probabilities.
 
             This is a 2D tensor where:
 
@@ -1611,8 +1694,7 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
             * The second dimension has a length equal to the
               number of components in the Gaussian mixture.
 
-            Each element of the tensor stores a per-data point,
-            per-component probability density.
+            Each row sums to 1.
         """
 
         # Return the probabilities.
@@ -1624,31 +1706,40 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
                           n_samples_per_comp: int = 1,
                           sampling_method: str = "mean") -> \
                             torch.Tensor:
-        """Draw samples from each component.
-        
+        """Draw samples for new data points from each component
+        of the Gaussian mixture model.
+
         Parameters
         ----------
         n_points : :class:`int`
             The number of data points for which samples should be
             drawn.
-        
+
         n_samples_per_comp : :class:`int`, ``1``
             The number of samples to draw per data point per component
             of the Gaussian mixture.
-        
+
         sampling_method : :class:`str`, {``"mean"``}, ``"mean"``
             How to draw the samples for the given data points.
-        
+
             Available options are:
 
             * ``"mean"`` means taking the mean of each component as
               the value of each ``n_samples_per_comp`` sample taken
               for each data point.
-            
+
         Returns
         -------
         new_points : :class:`torch.Tensor`
             The samples drawn.
+
+            This is a 2D tensor where:
+
+            * The first dimension has a length equal to
+              ``n_points * n_samples_per_comp * n_components``.
+
+            * The second dimension has a length equal to the
+              dimensionality of the Gaussian mixture model.
         """
 
         # Set the available sampling methods.
@@ -1656,7 +1747,7 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
 
         #-------------------------------------------------------------#
 
-        # Get the total number of samples to be drawn from the
+        # Get the total number of samples to be drawn.
         n_samples = n_points * n_samples_per_comp
 
         #-------------------------------------------------------------#
@@ -1675,14 +1766,14 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
                             ).unsqueeze(0),
                         n_samples,
                         dim = 0)
-        
+
         # Otherwise
         else:
 
             # Raise an error.
             errstr = \
-                "Please specify how to correctly initialize new " \
-                "representations. The supported methods are: " \
+                f"Unsupported sampling method '{sampling_method}'. " \
+                "The supported methods are: " \
                 f"{', '.join(sampling_methods)}."
             raise ValueError(errstr)
 
@@ -1698,6 +1789,19 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
            **kwargs):
         """Move the model parameters and internal tensors to the target
         device.
+
+        Parameters
+        ----------
+        *args
+            The positional arguments of :meth:`torch.nn.Module.to`.
+
+        **kwargs
+            The keyword arguments of :meth:`torch.nn.Module.to`.
+
+        Returns
+        -------
+        self : :class:`bulkdgd.core.latents.GaussianMixtureModelTGMM`
+            The model.
         """
 
         # Call the parent to() method.
@@ -1711,10 +1815,14 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
 
             # If the first argument is a torch.device or a string
             if isinstance(args[0], (torch.device, str)):
+
+                # Get the device.
                 device = args[0]
 
             # If the first argument is a torch.Tensor
             elif isinstance(args[0], torch.Tensor):
+
+                # Get the tensor's device.
                 device = args[0].device
 
         # If a device was specified in the keyword arguments
@@ -1729,22 +1837,25 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
             # Update the device property.
             self.device = torch.device(device)
 
-            # Move all GMM-specific tensors to the target device.
+            # For each GMM-specific tensor attribute
             for attr in ["means_", "weights_", "covariances_",
                          "precisions_cholesky_",
                          "initial_means_",
                          "initial_weights_",
                          "initial_covariances_"]:
 
-                # Get the attribute value.  
-                val = getattr(self, attr, None)
+                # Get the attribute value.
+                val = getattr(self,
+                              attr,
+                              None)
 
-                # If the attribute is a tensor, move it to the target
-                # device.
+                # If the attribute is a tensor
                 if isinstance(val, torch.Tensor):
 
-                    # Set the attribute.
-                    setattr(self, attr, val.to(self.device))
+                    # Move it to the target device.
+                    setattr(self,
+                            attr,
+                            val.to(self.device))
 
         # Return the model.
         return self
@@ -1752,13 +1863,25 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
 
     def _apply(self,
                fn):
-        """Update the attributes.
+        """Apply a function to the model's tensors, including the
+        GMM-specific ones.
+
+        Parameters
+        ----------
+        fn : callable
+            The function to apply to each tensor.
+
+        Returns
+        -------
+        self : :class:`bulkdgd.core.latents.GaussianMixtureModelTGMM`
+            The model.
         """
 
         # Call the parent _apply.
         super()._apply(fn)
 
-        # Detect the target device.
+        # Get the target device by applying the function to an
+        # empty tensor.
         dummy = torch.empty(0)
         moved_dummy = fn(dummy)
         device = moved_dummy.device
@@ -1776,13 +1899,17 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
                      "initial_covariances_"]:
 
             # Get the value of the attribute.
-            val = getattr(self, attr, None)
+            val = getattr(self,
+                          attr,
+                          None)
 
-            # If it is a tensor.
+            # If it is a tensor
             if isinstance(val, torch.Tensor):
 
-                # Set the attribute.
-                setattr(self, attr, fn(val))
+                # Apply the function to it.
+                setattr(self,
+                        attr,
+                        fn(val))
 
         # Return an updated object.
         return self
@@ -1791,6 +1918,11 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
     def state_dict(self):
         """Get the state dictionary containing the parameters of the
         model.
+
+        Returns
+        -------
+        state_dict : :class:`dict`
+            The state dictionary.
         """
 
         # Get and return the state dictionary.
@@ -1800,35 +1932,61 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
     def load_state_dict(self,
                         state_dict):
         """Load the state dictionary.
+
+        Parameters
+        ----------
+        state_dict : :class:`dict`
+            The state dictionary.
+
+        Returns
+        -------
+        incompatible_keys : :class:`collections.namedtuple`
+            An empty record of missing and unexpected keys, as
+            :meth:`torch.nn.Module.load_state_dict` returns.
         """
 
         # Call the tgmm load_state_dict.
         super().load_state_dict(state_dict)
 
-        # Return a dummy NamedTuple to satisfy PyTorch's API.
+        # Import the named tuple factory.
         from collections import namedtuple
-        _IncompatibleKeys = namedtuple('_IncompatibleKeys', ['missing_keys', 'unexpected_keys'])
-        return _IncompatibleKeys(missing_keys=[], unexpected_keys=[])
+
+        # Build a dummy named tuple to satisfy PyTorch's API.
+        _IncompatibleKeys = \
+            namedtuple('_IncompatibleKeys',
+                       ['missing_keys', 'unexpected_keys'])
+
+        # Return it, with no missing or unexpected keys.
+        return _IncompatibleKeys(missing_keys = [],
+                                 unexpected_keys = [])
 
 
     #-----------------------------------------------------------------#
 
 
-    def save(self, file):
+    def save(self,
+             file):
         """Save the model's parameters to a .pth file.
+
+        Parameters
+        ----------
+        file : :class:`str`
+            The .pth file where to save the model parameters.
         """
 
-        torch.save(self.state_dict(), file)
+        # Save the state dictionary to the specified file.
+        torch.save(self.state_dict(),
+                   file)
 
 
 #------------------------ Representation layer -----------------------#
 
 
 class RepresentationLayer(nn.Module):
-    
+
     """
-    Representation layer accumulating gradients for optimized data
-    sample embeddings, with several initialization distributions.
+    A class implementing a representation layer, storing the
+    optimizable representations of samples in the latent space.
     """
 
 
@@ -1849,7 +2007,7 @@ class RepresentationLayer(nn.Module):
 
     ######################### INITIALIZATION ##########################
 
-    
+
     def __init__(self,
                  values: Optional[torch.Tensor] = None,
                  dist: str = "normal",
@@ -1878,7 +2036,7 @@ class RepresentationLayer(nn.Module):
             by ``dist``.
 
         dist : :class:`str`, {``"normal"``, ``"uniform"``, \
-            ``"laplace"``, ``"student_t"``,  ``"cauchy"``, \
+            ``"laplace"``, ``"student_t"``, ``"cauchy"``, \
                 ``"uniform_ball"``, ``"zeros"``}, ``"normal"``
             The name of the distribution used to sample the
             representations, if no ``values`` are passed.
@@ -1887,7 +2045,7 @@ class RepresentationLayer(nn.Module):
 
             * ``"normal"`` : sample the representations from a normal
               distribution.
-            
+
             * ``"uniform"`` : sample the representations from a
               uniform distribution.
 
@@ -1899,10 +2057,10 @@ class RepresentationLayer(nn.Module):
 
             * ``"cauchy"`` : sample the representations from a
               Cauchy distribution.
-            
+
             * ``"uniform_ball"`` : sample the representations from a
               uniform distribution in a ball.
-            
+
             * ``"zeros"`` : initialize the representations to zero.
 
         dist_options : :class:`dict`, optional
@@ -1921,36 +2079,36 @@ class RepresentationLayer(nn.Module):
 
             Distribution-specific parameters:
 
-            - For ``"normal"``: 
+            - For ``"normal"``:
 
               * ``"mean"`` : the mean (default: 0.0)
               * ``"stddev"`` : the standard deviation (default: 1.0)
-            
+
             - For ``"uniform"``:
 
               * ``"low"`` : lower bound (default: -1.0)
               * ``"high"`` : upper bound (default: 1.0)
-            
+
             - For ``"laplace"``:
 
               * ``"loc"`` : location parameter (default: 0.0)
               * ``"scale"`` : scale parameter (default: 1.0)
-            
+
             - For ``"student_t"``:
 
               * ``"df"`` : degrees of freedom (default: 3.0)
               * ``"scale"`` : scale parameter (default: 1.0)
-            
+
             - For ``"cauchy"``:
 
               * ``"scale"`` : scale parameter (default: 1.0)
-              
+
             - For ``"uniform_ball"``:
 
               * ``"radius"`` : radius of the ball (default: 1.0)
-              
+
             - For ``"zeros"``: No additional parameters
-        
+
         device : :class:`str` or :class:`torch.device`, ``"cpu"``
             The device on which the representations should be
             initialized.
@@ -1958,20 +2116,20 @@ class RepresentationLayer(nn.Module):
             If not specified, the representations will be initialized
             on the CPU.
         """
-        
+
         # Initialize an instance of the 'nn.Module' class.
         super().__init__()
 
         #-------------------------------------------------------------#
-        
+
         # Initialize the gradients with respect to the representations
-        # None.
+        # to None.
         self.dz = None
 
         #-------------------------------------------------------------#
 
-        # Record the device before creating the representations: every
-        # sampler below reads 'self.device'.
+        # Set the device before creating the representations, since
+        # the samplers read it.
         self._device = torch.device(device) \
             if device is not None else torch.device("cpu")
 
@@ -1980,12 +2138,11 @@ class RepresentationLayer(nn.Module):
         # If a tensor of values was passed
         if values is not None:
 
-            # Get the number of representations, the
-            # dimensionality of the representations, and the values
-            # of the representations from the tensor.
+            # Get the number, dimensionality, and values of the
+            # representations from the tensor.
             self._n_rep, self._dim, self._z, self._options = \
-                self._get_rep_from_values(values = values)      
-        
+                self._get_rep_from_values(values = values)
+
         # Otherwise
         else:
 
@@ -2016,12 +2173,14 @@ class RepresentationLayer(nn.Module):
                     self._get_rep_from_uniform(options = dist_options)
 
             # If the representations are to be sampled from a uniform
-            # distribution on the unit ball
+            # distribution in a ball
             elif dist == "uniform_ball":
+
+                # Sample the representations uniformly from a ball.
                 self._n_rep, self._dim, self._z, self._options = \
                     self._get_rep_from_uniform_ball(\
                         options = dist_options)
-            
+
             # If the representations are to be sampled from a Laplace
             # distribution
             elif dist == "laplace":
@@ -2030,7 +2189,7 @@ class RepresentationLayer(nn.Module):
                 # distribution.
                 self._n_rep, self._dim, self._z, self._options = \
                     self._get_rep_from_laplace(options = dist_options)
-            
+
             # If the representations are to be sampled from a Student's
             # t-distribution
             elif dist == "student_t":
@@ -2040,41 +2199,43 @@ class RepresentationLayer(nn.Module):
                 self._n_rep, self._dim, self._z, self._options = \
                     self._get_rep_from_student_t(\
                         options = dist_options)
-                
+
             # If the representations are to be sampled from a Cauchy
             # distribution
             elif dist == "cauchy":
+
+                # Sample the representations from a Cauchy
+                # distribution.
                 self._n_rep, self._dim, self._z, self._options = \
                     self._get_rep_from_cauchy(options = dist_options)
 
             # Otherwise
             else:
 
-                # Raise an error.
+                # Get a string listing the available distributions.
                 available_dists_str = \
                     ", ".join(f'{d}' for d in self.AVAILABLE_DISTS)
+
+                # Raise an error.
                 errstr = \
                     f"Unsupported distribution '{dist}'. The only " \
                     "distributions from which it is possible to " \
                     "sample the representations are: " \
                     f"{available_dists_str}."
                 raise ValueError(errstr)
-        
+
         #-------------------------------------------------------------#
 
-        # Move to the specified device and ensure it remains a Parameter
-        self._z = nn.Parameter(self._z.to(device),
+        # Move the representations to the device, as a parameter.
+        self._z = nn.Parameter(self._z.to(self._device),
                                requires_grad = True)
-
-        #-------------------------------------------------------------#
-
-        # Set the device on which the representations are initialized.
-        self._device = device
 
 
     def _get_rep_from_values(self,
                              values: torch.Tensor) -> \
-                                tuple[int, int, torch.nn.Parameter]:
+                                tuple[int, int,
+                                      torch.nn.Parameter,
+                                      None]:
         """Get the representations from a given tensor of values.
 
         Parameters
@@ -2100,12 +2261,15 @@ class RepresentationLayer(nn.Module):
 
             * The second dimension has a length equal to the
               dimensionality of the representations.
+
+        options : :obj:`None`
+            No options, since the representations were not sampled.
         """
 
         # Get the number of representations from the first dimension of
         # the tensor.
         n_rep = values.shape[0]
-        
+
         # Get the dimensionality of the representations from the last
         # dimension of the tensor.
         dim = values.shape[-1]
@@ -2113,17 +2277,19 @@ class RepresentationLayer(nn.Module):
         #-------------------------------------------------------------#
 
         # Initialize a tensor with the representations.
-        z = nn.Parameter(torch.zeros_like(values), 
+        z = nn.Parameter(torch.zeros_like(values),
                          requires_grad = True)
 
-        # Fill the tensor with the given values.
+        # Disable gradient calculation.
         with torch.no_grad():
+
+            # Fill the tensor with the given values.
             z.copy_(values)
 
         #-------------------------------------------------------------#
 
-        # Return the number of representations, the dimensionality of
-        # the representations, and the values of the representations.
+        # Return the number of representations, their dimensionality,
+        # their values, and no options.
         return n_rep, \
                dim, \
                z, \
@@ -2143,7 +2309,7 @@ class RepresentationLayer(nn.Module):
             A dictionary containing the parameters for zero
             initialization.
 
-            The dictionary must contains the following keys,
+            The dictionary must contain the following keys,
             associated with the corresponding parameters:
 
             * ``"n_samples"`` : the number of representations to
@@ -2167,7 +2333,7 @@ class RepresentationLayer(nn.Module):
             A dictionary containing the options used to initialize
             the representations.
         """
-        
+
         # Get the number of representations to generate.
         n_rep = options["n_samples"]
 
@@ -2175,22 +2341,21 @@ class RepresentationLayer(nn.Module):
         dim = options["dim"]
 
         #-------------------------------------------------------------#
-        
+
         # Create a tensor of zeros.
         samples = torch.zeros(n_rep,
                               dim,
                               device = self.device)
-        
+
         #-------------------------------------------------------------#
-        
+
         # Get the values of the representations.
         z = nn.Parameter(samples, requires_grad = True)
 
         #-------------------------------------------------------------#
-    
-        # Return the number of representations, the dimensionality of
-        # the representations, the values of the representations,
-        # and the options used to generate them.
+
+        # Return the number of representations, their dimensionality,
+        # their values, and the options used to generate them.
         return n_rep, \
                dim, \
                z, \
@@ -2211,7 +2376,7 @@ class RepresentationLayer(nn.Module):
             A dictionary containing the parameters to sample the
             representations from a normal distribution.
 
-            The dictionary must contains the following keys,
+            The dictionary must contain the following keys,
             associated with the corresponding parameters:
 
             * ``"n_samples"`` : the number of samples to draw from
@@ -2219,7 +2384,7 @@ class RepresentationLayer(nn.Module):
 
             * ``"dim"`` : the dimensionality of the representations
               to sample from the normal distribution.
-            
+
             Optional parameters:
 
             * ``"mean"`` : the mean of the normal distribution used
@@ -2260,7 +2425,7 @@ class RepresentationLayer(nn.Module):
         dim = options["dim"]
 
         # Get the mean of the normal distribution from which the
-        # representations should be samples.
+        # representations should be sampled.
         mean = options.get("mean", 0.0)
 
         # Get the standard deviation of the normal distribution
@@ -2276,12 +2441,11 @@ class RepresentationLayer(nn.Module):
                              stddev,
                              size = (n_rep, dim),
                              requires_grad = True))
-        
+
         #-------------------------------------------------------------#
-        
-        # Return the number of representations, the dimensionality of
-        # the representations, the values of the representations,
-        # and the options used to generate them.
+
+        # Return the number of representations, their dimensionality,
+        # their values, and the options used to generate them.
         return n_rep, \
                dim, \
                z, \
@@ -2304,7 +2468,7 @@ class RepresentationLayer(nn.Module):
             A dictionary containing the parameters to sample the
             representations from a uniform distribution.
 
-            The dictionary must contains the following keys,
+            The dictionary must contain the following keys,
             associated with the corresponding parameters:
 
             * ``"n_samples"`` : the number of samples to draw from
@@ -2336,7 +2500,7 @@ class RepresentationLayer(nn.Module):
             A dictionary containing the options used to initialize
             the representations.
         """
-        
+
         # Get the desired number of representations to be drawn.
         n_rep = options["n_samples"]
 
@@ -2357,19 +2521,18 @@ class RepresentationLayer(nn.Module):
                             dim,
                             device = self.device).uniform_(low, high),
                 requires_grad = True)
-        
+
         #-------------------------------------------------------------#
-        
-        # Return the number of representations, the dimensionality of
-        # the representations, the values of the representations,
-        # and the options used to generate them.
+
+        # Return the number of representations, their dimensionality,
+        # their values, and the options used to generate them.
         return n_rep, \
                dim, \
                z, \
                {"dist_name" : "uniform",
                 "low" : low,
                 "high" : high}
-    
+
 
     def _get_rep_from_uniform_ball(self,
                                    options: dict[str, object]) -> \
@@ -2384,7 +2547,7 @@ class RepresentationLayer(nn.Module):
             A dictionary containing the parameters to sample the
             representations uniformly from a ball.
 
-            The dictionary must contains the following keys,
+            The dictionary must contain the following keys,
             associated with the corresponding parameters:
 
             * ``"n_samples"`` : the number of samples to draw from
@@ -2412,7 +2575,7 @@ class RepresentationLayer(nn.Module):
             A dictionary containing the options used to initialize
             the representations.
         """
-        
+
         # Get the desired number of representations to be drawn.
         n_rep = options["n_samples"]
 
@@ -2425,8 +2588,8 @@ class RepresentationLayer(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Generate random directions by sampling from normal
-        # distribution and normalizing to unit vectors.
+        # Get random directions by normalizing samples from a normal
+        # distribution to unit vectors.
         normal_samples = torch.randn(n_rep,
                                      dim,
                                      device = self.device)
@@ -2434,32 +2597,28 @@ class RepresentationLayer(nn.Module):
                                          dim = 1,
                                          keepdim = True)
         unit_directions = normal_samples / normal_samples_norm
-        
-        # Generate random radii with a proper distribution for uniform
-        # sampling within a ball. For a uniform distribution in a ball,
-        # we need r^(dim-1) distributions of distances
-        # from the center, which is achieved by taking u^(1/dim)
-        # where u is uniform(0,1).
+
+        # Get random radii as u^(1/dim), with u uniform in (0, 1), so
+        # that the points are uniform in the ball.
         u = torch.rand(n_rep,
                        1,
                        device = self.device)
         random_radii = radius * u.pow(1.0 / dim)
-        
+
         # Generate the values of the representations by scaling the
         # unit directions by the random radii.
         samples = unit_directions * random_radii
 
         #-------------------------------------------------------------#
-        
-        # Create atensor with the values of the representations.
+
+        # Create a tensor with the values of the representations.
         z = nn.Parameter(samples,
                          requires_grad = True)
 
         #-------------------------------------------------------------#
 
-        # Return the number of representations, the dimensionality of
-        # the representations, the values of the representations,
-        # and the options used to generate them.
+        # Return the number of representations, their dimensionality,
+        # their values, and the options used to generate them.
         return n_rep, \
                dim, \
                z, \
@@ -2479,9 +2638,9 @@ class RepresentationLayer(nn.Module):
         ----------
         options : :class:`dict`
             A dictionary containing the parameters to sample the
-            representations uniformly from a ball.
+            representations from a Laplace distribution.
 
-            The dictionary must contains the following keys,
+            The dictionary must contain the following keys,
             associated with the corresponding parameters:
 
             * ``"n_samples"`` : the number of samples to draw from
@@ -2511,7 +2670,7 @@ class RepresentationLayer(nn.Module):
             A dictionary containing the options used to initialize
             the representations.
         """
-        
+
         # Get the number of representations to generate.
         n_rep = options["n_samples"]
 
@@ -2532,27 +2691,26 @@ class RepresentationLayer(nn.Module):
         uniform = torch.empty(n_rep,
                               dim,
                               device = self.device).uniform_(0, 1)
-        
-        # Convert uniform to Laplace using the inverse CDF.
+
+        # Get the sign of each centred uniform sample.
         sign = torch.sign(uniform - 0.5)
-        
-        # Get the values for the representations by sampling the
-        # Laplace distribution.
+
+        # Convert the uniform samples to Laplace samples using the
+        # inverse CDF.
         samples = \
             loc - scale * sign * \
                 torch.log(1 - 2 * torch.abs(uniform - 0.5))
 
         #-------------------------------------------------------------#
-        
+
         # Create a tensor with the values of the representations.
         z = nn.Parameter(samples,
                          requires_grad = True)
 
         #-------------------------------------------------------------#
-    
-        # Return the number of representations, the dimensionality of
-        # the representations, the values of the representations,
-        # and the options used to generate them.
+
+        # Return the number of representations, their dimensionality,
+        # their values, and the options used to generate them.
         return n_rep, \
                dim, \
                z, \
@@ -2575,7 +2733,7 @@ class RepresentationLayer(nn.Module):
             A dictionary containing the parameters to sample the
             representations from a Student's t distribution.
 
-            The dictionary must contains the following keys,
+            The dictionary must contain the following keys,
             associated with the corresponding parameters:
 
             * ``"n_samples"`` : the number of samples to draw from
@@ -2605,7 +2763,7 @@ class RepresentationLayer(nn.Module):
             A dictionary containing the options used to initialize
             the representations.
         """
-        
+
         # Get the number of representations to generate.
         n_rep = options["n_samples"]
 
@@ -2625,30 +2783,29 @@ class RepresentationLayer(nn.Module):
         # Get the Student's t-distribution.
         t_dist = torch.distributions.StudentT(df = df)
 
-        # Sample from the Student's t-distribution. 
+        # Sample from the Student's t-distribution.
         samples = t_dist.sample((n_rep, dim)).to(self.device)
-        
+
         # Scale the samples.
         samples = samples * scale
-        
+
         #-------------------------------------------------------------#
-        
+
         # Create a tensor with the values of the representations.
         z = nn.Parameter(samples,
                          requires_grad = True)
-        
+
         #-------------------------------------------------------------#
-    
-        # Return the number of representations, the dimensionality of
-        # the representations, the values of the representations,
-        # and the options used to generate them.
+
+        # Return the number of representations, their dimensionality,
+        # their values, and the options used to generate them.
         return n_rep, \
                dim, \
                z, \
                {"dist_name" : "student_t",
                 "df" : df,
                 "scale" : scale}
-    
+
 
     def _get_rep_from_cauchy(self,
                              options: dict[str, object]) -> \
@@ -2660,11 +2817,11 @@ class RepresentationLayer(nn.Module):
 
         Parameters
         ----------
-        options : ``dict``
+        options : :class:`dict`
             A dictionary containing the parameters to sample the
             representations from a Cauchy distribution.
 
-            The dictionary must contains the following keys,
+            The dictionary must contain the following keys,
             associated with the corresponding parameters:
 
             * ``"n_samples"`` : the number of samples to draw from
@@ -2708,21 +2865,20 @@ class RepresentationLayer(nn.Module):
         # Get the Cauchy distribution.
         cauchy_dist = torch.distributions.Cauchy(loc = 0.0,
                                                  scale = scale)
-        
+
         # Sample from the Cauchy distribution.
         samples = cauchy_dist.sample((n_rep, dim)).to(self.device)
-        
+
         #-------------------------------------------------------------#
-        
+
         # Create a tensor with the values of the representations.
         z = nn.Parameter(samples,
                          requires_grad = True)
-        
+
         #-------------------------------------------------------------#
-    
-        # Return the number of representations, the dimensionality of
-        # the representations, the values of the representations,
-        # and the options used to generate them.
+
+        # Return the number of representations, their dimensionality,
+        # their values, and the options used to generate them.
         return n_rep, \
                dim, \
                z, \
@@ -2746,10 +2902,16 @@ class RepresentationLayer(nn.Module):
               value):
         """Raise an exception if the user tries to modify the value
         of ``n_rep`` after initialization.
+
+        Parameters
+        ----------
+        value
+            The new value.
         """
-        
+
+        # Raise an error.
         errstr = \
-            "The value of 'n_samples' is set at initialization and " \
+            "The value of 'n_rep' is set at initialization and " \
             "cannot be changed. If you want to change the number " \
             "of representations in the layer, initialize a new " \
             f"instance of '{self.__class__.__name__}'."
@@ -2769,8 +2931,14 @@ class RepresentationLayer(nn.Module):
             value):
         """Raise an exception if the user tries to modify the value of
         ``dim`` after initialization.
+
+        Parameters
+        ----------
+        value
+            The new value.
         """
-        
+
+        # Raise an error.
         errstr = \
             "The value of 'dim' is set at initialization and cannot " \
             "be changed. If you want to change the dimensionality " \
@@ -2781,7 +2949,7 @@ class RepresentationLayer(nn.Module):
 
     @property
     def options(self):
-        """The dictionary ot options used to generate the
+        """The dictionary of options used to generate the
         representations, if no values were passed when initializing
         the layer.
         """
@@ -2794,15 +2962,21 @@ class RepresentationLayer(nn.Module):
                 value):
         """Raise an exception if the user tries to modify the value of
         ``options`` after initialization.
+
+        Parameters
+        ----------
+        value
+            The new value.
         """
-        
+
+        # Raise an error.
         errstr = \
             "The value of 'options' is set at initialization and " \
             "cannot be changed. If you want to change the options " \
             "used to generate the representations, initialize a " \
             f"new instance of '{self.__class__.__name__}'."
         raise ValueError(errstr)
-    
+
 
     @property
     def z(self):
@@ -2817,8 +2991,14 @@ class RepresentationLayer(nn.Module):
           value):
         """Raise an exception if the user tries to modify the value of
         ``z`` after initialization.
+
+        Parameters
+        ----------
+        value
+            The new value.
         """
-        
+
+        # Raise an error.
         errstr = \
             "The value of 'z' is set at initialization and cannot " \
             "be changed. If you want to change the values of the " \
@@ -2829,22 +3009,28 @@ class RepresentationLayer(nn.Module):
 
     @property
     def device(self):
-        """The device where the model is.
+        """The device where the representations are.
         """
 
         return self._device
+
 
     @device.setter
     def device(self,
                value):
         """Move the representation layer to the selected device.
+
+        Parameters
+        ----------
+        value : :class:`str` or :class:`torch.device`
+            The device.
         """
-        
+
         # Move the representation layer to the specified device.
         self.to(device = torch.device(value))
 
         # Update the device the representation layer is on.
-        self._device = value
+        self._device = torch.device(value)
 
 
     ######################### PUBLIC METHODS ##########################
@@ -2852,30 +3038,30 @@ class RepresentationLayer(nn.Module):
 
     @classmethod
     def load(cls,
-             file : str,
+             file: str,
              device: Optional[str | torch.device] = None) \
                 -> 'RepresentationLayer':
         """Load representations from a file.
-        
+
         Parameters
         ----------
-        path : :class:`str`
+        file : :class:`str`
             The file from which to load the representations.
-            
+
         device : :class:`str` or :class:`torch.device`, optional
             The device where to load the representations.
-            
+
         Returns
         -------
-        rep_layer : :class:`core.latent.RepresentationLayer`
+        rep_layer : :class:`bulkdgd.core.latents.RepresentationLayer`
             The representation layer.
         """
 
         # Load the state dictionary from the specified file.
         state_dict = torch.load(file,
                                 map_location = "cpu")
-        
-        # Move the representation layer to the specified device.
+
+        # Build the representation layer on the specified device.
         rep_layer = cls(values = state_dict["z"],
                         device = device)
 
@@ -2884,24 +3070,25 @@ class RepresentationLayer(nn.Module):
 
 
     def forward(self,
-                ixs: Optional[list[int] | torch.Tensor] = None, 
+                ixs: Optional[list[int] | torch.Tensor] = None,
                 index_map: Optional[dict[int, int]] = None,
                 batch_size: Optional[int] = None) -> torch.Tensor:
-        """Forward pass that returns the values of the representations.
+        """Get the values of the representations (forward pass).
 
         Parameters
         ----------
-        ixs : :class:`int` or :class:`torch.Tensor`, optional
+        ixs : :class:`list` or :class:`torch.Tensor`, optional
             The indexes of the samples whose representations should
             be returned. If not passed, all representations will be
             returned.
 
         index_map : :class:`dict`, optional
-            A mapping from dataset indices to representation indices.
-            
+            A mapping from dataset indexes to representation indexes.
+            Unmapped indexes raise an error.
+
         batch_size : :class:`int`, optional
-            Process representations in batches of size ``batch_size``
-            for memory efficiency.
+            The size of the batches the representations are gathered
+            in.
 
         Returns
         -------
@@ -2920,60 +3107,88 @@ class RepresentationLayer(nn.Module):
 
         # If no indexes were provided
         if ixs is None:
-            
+
             # Return the values for all representations.
             return self.z
-        
+
         #-------------------------------------------------------------#
-        
-        # If we have an index mapping
+
+        # If an index mapping was passed
         if index_map is not None:
+
+            # Get the indexes the mapping does not cover.
+            ixs_unmapped = \
+                [int(idx) for idx in ixs if int(idx) not in index_map]
+
+            # If any index is not covered
+            if ixs_unmapped:
+
+                # Raise an error.
+                errstr = \
+                    f"'index_map' does not map {len(ixs_unmapped)} " \
+                    "of the indexes passed (the first are: " \
+                    f"{', '.join(str(i) for i in ixs_unmapped[:3])})."
+                raise KeyError(errstr)
 
             # If the indexes are provided as a tensor
             if isinstance(ixs, torch.Tensor):
 
-                # Map the indices using the provided map.
+                # Map the indexes using the provided map.
                 mapped_ixs = \
                     torch.tensor(\
-                        [index_map.get(idx.item(), 0) for idx in ixs], 
+                        [index_map[idx.item()] for idx in ixs],
                         device = ixs.device)
-            
+
             # If the indexes are provided as a list
             else:
 
-                # Map the indices using the provided map.
-                mapped_ixs = [index_map.get(idx, 0) for idx in ixs]
-        
+                # Map the indexes using the provided map.
+                mapped_ixs = [index_map[idx] for idx in ixs]
+
         # Otherwise
         else:
-            
-            # If there's no mapping and the indices are provided
+
+            # If the indexes are provided as a tensor
             if isinstance(ixs, torch.Tensor):
-                
-                # Clamp the indices to valid range to prevent
-                # out-of-bounds errors.
-                mapped_ixs = torch.clamp(ixs, 0, len(self.z)-1)
-            
+
+                # Get whether any index is out of range.
+                out_of_range = \
+                    bool(((ixs < 0) | (ixs >= len(self.z))).any())
+
             # Otherwise
             else:
 
-                # Ensure the indices are within the valid range.
-                mapped_ixs = \
-                    [min(max(0, idx), len(self.z)-1) for idx in ixs]
+                # Get whether any index is out of range.
+                out_of_range = \
+                    any(not 0 <= idx < len(self.z) for idx in ixs)
+
+            # If any index is out of range
+            if out_of_range:
+
+                # Raise an error.
+                errstr = \
+                    "Some indexes are outside the range of the " \
+                    f"{len(self.z)} representations in the layer."
+                raise IndexError(errstr)
+
+            # Use the indexes as they are.
+            mapped_ixs = ixs
 
         #-------------------------------------------------------------#
 
-        # If there is a batch size specified and the number of
-        # representations to return is greater than the batch size,
+        # If a batch size was passed and the number of
+        # representations to return is greater than it
         if batch_size is not None and len(mapped_ixs) > batch_size:
 
             # Initialize a list to hold the result chunks.
             result_chunks = []
 
-            # For each batch of indices
-            for i in range(0, len(mapped_ixs), batch_size):
+            # For each batch of indexes
+            for i in range(0,
+                           len(mapped_ixs),
+                           batch_size):
 
-                # Get the current batch of indices.
+                # Get the current batch of indexes.
                 batch_ixs = mapped_ixs[i:i+batch_size]
 
                 # Add the representations for the current batch to the
@@ -2987,7 +3202,7 @@ class RepresentationLayer(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Return representations for the specified indices
+        # Return the representations for the specified indexes.
         return self.z[mapped_ixs]
 
 
@@ -2995,14 +3210,14 @@ class RepresentationLayer(nn.Module):
         """Rescale the representations to zero mean and unit standard
         deviation, computed jointly across all representations.
         """
-        
+
         # Flatten the tensor containing the representations' values.
         z_flat = torch.flatten(self.z.cpu().detach())
-        
+
         # Get the mean and the standard deviation of the
         # representations.
         sd, m = torch.std_mean(z_flat)
-        
+
         # Disable the calculation of the gradients.
         with torch.no_grad():
 
@@ -3013,12 +3228,12 @@ class RepresentationLayer(nn.Module):
             # Divide each representation's value by the standard
             # deviation of all representations' values.
             self.z /= sd
-    
+
 
     def save(self,
              file: str) -> None:
         """Save the representations to a .pth file.
-        
+
         Parameters
         ----------
         file : :class:`str`
@@ -3031,7 +3246,7 @@ class RepresentationLayer(nn.Module):
                       "n_rep" : self._n_rep,
                       "dim" : self._dim,
                       "options" : self._options}
-        
+
         # Save the state dictionary to the specified file.
         torch.save(state_dict, file)
 
@@ -3053,7 +3268,7 @@ def fit_final_gmm(gmm,
 
     Parameters
     ----------
-    gmm : :class:`GaussianMixtureModelTGMM`
+    gmm : :class:`bulkdgd.core.latents.GaussianMixtureModelTGMM`
         The trained Gaussian mixture model.
 
     reps : :class:`torch.Tensor`
@@ -3065,23 +3280,22 @@ def fit_final_gmm(gmm,
         The type of covariance matrix the final mixture should have.
 
     shrinkage : :class:`float`, ``0.0``
-        How far each per-component covariance is pulled back towards
-        the one shared across components (0.0-1.0); mitigates
-        under-determined per-component fits, ignored by tied types.
+        How far (0.0-1.0) each per-component covariance is pulled
+        towards the one shared across components. It is ignored by
+        the tied covariance types.
 
     reg_covar : :class:`float`, optional
         The value added to the diagonal of the covariance. If not
         passed, the trained mixture's own value is used.
 
     chunk_size : :class:`int`, ``2048``
-        How many samples are held in memory at a time; the scatter
-        accumulates over chunks to bound peak memory.
+        How many samples are processed at a time.
 
     Returns
     -------
-    gmm_final : :class:`GaussianMixtureModelTGMM`
-        A copy of the input mixture, with the same means and the same
-        weights, and with the refitted covariance.
+    gmm_final : :class:`bulkdgd.core.latents.GaussianMixtureModelTGMM`
+        A copy of the input mixture, with the same means and
+        weights and the refitted covariance.
     """
 
     # If the covariance type is not one the mixture supports
@@ -3107,11 +3321,10 @@ def fit_final_gmm(gmm,
 
     #-----------------------------------------------------------------#
 
-    # Get the means of the components (frozen, not modified below).
+    # Get the means of the components.
     means = gmm.means_
 
-    # Move the representations onto the mixture's device, and into its
-    # precision.
+    # Move the representations to the mixture's device and dtype.
     reps = reps.to(device = means.device, dtype = means.dtype)
 
     # Get the number of components and the dimensionality of the
@@ -3126,54 +3339,49 @@ def fit_final_gmm(gmm,
                           device = means.device,
                           dtype = means.dtype)
 
-    # Initialize the responsibility mass each component collected -
-    # the effective number of samples it was fitted from.
+    # Initialize the effective number of samples of each component.
     n_k = torch.zeros(n_components,
                       device = means.device,
                       dtype = means.dtype)
 
-    # For each chunk of representations (bounds peak memory: the
-    # per-sample-per-component intermediate below is the largest
-    # thing in this function).
-    for i in range(0, reps.shape[0], chunk_size):
+    # For each chunk of representations
+    for i in range(0,
+                   reps.shape[0],
+                   chunk_size):
 
         # Get the chunk.
         chunk = reps[i:i+chunk_size]
 
-        # Get the responsibilities of the trained mixture (freezes
-        # the means and weights: only the covariance is refitted).
+        # Get the responsibilities of the trained mixture.
         resp, _ = gmm._e_step(chunk)
 
-        # Put the responsibilities in the mixture's precision - the
-        # E-step may return them in another one.
+        # Cast the responsibilities to the mixture's dtype.
         resp = resp.to(dtype = means.dtype)
 
         # Get the displacement of every representation from every
-        # component's mean, as a 3D tensor of shape
-        # (n_samples_in_chunk, n_components, n_features).
+        # component's mean (n_samples, n_components, n_features).
         delta = chunk.unsqueeze(1) - means.unsqueeze(0)
 
-        # Add the chunk's contribution to the scatter of each
-        # component, weighted by how much of each sample that
-        # component is responsible for.
-        scatter += torch.einsum("nk,nki,nkj->kij", resp, delta, delta)
+        # Add the chunk's responsibility-weighted scatter.
+        scatter += torch.einsum("nk,nki,nkj->kij",
+                                resp,
+                                delta,
+                                delta)
 
-        # Add the chunk's contribution to the responsibility mass.
+        # Add the chunk's responsibilities to the effective numbers
+        # of samples.
         n_k += resp.sum(dim = 0)
 
     #-----------------------------------------------------------------#
 
-    # Get the covariance each component would have on its own; the
-    # clamp avoids a division by zero for a component with no
-    # responsibility (whose covariance is meaningless regardless).
+    # Get the covariance of each component, clamping to avoid a
+    # division by zero for an empty component.
     per_component = scatter / n_k.clamp(min = 1.0e-10)[:, None, None]
 
     # Get the covariance all the components would share.
     tied = scatter.sum(dim = 0) / n_k.sum()
 
-    # Pull each component's own covariance towards the shared one.
-    # This only means anything for the per-component covariance types:
-    # a tied covariance is already the thing being shrunk towards.
+    # Pull each component's covariance towards the shared one.
     shrunk = (1.0 - shrinkage) * per_component + shrinkage * tied
 
     #-----------------------------------------------------------------#
@@ -3181,19 +3389,15 @@ def fit_final_gmm(gmm,
     # If no regularization of the covariance was passed
     if reg_covar is None:
 
-        # Use the trained mixture's own, so that the final mixture is
-        # regularized exactly as much as the prior was.
-        reg_covar = getattr(gmm, "reg_covar", 1.0e-6) or 1.0e-6
+        # Use the trained mixture's own.
+        reg_covar = getattr(gmm,
+                            "reg_covar",
+                            1.0e-6) or 1.0e-6
 
-    # Get an identity matrix, to add the regularization to the
-    # diagonal of the covariance types that have one.
+    # Get an identity matrix to regularize the full covariances.
     eye = torch.eye(n_features,
                     device = means.device,
                     dtype = means.dtype)
-
-    # Reduce the full covariance to whatever shape was asked for. Each
-    # of these is the maximum-likelihood estimate under that
-    # constraint, given the same responsibilities.
 
     # If each component gets its own full covariance matrix
     if covariance_type == "full":
@@ -3204,17 +3408,17 @@ def fit_final_gmm(gmm,
     # If all the components share one full covariance matrix
     elif covariance_type == "tied_full":
 
-        # Take the shared covariance. The shrinkage does not enter:
-        # this IS what the shrinkage pulls towards.
+        # Take the shared covariance.
         covariances = tied + reg_covar * eye
 
     # If each component gets its own axis-aligned covariance
     elif covariance_type == "diag":
 
-        # Keep only the diagonal - the variance along each axis, with
-        # the correlations between axes dropped.
+        # Keep only the diagonal of the shrunk covariance.
         covariances = \
-            torch.diagonal(shrunk, dim1 = -2, dim2 = -1) + reg_covar
+            torch.diagonal(shrunk,
+                           dim1 = -2,
+                           dim2 = -1) + reg_covar
 
     # If all the components share one axis-aligned covariance
     elif covariance_type == "tied_diag":
@@ -3226,10 +3430,11 @@ def fit_final_gmm(gmm,
     elif covariance_type == "spherical":
 
         # Average the variances along the axes into one number per
-        # component, which is the maximum-likelihood estimate of a
-        # component's radius when it is required to be a sphere.
+        # component.
         covariances = \
-            torch.diagonal(shrunk, dim1 = -2, dim2 = -1).mean(dim = -1) \
+            torch.diagonal(shrunk,
+                           dim1 = -2,
+                           dim2 = -1).mean(dim = -1) \
             + reg_covar
 
     # If all the components share one single variance
@@ -3241,15 +3446,13 @@ def fit_final_gmm(gmm,
 
     #-----------------------------------------------------------------#
 
-    # Copy the mixture so the trained one (still used as the prior)
-    # is left untouched.
+    # Copy the mixture, leaving the trained one untouched.
     gmm_final = copy.deepcopy(gmm)
 
     # Set the refitted covariance on the copy.
     gmm_final.covariances_ = covariances
 
-    # Set the type of the refitted covariance, so that the mixture
-    # knows how to read it, and so that it is saved with the mixture.
+    # Set the type of the refitted covariance.
     gmm_final.covariance_type = covariance_type
 
     # Return the final mixture.
@@ -3262,7 +3465,7 @@ def fit_final_gmm(gmm,
 # Set the available latent spaces.
 LATENT_SPACES = {
 
-    # Legacy Gaussian mixture model.
+    # Gaussian mixture model with priors over its parameters.
     "lgmm" : GaussianMixtureModelLegacy,
 
     # Gaussian mixture model implemented using the 'tgmm' package.

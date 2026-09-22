@@ -5,7 +5,7 @@
 #
 #    Utilities to load and save the decoder's outputs.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -38,6 +38,9 @@ import logging as log
 
 # Import from third-party libraries.
 import pandas as pd
+
+# Import from the package.
+from .tableio import is_parquet
 
 
 #######################################################################
@@ -69,19 +72,19 @@ def load_decoder_outputs(
     sep : :class:`str`, ``","``
         The column separator in the input CSV file.
 
-    split : :class:`bool`, :class:`True`
+    split : :class:`bool`, ``False``
         Whether to split the input data frame into two data frames,
         one with only the columns containing the decoder's outputs
         and the other containing only the columns with additional
         information, if any were found.
 
     Returns
-    -------    
+    -------
     df_data : :class:`pandas.DataFrame`
         A data frame containing the decoder's outputs.
 
         Here, each row represents the decoder's output for a given
-        representation. and the columns contain the values
+        representation, and the columns contain the values
         of the output.
 
         If ``split`` is :class:`False`, this data frame will contain
@@ -93,23 +96,23 @@ def load_decoder_outputs(
         decoder's outputs found in the input data frame.
 
         Here, each row represents the decoder's output for a given
-        representations and the columns contain additional
+        representation and the columns contain additional
         information provided in the input data frame.
 
         If ``split`` is :class:`False`, only ``df_data`` is returned.
     """
 
-    # Load the data frame with the decoder's outputs.
-    #
-    # The format follows the extension, so a file written by
-    # 'save_decoder_outputs' is read back by this whatever format it
-    # was written in.
-    if _is_parquet(csv_file):
+    # If the file is a Parquet file
+    if is_parquet(csv_file):
 
-        df = pd.read_parquet(csv_file, engine = "pyarrow")
+        # Load the data frame with the decoder's outputs.
+        df = pd.read_parquet(csv_file,
+                             engine = "pyarrow")
 
+    # Otherwise
     else:
 
+        # Load the data frame with the decoder's outputs.
         df = pd.read_csv(csv_file,
                          sep = sep,
                          index_col = 0,
@@ -146,7 +149,7 @@ def load_decoder_outputs(
             infostr = \
                 f"{len(other_columns)} column(s) containing " \
                 "additional information was (were) found in the " \
-                f"input data frame : {', '.join(other_columns)}."
+                f"input data frame: {', '.join(other_columns)}."
             logger.info(infostr)
 
         # Return a data frame with the decoder's outputs and another
@@ -154,7 +157,7 @@ def load_decoder_outputs(
         return df[dec_out_columns], df[other_columns]
 
     #-----------------------------------------------------------------#
-    
+
     # Otherwise
     else:
 
@@ -162,30 +165,10 @@ def load_decoder_outputs(
         return df
 
 
-
-
-# The extensions that mean Parquet rather than delimited text.
-PARQUET_EXTENSIONS = (".parquet", ".pq")
-
-
-def _is_parquet(file_path):
-
-    """Whether a path names a Parquet file, by its extension."""
-
-    return str(file_path).lower().endswith(PARQUET_EXTENSIONS)
-
-
 def save_decoder_outputs(df: pd.DataFrame,
                          csv_file: str,
                          sep: str = ",") -> None:
     """Save the decoder's outputs to a CSV or Parquet file.
-
-    The format is chosen by the file's extension: '.parquet' or '.pq'
-    give Parquet, anything else gives delimited text. The decoder's
-    outputs are one float a gene a sample, which is where the
-    difference tells: 3.4 s against 46.6 s, and 146 MB against 280 MB,
-    on a 1,000 x 14,740 matrix. Parquet is also exact, where text
-    round-trips a float64 to within about 1e-12 of itself.
 
     Parameters
     ----------
@@ -193,22 +176,26 @@ def save_decoder_outputs(df: pd.DataFrame,
         A data frame containing the decoder's outputs.
 
     csv_file : :class:`str`
-        The output CSV file.
+        The output file ('.parquet' or '.pq' for Parquet, delimited
+        text otherwise).
 
     sep : :class:`str`, ``","``
         The column separator in the output CSV file.
     """
 
-    # Save the decoder's outputs.
-    if _is_parquet(csv_file):
+    # If the file is a Parquet file
+    if is_parquet(csv_file):
 
+        # Save the decoder's outputs.
         df.to_parquet(csv_file,
                       engine = "pyarrow",
                       compression = "snappy",
                       index = True)
 
+    # Otherwise
     else:
 
+        # Save the decoder's outputs.
         df.to_csv(csv_file,
                   sep = sep,
                   index = True,

@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # -*- Mode: python; tab-width: 4; indent-tabs-mode:nil; coding:utf-8 -*-
 
-#    _bulkdgd_recount3_single_batch.py
+#    _bulkdgd_get_recount3_single_batch.py
 #
 #    Get RNA-seq data associated with a single set of human samples
 #    for projects hosted on the Recount3 platform.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -20,7 +20,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -45,7 +45,7 @@ import sys
 # Import from third-party libraries.
 import pandas as pd
 
-# Import from 'bulDGD'.
+# Import from 'bulkdgd'.
 from bulkdgd import ioutil, recount3
 from . import defaults, util
 
@@ -55,6 +55,7 @@ from . import defaults, util
 
 # Define the 'main' function.
 def main() -> None:
+    """Get the RNA-seq data for a single batch of samples."""
 
     # Create the argument parser.
     parser = \
@@ -97,7 +98,7 @@ def main() -> None:
         "retrieved. For GTEx data, this is the name of the tissue " \
         "the samples belong to. " \
         "For TCGA data, this is the type of cancer the samples are " \
-        "associated with." \
+        "associated with. " \
         "For SRA data, this is the code associated with the project."
 
     # Add the argument to the group.
@@ -126,9 +127,9 @@ def main() -> None:
     # Set a help message.
     sg_help = \
         """Save the original GZ file containing the RNA-seq data for
-        the samples. For each batch of samples, the corresponding file
-        will be saved in the working directory and named
-        '{recount3_project_name}_{recount3_samples_category}_gene_sums.gz'."""
+        the samples. The file will be saved in the working directory
+        and named '{input_project_name}_""" \
+        "{input_samples_category}_gene_sums.gz'."
 
     # Add the argument to the group.
     output_group.add_argument("-sg", "--save-gene-sums",
@@ -140,24 +141,23 @@ def main() -> None:
     # Set the help message.
     sq_help = \
         """Save the original GZ file containing the quality control
-        metrics for the samples. For each batch of samples, the
-        corresponding file will be saved in the working directory and
-        named '{recount3_project_name}_{recount3_samples_category}_qc.gz'."""
-    
+        metrics for the samples. The file will be saved in the working
+        directory and named '{input_project_name}_""" \
+        "{input_samples_category}_qc.gz'."
+
     # Add the argument to the group.
     output_group.add_argument("-sq", "--save-qc",
                               action = "store_true",
                               help = sq_help)
-
 
     #-----------------------------------------------------------------#
 
     # Set a help message.
     sm_help = \
         """Save the original GZ file containing the metadata for the
-        samples. For each batch of samples, the corresponding file will
-        be saved in the working directory and named
-        '{recount3_project_name}_{recount3_samples_category}_metadata.gz'."""
+        samples. The file will be saved in the working directory and
+        named '{input_project_name}_""" \
+        "{input_samples_category}_metadata.gz'."
 
     # Add the argument to the group.
     output_group.add_argument("-sm", "--save-metadata",
@@ -184,14 +184,14 @@ def main() -> None:
     input_samples_category = args.input_samples_category
 
     # Get the arguments corresponding to the output options.
-    output_samples = os.path.join(wd, args.output_samples)
+    output_samples = args.output_samples
     save_gene_sums = args.save_gene_sums
     save_qc = args.save_qc
     save_metadata = args.save_metadata
 
     #-----------------------------------------------------------------#
 
-    # Get the module's logger.
+    # Get the logger.
     logger = log.getLogger("recount3")
 
     # Set WARNING logging level by default.
@@ -203,14 +203,14 @@ def main() -> None:
         # The minimal logging level will be INFO.
         log_level = log.INFO
 
-    # If the user requested logging for debug purposes
-    # (-vv overrides -v if both are provided)
+    # If the user requested logging for debug purposes (overrides
+    # verbose logging)
     if args.log_debug:
 
         # The minimal logging level will be DEBUG.
         log_level = log.DEBUG
 
-    # Configure the logging.
+    # Get the logging handlers.
     handlers = \
         util.get_handlers(\
             log_console = args.log_console,
@@ -231,7 +231,7 @@ def main() -> None:
 
     # Try to get the RNA-seq data for the samples from Recount3.
     try:
-        
+
         df_gene_sums = \
             recount3.get_gene_sums(\
                 project_name = input_project_name,
@@ -242,7 +242,7 @@ def main() -> None:
     # If something went wrong
     except Exception as e:
 
-        # Log it an exit.
+        # Log it and exit.
         errstr = \
             "It was not possible to get the RNA-seq data from " \
             f"Recount3. Error: {e}"
@@ -265,7 +265,7 @@ def main() -> None:
     # If something went wrong
     except Exception as e:
 
-        # Log it an exit.
+        # Log it and exit.
         errstr = \
             "It was not possible to get the quality control metrics " \
             f"from Recount3. Error: {e}"
@@ -276,7 +276,7 @@ def main() -> None:
 
     # Try to get the metadata for the samples from Recount3.
     try:
-        
+
         df_metadata = \
             recount3.get_metadata(
                 project_name = input_project_name,
@@ -287,7 +287,7 @@ def main() -> None:
     # If something went wrong
     except Exception as e:
 
-        # Log it an exit.
+        # Log it and exit.
         errstr = \
             "It was not possible to get the metadata from Recount3. " \
             f"Error: {e}"
@@ -305,7 +305,7 @@ def main() -> None:
                 avg_mapped_read_length = \
                     df_qc["star.average_mapped_length"],
                 do_round = True)
-    
+
     # If something went wrong
     except Exception as e:
 
@@ -321,8 +321,7 @@ def main() -> None:
     # Try to merge the RNA-seq data frame and the metadata data frame.
     try:
 
-        # Combine the read counts data frame with the metadata data
-        # frame.
+        # Combine the read counts with the metadata.
         df_final = pd.concat([df_read_counts, df_metadata],
                              axis = 1)
 
@@ -356,9 +355,11 @@ def main() -> None:
         output_samples = \
             os.path.join(wd, output_samples)
 
+    #-----------------------------------------------------------------#
+
     # Try to write the data frame to the output CSV file.
     try:
-        
+
         ioutil.save_samples(df = df_final,
                             csv_file = output_samples,
                             sep = ",")

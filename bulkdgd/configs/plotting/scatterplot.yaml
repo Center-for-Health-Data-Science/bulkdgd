@@ -80,26 +80,6 @@ general_fontproperties:
 #######################################################################
 
 
-# Set the options for the scatterplot.
-#
-# All the available options to set up the scatterplot can be found
-# at:
-#
-# https://bulkdgd.readthedocs.io/en/latest/scatterplots.html
-scatterplot:
-
-  # Set the palette to be used to color the markers.
-  #
-  # Type: str.
-  #
-  # Options: all the available options can be found at
-  # https://bulkdgd.readthedocs.io/en/latest/scatterplots.html
-  palette: husl
-
-
-#######################################################################
-
-
 # Set the options for the second scatterplot, which will contain the
 # points belonging to other groups with respect to those of interest.
 #
@@ -109,13 +89,13 @@ scatterplot:
 # https://seaborn.pydata.org/generated/seaborn.scatterplot.html
 scatterplot_2:
 
-  # Set the palette to be used to color the markers.
+  # Set the color of the markers.
   #
   # Type: str.
   #
   # Options: all the available options can be found at
-  # https://bulkdgd.readthedocs.io/en/latest/scatterplots.html
-  palette: "#cccccc"
+  # https://bulkdgd.readthedocs.io/en/latest/colors.html
+  color: "#cccccc"
 
 
 #######################################################################

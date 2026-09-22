@@ -6,7 +6,7 @@
 #    Find representations in the latent space defined by the
 #    :class:`core.model.BulkDGD` for a set of samples.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -20,7 +20,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -44,6 +44,7 @@ import sys
 
 # Import from 'bulkdgd'.
 from bulkdgd.core import model
+from bulkdgd.ioutil.tableio import save_table
 from bulkdgd import defaults, ioutil
 from . import util
 
@@ -60,6 +61,13 @@ logger = log.getLogger(__name__)
 
 # Define a function to set up the parser.
 def set_parser() -> argparse.ArgumentParser:
+    """Set up the argument parser.
+
+    Returns
+    -------
+    parser : :class:`argparse.ArgumentParser`
+        The argument parser.
+    """
 
     # Create the argument parser.
     parser = \
@@ -120,7 +128,7 @@ def set_parser() -> argparse.ArgumentParser:
     # Set a help message.
     om_help = \
         "The name of the output CSV file containing the data frame " \
-        "with the predicted scaled means of the negative  " \
+        "with the predicted scaled means of the negative " \
         "binomials for the in silico samples obtained from the best " \
         "representations found. The default file name is " \
         f"'{om_default}'."
@@ -142,7 +150,7 @@ def set_parser() -> argparse.ArgumentParser:
         "with the predicted r-values of the negative binomials for " \
         "the in silico samples obtained from the best " \
         "representations found. The default file name is " \
-        f"'{ov_default}'. The file is produced only if negative' " \
+        f"'{ov_default}'. The file is produced only if negative " \
         "binomial distributions are used to model the genes' counts."
 
     # Add the argument to the group.
@@ -227,6 +235,13 @@ def set_parser() -> argparse.ArgumentParser:
 
 # Define the 'main' function.
 def main(args: argparse.Namespace) -> None:
+    """Find the representations of the samples.
+
+    Parameters
+    ----------
+    args : :class:`argparse.Namespace`
+        The parsed arguments.
+    """
 
     # Get the argument corresponding to the working directory.
     wd = args.work_dir
@@ -235,7 +250,7 @@ def main(args: argparse.Namespace) -> None:
     input_samples = args.input_samples
 
     # Get the arguments corresponding to the configuration files.
-    config_file_model = args.config_file_model            
+    config_file_model = args.config_file_model
     config_file_rep = args.config_file_rep
 
     # Get the arguments corresponding to the output files.
@@ -292,7 +307,7 @@ def main(args: argparse.Namespace) -> None:
 
     #-----------------------------------------------------------------#
 
-    # Try to load the samples' data.
+    # Try to load the samples.
     try:
 
         df_samples = \
@@ -311,7 +326,7 @@ def main(args: argparse.Namespace) -> None:
         logger.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the data were successfully loaded.
+    # Inform the user that the samples were successfully loaded.
     infostr = \
         f"The samples were successfully loaded from '{input_samples}'."
     logger.info(infostr)
@@ -320,7 +335,7 @@ def main(args: argparse.Namespace) -> None:
 
     # Try to set the model.
     try:
-        
+
         dgd_model = model.BulkDGD(**config_model)
 
     # If something went wrong
@@ -328,24 +343,22 @@ def main(args: argparse.Namespace) -> None:
 
         # Warn the user and exit.
         errstr = \
-            f"It was not possible to set the bulkdgd model. Error: {e}"
+            f"It was not possible to set the BulkDGD model. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
 
     # Inform the user that the model was successfully set.
-    infostr = "The bulkdgd model was successfully set."
+    infostr = "The BulkDGD model was successfully set."
     logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
     # Try to get the representations.
     try:
-        
+
         df_rep, df_pred_means, df_pred_r_values, df_time = \
             dgd_model.get_representations(\
-                # The data frame with the samples
                 df_samples = df_samples,
-                # The configuration to find the representations                        
                 config_rep = config_rep)
 
     # If something went wrong
@@ -359,7 +372,7 @@ def main(args: argparse.Namespace) -> None:
         sys.exit(errstr)
 
     # Inform the user that the representations were successfully
-    # optimized.
+    # found.
     infostr = "The representations were successfully found."
     logger.info(infostr)
 
@@ -453,10 +466,11 @@ def main(args: argparse.Namespace) -> None:
     # Try to write the time data in the dedicated CSV file.
     try:
 
-        save_table(df_time, output_time,
-                      sep = ",",
-                      index = True,
-                      header = True)
+        save_table(df_time,
+                   output_time,
+                   sep = ",",
+                   index = True,
+                   header = True)
 
     # If something went wrong
     except Exception as e:
@@ -480,6 +494,7 @@ def main(args: argparse.Namespace) -> None:
 
 # Define the entry point for the standalone executable.
 def entry_point() -> None:
+    """Run the executable."""
 
     # Build the parser.
     parser = set_parser()
@@ -490,13 +505,16 @@ def entry_point() -> None:
     # Set up the logging.
     util.set_main_logging(args = args)
 
-    # Check if the execution should be parallelized.
-    if getattr(args, "parallelize", False):
+    # If the execution should be parallelized
+    if getattr(args,
+               "parallelize",
+               False):
 
         # Run with parallelization.
         util.run_with_parallelization(\
             executable = "bulkdgd_find_representations",
-            args = args)
+            args = args,
+            parser = parser)
 
     # Otherwise
     else:

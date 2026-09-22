@@ -131,13 +131,13 @@ violinplot:
   # - !!null does not draw anything in the interior.
   inner: !!null
 
-  # The color of the edges of the violin.
+  # The color of the violin's lines.
   #
   # Type: str.
   #
   # Options: all the available options to specify colors can be found
   # at https://bulkdgd.readthedocs.io/en/latest/colors.html.
-  edgecolors: "#333333"
+  linecolor: "#333333"
   
 
 #######################################################################
@@ -177,11 +177,6 @@ xaxis:
   # https://bulkdgd.readthedocs.io/en/latest/xaxis.html
   ticklabels:
     
-    # Set the format for the ticks' labels.
-    #
-    # Type: format str.
-    fmt: "{:d}"
-
     # Set the options for the ticks' labels.
     options:
       
@@ -198,24 +193,6 @@ xaxis:
         #
         # Type: int.
         size: 18
-
-  #-------------------------------------------------------------------#
-
-  # Set the options for the interval represented on the axis.
-  #
-  # All the available options to set up the interval can be found at:
-  #
-  # https://bulkdgd.readthedocs.io/en/latest/xaxis.html
-  interval:
-
-    # Set the type of interval represented on the axis.
-    #
-    # Type: str.
-    #
-    # Options:
-    # - 'discrete' for a discrete interval.
-    # - 'continuous' for a continuous interval.
-    type: discrete
 
 
 #######################################################################

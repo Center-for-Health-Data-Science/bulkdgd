@@ -5,7 +5,7 @@
 #
 #    Private default values.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -40,45 +40,43 @@ LINKS = {
     "markers" : \
         "https://matplotlib.org/stable/api/markers_api.html#" \
         "module-matplotlib.markers",
-    
+
     #-----------------------------------------------------------------#
 
-    # Set the link where to find the available line styles for the
+    # Set the link where to find the available fill styles for the
     # markers.
     "fillstyles" : \
         "https://matplotlib.org/stable/api/_as_gen/" \
         "matplotlib.markers.MarkerStyle.html#" \
         "matplotlib.markers.MarkerStyle",
-    
+
     #-----------------------------------------------------------------#
 
-    # Set the link where to find the available cap styles for the
-    # markers.
+    # Set the link where to find the available cap styles.
     "capstyles" : \
-        "https://matplotlib.org/stable/api/_enums_api.html#" 
+        "https://matplotlib.org/stable/api/_enums_api.html#"
         "matplotlib._enums.CapStyle",
-    
+
     #-----------------------------------------------------------------#
 
-    # Set the link where to find the available join styles for the
-    # markers.
+    # Set the link where to find the available join styles.
     "joinstyles" : \
         "https://matplotlib.org/stable/api/_enums_api.html#" \
         "matplotlib._enums.JoinStyle",
-    
+
     #-----------------------------------------------------------------#
-    
+
     # Set the link where to find the available ways to specify colors.
     "colors" : \
         "https://matplotlib.org/stable/tutorials/colors/colors.html",
-    
+
     #-----------------------------------------------------------------#
-    
+
     # Set the link where to find the available backends.
     "backends" : \
         "https://matplotlib.org/stable/users/explain/figure" \
         "/backends.html#the-builtin-backends",
-    
+
     #-----------------------------------------------------------------#
 
    }
@@ -92,7 +90,7 @@ INTERVAL_OPTIONS = {\
 
     # The type of interval displayed on the axis.
     "type" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
@@ -100,12 +98,12 @@ INTERVAL_OPTIONS = {\
             "The type of interval displayed on the axis. It can " \
             "be either 'discrete' or 'continuous'.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
-    # Round all ticks' positions to the nearest X number.
+
+    # The number to round all ticks' positions to.
     "round_to_nearest" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -123,7 +121,7 @@ INTERVAL_OPTIONS = {\
 
     # The highest value displayed on the axis.
     "top" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -131,14 +129,14 @@ INTERVAL_OPTIONS = {\
             "The highest value displayed on the axis. It is " \
             "automatically inferred from the plot if not passed " \
             "(and appropriately rounded if the 'round_to_nearest' " \
-            "option is passed)",
+            "option is passed).",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The lowest value displayed on the axis.
     "bottom" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -146,14 +144,14 @@ INTERVAL_OPTIONS = {\
             "The lowest value displayed on the axis. It is " \
             "automatically inferred from the plot if not passed " \
             "(and appropriately rounded if the 'round_to_nearest' " \
-            "option is passed)",
+            "option is passed).",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The number of steps (ticks) displayed on the axis.
     "steps" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int,),
         # Set a help string.
@@ -162,12 +160,12 @@ INTERVAL_OPTIONS = {\
             "This number includes the most extreme ticks. It is " \
             "set to 10 by default.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The spacing between the ticks on the axis.
     "spacing" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -176,12 +174,12 @@ INTERVAL_OPTIONS = {\
             "passed, it is automatically computed from the 'top', " \
             "'bottom', and 'steps' values.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # Whether to center the interval around 0.
     "center_around_zero" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
@@ -192,9 +190,9 @@ INTERVAL_OPTIONS = {\
             "value of the interval in the positive and negative " \
             "directions.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     }
 
 
@@ -207,7 +205,7 @@ FONT_PROPERTIES_OPTIONS = {
 
     # The name of the font family.
     "family" : \
-       
+
        {# Set the supported data types.
         "dtypes" : (str, list),
         # Set the conflicting options.
@@ -218,12 +216,12 @@ FONT_PROPERTIES_OPTIONS = {
         # Set a help string.
         "help" : "The name of the font family.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The size of the font.
     "size" : \
-       
+
        {# Set the supported data types.
         "dtypes" : (int, float, str),
         # Set a help string.
@@ -231,10 +229,10 @@ FONT_PROPERTIES_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-    
+
     # The weight of the font.
     "weight" : \
-       
+
        {# Set the supported data types.
         "dtypes" : (str, int, float),
         # Set the conflicting options.
@@ -247,10 +245,10 @@ FONT_PROPERTIES_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-    
+
     # The style of the font.
     "style" : \
-       
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set the conflicting options.
@@ -263,10 +261,10 @@ FONT_PROPERTIES_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-    
+
     # The variant of the font.
     "variant" : \
-       
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set the conflicting options.
@@ -279,10 +277,10 @@ FONT_PROPERTIES_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-    
+
     # The stretch of the font.
     "stretch" : \
-       
+
        {# Set the supported data types.
         "dtypes" : (str, float),
         # Set a help string.
@@ -290,10 +288,10 @@ FONT_PROPERTIES_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-    
+
     # The font family for the math text.
     "math_fontfamily" : \
-       
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
@@ -301,10 +299,10 @@ FONT_PROPERTIES_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-    
+
     # The path to the font file.
     "fname" : \
-       
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set the conflicting options.
@@ -316,7 +314,7 @@ FONT_PROPERTIES_OPTIONS = {
         # Set a help string.
         "help" : "The path to the font file.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     }
@@ -334,7 +332,7 @@ FIGURE_OPTIONS = {
         # The position of the left edge of the sub-plots as a
         # fraction of the figure's width.
         "left" : \
-        
+
            {# Set the supported data types.
             "dtypes" : (int, float),
             # Set a help string.
@@ -342,13 +340,13 @@ FIGURE_OPTIONS = {
                 "The position of the left edge of the sub-plots " \
                 "as a fraction of the figure's width.",
            },
-        
+
         #-------------------------------------------------------------#
 
         # The position of the right edge of the sub-plots as a
         # fraction of the figure's width.
         "right" : \
-        
+
            {# Set the supported data types.
             "dtypes" : (int, float),
             # Set a help string.
@@ -356,13 +354,13 @@ FIGURE_OPTIONS = {
                 "The position of the right edge of the sub-plots " \
                 "as a fraction of the figure's width.",
            },
-        
+
         #-------------------------------------------------------------#
 
         # The position of the top edge of the sub-plots as a
         # fraction of the figure's height.
         "top" : \
-        
+
            {# Set the supported data types.
             "dtypes" : (int, float),
             # Set a help string.
@@ -376,7 +374,7 @@ FIGURE_OPTIONS = {
         # The position of the bottom edge of the sub-plots as a
         # fraction of the figure's height.
         "bottom" : \
-        
+
            {# Set the supported data types.
             "dtypes" : (int, float),
             # Set a help string.
@@ -384,13 +382,13 @@ FIGURE_OPTIONS = {
                 "The position of the bottom edge of the sub-plots " \
                 "as a fraction of the figure's height.",
            },
-        
+
         #-------------------------------------------------------------#
 
         # The height of the padding between sub-plots, as a fraction
         # of the average height of the y-axis.
         "hspace" : \
-            
+
            {# Set the supported data types.
             "dtypes" : (int, float),
             # Set a help string.
@@ -398,13 +396,13 @@ FIGURE_OPTIONS = {
                 "The height of the padding between sub-plots as a " \
                 "fraction of the average height of the y-axis.",
            },
-        
+
         #-------------------------------------------------------------#
 
         # The width of the padding between sub-plots as a fraction
         # of the average width of the x-axis.
         "wspace" : \
-        
+
            {# Set the supported data types.
             "dtypes" : (int, float),
             # Set a help string.
@@ -412,22 +410,22 @@ FIGURE_OPTIONS = {
                 "The width of the padding between sub-plots as a " \
                 "fraction of the average width of the x-axis.",
            },
-    
+
         },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The figure's size in inches (width, height).
-    "sizeinches" :     
+    "sizeinches" :
 
        {# Set the supported data types.
         "dtypes" : ([(int, float), (int, float)],),
         # Set a help string.
         "help" : "The figure's size in inches (width, height).",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     }
 
 
@@ -439,7 +437,7 @@ LINE_OPTIONS = {
 
     # The color of the line elements.
     "color" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str, tuple),
         # Set a help string.
@@ -449,10 +447,10 @@ LINE_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-    
+
     # The alpha blending value for the colors of the line elements.
     "alpha" : \
-      
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -462,10 +460,10 @@ LINE_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-   
+
     # The width of the line elements in points.
     "linewidth" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -476,13 +474,13 @@ LINE_OPTIONS = {
 
     # The style of the line elements.
     "linestyle" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str, tuple),
         # Set a help string.
         "help" : \
             "The style of the {:s}. It can be: '-' or 'solid' " \
-            "(solid line), '--' or 'dashed' (dashed line). '-.' " \
+            "(solid line), '--' or 'dashed' (dashed line), '-.' " \
             "or 'dashdot' (dash-dotted line), ':' or 'dotted' " \
             "(dotted line), or a tuple containing as the first " \
             "element the offset to draw a dashed line ('float') " \
@@ -498,11 +496,11 @@ LINE_OPTIONS = {
 
     # How to draw the end caps if the line elements are solid.
     "solid_capstyle" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
-        "help" :    
+        "help" :
             "How to draw the end caps of the {:s} if solid. It " \
             "can be: 'butt', 'projecting', or 'round'. A visual " \
             "representation of the different cap styles is " \
@@ -510,10 +508,10 @@ LINE_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-    
+
     # How to join line segments if the line elements are solid.
     "solid_joinstyle" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
@@ -525,14 +523,14 @@ LINE_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-    
+
     # How to draw the end caps if the line elements are dashed.
     "dash_capstyle" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
-        "help" :    
+        "help" :
             "How to draw the end caps of the {:s} if dashed. It " \
             "can be: 'butt', 'projecting', or 'round'. A visual " \
             "representation of the different cap styles is " \
@@ -540,10 +538,10 @@ LINE_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-    
+
     # How to join line segments if the line elements are dashed.
     "dash_joinstyle" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
@@ -555,24 +553,24 @@ LINE_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-    
+
     # How the data points are connected.
     "drawstyle" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
         "help" : \
             "How the data points in the {:s} are connected. The " \
             "available options are: 'default' (the points are " \
-            "connected with straight lines), 'steps-pre' (the  " \
+            "connected with straight lines), 'steps-pre' (the " \
             "points are connected with horizontal lines with " \
             "vertical steps, and the step is at the beginning of " \
             "the line segment), 'steps-mid' (the points are " \
             "connected with horizontal lines with vertical steps, " \
-            "and the step is halfway  between the points), " \
+            "and the step is halfway between the points), " \
             "'steps-post' (the points are connected with horizontal " \
-            "ines with vertical steps, and the step is at the end "
+            "lines with vertical steps, and the step is at the end "
             "of the line segment).",
        },
 
@@ -581,7 +579,7 @@ LINE_OPTIONS = {
     # The color of the gaps between dashes if the line elements are
     # dashed.
     "gapcolor" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str, tuple),
         # Set a help string.
@@ -590,12 +588,12 @@ LINE_OPTIONS = {
             "{:s}, if dashed. More details about how colors can be " \
             f"specified can be found at: {LINKS['colors']}.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The style of the marker elements.
     "marker" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
@@ -605,10 +603,10 @@ LINE_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-    
+
     # The frequency of the marker elements.
     "markevery" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -619,10 +617,10 @@ LINE_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-    
+
     # The size of the marker elements.
     "markersize" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -630,10 +628,10 @@ LINE_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-    
+
     # The width of the edges of the marker elements in points.
     "markeredgewidth" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -644,10 +642,9 @@ LINE_OPTIONS = {
 
     # How the marker elements are filled.
     "fillstyle" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str,),
-
         # Set a help string.
         "help" : \
             "How the {:s} are filled. Different styles produce " \
@@ -660,7 +657,7 @@ LINE_OPTIONS = {
 
     # The color of the edges of the marker elements.
     "markeredgecolor" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str, tuple),
         # Set a help string.
@@ -671,10 +668,10 @@ LINE_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-    
+
     # The color of the filling of the marker elements.
     "markerfacecolor" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str, tuple),
         # Set a help string.
@@ -685,10 +682,10 @@ LINE_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-    
+
     # The alternate color for the filling of the marker elements.
     "markerfacecoloralt" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str, tuple),
         # Set a help string.
@@ -700,7 +697,7 @@ LINE_OPTIONS = {
             f"fill styles (at {LINKS['fillstyles']}) for more " \
             "information about how this color is applied.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     }
@@ -720,15 +717,15 @@ TEXT_OPTIONS = {
         "dtypes" : (int, float),
         # Set a help string.
         "help" : \
-            "The alpha blending value for the {:s} color. It must " \
+            "The alpha blending value for the text color. It must " \
             "be between 0 (transparent) and 1 (opaque).",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The background color of the text.
     "backgroundcolor" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str, tuple),
         # Set a help string.
@@ -737,12 +734,12 @@ TEXT_OPTIONS = {
             "how colors can be specified can be found at: " \
             f"{LINKS['colors']}.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The color of the text.
     "color" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str, tuple),
         # Set a help string.
@@ -750,12 +747,12 @@ TEXT_OPTIONS = {
             "The color of the text. More details about how colors " \
             f"may be specified can be found at: {LINKS['colors']}.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The horizontal alignment of the text.
     "horizontalalignment" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
@@ -763,26 +760,26 @@ TEXT_OPTIONS = {
             "The horizontal alignment of the text. It can be " \
             "'left', 'right', or 'center'.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The vertical alignment of the text.
     "verticalalignment" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
         "help" : \
             "The vertical alignment of the text. It can be " \
             "'baseline', 'bottom', 'center', 'center_baseline', or " \
-            "'top'",
+            "'top'.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The text alignment for multiline texts.
     "multialignment" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
@@ -790,12 +787,12 @@ TEXT_OPTIONS = {
             "The text alignment for multiline texts. It can be " \
             "'left', 'right', or 'center'.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The position of the text in x-y coordinates.
     "position" : \
-    
+
        {# Set the supported data types.
         "dtypes" : ([(int, float), (int, float)],),
         # Set a help string.
@@ -803,25 +800,25 @@ TEXT_OPTIONS = {
             "A tuple of 'float' indicating the position of the " \
             "text in x-y coordinates.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The text's rotation angle.
     "rotation" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
-        "help" :    
+        "help" :
             "The text's rotation angle (in degrees) in a " \
             "counterclockwise direction.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The text's rotation mode.
     "rotation_mode" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
@@ -831,12 +828,12 @@ TEXT_OPTIONS = {
             "horizontal and vertical alignments. If 'anchor', " \
             "the text is first aligned and then rotated.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The line spacing as a multiple of the font size.
     "linespacing" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -844,24 +841,24 @@ TEXT_OPTIONS = {
             "The line spacing as a multiple of the font size. " \
             "By default, it is '1.2'.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # Whether to force parsing the text as mathematical text.
     "parse_math" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
         "help" : \
             "Whether to force parsing the text as mathematical text.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # Whether to render text using TeX.
     "usetex" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
@@ -869,7 +866,7 @@ TEXT_OPTIONS = {
             "Whether to render text using TeX. It is 'False' by " \
             "default.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     }
@@ -892,7 +889,7 @@ PATCH_OPTIONS = {
             "The alpha blending value for the {:s}, between 0 " \
             "(transparent) and 1 (opaque).",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The cap style used for the patches.
@@ -906,7 +903,7 @@ PATCH_OPTIONS = {
             "can be: 'butt', 'projecting', or 'round'. A visual " \
             "representation of the different cap styles is " \
             f"available at: {LINKS['capstyles']}.",
-        },
+       },
 
     #-----------------------------------------------------------------#
 
@@ -918,7 +915,7 @@ PATCH_OPTIONS = {
         # Set a help string.
         "help" : \
             "How to join line segments composing the edges of the " \
-            "{:s}. It can be: 'miter', 'round', or 'bevel'. A " 
+            "{:s}. It can be: 'miter', 'round', or 'bevel'. A "
             "visual representation of the different choices is " \
             f"available at: {LINKS['joinstyles']}.",
        },
@@ -927,7 +924,7 @@ PATCH_OPTIONS = {
 
     # The color of the patches.
     "color" : \
-       
+
        {# Set the supported data types.
         "dtypes" : (str, tuple),
         # Set a help string.
@@ -940,13 +937,13 @@ PATCH_OPTIONS = {
 
     # Whether the patch is filled.
     "fill" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
         "help" : "Whether the {:s} are filled.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The color of the edges of the patches.
@@ -960,7 +957,7 @@ PATCH_OPTIONS = {
             "how colors can be specified can be found at: " \
             f"{LINKS['colors']}.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The color of the faces of the patches.
@@ -974,18 +971,18 @@ PATCH_OPTIONS = {
             "filled. More details about how colors can be specified " \
             f"can be found at: {LINKS['colors']}.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The line style of the patch.
     "linestyle" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (str, tuple),
         # Set a help string.
         "help" : \
             "The style of the edges of the {:s}. It can be: '-' or " \
-            "'solid' (solid line), '--' or 'dashed' (dashed line). " \
+            "'solid' (solid line), '--' or 'dashed' (dashed line), " \
             "'-.' or 'dashdot' (dash-dotted line), ':' or 'dotted' " \
             "(dotted line), or a tuple containing as the first " \
             "element the offset to draw a dashed line ('float') and " \
@@ -995,23 +992,23 @@ PATCH_OPTIONS = {
             "instance, '(4, 1, 2, 1)' represents a sequence of " \
             "4-point and 2-point dashes separated by 1-point spaces.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The line width of the patch.
     "linewidth" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
         "help" : "The width of the edges of the {:s} in points.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The hatch pattern.
     "hatch" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
@@ -1019,7 +1016,7 @@ PATCH_OPTIONS = {
             "The hatch pattern for the filling of the {:s}, if " \
             "they are filled.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     }
@@ -1033,7 +1030,7 @@ COLLECTION_OPTIONS = {
 
     # The color of the filling of the collections.
     "facecolors" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str, tuple),
         # Set a help string.
@@ -1042,12 +1039,12 @@ COLLECTION_OPTIONS = {
             "about how colors can be specified can be found at: " \
             f"{LINKS['colors']}.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The color of the edges of the collections.
     "edgecolors" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str, tuple),
         # Set a help string.
@@ -1071,10 +1068,10 @@ COLLECTION_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-    
+
     # The width of the edges of the collections in points.
     "linewidths" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -1091,7 +1088,7 @@ COLLECTION_OPTIONS = {
         # Set a help string.
         "help" : \
             "The style of the edges of the {:s}. It can be: '-' or " \
-            "'solid' (solid line), '--' or 'dashed' (dashed line). " \
+            "'solid' (solid line), '--' or 'dashed' (dashed line), " \
             "'-.' or 'dashdot' (dash-dotted line), ':' or 'dotted' " \
             "(dotted line), or a tuple containing as the first " \
             "element the offset to draw a dashed line ('float') and " \
@@ -1101,9 +1098,9 @@ COLLECTION_OPTIONS = {
             "instance, '(4, 1, 2, 1)' represents a sequence of " \
             "4-point and 2-point dashes separated by 1-point spaces.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # How to draw the end caps of the edges of the collections.
     "capstyle" : \
 
@@ -1112,7 +1109,7 @@ COLLECTION_OPTIONS = {
         # Set a help string.
         "help" : \
             "How to draw the end caps of the edges of the {:s}. It " \
-            "can be: 'butt', 'projecting',  or 'round'. A visual " \
+            "can be: 'butt', 'projecting', or 'round'. A visual " \
             "representation of the different cap styles is " \
             f"available at: {LINKS['capstyles']}.",
        },
@@ -1137,7 +1134,7 @@ COLLECTION_OPTIONS = {
 
     # The hatching pattern of the filling of the collections.
     "hatch" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
@@ -1148,15 +1145,16 @@ COLLECTION_OPTIONS = {
 
     }
 
+
 #######################################################################
 
 
 # Set the supported options for legends.
 LEGEND_OPTIONS = {
-    
+
     # The position of the legend.
     "loc" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (str, [(int, float), (int, float)]),
         # Set a help string.
@@ -1175,16 +1173,16 @@ LEGEND_OPTIONS = {
             "the coordinates of the lower-left corner of the " \
             "legend in the coordinate system formed by the axes.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The box that is used to position the legend in conjunction with
     # 'loc'.
     "bbox_to_anchor" : \
-        
+
        {# Set the supported data types.
         "dtypes" : \
-            ([(int, float), (int, float)], 
+            ([(int, float), (int, float)],
              [(int, float), (int, float), (int, float), (int, float)]),
         # Set a help string.
         "help" : \
@@ -1192,30 +1190,30 @@ LEGEND_OPTIONS = {
             "the legend. This argument allows for an arbitrary " \
             "legend placement using coordinates in the coordinate " \
             "system formed by the plot's axes. If it is a tuple " \
-            "of two 'float', they will interpreted as the x and y " \
+            "of two 'float', they will be interpreted as the x and y " \
             "coordinates where the corner of the legend specified " \
             "with 'loc' is placed. If it is a tuple of four " \
             "'float', it specifies the box that the legend is " \
             "placed in (x coordinate, y coordinate, width, height).",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # Whether the legend should be drawn on a frame.
     "frameon" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
         "help" : \
             "Whether the legend has a frame. It is 'True' by default.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The alpha value for the frame.
     "framealpha" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -1228,7 +1226,7 @@ LEGEND_OPTIONS = {
 
     # The color of the legend's background.
     "facecolor" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (str, tuple),
         # Set a help string.
@@ -1238,27 +1236,27 @@ LEGEND_OPTIONS = {
             f"{LINKS['colors']}. If set to 'inherit', it will be " \
             "the same color as the plot's background.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The color of the legend's edges.
     "edgecolor" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str, tuple),
         # Set a help string.
         "help" : \
             "The legend's edges' color. More details about how " \
             "colors can be specified can be found at: " \
-            f"{LINKS['colors']} If set to 'inherit', it will be " \
+            f"{LINKS['colors']}. If set to 'inherit', it will be " \
             "the same color as the plot's background.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # Whether the legend's frame has round edges.
     "fancybox" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
@@ -1266,12 +1264,12 @@ LEGEND_OPTIONS = {
             "Whether the legend's frame has round edges. It is " \
             "'False' by default.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The shadow behind the legend.
     "shadow" : \
-       
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
@@ -1282,7 +1280,7 @@ LEGEND_OPTIONS = {
 
     # The pad between the axes and the legend's border.
     "borderaxespad" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -1295,15 +1293,15 @@ LEGEND_OPTIONS = {
 
     # The legend title.
     "title" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
         "help" : "The legend title.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The font properties of the legend title.
     "title_fontproperties" : FONT_PROPERTIES_OPTIONS,
 
@@ -1311,7 +1309,7 @@ LEGEND_OPTIONS = {
 
     # The number of columns in the legend.
     "ncols" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int,),
         # Set a help string.
@@ -1324,7 +1322,7 @@ LEGEND_OPTIONS = {
 
     # The space between columns.
     "columnspacing" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -1336,7 +1334,7 @@ LEGEND_OPTIONS = {
     # The relative size of legend markers compared to the
     # originally drawn ones.
     "markerscale" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -1345,28 +1343,28 @@ LEGEND_OPTIONS = {
             "to the markers on the plot. By default, it is set to " \
             "1.0.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # Whether the legend marker is placed to the left of the legend
     # label.
     "markerfirst" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
         "help" : \
             "Whether, for each legend entry, the legend marker is " \
             "placed to the left of the legend label instead of to " \
-            "the right of it. It is 'True' by default. ",
+            "the right of it. It is 'True' by default.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # Whether the legend labels are displayed in reverse order
     # with respect to the input.
     "reverse" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
@@ -1375,13 +1373,13 @@ LEGEND_OPTIONS = {
             "order with respect to the input. It is 'False' by " \
             "default.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The vertical space between the legend entries, in font-size
     # units.
     "labelspacing" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -1389,7 +1387,7 @@ LEGEND_OPTIONS = {
             "The vertical space between the legend entries in " \
             "font-size units. It is set to 0.5 by default.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The font properties of the legend labels.
@@ -1399,7 +1397,7 @@ LEGEND_OPTIONS = {
 
     # The alignment of the legend title and entries.
     "alignment": \
-        
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
@@ -1408,13 +1406,13 @@ LEGEND_OPTIONS = {
             "be either 'center', 'left', or 'right'. It is set to " \
             "'center' by default.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The fractional whitespace inside the legend border in
     # font-size units.
     "borderpad" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -1422,12 +1420,12 @@ LEGEND_OPTIONS = {
             "The fractional whitespace inside the legend border in " \
             "font-size units. It is set to 0.4 by default.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The length of the legend handles in font-size units.
     "handlelength" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -1435,12 +1433,12 @@ LEGEND_OPTIONS = {
             "The length of the legend handles in font-size units. " \
             "It is set to 2.0 by default.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The height of the legend handles in font-size units.
     "handleheight" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -1448,13 +1446,13 @@ LEGEND_OPTIONS = {
             "The height of the legend handles in font-size units. " \
             "It is set to 0.7 by default.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The pad between each legend handle and corresponding text in
     # font-size units.
     "handletextpad" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -1462,15 +1460,15 @@ LEGEND_OPTIONS = {
             "The pad between each legend handle and corresponding " \
             "text in font-size units. It is set to 0.8 by default.",
        },
-    
+
     #-----------------------------------------------------------------#
 
-    # Set the text options for the legend title.
+    # The text options for the legend title.
     "title_text_properties" : TEXT_OPTIONS,
 
     #-----------------------------------------------------------------#
 
-    # Set the text options for the legend labels.
+    # The text options for the legend labels.
     "label_text_properties" : TEXT_OPTIONS,
 
     #-----------------------------------------------------------------#
@@ -1486,18 +1484,18 @@ TITLE_OPTIONS = {
 
     # The title.
     "label" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
         "help" : "The title.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The position of the title.
     "loc" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
@@ -1505,12 +1503,12 @@ TITLE_OPTIONS = {
             "The position of the title. It can be either 'left', " \
             "'right', or 'center'.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The offset of the title from the top of the plot area in points.
     "pad" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -1521,13 +1519,110 @@ TITLE_OPTIONS = {
 
     #-----------------------------------------------------------------#
 
+    # The maximum length of a line of the title.
+    "max_length" : \
+
+       {# Set the supported data types.
+        "dtypes" : (int,),
+        # Set a help string.
+        "help" : \
+            "The maximum length of a line of the title. Longer " \
+            "titles are split into lines at word boundaries. It is " \
+            "set to 20 by default.",
+       },
+
+    #-----------------------------------------------------------------#
+
     # Font properties options.
     "fontproperties" : FONT_PROPERTIES_OPTIONS,
-    
+
     #-----------------------------------------------------------------#
-    
+
     # Other options for the title's text.
     **TEXT_OPTIONS,
+
+    #-----------------------------------------------------------------#
+
+    }
+
+
+#######################################################################
+
+
+# Set the supported options for the ticks of an axis or a color bar.
+TICK_PARAMS_OPTIONS = {
+
+    # The direction of the ticks.
+    "direction" : \
+
+       {# Set the supported data types.
+        "dtypes" : (str,),
+        # Set a help string.
+        "help" : \
+            "The direction of the ticks. It can be 'in', 'out', or " \
+            "'inout'.",
+       },
+
+    #-----------------------------------------------------------------#
+
+    # The length of the ticks in points.
+    "length" : \
+
+       {# Set the supported data types.
+        "dtypes" : (int, float),
+        # Set a help string.
+        "help" : "The length of the ticks in points.",
+       },
+
+    #-----------------------------------------------------------------#
+
+    # The width of the ticks in points.
+    "width" : \
+
+       {# Set the supported data types.
+        "dtypes" : (int, float),
+        # Set a help string.
+        "help" : "The width of the ticks in points.",
+       },
+
+    #-----------------------------------------------------------------#
+
+    # The color of the ticks.
+    "color" : \
+
+       {# Set the supported data types.
+        "dtypes" : (str, tuple),
+        # Set a help string.
+        "help" : \
+            "The color of the ticks. More details about how colors " \
+            f"can be specified can be found at: {LINKS['colors']}.",
+       },
+
+    #-----------------------------------------------------------------#
+
+    # The distance between the ticks and their labels in points.
+    "pad" : \
+
+       {# Set the supported data types.
+        "dtypes" : (int, float),
+        # Set a help string.
+        "help" : \
+            "The distance between the ticks and their labels in " \
+            "points.",
+       },
+
+    #-----------------------------------------------------------------#
+
+    # The alpha blending value for the ticks.
+    "alpha" : \
+
+       {# Set the supported data types.
+        "dtypes" : (int, float),
+        # Set a help string.
+        "help" : \
+            "The alpha blending value for the ticks. It must be " \
+            "between 0 (transparent) and 1 (opaque).",
+       },
 
     #-----------------------------------------------------------------#
 
@@ -1546,9 +1641,7 @@ X_AXIS_OPTIONS = {
        {k : {"dtypes" : v["dtypes"],
              "help" : v["help"].format("spine")} \
         for k, v in LINE_OPTIONS.items() \
-        if k in ["linewidth", "linestyle", "solid_capstyle",
-                 "dash_capstyle", "dash_joinstyle", "color",
-                 "gapcolor", "alpha"]},
+        if k in ["linewidth", "linestyle", "color", "alpha"]},
 
     #-----------------------------------------------------------------#
 
@@ -1557,16 +1650,16 @@ X_AXIS_OPTIONS = {
 
         # The label text for the x-axis.
         "xlabel" : \
-            
+
            {# Set the supported data types.
             "dtypes" : (str,),
             # Set a help string.
             "help" : "The label text for the x-axis.",
            },
 
-       # The padding around the label.
+        # The padding around the label.
         "labelpad" : \
-           
+
            {# Set the supported data types.
             "dtypes" : (int, float),
             # Set a help string.
@@ -1575,7 +1668,7 @@ X_AXIS_OPTIONS = {
 
         # The alignment of the label text.
         "loc" : \
-           
+
            {# Set the supported data types.
             "dtypes" : (str,),
             # Set a help string.
@@ -1584,9 +1677,21 @@ X_AXIS_OPTIONS = {
                 "'right', or 'center'.",
            },
 
+        # The maximum length of a line of the label.
+        "max_length" : \
+
+           {# Set the supported data types.
+            "dtypes" : (int,),
+            # Set a help string.
+            "help" : \
+                "The maximum length of a line of the label. Longer " \
+                "labels are split into lines at word boundaries. It " \
+                "is set to 20 by default.",
+           },
+
         # Font properties options.
         "fontproperties" : FONT_PROPERTIES_OPTIONS,
-        
+
         # Other supported options.
         **{k : v for k, v in TEXT_OPTIONS.items() \
            if k != "horizontalalignment"},
@@ -1600,7 +1705,7 @@ X_AXIS_OPTIONS = {
 
         # The format for the x-axis' ticks' labels.
         "fmt" : \
-        
+
            {# Set the supported data types.
             "dtypes" : (str,),
             # Set a help string.
@@ -1608,12 +1713,24 @@ X_AXIS_OPTIONS = {
                 "The format for the x-axis' ticks' labels.",
            },
 
+        # The maximum length of a line of the ticks' labels.
+        "max_length" : \
+
+           {# Set the supported data types.
+            "dtypes" : (int,),
+            # Set a help string.
+            "help" : \
+                "The maximum length of a line of the ticks' labels. " \
+                "Longer labels are split into lines at word " \
+                "boundaries. It is set to 20 by default.",
+           },
+
         # Other options for the x-axis' ticks' labels.
         "options" : {
-        
+
             # The list of labels for the x-ticks.
             "labels" : \
-            
+
                {# Set the supported data types.
                 "dtypes" : (list,),
                 # Set a help string.
@@ -1622,13 +1739,18 @@ X_AXIS_OPTIONS = {
 
             # Font properties options.
             "fontproperties" : FONT_PROPERTIES_OPTIONS,
-            
+
             # Other options for the labels' text.
             **TEXT_OPTIONS,
-            
+
             },
 
         },
+
+    #-----------------------------------------------------------------#
+
+    # The options for the ticks.
+    "tick_params" : TICK_PARAMS_OPTIONS,
 
     #-----------------------------------------------------------------#
 
@@ -1638,6 +1760,7 @@ X_AXIS_OPTIONS = {
     #-----------------------------------------------------------------#
 
     }
+
 
 #######################################################################
 
@@ -1651,25 +1774,22 @@ Y_AXIS_OPTIONS = {
        {k : {"dtypes" : v["dtypes"],
              "help" : v["help"].format("spine")} \
         for k, v in LINE_OPTIONS.items() \
-        if k in ["linewidth", "linestyle", "solid_capstyle",
-                 "dash_capstyle", "dash_joinstyle", "color",
-                 "gapcolor", "alpha"]},
+        if k in ["linewidth", "linestyle", "color", "alpha"]},
 
     #-----------------------------------------------------------------#
 
-
     # The options for the axis' label.
     "label" : {
-        
+
         # The label text for the y-axis.
         "ylabel" : \
 
-            {# Set the supported data types.
+           {# Set the supported data types.
             "dtypes" : (str,),
             # Set a help string.
             "help" : "The label text for the y-axis.",
-            }, 
-        
+           },
+
         # The padding around the label.
         "labelpad" : \
 
@@ -1690,9 +1810,21 @@ Y_AXIS_OPTIONS = {
                 "'bottom', 'top', or 'center'.",
            },
 
+        # The maximum length of a line of the label.
+        "max_length" : \
+
+           {# Set the supported data types.
+            "dtypes" : (int,),
+            # Set a help string.
+            "help" : \
+                "The maximum length of a line of the label. Longer " \
+                "labels are split into lines at word boundaries. It " \
+                "is set to 20 by default.",
+           },
+
         # Font properties options.
         "fontproperties" : FONT_PROPERTIES_OPTIONS,
-        
+
         # Other supported options.
         **{k : v for k, v in TEXT_OPTIONS.items() \
            if k != "verticalalignment"},
@@ -1706,7 +1838,7 @@ Y_AXIS_OPTIONS = {
 
         # The format for the y-axis' ticks' labels.
         "fmt" : \
-        
+
            {# Set the supported data types.
             "dtypes" : (str,),
             # Set a help string.
@@ -1714,12 +1846,24 @@ Y_AXIS_OPTIONS = {
                 "The format for the y-axis' ticks' labels.",
            },
 
+        # The maximum length of a line of the ticks' labels.
+        "max_length" : \
+
+           {# Set the supported data types.
+            "dtypes" : (int,),
+            # Set a help string.
+            "help" : \
+                "The maximum length of a line of the ticks' labels. " \
+                "Longer labels are split into lines at word " \
+                "boundaries. It is set to 20 by default.",
+           },
+
         # Other options for the y-axis' ticks' labels.
         "options" : {
-        
+
             # The list of labels for the y-ticks.
             "labels" : \
-            
+
                {# Set the supported data types.
                 "dtypes" : (list,),
                 # Set a help string.
@@ -1728,14 +1872,19 @@ Y_AXIS_OPTIONS = {
 
             # Font properties options.
             "fontproperties" : FONT_PROPERTIES_OPTIONS,
-            
+
             # Other options for the labels' text.
             **TEXT_OPTIONS,
-            
+
             },
 
         },
-    
+
+    #-----------------------------------------------------------------#
+
+    # The options for the ticks.
+    "tick_params" : TICK_PARAMS_OPTIONS,
+
     #-----------------------------------------------------------------#
 
     # The options for the interval displayed on the axis.
@@ -1752,28 +1901,36 @@ Y_AXIS_OPTIONS = {
 # Set the supported options for the color bar's axis.
 COLORBAR_AXIS_OPTIONS = {
 
+    # The options for the color bar's outline.
+    "spine" : \
+
+       {k : {"dtypes" : v["dtypes"],
+             "help" : v["help"].format("color bar's outline")} \
+        for k, v in LINE_OPTIONS.items() \
+        if k in ["linewidth", "linestyle", "color", "alpha"]},
+
+    #-----------------------------------------------------------------#
+
     # The options for the axis' label.
     "label" : {
-        
+
         # The label for the color bar's axis.
         "label" : \
-        
+
            {# Set the supported data types.
             "dtypes" : (str,),
             # Set a help string.
             "help" : "The label for the color bar's axis.",
            },
-        
 
-       # The padding around the label.
+        # The padding around the label.
         "labelpad" : \
-        
+
            {# Set the supported data types.
             "dtypes" : (int, float),
             # Set a help string.
             "help" : "The padding around the label.",
            },
-        
 
         # The alignment of the label text.
         "loc" : \
@@ -1783,7 +1940,19 @@ COLORBAR_AXIS_OPTIONS = {
             # Set a help string.
             "help" : "The alignment of the label text.",
            },
-        
+
+        # The maximum length of a line of the label.
+        "max_length" : \
+
+           {# Set the supported data types.
+            "dtypes" : (int,),
+            # Set a help string.
+            "help" : \
+                "The maximum length of a line of the label. Longer " \
+                "labels are split into lines at word boundaries. It " \
+                "is set to 20 by default.",
+           },
+
         # Font properties options.
         "fontproperties" : FONT_PROPERTIES_OPTIONS,
 
@@ -1799,40 +1968,57 @@ COLORBAR_AXIS_OPTIONS = {
 
         # The format for the color bar's axis' ticks' labels.
         "fmt" : \
-        
+
            {# Set the supported data types.
             "dtypes" : (str,),
             # Set a help string.
             "help" : \
-                "The format for the color bar's' ticks' labels.",
+                "The format for the color bar's ticks' labels.",
            },
-        
+
+        # The maximum length of a line of the ticks' labels.
+        "max_length" : \
+
+           {# Set the supported data types.
+            "dtypes" : (int,),
+            # Set a help string.
+            "help" : \
+                "The maximum length of a line of the ticks' labels. " \
+                "Longer labels are split into lines at word " \
+                "boundaries. It is set to 20 by default.",
+           },
+
         #-------------------------------------------------------------#
 
         # Other options for the color bar's axis' ticks' labels.
         "options" : {
-        
+
             # The list of labels for the color bar's axis' ticks.
             "labels" : \
-            
+
                {# Set the supported data types.
                 "dtypes" : (list,),
                 # Set a help string.
                 "help" : \
-                    "The list of labels for the color bar's' axis' " \
+                    "The list of labels for the color bar's axis' " \
                     "ticks.",
                },
 
             # Font properties options.
             "fontproperties" : FONT_PROPERTIES_OPTIONS,
-            
+
             # Other options for the labels' text.
             **TEXT_OPTIONS,
-            
+
             },
 
         },
-    
+
+    #-----------------------------------------------------------------#
+
+    # The options for the ticks.
+    "tick_params" : TICK_PARAMS_OPTIONS,
+
     #-----------------------------------------------------------------#
 
     # The options for the interval displayed on the axis.
@@ -1851,18 +2037,18 @@ VLINE_OPTIONS = {
 
     # The x-coordinate of the vertical line.
     "x" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
         "help" : "The x-coordinate of the vertical line.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The starting point of the vertical line.
     "ymin" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -1871,20 +2057,20 @@ VLINE_OPTIONS = {
             "between 0 and 1, with 0 being the bottom of the plot " \
             "and 1 the top.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The ending point of the vertical line.
     "ymax" : \
-        
-        {# Set the supported data types.
+
+       {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
         "help" : \
             "The ending point of the vertical line. It should be " \
             "between 0 and 1, with 0 being the bottom of the plot " \
             "and 1 the top.",
-        },
+       },
 
     #-----------------------------------------------------------------#
 
@@ -1909,18 +2095,18 @@ HLINE_OPTIONS = {
 
     # The y-coordinate of the horizontal line.
     "y" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
         "help" : "The y-coordinate of the horizontal line.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The starting point of the horizontal line.
     "xmin" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -1929,12 +2115,12 @@ HLINE_OPTIONS = {
             "be between 0 and 1, with 0 being the leftmost part of " \
             "the plot and 1 the rightmost.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The ending point of the horizontal line.
-    "ymax" : \
-        
+    "xmax" : \
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -1942,7 +2128,7 @@ HLINE_OPTIONS = {
             "The ending point of the horizontal line. It should be " \
             "between 0 and 1, with 0 being the leftmost part of the " \
             "plot and 1 the rightmost.",
-        },
+       },
 
     #-----------------------------------------------------------------#
 
@@ -1967,13 +2153,26 @@ COLORBAR_OPTIONS = {
 
     # The color map used for the color bar.
     "cmap" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
         "help" : "The color map used for the color bar.",
        },
-    
+
+    #-----------------------------------------------------------------#
+
+    # The positions of the ticks on the color bar.
+    "ticks" : \
+
+       {# Set the supported data types.
+        "dtypes" : (list,),
+        # Set a help string.
+        "help" : \
+            "The positions of the ticks on the color bar. If not " \
+            "passed, they are computed from the 'interval' options.",
+       },
+
     #-----------------------------------------------------------------#
 
     # Other options for the color bar.
@@ -1982,7 +2181,7 @@ COLORBAR_OPTIONS = {
         # The location of the color bar with respect to the plot area
         # where the color bar is created.
         "location" : \
-        
+
            {# Set the supported data types.
             "dtypes" : (str,),
             # Set a help string.
@@ -1995,12 +2194,12 @@ COLORBAR_OPTIONS = {
                 "'right' if the color bar's orientation is not " \
                 "specified.",
            },
-        
+
         #-------------------------------------------------------------#
 
         # The orientation of the color bar.
         "orientation" : \
-        
+
            {# Set the supported data types.
             "dtypes" : (str,),
             # Set a help string.
@@ -2013,10 +2212,10 @@ COLORBAR_OPTIONS = {
            },
 
         #-------------------------------------------------------------#
-        
+
         # The fraction of the plot's area used for the color bar.
         "fraction" : \
-        
+
            {# Set the supported data types.
             "dtypes" : (int, float),
             # Set a help string.
@@ -2024,12 +2223,12 @@ COLORBAR_OPTIONS = {
                 "The fraction of the plot's area used for the color " \
                 "bar.",
            },
-        
+
         #-------------------------------------------------------------#
 
         # The fraction by which to multiply the size of the color bar.
         "shrink" : \
-            
+
            {# Set the supported data types.
             "dtypes" : (int, float),
             # Set a help string.
@@ -2037,13 +2236,13 @@ COLORBAR_OPTIONS = {
                 "The fraction by which to multiply the size of the " \
                 "color bar. It is set to '1.0' by default.",
            },
-        
+
         #-------------------------------------------------------------#
 
         # The ratio between the long and short dimensions of the color
         # bar.
         "aspect" : \
-        
+
            {# Set the supported data types.
             "dtypes" : (int, float),
             # Set a help string.
@@ -2051,13 +2250,13 @@ COLORBAR_OPTIONS = {
                 "The ratio between the long and short dimensions of " \
                 "the color bar. It is set to '20' by default.",
            },
-        
+
         #-------------------------------------------------------------#
 
         # The fraction of the original plot area between the color bar
         # and the plot.
         "pad" : \
-        
+
            {# Set the supported data types.
             "dtypes" : (int, float),
             # Set a help string.
@@ -2067,12 +2266,12 @@ COLORBAR_OPTIONS = {
                 "default if the color bar is vertical and to '0.15' " \
                 "if horizontal.",
            },
-            
+
         #-------------------------------------------------------------#
 
-        # Extend the color bar for out-of-range values.
+        # Whether to extend the color bar for out-of-range values.
         "extend" : \
-        
+
            {# Set the supported data types.
             "dtypes" : (str,),
             # Set a help string.
@@ -2083,12 +2282,12 @@ COLORBAR_OPTIONS = {
                 "only the lower or upper end of the color bar is " \
                 "extended.",
            },
-        
+
         #-------------------------------------------------------------#
 
         # The length of the extensions.
         "extendfrac" : \
-        
+
            {# Set the supported data types.
             "dtypes" : (int, float),
             # Set a help string.
@@ -2102,13 +2301,13 @@ COLORBAR_OPTIONS = {
                 "lower and upper extension as a fraction of the " \
                 "length of the color bar's interior.",
            },
-        
+
         #-------------------------------------------------------------#
 
         # Whether the color bar's extensions are rectangular (as
         # opposed to the default triangular ones).
         "extendrect" : \
-        
+
            {# Set the supported data types.
             "dtypes" : (bool,),
             # Set a help string.
@@ -2116,12 +2315,12 @@ COLORBAR_OPTIONS = {
                 "Whether the color bar's extensions are rectangular " \
                 "(as opposed to the default triangular ones).",
            },
-        
+
         #-------------------------------------------------------------#
 
-        # A format string representing the format of the ticks' labels.
+        # The format of the ticks' labels.
         "format" : \
-        
+
            {# Set the supported data types.
             "dtypes" : (str,),
             # Set a help string.
@@ -2131,7 +2330,7 @@ COLORBAR_OPTIONS = {
            },
 
         },
-        
+
     #-----------------------------------------------------------------#
 
     # Options for the color bar's axis.
@@ -2139,7 +2338,7 @@ COLORBAR_OPTIONS = {
 
     #-----------------------------------------------------------------#
 
-    } 
+    }
 
 
 #######################################################################
@@ -2150,18 +2349,31 @@ HISTOGRAM_OPTIONS = {
 
     # The number of bins in the histogram.
     "num_bins" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int,),
         # Set a help string.
         "help" : "The number of bins in the histogram.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
+    # The width of the bins.
+    "width" : \
+
+       {# Set the supported data types.
+        "dtypes" : (int, float),
+        # Set a help string.
+        "help" : \
+            "The width of the bins, used if 'num_bins' is not set. " \
+            "It is set to 0.25 by default.",
+       },
+
+    #-----------------------------------------------------------------#
+
     # Whether to draw a probability density function.
     "density" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
@@ -2171,14 +2383,14 @@ HISTOGRAM_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-    
+
     # Other options.
-    **{k : {"dtypes" : v["dtypes"], 
+    **{k : {"dtypes" : v["dtypes"],
             "help" : v["help"].format("histogram bins")} \
         for k, v in PATCH_OPTIONS.items() \
         if k in ["color", "alpha", "fill", "edgecolor", "linewidth",
                  "linestyle", "capstyle", "joinstyle"]},
-    
+
     #-----------------------------------------------------------------#
 
     }
@@ -2190,7 +2402,7 @@ HISTOGRAM_OPTIONS = {
 # Set the supported options for bar plots.
 BARPLOT_OPTIONS = {
 
-    # The palette.
+    # The palette used to color the bars.
     "palette" : \
 
        {# Set the supported data types.
@@ -2201,14 +2413,14 @@ BARPLOT_OPTIONS = {
             "either the name of a color map or a list of colors. " \
             "More details about how colors can be specified can be " \
             f"found at: {LINKS['colors']}.",
-        },
+       },
 
     #-----------------------------------------------------------------#
 
     # The proportion of the original colors' saturation used when
-    # coloring the bars. 
+    # coloring the bars.
     "saturation" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -2216,11 +2428,11 @@ BARPLOT_OPTIONS = {
             "The proportion of the original colors' saturation " \
             "used when coloring the bars.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # Other options.
-    **{k : {"dtypes" : v["dtypes"], 
+    **{k : {"dtypes" : v["dtypes"],
             "help" : v["help"].format("bars")} \
         for k, v in PATCH_OPTIONS.items() \
         if k in ["fill", "edgecolor", "alpha", "linewidth",
@@ -2235,7 +2447,7 @@ BARPLOT_OPTIONS = {
 # Set the supported options for line plots.
 LINEPLOT_OPTIONS = {
 
-    # The palette.
+    # The palette used to color the lines.
     "palette" : \
 
        {# Set the supported data types.
@@ -2246,7 +2458,7 @@ LINEPLOT_OPTIONS = {
             "either the name of a color map or a list of colors. " \
             "More details about how colors can be specified can be " \
             f"found at: {LINKS['colors']}.",
-        },
+       },
 
     #-----------------------------------------------------------------#
 
@@ -2265,11 +2477,6 @@ LINEPLOT_OPTIONS = {
 
 # Set the supported options for the colors used across a figure's
 # sub-plots.
-#
-# 'get_colors' has always read these, but they were in no template, so
-# 'parse_config_plot' pruned them out of any configuration that carried
-# them and the plot fell back to the default color map. A caller could
-# pass a palette and get husl.
 COLORS_OPTIONS = {
 
     # A single color, used for every sub-plot.
@@ -2280,7 +2487,7 @@ COLORS_OPTIONS = {
         # Set a help string.
         "help" : \
             "A single color, used for every sub-plot.",
-        },
+       },
 
     #-----------------------------------------------------------------#
 
@@ -2293,7 +2500,7 @@ COLORS_OPTIONS = {
         "help" : \
             "The colors to use, one per sub-plot. If there are " \
             "fewer colors than sub-plots, they are cycled.",
-        },
+       },
 
     #-----------------------------------------------------------------#
 
@@ -2306,7 +2513,7 @@ COLORS_OPTIONS = {
         "help" : \
             "The name of a color map the colors are sampled from, " \
             f"one per sub-plot. More details: {LINKS['colors']}.",
-        },
+       },
     }
 
 
@@ -2315,6 +2522,20 @@ COLORS_OPTIONS = {
 
 # Set the supported options for scatter plots.
 SCATTERPLOT_OPTIONS = {
+
+    # The color of the markers.
+    "color" : \
+
+       {# Set the supported data types.
+        "dtypes" : (str, tuple),
+        # Set a help string.
+        "help" : \
+            "The color of the markers. More details about how " \
+            "colors can be specified can be found at: " \
+            f"{LINKS['colors']}.",
+       },
+
+    #-----------------------------------------------------------------#
 
     # The palette used to color the markers.
     "palette" : \
@@ -2327,7 +2548,7 @@ SCATTERPLOT_OPTIONS = {
             "either the name of a color map or a list of colors. " \
             "More details about how colors can be specified can be " \
             f"found at: {LINKS['colors']}.",
-        },
+       },
 
     #-----------------------------------------------------------------#
 
@@ -2341,12 +2562,12 @@ SCATTERPLOT_OPTIONS = {
             "The style of the markers. All available marker styles " \
             f"can be found at: {LINKS['markers']}.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The size of the markers in points**2.
     "s" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -2354,16 +2575,16 @@ SCATTERPLOT_OPTIONS = {
             "The marker size in points**2. Typographic points " \
             "are 1/72 inches.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # Other options.
-    **{k : {"dtypes" : v["dtypes"], 
+    **{k : {"dtypes" : v["dtypes"],
             "help" : v["help"].format("markers")} \
         for k, v in COLLECTION_OPTIONS.items() \
         if k in ["edgecolors", "alpha", "linewidths", "linestyles",
                  "capstyle", "joinstyle"]},
-    
+
     #-----------------------------------------------------------------#
 
     }
@@ -2377,7 +2598,7 @@ BOXPLOT_OPTIONS = {
 
     # The color of the boxes.
     "color" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (str, tuple),
         # Set a help string.
@@ -2385,7 +2606,7 @@ BOXPLOT_OPTIONS = {
             "The color of the boxes. More details about how colors " \
             f"can be specified can be found at: {LINKS['colors']}.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The palette used to color the boxes.
@@ -2400,13 +2621,13 @@ BOXPLOT_OPTIONS = {
             "More details about how colors can be specified can be " \
             f"found at: {LINKS['colors']}.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The proportion of the original colors' saturation used when
-    # coloring the boxes. 
+    # coloring the boxes.
     "saturation" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -2414,12 +2635,12 @@ BOXPLOT_OPTIONS = {
             "The proportion of the original colors' saturation " \
             "used when coloring the boxes.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # Whether to draw solid boxes.
     "fill" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
@@ -2432,7 +2653,7 @@ BOXPLOT_OPTIONS = {
 
     # Whether to draw notched boxes instead of rectangular ones.
     "notch" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
@@ -2441,12 +2662,12 @@ BOXPLOT_OPTIONS = {
             "ones. The notches represent the confidence interval " \
             "(CI) around the median.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # Whether to bootstrap when calculating the confidence interval.
     "bootstrap" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int,),
         # Set a help string.
@@ -2458,12 +2679,12 @@ BOXPLOT_OPTIONS = {
             "calculated using a Gaussian-based asymptotic " \
             "approximation.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The position of the whiskers.
     "whis" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (float, tuple),
         # Set a help string.
@@ -2472,29 +2693,29 @@ BOXPLOT_OPTIONS = {
             "whisker is at the lowest data point above " \
             "'Q1 - whis*(Q3-Q1)', and the higher one is at the " \
             "highest data point below 'Q3 + whis*(Q3-Q1)', where " \
-            "'Q1' and 'Q3' are the first and third quantiles, " \
+            "'Q1' and 'Q3' are the first and third quartiles, " \
             "respectively. If a 'tuple' of 'float', they indicate " \
             "the percentiles at which to draw the whiskers. It is " \
             "set to 1.5 by default.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The width of the boxes.
     "widths" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
         "help" : \
-            "The width of the boxes. It is set to '0.5 by default.",
+            "The width of the boxes. It is set to '0.5' by default.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # Whether to show the boxes.
     "showbox" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
@@ -2506,7 +2727,7 @@ BOXPLOT_OPTIONS = {
 
     # Whether to show the arithmetic means.
     "showmeans" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
@@ -2514,12 +2735,12 @@ BOXPLOT_OPTIONS = {
             "Whether to show the arithmetic means. It is 'False' " \
             "by default.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # Whether to show the caps at the end of the whiskers.
     "showcaps" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
@@ -2527,12 +2748,12 @@ BOXPLOT_OPTIONS = {
             "Whether to show the caps at the end of the whiskers. " \
             "It is 'True' by default.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # Whether to show the fliers (the outliers beyond the caps).
     "showfliers" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
@@ -2546,7 +2767,7 @@ BOXPLOT_OPTIONS = {
     # Whether to render the means as lines spanning the entire width
     # of the boxes.
     "meanline" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
@@ -2554,13 +2775,13 @@ BOXPLOT_OPTIONS = {
             "Whether to render the means as lines spanning the " \
             "entire width of the boxes. It is 'False' by default.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The options for the boxes.
     "boxprops" : \
-        
-       {k : {"dtypes" : v["dtypes"], 
+
+       {k : {"dtypes" : v["dtypes"],
               "help" : v["help"].format("boxes")} \
         for k, v in PATCH_OPTIONS.items() \
         if k in ["facecolor", "edgecolor", "linewidth", "hatch"]},
@@ -2569,7 +2790,7 @@ BOXPLOT_OPTIONS = {
 
     # The options for the medians.
     "medianprops" : \
-    
+
        {k : {"dtypes" : v["dtypes"],
              "help" : v["help"].format(\
                 "lines representing the medians")} \
@@ -2577,12 +2798,12 @@ BOXPLOT_OPTIONS = {
         if k in ["linewidth", "linestyle", "solid_capstyle",
                  "dash_capstyle", "dash_joinstyle", "color",
                  "gapcolor", "alpha"]},
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The options for the means, if 'meanline' is set to 'True'.
     "meanprops_line" : \
-        
+
        {k : {"dtypes" : v["dtypes"],
              "help" : v["help"].format(\
                 "lines representing the means")} \
@@ -2590,25 +2811,25 @@ BOXPLOT_OPTIONS = {
         if k in ["linewidth", "linestyle", "solid_capstyle",
                  "dash_capstyle", "dash_joinstyle", "color",
                  "gapcolor", "alpha"]},
-    
+
     #-----------------------------------------------------------------#
 
     # The options for the means, if 'meanline' is set to 'False'.
     "meanprops_marker" : \
-    
+
        {k : {"dtypes" : v["dtypes"],
              "help" : v["help"].format(\
                 "markers representing the means")} \
         for k, v in LINE_OPTIONS.items() \
-        if k in ["marker", "markerevery", "markersize",
+        if k in ["marker", "markevery", "markersize",
                  "markeredgewidth", "fillstyle", "markeredgecolor",
                  "markerfacecolor", "markerfacecoloralt", "alpha"]},
-    
+
     #-----------------------------------------------------------------#
 
     # The options for the whiskers.
     "whiskerprops" : \
-    
+
        {k : {"dtypes" : v["dtypes"],
              "help" : v["help"].format(\
                 "lines representing the whiskers")} \
@@ -2616,12 +2837,12 @@ BOXPLOT_OPTIONS = {
         if k in ["linewidth", "linestyle", "solid_capstyle",
                  "dash_capstyle", "dash_joinstyle", "color",
                  "gapcolor", "alpha"]},
-    
+
     #-----------------------------------------------------------------#
 
     # The options for the caps.
     "capprops" : \
-    
+
        {k : {"dtypes" : v["dtypes"],
              "help" : v["help"].format(\
                 "lines representing the caps")} \
@@ -2629,20 +2850,20 @@ BOXPLOT_OPTIONS = {
         if k in ["linewidth", "linestyle", "solid_capstyle",
                  "dash_capstyle", "dash_joinstyle", "color",
                  "gapcolor", "alpha"]},
-    
+
     #-----------------------------------------------------------------#
 
     # The options for the fliers.
     "flierprops" : \
-    
+
        {k : {"dtypes" : v["dtypes"],
              "help" : v["help"].format(\
-                "lines representing the fliers")} \
+                "markers representing the fliers")} \
         for k, v in LINE_OPTIONS.items() \
-        if k in ["marker", "markerevery", "markersize",
+        if k in ["marker", "markevery", "markersize",
                  "markeredgewidth", "fillstyle", "markeredgecolor",
                  "markerfacecolor", "markerfacecoloralt", "alpha"]},
-    
+
     #-----------------------------------------------------------------#
 
     }
@@ -2665,7 +2886,7 @@ VIOLINPLOT_OPTIONS = {
             "how colors can be specified can be found at: " \
             f"{LINKS['colors']}.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The colors to use either for each side of a split violin
@@ -2682,26 +2903,26 @@ VIOLINPLOT_OPTIONS = {
             "colors can be specified can be found at: " \
             f"{LINKS['colors']}.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
-    # The proportion of the original saturation to draw fill colors
-    # in.
+
+    # The proportion of the original colors' saturation used when
+    # coloring the violins.
     "saturation" : \
-        
+
        {# Set the supported data types.
-        "dtypes" : (float),
+        "dtypes" : (int, float),
         # Set a help string.
         "help" : \
             "The proportion of the original colors' saturation used " \
             "when coloring the violins.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # Whether to draw a filled violin.
     "fill" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
@@ -2709,12 +2930,12 @@ VIOLINPLOT_OPTIONS = {
             "Whether to draw a filled violin. If 'False', only the " \
             "violin's edges will be drawn.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The representation of the data in the violin's interior.
     "inner" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (str, None.__class__),
         # Set a help string.
@@ -2723,26 +2944,26 @@ VIOLINPLOT_OPTIONS = {
             "It can be either 'box' (draws a miniature boxplot), " \
             "'quartile' (draws the quartiles of the distribution), " \
             "'point' (draws the individual data points), or 'stick' " \
-            "(draws the individual data points as sticks). If " 
+            "(draws the individual data points as sticks). If "
             "'None', no representation is drawn.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The width allotted to each violin on the x-axis.
     "width" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
         "help" : "The width allotted to each violin on the x-axis.",
        },
-    
+
     #-----------------------------------------------------------------#
 
-    # Shrink the violins on the x-axis by this factor to add a gap.
+    # The factor by which to shrink the violins to add a gap.
     "gap" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -2752,17 +2973,17 @@ VIOLINPLOT_OPTIONS = {
        },
 
     #-----------------------------------------------------------------#
-    
+
     # The distance, in units of bandwidth, to extend the density
     # past the extreme data points.
     "cut" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
         "help" : \
             "The distance, in units of bandwidth, to extend the " \
-            "density past the extreme data points. Set it to 0 to " 
+            "density past the extreme data points. Set it to 0 to "
             "limit the violin's range within the range of the " \
             "observed data.",
        },
@@ -2772,7 +2993,7 @@ VIOLINPLOT_OPTIONS = {
     # The number of points in the discrete grid used to evaluate
     # the KDE.
     "gridsize" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int,),
         # Set a help string.
@@ -2780,28 +3001,28 @@ VIOLINPLOT_OPTIONS = {
             "The number of points in the discrete grid used to " \
             "evaluate the KDE.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # Either the name of a reference rule or the scale factor to
     # use when computing the kernel bandwidth.
     "bw_method" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (str, int, float),
         # Set a help string.
         "help" : \
             "Either the name of a reference rule ('scott' or " \
-            "'silverman') the scale factor to use when computing " \
+            "'silverman') or the scale factor to use when computing " \
             "the kernel bandwidth.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The factor that scales the bandwidth to use more or less
     # smoothing.
     "bw_adjust" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
@@ -2809,13 +3030,13 @@ VIOLINPLOT_OPTIONS = {
             "The factor that scales the bandwidth to use more " \
             "or less smoothing.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The method that normalizes each density to determine the
     # violins' width.
     "density_norm" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
@@ -2825,13 +3046,13 @@ VIOLINPLOT_OPTIONS = {
             "the same area. If 'count', the width will be " \
             "proportional to the number of observations. If " \
             "'width', each violin will have the same width.",
-        },
-    
+       },
+
     #-----------------------------------------------------------------#
-    
+
     # Whether to normalize the density across all violins.
     "common_norm" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
@@ -2839,16 +3060,40 @@ VIOLINPLOT_OPTIONS = {
             "Whether to normalize the density across all violins. " \
             "It is 'False' by default.",
        },
-    
+
+    #-----------------------------------------------------------------#
+
+    # The color of the violins' lines.
+    "linecolor" : \
+
+       {# Set the supported data types.
+        "dtypes" : (str, tuple),
+        # Set a help string.
+        "help" : \
+            "The color of the violins' lines. More details about " \
+            "how colors can be specified can be found at: " \
+            f"{LINKS['colors']}.",
+       },
+
+    #-----------------------------------------------------------------#
+
+    # The width of the violins' lines.
+    "linewidth" : \
+
+       {# Set the supported data types.
+        "dtypes" : (int, float),
+        # Set a help string.
+        "help" : "The width of the violins' lines.",
+       },
+
     #-----------------------------------------------------------------#
 
     # Other options.
-    **{k : {"dtypes" : v["dtypes"], 
+    **{k : {"dtypes" : v["dtypes"],
             "help" : v["help"].format("violins")} \
         for k, v in COLLECTION_OPTIONS.items() \
-        if k in ["edgecolors", "linewidths", "linestyles",
-                 "capstyle", "joinstyle"]},
-    
+        if k in ["capstyle", "joinstyle"]},
+
     #-----------------------------------------------------------------#
 
     }
@@ -2871,72 +3116,55 @@ STRIPPLOT_OPTIONS = {
             "how colors can be specified can be found at: " \
             f"{LINKS['colors']}.",
        },
-    
+
     #-----------------------------------------------------------------#
 
-    # The colors to use either for each side of a split violin
-    # or for each violin in a group.
+    # The palette used to color the points.
     "palette" : \
 
        {# Set the supported data types.
         "dtypes" : (str, list),
         # Set a help string.
         "help" : \
-            "The colors for each side of a split violin or each " \
-            "violin in a group. It can be either the name of a " \
-            "color map or a list of colors. More details about how " \
-            "colors can be specified can be found at: " \
-            f"{LINKS['colors']}.",
+            "The palette used to color the points. It can be " \
+            "either the name of a color map or a list of colors. " \
+            "More details about how colors can be specified can be " \
+            f"found at: {LINKS['colors']}.",
        },
-    
-    #-----------------------------------------------------------------#
-    
-    # The width allotted to each violin on the x-axis.
-    "width" : \
-        
-       {# Set the supported data types.
-        "dtypes" : (int, float),
-        # Set a help string.
-        "help" : "The width allotted to each violin on the x-axis.",
-       },
-    
 
     #-----------------------------------------------------------------#
-    
-    # The width of the violin's edges.
+
+    # The width of the points' edges.
     "linewidth" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
-        "help" : "The width of the violin's edges in points.",
+        "help" : "The width of the points' edges in points.",
        },
 
     #-----------------------------------------------------------------#
 
-    # The color to use for line elements.
-    "linecolor" : \
-        
+    # The color of the points' edges.
+    "edgecolor" : \
+
        {# Set the supported data types.
         "dtypes" : (str, tuple),
         # Set a help string.
         "help" : \
-            "The color for line elements. More details about how " \
-            "colors can be specified can be found at: " \
+            "The color of the points' edges. More details about " \
+            "how colors can be specified can be found at: " \
             f"{LINKS['colors']}.",
        },
-    
 
-    
     #-----------------------------------------------------------------#
 
     # Other options.
-    **{k : {"dtypes" : v["dtypes"], 
+    **{k : {"dtypes" : v["dtypes"],
             "help" : v["help"].format("markers")} \
         for k, v in COLLECTION_OPTIONS.items() \
-        if k in ["linewidth", "edgecolor", "linestyle",
-                 "capstyle", "joinstyle"]},
-    
+        if k in ["linestyles"]},
+
     #-----------------------------------------------------------------#
 
     }
@@ -2950,7 +3178,7 @@ OUTPUT_OPTIONS = {
 
     # Whether the figure's background is transparent.
     "transparent" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (bool,),
         # Set a help string.
@@ -2963,7 +3191,7 @@ OUTPUT_OPTIONS = {
 
     # The DPI (dots per inch) of the output file.
     "dpi" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int,),
         # Set a help string.
@@ -2974,7 +3202,7 @@ OUTPUT_OPTIONS = {
 
     # The figure's bounding box.
     "bbox_inches" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
@@ -2982,12 +3210,12 @@ OUTPUT_OPTIONS = {
             "The figure's bounding box. It can be 'tight' or " \
             "'standard'.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The color of the figure's background.
     "facecolor" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (str, tuple),
         # Set a help string.
@@ -2996,7 +3224,7 @@ OUTPUT_OPTIONS = {
             "about how colors can be specified can be found at: " \
             f"{LINKS['colors']}.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The color of the edges of the figure.
@@ -3010,12 +3238,12 @@ OUTPUT_OPTIONS = {
             "about how colors can be specified can be found at: " \
             f"{LINKS['colors']}.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The orientation of the figure.
     "orientation" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
@@ -3023,12 +3251,12 @@ OUTPUT_OPTIONS = {
             "The orientation of the figure. It can be 'landscape' " \
             "or 'portrait'.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The paper type for the figure.
     "papertype" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
@@ -3038,23 +3266,23 @@ OUTPUT_OPTIONS = {
             "or 'b0' through 'b10'. It is only supported for " \
             "PostScript outputs.",
        },
-    
+
     #-----------------------------------------------------------------#
-    
+
     # The padding around the figure in inches.
     "pad_inches" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (int, float),
         # Set a help string.
         "help" : "The padding around the figure in inches.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     # The backend to use.
     "backend" : \
-    
+
        {# Set the supported data types.
         "dtypes" : (str,),
         # Set a help string.
@@ -3062,7 +3290,7 @@ OUTPUT_OPTIONS = {
             "The backend to use. All available backends " \
             f"can be found at: {LINKS['backends']}.",
        },
-    
+
     #-----------------------------------------------------------------#
 
     }
@@ -3071,10 +3299,10 @@ OUTPUT_OPTIONS = {
 #######################################################################
 
 
-# Set a mapping between the sections that we can encounter in a
-# configuration and the name of the item they refer to.
+# Set a mapping between the configuration's sections and the names
+# of the items they refer to.
 SECTIONS2ITEMS = {
-    
+
     # Plot elements.
     "figure" : "figure",
     "title" : "title",
@@ -3101,8 +3329,7 @@ SECTIONS2ITEMS = {
     "boxplot" : "box plot",
     "violinplot" : "violin plot",
     "stripplot" : "strip plot",
-    
+
     # Output options.
     "output" : "output",
     }
-

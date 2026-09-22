@@ -5,7 +5,7 @@
 #
 #    Templates for the different configurations.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -37,7 +37,6 @@ __doc__ = "Templates for the different configurations."
 import copy
 
 # Import from bulkdgd.
-from bulkdgd import _internals
 from bulkdgd import core
 from . import metrics
 
@@ -45,9 +44,10 @@ from . import metrics
 #######################################################################
 
 
-def _override_items(d, paths2values):
+def _override_items(d,
+                    paths2values):
     """Return a copy of ``d`` with the value at the end of each "key
-    path" REPLACED by the given value.
+    path" replaced by the given value.
 
     Parameters
     ----------
@@ -55,8 +55,8 @@ def _override_items(d, paths2values):
         The template, or template section, to copy.
 
     paths2values : :class:`dict`
-        A mapping from "key path" - a tuple of keys leading to the key
-        to be set - to the value that key should take.
+        A mapping from "key paths" (tuples of keys leading to the key
+        to be set) to the values those keys should take.
 
     Returns
     -------
@@ -73,10 +73,10 @@ def _override_items(d, paths2values):
         # Start at the top of the copy.
         current = new_d
 
-        # Walk down to the dictionary holding the last key, creating
-        # the intermediate levels if the template does not have them.
+        # For each key leading to the last one
         for key in key_path[:-1]:
 
+            # Walk down one level, creating it if missing.
             current = current.setdefault(key, {})
 
         # Set the value, whether or not the key was already there.
@@ -93,16 +93,16 @@ def _override_items(d, paths2values):
 # model configuration.
 _MODEL_LGMM_OPTIONS = {
 
-    # The number of components in the Gaussian mixture model.     
+    # The number of components in the Gaussian mixture model.
     "n_components" : {
-        
+
         "type" : (int,),
         "condition" : lambda v: v > 0,
         "message" : "must be a positive integer",
         "default" : 45,
         },
 
-    # The type of covariance to use in the Gaussian mixture model.       
+    # The type of covariance to use in the Gaussian mixture model.
     "covariance_type" : {
         "type" : (str,),
         "choices" :  ["fixed",  "isotropic",  "diagonal"],
@@ -116,11 +116,11 @@ _MODEL_LGMM_OPTIONS = {
         "choices" :  ["softball"],
         "default" : "softball",
         },
-    
+
     # The options for the prior distribution of the means of the
     # Gaussian components in the Gaussian mixture model.
     "means_prior_options" : {
-        
+
         "switch" : {
             "option" : "means_prior_type",
             "cases" : {
@@ -140,7 +140,7 @@ _MODEL_LGMM_OPTIONS = {
             },
 
     # The type of prior distribution to use for the weights of the
-    # Gaussian components in the Gaussian mixture model.       
+    # Gaussian components in the Gaussian mixture model.
     "weights_prior_type" : {
         "type" : (str,),
         "choices" : ["dirichlet"],
@@ -201,7 +201,7 @@ _MODEL_LGMM_OPTIONS = {
 # Set the template for the options of the 'tgmm' latent type in the
 # model configuration.
 _MODEL_TGMM_OPTIONS = {
-    
+
     # The number of components in the Gaussian mixture model.
     "n_components" : {
         "type" : (int,),
@@ -210,10 +210,11 @@ _MODEL_TGMM_OPTIONS = {
         "default" : 35,
         },
 
-    # The type of covariance to use in the Gaussian mixture model.  
+    # The type of covariance to use in the Gaussian mixture model.
     "covariance_type" : {
         "type" : (str,),
-        "choices" : core.latents.GaussianMixtureModelTGMM.COVARIANCE_TYPES,
+        "choices" : \
+            core.latents.GaussianMixtureModelTGMM.COVARIANCE_TYPES,
         "default" : "spherical",
         },
 
@@ -225,7 +226,7 @@ _MODEL_TGMM_OPTIONS = {
             core.latents.GaussianMixtureModelTGMM.INIT_MEANS_METHODS,
         "default" : "maxdist",
         },
-    
+
     # The method to use for initializing the weights of the Gaussian
     # components in the Gaussian mixture model.
     "init_weights" : {
@@ -234,16 +235,17 @@ _MODEL_TGMM_OPTIONS = {
             core.latents.GaussianMixtureModelTGMM.INIT_WEIGHTS_METHODS,
         "default" : "uniform",
         },
-    
+
     # The method to use for initializing the covariances of the
     # Gaussian components in the Gaussian mixture model.
     "init_covariances" : {
         "type" : (str,),
-        "choices" : 
-            core.latents.GaussianMixtureModelTGMM.INIT_COVARIANCES_METHODS,
+        "choices" :
+            core.latents.GaussianMixtureModelTGMM.\
+                INIT_COVARIANCES_METHODS,
         "default" : "empirical",
         },
-    
+
     # The tolerance for convergence in the Gaussian mixture model.
     "tol" : {
         "type" : (float, int),
@@ -251,7 +253,7 @@ _MODEL_TGMM_OPTIONS = {
         "message" : "must be a positive number",
         "default" : 1e-4,
         },
-    
+
     # The regularization term.
     "reg_covar" : {
         "type" : (float, int),
@@ -259,20 +261,20 @@ _MODEL_TGMM_OPTIONS = {
         "message" : "must be a non-negative number",
         "default" : 1e-6,
         },
-    
+
     # The number of initializations to perform.
     "n_init" : {
         "type" : (int,),
         "condition" : lambda v: v > 0,
         "message" : "must be a positive integer",
         "default" : 1},
-    
+
     # The random state to use.
     "random_state" : {
         "type" : (int,),
         "default" : None,
         },
-    
+
     # Whether to use the CEM algorithm for fitting the Gaussian mixture
     # model.
     "cem" : {
@@ -289,8 +291,8 @@ _MODEL_TGMM_OPTIONS = {
 # fitted to the representations after training.
 _MODEL_GMM_FINAL_OPTIONS = {
 
-    # A model that does not ask for a final mixture is trained exactly
-    # as before and writes no 'gmm_final.pth'.
+    # The section is optional (without it, no 'gmm_final.pth' is
+    # written).
     "__optional__" : True,
 
     # The type of covariance the final Gaussian mixture model should
@@ -336,29 +338,28 @@ _MODEL_DECODER_OPTIONS = {
                       and n > 0 for n in v),
         "message" : "must be a non-empty list of positive integers",
         },
-    
+
     # The activation functions to use in the hidden layers of the
     # decoder.
     "activations" : {
         "type" : (list,),
         "choices" : core.decoders.Decoder.ACTIVATIONS,
         },
-    
-    # The type of normalization to use in the hidden layers of the
-    # decoder.
+
+    # The dropout rate in the hidden layers of the decoder.
     "dropout" : {
         "type" : (float, int),
         "condition" : lambda v: 0 <= v <= 1,
         "message" : "must be a float between 0 and 1",
         "default" : 0,
         },
-    
+
     # The type of output module to use.
     "output_module_name" : {
         "type" : (str,),
         "choices" : list(core.outputmodules.OUTPUT_MODULES.keys()),
         },
-    
+
     # The options for the output module.
     "output_module_options" : {
         "switch" : {
@@ -367,17 +368,17 @@ _MODEL_DECODER_OPTIONS = {
                 "poisson" : {
                     "activation" : {
                         "type" : (str,),
-                        "choices" : 
+                        "choices" :
                             core.outputmodules.
                                  OutputModulePoisson.
                                     ACTIVATION_FUNCTIONS,
                         },
                     },
-            
+
                 "nb_feature_dispersion" : {
                     "activation" : {
                         "type" : (str,),
-                        "choices" : 
+                        "choices" :
                             core.outputmodules.
                                  OutputModuleNBFeatureDispersion.
                                     ACTIVATION_FUNCTIONS,
@@ -389,7 +390,7 @@ _MODEL_DECODER_OPTIONS = {
                         "default" : 2,
                         },
                     },
-            
+
                 "nb_full_dispersion" : {
 
                     "activation" : {
@@ -413,7 +414,7 @@ _MODEL_DECODER_OPTIONS = {
 # Set the template for the data loader's options in the training
 # configuration.
 _TRAIN_DATA_LOADER = {
-    
+
     # The options for the data loader for training data.
     "train" : {
         "batch_size" : {
@@ -427,7 +428,7 @@ _TRAIN_DATA_LOADER = {
             "default": True,
             },
         },
-    
+
     # The options for the data loader for test data.
     "test" : {
         "batch_size" : {
@@ -449,7 +450,7 @@ _TRAIN_DATA_LOADER = {
 
 # Set the template for the Adam optimizer's options.
 _OPTIMIZER_ADAM = {
-    
+
     # The learning rate for the optimizer.
     "lr" : {
         "type": (float, int),
@@ -457,7 +458,7 @@ _OPTIMIZER_ADAM = {
         "message": "must be a positive number",
         "default": 0.001,
         },
-    
+
     # The weight decay for the optimizer.
     "weight_decay" : {
         "type": (float, int),
@@ -465,7 +466,7 @@ _OPTIMIZER_ADAM = {
         "message": "must be non-negative",
         "default": 0.0,
         },
-    
+
     # The beta parameters for the optimizer.
     "betas" : {
         "type": (list,),
@@ -482,7 +483,7 @@ _OPTIMIZER_ADAM = {
 
 # Set the template for the AdamW optimizer's options.
 _OPTIMIZER_ADAMW = {
-    
+
     # The learning rate for the optimizer.
     "lr" : {
         "type": (float, int),
@@ -490,7 +491,7 @@ _OPTIMIZER_ADAMW = {
         "message": "must be a positive number",
         "default": 0.001,
         },
-    
+
     # The weight decay for the optimizer.
     "weight_decay" : {
         "type": (float, int),
@@ -498,7 +499,7 @@ _OPTIMIZER_ADAMW = {
         "message": "must be non-negative",
         "default": 0.0,
         },
-    
+
     # The beta parameters for the optimizer.
     "betas" : {
         "type": (list,),
@@ -606,7 +607,7 @@ _OPTIMIZER =  {
 # Set the template for the learning rate scheduler's options for the
 # OneCycleLR scheduler.
 _LR_SCHEDULER_ONE_CYCLE = {
-    
+
     # The maximum learning rate for the learning rate scheduler.
     "max_lr" : {
         "type": (float, int),
@@ -614,7 +615,7 @@ _LR_SCHEDULER_ONE_CYCLE = {
         "message": "must be a positive number",
         "default": 0.01,
         },
-    
+
     # The percentage of the cycle to use for increasing the learning
     # rate.
     "pct_start" : {
@@ -623,20 +624,20 @@ _LR_SCHEDULER_ONE_CYCLE = {
         "message": "must be a number between 0 and 1",
         "default": 0.25,
         },
-    
+
     # The annealing strategy to use for the learning rate scheduler.
     "anneal_strategy" : {
         "type": (str,),
         "choices": ["cos", "linear"],
         "default": "cos",
         },
-    
-    # Whether to use momentum cycling in the learning rate scheduler. 
+
+    # Whether to use momentum cycling in the learning rate scheduler.
     "cycle_momentum" : {
         "type": (bool,),
         "default": True,
         },
-    
+
     # The base momentum for the learning rate scheduler.
     "base_momentum" : {
         "type": (float, int),
@@ -644,15 +645,15 @@ _LR_SCHEDULER_ONE_CYCLE = {
         "message": "must be a number between 0 and 1",
         "default": 0.85,
         },
-    
+
     # The maximum momentum for the learning rate scheduler.
     "max_momentum" : {
         "type": (float, int),
         "condition": lambda v: 0 <= v <= 1,
-        "message": "must be a number  between 0 and 1",
+        "message": "must be a number between 0 and 1",
         "default": 0.9,
         },
-    
+
     # The division factor for the learning rate scheduler.
     "div_factor" : {
         "type": (float, int),
@@ -660,7 +661,7 @@ _LR_SCHEDULER_ONE_CYCLE = {
         "message": "must be a positive number",
         "default": 25.0,
         },
-    
+
     # The final division factor for the learning rate scheduler.
     "final_div_factor" : {
         "type": (float, int),
@@ -668,7 +669,7 @@ _LR_SCHEDULER_ONE_CYCLE = {
         "message": "must be a positive number",
         "default": 1000.0,
         },
-    
+
     # Whether to use the three-phase version of the learning rate
     # scheduler.
     "three_phase" : {
@@ -727,20 +728,20 @@ _LR_SCHEDULER = {
 # Set the template for the options for removing collapsed components
 # in the training configuration.
 _COMPONENTS_REMOVAL = {
-    
+
     # The type of removal to use for the collapsed components.
     "components_removal_type" : {
         "type": (str, type(None)),
         "choices": ["weight_threshold"],
         "default": None,
         },
-    
+
     # The options for the removal of the collapsed components.
     "components_removal_options" : {
         "switch" : {
             "option" : "components_removal_type",
             "cases" : {
-                
+
                 "weight_threshold" : {
                     "threshold" : {
                         "type": (float, int),
@@ -779,7 +780,7 @@ _TRAIN_TGMM = {
         "choices": ["metric"],
         "default": None,
         },
-    
+
     # The options for the model selection to use for selecting the best
     # model during training.
     "model_selection_options" : {
@@ -789,6 +790,7 @@ _TRAIN_TGMM = {
 
                 "metric" : {
 
+                    # The metric to use.
                     "metric" : {
                         "type": (str,),
                         "choices": [
@@ -812,24 +814,26 @@ _TRAIN_TGMM = {
             },
         },
 
-    # The epoch at which to start fitting the Gaussian mixture model
-    # during training.
+    # The options for fitting the Gaussian mixture model during
+    # training.
     "fitting" : {
 
+        # The epoch at which to start fitting the Gaussian mixture
+        # model.
         "first_epoch" : {
             "type": (int,),
             "condition": lambda v: v >= 0,
             "message": "must be a non-negative integer",
             "default": 25,
             },
-        
+
         # Whether to refit the Gaussian mixture model at the end of
         # the training period.
         "refit_final" : {
             "type": (bool,),
             "default": True,
             },
-        
+
         # The interval (in epochs) at which to refit the Gaussian
         # mixture model during training.
         "refit_interval" : {
@@ -838,7 +842,7 @@ _TRAIN_TGMM = {
             "message": "must be a non-negative integer",
             "default": 0,
             },
-        
+
         # The maximum number of iterations for fitting the Gaussian
         # mixture model during the first epoch of fitting.
         "max_iter_first_epoch" : {
@@ -847,7 +851,7 @@ _TRAIN_TGMM = {
             "message": "must be a positive integer",
             "default": 1000,
             },
-        
+
         # The maximum number of iterations for fitting the Gaussian
         # mixture model during the epochs of refitting.
         "max_iter_full_refit" : {
@@ -856,17 +860,16 @@ _TRAIN_TGMM = {
             "message": "must be a positive integer",
             "default": 100,
             },
-        
-        # The maximum number of iterations for fitting the Gaussian
-        # mixture model during the epochs of refitting with warm
-        # initialization.
+
+        # The maximum number of iterations for refitting the Gaussian
+        # mixture model with warm initialization.
         "max_iter_warm_refit" : {
             "type": (int,),
             "condition": lambda v: v > 0,
             "message": "must be a positive integer",
             "default": 100,
             },
-        
+
         # The maximum number of iterations for fitting the Gaussian
         # mixture model during the final refitting.
         "max_iter_final_refit" : {
@@ -879,7 +882,7 @@ _TRAIN_TGMM = {
 
     # The options for removing collapsed components.
     **_COMPONENTS_REMOVAL,
-    
+
     }
 
 
@@ -891,7 +894,7 @@ _TRAIN_TGMM = {
 _TRAIN_LGMM = {
 
     # The options for the optimizer used to train the latent space.
-    **_internals.recursive_add_items(
+    **_override_items(
         d = _OPTIMIZER,
         paths2values = {
             ("optimizer_options",
@@ -925,6 +928,7 @@ _TRAIN_LGMM = {
 # diagnostics.
 _TRAIN_DIAGNOSTICS = {
 
+    # The section is optional.
     "__optional__" : True,
 
     # Whether to record each sample's contribution to the decoder's
@@ -934,8 +938,8 @@ _TRAIN_DIAGNOSTICS = {
         "default": False,
         },
 
-    # Save the decoder's state every this many epochs, so that a
-    # TracIn pass can be run offline afterwards. Zero disables it.
+    # The interval (in epochs) at which to save the decoder's state
+    # (0 disables it).
     "checkpoint_every" : {
         "type": (int,),
         "default": 0,
@@ -954,13 +958,11 @@ _TRAIN_DIAGNOSTICS = {
 # model that describes the latent space after training.
 _TRAIN_GMM_FINAL = {
 
-    # A training configuration that says nothing about the final
-    # mixture is not asking for one.
+    # The section is optional.
     "__optional__" : True,
 
-    # What the post-training refit is allowed to change:
-    # 'covariance_only' refits only the covariance in a closed-form
-    # M-step; 'full_em' also re-estimates the means and weights.
+    # What the refit changes: only the covariances ('covariance_only')
+    # or also the means and weights ('full_em').
     "fit" : {
         "type" : (str,),
         "choices" : ["covariance_only", "full_em"],
@@ -1227,7 +1229,7 @@ _REPORTING_OPTIONS = {
                          "adjusted_mutual_info_score"],
             },
         },
-    
+
     # The options for the optional outputs.
     "optional_outputs" : {
 
@@ -1268,7 +1270,7 @@ _REPORTING_OPTIONS = {
                 "default": None,
                 },
             },
-        
+
         # The options for the latent probabilities to output at the
         # end of each epoch during training.
         "latent_probs_epoch" : {
@@ -1287,7 +1289,7 @@ _REPORTING_OPTIONS = {
                 "default": None,
                 },
             },
-        
+
         # The options for the latent means to output at the end of each
         # epoch during training.
         "latent_means_epoch" : {
@@ -1306,7 +1308,7 @@ _REPORTING_OPTIONS = {
                 "default": None,
                 },
             },
-        
+
         # The options for the gene-level saliency maps to output at the
         # end of each epoch during training.
         "genes_saliency_maps_epoch" : {
@@ -1325,7 +1327,7 @@ _REPORTING_OPTIONS = {
                 "default": None,
                 },
             },
-        
+
         # The options for the pathway-level saliency maps to output at
         # the end of each epoch during training.
         "pathways_saliency_maps_epoch" : {
@@ -1353,7 +1355,7 @@ _REPORTING_OPTIONS = {
 
 # Set the template for the options for the optimizations.
 _REP_OPTIMIZATION = {
-    
+
     # The number of epochs for the optimization.
     "epochs" : {
         "type": (int,),
@@ -1361,7 +1363,7 @@ _REP_OPTIMIZATION = {
         "message": "must be a positive integer",
         "default": 50,
         },
-    
+
     # Whether to use automatic learning rate for the optimization.
     "auto_lr" : {
         "type": (bool,),
@@ -1376,14 +1378,14 @@ _REP_OPTIMIZATION = {
         "default": "none",
         },
 
-    # The options for that noise, with the same meanings they have in
-    # '_TRAIN_REPRESENTATIONS'.
+    # The options for the noise.
     "noise_options" : {
         "switch" : {
             "option" : "noise_type",
             "cases" : {
                 "gaussian" : {
 
+                    # The base scale of the Gaussian noise.
                     "scale" : {
                         "type": (float, int),
                         "condition": lambda v: v >= 0,
@@ -1391,6 +1393,7 @@ _REP_OPTIMIZATION = {
                         "default": 0.0,
                         },
 
+                    # The scale multiplier at the start.
                     "start" : {
                         "type": (float, int),
                         "condition": lambda v: v >= 0,
@@ -1398,6 +1401,7 @@ _REP_OPTIMIZATION = {
                         "default": 1.0,
                         },
 
+                    # The scale multiplier at the end.
                     "end" : {
                         "type": (float, int),
                         "condition": lambda v: v >= 0,
@@ -1405,6 +1409,8 @@ _REP_OPTIMIZATION = {
                         "default": 0.01,
                         },
 
+                    # The probability mass the noise keeps within the
+                    # component's radius.
                     "within_radius_prob" : {
                         "type": (float, int),
                         "condition": lambda v: 0 <= v <= 1,
@@ -1412,6 +1418,7 @@ _REP_OPTIMIZATION = {
                         "default": 0.95,
                         },
 
+                    # The final multiplier on the noise.
                     "gain" : {
                         "type": (float, int),
                         "condition": lambda v: v >= 0,
@@ -1446,13 +1453,11 @@ _REP_OPTIMIZATION = {
 #---------------------------------------------------------------------#
 
 
-# Set the template for the options of the optimizers in the 
-# representations configuration for the 'two_opt' scheme when
-# the latent space is the legacy Gaussian mixture model.
+# Set the template for the options of the 'two_opt' scheme in the
+# representations configuration, for the 'lgmm' latent type.
 _REP_TWO_OPT_LGMM = {
 
-    # How much of a sample the model is allowed to give up on when
-    # finding a representation.
+    # The weight of the outlier component in the loss (0 disables it).
     "contamination" : {
         "type": (float, int),
         "condition": lambda v: 0.0 <= v < 1.0,
@@ -1460,7 +1465,7 @@ _REP_TWO_OPT_LGMM = {
         "default": 0.0,
         },
 
-    # The r-value of the outlier component of that mixture.
+    # The r-value of the outlier component.
     "contamination_r" : {
         "type": (float, int),
         "condition": lambda v: v > 0,
@@ -1468,18 +1473,18 @@ _REP_TWO_OPT_LGMM = {
         "default": 0.05,
         },
 
-
     # The reduction method to use for the loss.
     "loss_reduction_type" : {
         "type": (str,),
         "choices": ["mean", "sum"],
         "default": "sum",
         },
-    
-    # A data-driven starting point for the search, replacing one of
-    # the mixture draws. Optional, and absent by default.
+
+    # The options for a data-driven starting point for the search,
+    # replacing one of the mixture draws.
     "warm_start" : {
 
+        # The section is optional.
         "__optional__" : True,
 
         # The fitted predictor, written by
@@ -1492,7 +1497,7 @@ _REP_TWO_OPT_LGMM = {
 
     # The options for the first optimization of the representations.
     "optimization_1" : \
-        _internals.recursive_add_items(
+        _override_items(
             d = _REP_OPTIMIZATION,
             paths2values = \
                 {("epochs",
@@ -1500,19 +1505,18 @@ _REP_TWO_OPT_LGMM = {
 
     # The options for the second optimization of the representations.
     "optimization_2" : _REP_OPTIMIZATION,
-    
+
     }
+
 
 #---------------------------------------------------------------------#
 
 
-# Set the template for the options of the optimizers in the
-# representations configuration for the 'two_opt' scheme when
-# the latent space is the TorchGMM wrapper.
+# Set the template for the options of the 'two_opt' scheme in the
+# representations configuration, for the 'tgmm' latent type.
 _REP_TWO_OPT_TGMM = {
 
-    # How much of a sample the model is allowed to give up on when
-    # finding a representation.
+    # The weight of the outlier component in the loss (0 disables it).
     "contamination" : {
         "type": (float, int),
         "condition": lambda v: 0.0 <= v < 1.0,
@@ -1520,14 +1524,13 @@ _REP_TWO_OPT_TGMM = {
         "default": 0.0,
         },
 
-    # The r-value of the outlier component of that mixture.
+    # The r-value of the outlier component.
     "contamination_r" : {
         "type": (float, int),
         "condition": lambda v: v > 0,
         "message": "must be a positive number",
         "default": 0.05,
         },
-
 
     # The reduction method to use for the loss.
     "loss_reduction_type" : {
@@ -1546,10 +1549,11 @@ _REP_TWO_OPT_TGMM = {
             },
         },
 
-    # A data-driven starting point for the search, replacing one of
-    # the mixture draws.
+    # The options for a data-driven starting point for the search,
+    # replacing one of the mixture draws.
     "warm_start" : {
 
+        # The section is optional.
         "__optional__" : True,
 
         # The fitted predictor, written by
@@ -1569,7 +1573,6 @@ _REP_TWO_OPT_TGMM = {
                   "default") : 300}),
 
     # The options for the second optimization of the representations.
-
     "optimization_2" : \
         _override_items(
             d = _REP_OPTIMIZATION,
@@ -1581,16 +1584,16 @@ _REP_TWO_OPT_TGMM = {
 
 
 #######################################################################
- 
+
 
 # Set the template for the model's configuration.
 CONFIG_MODEL = {
-    
+
     # The path to the file containing the genes to use for the model.
     "genes_txt_file" : {
         "type" : (str,),
         },
-    
+
     # The dimension of the latent space.
     "latent_dim" : {
         "type" : (int,),
@@ -1598,14 +1601,14 @@ CONFIG_MODEL = {
         "message" : "must be a positive integer",
         "default" : 64,
         },
-    
+
     # The type of latent space to use in the model.
     "latent_type" : {
         "type" : (str,),
         "choices" : ["lgmm", "tgmm"],
         "default" : "tgmm",
         },
-    
+
     # The options for the latent space in the model.
     "latent_options" : {
         "switch" : {
@@ -1616,7 +1619,7 @@ CONFIG_MODEL = {
                 },
             },
         },
-    
+
     # The options for the Gaussian mixture model fitted to the
     # representations after training.
     "gmm_final" : _MODEL_GMM_FINAL_OPTIONS,
@@ -1624,9 +1627,8 @@ CONFIG_MODEL = {
     # The options for the decoder in the model.
     "decoder_options" : _MODEL_DECODER_OPTIONS,
 
-    # How the scaling factor of a sample is computed - the number the
-    # decoder's predicted means are multiplied by to put them on the
-    # scale of the sample's own counts.
+    # How a sample's scaling factor (by which the decoder's predicted
+    # means are multiplied) is computed.
     "scaling_factor" : {
         "type" : (str,),
         "choices" : ["mean", "median"],
@@ -1645,7 +1647,7 @@ CONFIG_MODEL = {
 
 # Set the template for the training configuration.
 CONFIG_TRAIN = {
-    
+
     # The number of epochs for training the model.
     "n_epochs" : {
         "type": (int,),
@@ -1653,7 +1655,7 @@ CONFIG_TRAIN = {
         "message": "must be a positive integer",
         "default": 200,
         },
-    
+
     # The reduction method to use for the loss.
     "loss_reduction_type" : {
         "type": (str,),
@@ -1666,7 +1668,7 @@ CONFIG_TRAIN = {
 
     # The options for reporting during training.
     "reporting_options" : _REPORTING_OPTIONS,
-    
+
     # The type of latent space used in the model.
     "latent_type" : {
         "type": (str,),
@@ -1684,12 +1686,12 @@ CONFIG_TRAIN = {
                 },
             },
         },
-    
-    # The options for fitting the Gaussian mixture model that is
-    # fitted to the representations after training.
+
+    # The options for fitting the Gaussian mixture model to the
+    # representations after training.
     "gmm_final_training_options" : _TRAIN_GMM_FINAL,
 
-    # The options for the per-sample training diagnostics. Optional.
+    # The options for the per-sample training diagnostics.
     "training_diagnostics" : _TRAIN_DIAGNOSTICS,
 
     # Where to write the per-epoch learning rates, indexed by epoch.
@@ -1711,7 +1713,7 @@ CONFIG_TRAIN = {
         "choices": ["loss"],
         "default": None,
         },
-    
+
     # The options for early stopping during training.
     "early_stopping_options" : {
         "patience" : {
@@ -1726,7 +1728,7 @@ CONFIG_TRAIN = {
 # Set the template for the configuration to find the representations
 # for a new set of samples.
 CONFIG_REP = {
-    
+
     # The type of scheme to use for finding the representations for a
     # new set of samples.
     "scheme_type" : {
@@ -1740,6 +1742,12 @@ CONFIG_REP = {
         "type": (str,),
         "choices": ["lgmm", "tgmm"],
         "default": "tgmm",
+        },
+
+    # Whether to pad the samples to whole batches of equal shape.
+    "use_batch_size_padding" : {
+        "type": (bool,),
+        "default": True,
         },
 
     # The number of initial representations to sample per component of
@@ -1769,7 +1777,7 @@ CONFIG_REP = {
     "reporting_options" : {
         "loss" : _LOSS_OPTIONS,
         },
-    
+
     # The options for the specific optimization scheme.
     "scheme_options" : {
         "switch" : {

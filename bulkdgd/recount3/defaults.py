@@ -51,20 +51,20 @@ RECOUNT3_GENCODE_RELEASES = {26, 29}
 # Set the files containing the list of fields containing metadata
 # for each project.
 RECOUNT3_METADATA_FIELDS_FILE = {
-    
+
     "GTEx" : os.path.join(os.path.dirname(__file__),
                           "data/gtex_metadata_fields.txt"),
-    
+
     "TCGA" : os.path.join(os.path.dirname(__file__),
                           "data/tcga_metadata_fields.txt"),
-    
+
     "SRA" : os.path.join(os.path.dirname(__file__),
                          "data/sra_metadata_fields.txt"),
-    
+
     }
 
 #---------------------------------------------------------------------#
-    
+
 # Set the URL pointing to where the RNA-seq data for the samples are
 # stored on the Recount3 platform.
 RECOUNT3_GENE_SUMS_URL = \

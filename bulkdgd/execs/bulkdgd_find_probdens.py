@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # -*- Mode: python; tab-width: 4; indent-tabs-mode:nil; coding:utf-8 -*-
 
-#    probability_density.py
+#    bulkdgd_find_probdens.py
 #
-#    Given a CSV file containing the representations of one or 
+#    Given a CSV file containing the representations of one or
 #    multiple samples and the Gaussian mixture model (GMM)
-#    modeling the representation space, find the probability 
+#    modeling the representation space, find the probability
 #    density of each representation for each GMM component.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -22,7 +22,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -48,6 +48,7 @@ import sys
 
 # Import from 'bulkdgd'.
 from bulkdgd.core import model
+from bulkdgd.ioutil.tableio import save_table
 from bulkdgd import defaults, ioutil
 from . import util
 
@@ -64,6 +65,13 @@ logger = log.getLogger(__name__)
 
 # Define a function to set up the parser.
 def set_parser() -> argparse.ArgumentParser:
+    """Set up the argument parser.
+
+    Returns
+    -------
+    parser : :class:`argparse.ArgumentParser`
+        The argument parser.
+    """
 
     # Create the argument parser.
     parser = \
@@ -174,6 +182,13 @@ def set_parser() -> argparse.ArgumentParser:
 
 # Define the 'main' function.
 def main(args: argparse.Namespace) -> None:
+    """Find the probability densities of the representations.
+
+    Parameters
+    ----------
+    args : :class:`argparse.Namespace`
+        The parsed arguments.
+    """
 
     # Get the argument corresponding to the working directory.
     wd = args.work_dir
@@ -189,7 +204,7 @@ def main(args: argparse.Namespace) -> None:
     output_prob_comp = os.path.join(wd, args.output_prob_comp)
 
     #-----------------------------------------------------------------#
-    
+
     # Try to load the configuration.
     try:
 
@@ -213,10 +228,10 @@ def main(args: argparse.Namespace) -> None:
 
     #-----------------------------------------------------------------#
 
-    # Try to load the data.
+    # Try to load the representations.
     try:
 
-        df_rep  = \
+        df_rep = \
             ioutil.load_representations(\
                 csv_file = input_rep,
                 sep = ",",
@@ -232,7 +247,8 @@ def main(args: argparse.Namespace) -> None:
         logger.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the data were successfully loaded.
+    # Inform the user that the representations were successfully
+    # loaded.
     infostr = \
         "The representations were successfully loaded " \
         f"from '{input_rep}'."
@@ -240,9 +256,9 @@ def main(args: argparse.Namespace) -> None:
 
     #-----------------------------------------------------------------#
 
-    # Try to get the GMM.
+    # Try to set the model.
     try:
-        
+
         dgd_model = model.BulkDGD(**config_model)
 
     # If something went wrong
@@ -262,7 +278,7 @@ def main(args: argparse.Namespace) -> None:
 
     # Try to calculate the probability densities.
     try:
-        
+
         df_prob_rep, df_prob_comp = \
             dgd_model.get_probability_density(df_rep = df_rep)
 
@@ -289,10 +305,11 @@ def main(args: argparse.Namespace) -> None:
     # to the output CSV file.
     try:
 
-        save_table(df_prob_rep, output_prob_rep,
-                           sep = ",",
-                           header = True,
-                           index = True)
+        save_table(df_prob_rep,
+                   output_prob_rep,
+                   sep = ",",
+                   header = True,
+                   index = True)
 
     # If something went wrong
     except Exception as e:
@@ -314,15 +331,15 @@ def main(args: argparse.Namespace) -> None:
 
     #-----------------------------------------------------------------#
 
-    # Try to write the probability densities for the representations
-    # having the highest probability density for each component
-    # to the output CSV file.
+    # Try to write the representations with the highest probability
+    # density for each component to the output CSV file.
     try:
 
-        save_table(df_prob_comp, output_prob_comp,
-                            sep = ",",
-                            header = True,
-                            index = True)
+        save_table(df_prob_comp,
+                   output_prob_comp,
+                   sep = ",",
+                   header = True,
+                   index = True)
 
     # If something went wrong
     except Exception as e:
@@ -336,8 +353,8 @@ def main(args: argparse.Namespace) -> None:
         logger.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the probability densities for the
-    # representations were successfully written in the output file.
+    # Inform the user that the representations with the highest
+    # probability density were successfully written.
     infostr = \
         "The probability densities for the representations having " \
         "the highest probability density for each component " \
@@ -350,6 +367,7 @@ def main(args: argparse.Namespace) -> None:
 
 # Define the entry point for the standalone executable.
 def entry_point() -> None:
+    """Run the executable."""
 
     # Build the parser.
     parser = set_parser()
@@ -360,13 +378,16 @@ def entry_point() -> None:
     # Set up the logging.
     util.set_main_logging(args = args)
 
-    # Check if the execution should be parallelized.
-    if getattr(args, "parallelize", False):
+    # If the execution should be parallelized
+    if getattr(args,
+               "parallelize",
+               False):
 
         # Run with parallelization.
         util.run_with_parallelization(\
             executable = "bulkdgd_find_probdens",
-            args = args)
+            args = args,
+            parser = parser)
 
     # Otherwise
     else:

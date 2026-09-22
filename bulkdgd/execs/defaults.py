@@ -5,7 +5,7 @@
 #
 #    Default values for the executables.
 #
-#    Copyright (C) 2025 Valentina Sora 
+#    Copyright (C) 2025 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -66,17 +66,14 @@ LOG_STYLE = "{"
 CONFIG_FORMATTERS = \
     {# Set a generic formatter for log messages.
      "generic_formatter" : \
-    
-        {# Set a format string in the given 'style' for the logged
-         # output as a whole.
+
+        {# Set the format string for the log records.
          "fmt" : LOG_FMT,
 
-         # Set a format string in the given 'style' for the date/time
-         # portion of the logged output.
+         # Set the format string for the date and time.
          "datefmt" : LOG_DATEFMT,
 
-         # The 'style' be one of '%', '{' or '$' and determines how
-         # the format string will be merged with its data.
+         # Set the style of the format strings ('%', '{' or '$').
          "style" : LOG_STYLE},
     }
 
@@ -90,11 +87,11 @@ CONFIG_FILTERS = \
 
         {# Set the custom 'factory' for the filter.
          "()" : "bulkdgd.execs.util.LevelContentFilter",
-         
-         # Set the level of the records that should be ignored.
+
+         # Set the level at and below which records are ignored.
          "level" : "INFO",
 
-         # Set how the record should start for them to be ignored.
+         # Set the strings marking ignored records by their start.
          "start" : ["Starting Worker plugin",
                     "---",
                     "Local Directory:",

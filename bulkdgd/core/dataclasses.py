@@ -77,14 +77,11 @@ class GeneExpressionDataset(object):
     Class implementing a dataset containing gene expression data
     for multiple samples.
 
-    This class is designed so that it can be used with the
-    :class:`torch.utils.data.DataLoader` utility, if needed.
+    It can be used with :class:`torch.utils.data.DataLoader`.
     """
 
 
-    # Set the supported ways of computing the scaling factor of a
-    # sample - the number the decoder's predicted means are multiplied
-    # by to put them on the sample's own scale.
+    # Set the supported ways of computing a sample's scaling factor.
     SCALING_FACTORS = ["mean", "median"]
 
 
@@ -111,29 +108,33 @@ class GeneExpressionDataset(object):
             For example:
 
             .. code-block:: shell
-            
+
                ,gene_1,gene_2,gene_3,gene_4
                sample_1,123,12,2342,145
                sample_2,189,184,2397,1980
                sample_3,978,9467,563,23
-        
+
         labels : :class:`list`, optional
             A list of labels for the samples.
 
         scaling_factor : :class:`str`, \
             {``"mean"``, ``"median"``}, ``"mean"``
-            How to compute the scaling factor of a sample - the number
-            the decoder's predicted means are multiplied by to put them
-            on the scale of the sample's own counts.
+            How to compute a sample's scaling factor, by which the
+            decoder's predicted means are multiplied.
 
-            - ``"mean"``: the mean count over all of the sample's
+            - ``"mean"``: the mean count over the sample's measured
               genes.
 
-            - ``"median"``: the median count over all of the sample's
-              genes.
+            - ``"median"``: the median count over the sample's
+              measured genes.
+
+        mask : :class:`torch.Tensor`, optional
+            A tensor (samples x genes) holding 1 for measured genes
+            and 0 for unmeasured ones. If not passed, all genes are
+            measured.
         """
 
-        # If the scaling factor is not one that is supported.
+        # If the scaling factor is not supported
         if scaling_factor not in self.SCALING_FACTORS:
 
             # Raise an error.
@@ -152,7 +153,7 @@ class GeneExpressionDataset(object):
 
         #-------------------------------------------------------------#
 
-        # If labels were passed.
+        # If labels were passed
         if labels is not None:
 
             # Set the label encoder.
@@ -164,7 +165,7 @@ class GeneExpressionDataset(object):
             # Set the labels.
             self._labels = \
                 torch.LongTensor(self._label_encoder.transform(labels))
-        
+
         # Otherwise
         else:
 
@@ -178,18 +179,18 @@ class GeneExpressionDataset(object):
 
         #-------------------------------------------------------------#
 
-        # Which genes were actually measured.
+        # Set the mask of the measured genes.
         self._mask = mask
 
-        # Get the expression data for all samples and the
-        # mean gene expression for each sample.
+        # Get the expression data for all samples and the scaling
+        # factor of each sample.
         self._data_exp, self._mean_exp = self._get_exp(df = df)
 
 
     def _get_exp(self,
                  df: pd.DataFrame) -> (torch.Tensor, torch.Tensor):
         """Return the gene expression for all samples and the
-        mean gene expression for each sample.
+        scaling factor of each sample.
 
         Parameters
         ----------
@@ -210,9 +211,9 @@ class GeneExpressionDataset(object):
               genes whose expression is reported in the dataset.
 
         mean_exp : :class:`torch.Tensor`
-            The scaling factor of each sample - the mean or the median
+            The scaling factor of each sample (the mean or the median
             of its gene expression, according to the dataset's
-            ``scaling_factor``.
+            ``scaling_factor``).
 
             This is a 1D tensor whose length is equal to the
             number of samples in the dataset.
@@ -226,17 +227,20 @@ class GeneExpressionDataset(object):
 
         #-------------------------------------------------------------#
 
-        # Over the genes that were measured, which is all of them
-        # unless a mask says otherwise.
+        # If there is no mask
         if self._mask is None:
 
+            # Consider all genes measured.
             mask = torch.ones_like(data_exp)
 
+        # Otherwise
         else:
 
+            # Get the mask with the data's type and device.
             mask = self._mask.to(dtype = data_exp.dtype,
                                  device = data_exp.device)
 
+        # Get the number of measured genes in each sample.
         n_measured = mask.sum(dim = 1, keepdim = True)
 
         # If the scaling factor is the mean
@@ -250,22 +254,20 @@ class GeneExpressionDataset(object):
         # If the scaling factor is the median
         elif self._scaling_factor == "median":
 
-            # Get the median gene expression for each sample, over the
-            # measured genes.
+            # Move the unmeasured genes to the end of the sort.
             sortable = data_exp.masked_fill(mask == 0.0, float("inf"))
 
-            # Get the index.
+            # Get the index of the (lower) median of the measured genes.
             idx = ((n_measured.long() - 1) // 2).clamp(min = 0)
 
-            # Get the mean (median) expression.
+            # Get the median gene expression for each sample.
             mean_exp = \
                 sortable.sort(dim = 1).values.gather(1, idx)
 
         #-------------------------------------------------------------#
 
-        # If any sample's scaling factor is zero, every predicted mean
-        # for it would be zero, and the negative binomial would be
-        # undefined.
+        # If any sample's scaling factor is zero (which would make all
+        # its predicted means zero)
         if (mean_exp == 0).any():
 
             # Get how many samples are affected.
@@ -290,7 +292,7 @@ class GeneExpressionDataset(object):
     def samples(self):
         """The names/IDs/indexes of the samples in the dataset.
         """
-        
+
         return self._samples
 
 
@@ -299,12 +301,17 @@ class GeneExpressionDataset(object):
                 value):
         """Raise an error if the user tries to modify the value of
         ``samples`` after initialization.
+
+        Parameters
+        ----------
+        value : :class:`pandas.Index`
+            The new value.
         """
 
+        # Raise an error.
         errstr = \
             "The value of 'samples' is set at initialization and " \
-            "depends on the input dataset. Therefore, it cannot " \
-            "be changed."
+            "cannot be changed."
         raise ValueError(errstr)
 
 
@@ -312,7 +319,7 @@ class GeneExpressionDataset(object):
     def genes(self):
         """The names of the genes included in the dataset.
         """
-        
+
         return self._genes
 
 
@@ -321,12 +328,17 @@ class GeneExpressionDataset(object):
               value):
         """Raise an error if the user tries to modify the value of
         ``genes`` after initialization.
+
+        Parameters
+        ----------
+        value : :class:`pandas.Index`
+            The new value.
         """
-    
+
+        # Raise an error.
         errstr = \
             "The value of 'genes' is set at initialization and " \
-            "depends on the input dataset. Therefore, it cannot " \
-            "be changed."
+            "cannot be changed."
         raise ValueError(errstr)
 
 
@@ -340,28 +352,33 @@ class GeneExpressionDataset(object):
         * The second dimension has a length equal to the number of
           genes whose expression is reported in the dataset.
         """
-        
+
         return self._data_exp
-    
+
 
     @data_exp.setter
     def data_exp(self,
                  value):
         """Raise an error if the user tries to modify the value of
         ``data_exp``.
+
+        Parameters
+        ----------
+        value : :class:`torch.Tensor`
+            The new value.
         """
 
+        # Raise an error.
         errstr = \
             "The value of 'data_exp' is set at initialization and " \
-            "depends on the input dataset. Therefore, it cannot be " \
-            "changed."
+            "cannot be changed."
         raise ValueError(errstr)
 
 
     @property
     def scaling_factor(self):
-        """How the scaling factor of a sample is computed - either
-        ``"mean"`` or ``"median"``.
+        """How the scaling factor of a sample is computed (``"mean"``
+        or ``"median"``).
         """
 
         return self._scaling_factor
@@ -372,21 +389,24 @@ class GeneExpressionDataset(object):
                        value):
         """Raise an error if the user tries to modify the value of
         ``scaling_factor`` after initialization.
+
+        Parameters
+        ----------
+        value : :class:`str`
+            The new value.
         """
 
+        # Raise an error.
         errstr = \
             "The value of 'scaling_factor' is set at initialization " \
-            "and the scaling factors have already been computed with " \
-            "it. Therefore, it cannot be changed."
+            "and cannot be changed."
         raise ValueError(errstr)
 
 
     @property
     def mean_exp(self):
-        """A 1D tensor with length equal to the number of samples in
-        the dataset containing the scaling factor of each sample - the
-        mean or the median of its gene expression, according to
-        ``scaling_factor``.
+        """A 1D tensor with the scaling factor of each sample (the mean
+        or median of its gene expression, per ``scaling_factor``).
         """
 
         return self._mean_exp
@@ -397,12 +417,17 @@ class GeneExpressionDataset(object):
                  value):
         """Raise an error if the user tries to modify the value of
         ``mean_exp`` after initialization.
+
+        Parameters
+        ----------
+        value : :class:`torch.Tensor`
+            The new value.
         """
-        
+
+        # Raise an error.
         errstr = \
             "The value of 'mean_exp' is set at initialization and " \
-            "depends on the input dataset. Therefore, it cannot be " \
-            "changed."
+            "cannot be changed."
         raise ValueError(errstr)
 
 
@@ -420,12 +445,17 @@ class GeneExpressionDataset(object):
                value):
         """Raise an error if the user tries to modify the value of
         ``labels`` after initialization.
+
+        Parameters
+        ----------
+        value : :class:`torch.Tensor`
+            The new value.
         """
 
+        # Raise an error.
         errstr = \
             "The value of 'labels' is set at initialization and " \
-            "depends on the input dataset. Therefore, it cannot be " \
-            "changed."
+            "cannot be changed."
         raise ValueError(errstr)
 
 
@@ -437,7 +467,7 @@ class GeneExpressionDataset(object):
                         -> Tuple[torch.Tensor, torch.Tensor, \
                                  list[str], torch.Tensor]:
         """Get items from the dataset.
-        
+
         Parameters
         ----------
         idx : :class:`list` or :class:`torch.Tensor`, optional
@@ -450,11 +480,11 @@ class GeneExpressionDataset(object):
             An array containing the data for the selected samples.
 
         mean_expr : :class:`torch.Tensor`
-            An array with the mean gene expression for each sample.
+            An array with the scaling factor of each sample.
 
         idx : :class:`list`
             A list of indexes of the samples that are returned.
-        
+
         labels : :class:`torch.Tensor`
             If labels are available, a tensor containing the labels for
             the selected samples.
@@ -465,7 +495,7 @@ class GeneExpressionDataset(object):
 
             # The index will encompass all items in the dataset.
             idx = np.arange(self.__len__()).tolist()
-        
+
         # If the index is a tensor
         elif torch.is_tensor(idx):
 
@@ -475,21 +505,26 @@ class GeneExpressionDataset(object):
         # If labels are available
         if self._labels is not None:
 
-            # Preserve the original integer dtype used for labels.
+            # Get the labels of the selected samples.
             labels_out = self._labels[idx]
 
-            # Return the data, mean expression, indexes, and labels.
+            # Return the data, scaling factors, indexes, and labels.
             return (self.data_exp[idx], self.mean_exp[idx], idx,
                     labels_out)
 
-        # Return the data for the sample(s) of interest, its (their)
-        # mean gene expression, and its (their) index(es).
+        # Return the data, scaling factors, and indexes of the
+        # selected samples.
         return (self.data_exp[idx], self.mean_exp[idx], idx)
 
 
     def __len__(self) -> int:
         """Get the length of the dataset, which corresponds to the
         number of samples.
+
+        Returns
+        -------
+        n_samples : :class:`int`
+            The number of samples.
         """
 
         # Return the number of samples.

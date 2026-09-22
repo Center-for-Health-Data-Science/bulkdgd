@@ -3,7 +3,7 @@
 
 #    tableio.py
 #
-#    One place where the package decides how a table is written.
+#    Utilities to read and write tables as Parquet or text.
 #
 #    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
@@ -26,27 +26,8 @@
 #######################################################################
 
 
-__doc__ = \
-    """One place where the package decides how a table is written.
-
-    WHY IT IS ONE PLACE. Every output the package produces is a table of
-    float64, and a float64 written as text does not come back as the
-    number that was written: the decimal form is rounded, and a round
-    trip moves the value by up to about 1e-12. That is invisible in a
-    printed column and fatal to anything that compares two runs, which
-    is most of what this package is used for. Parquet stores the bits.
-
-    The rule was previously applied file by file, which is how it came
-    to hold for the training outputs and not for the representations,
-    then for the representations and not for the differential
-    expression, and so on. Selective application is the failure mode, so
-    the decision lives here and every writer in the package calls it.
-
-    THE FORMAT FOLLOWS THE PATH'S EXTENSION, so a configuration that
-    names a '.parquet' output gets Parquet and one that names a '.csv'
-    output still gets text. Nothing is silently rewritten under a caller
-    that asked for something else, and a caller that wants the lossless
-    default simply names it."""
+# Set the module's description.
+__doc__ = "Utilities to read and write tables as Parquet or text."
 
 
 #######################################################################
@@ -59,18 +40,14 @@ import pandas as pd
 #######################################################################
 
 
-# The extensions that mean Parquet. Kept here so that the two private
-# copies that used to live in 'repio' and 'decoutio' cannot drift apart.
+# Set the extensions of Parquet files.
 PARQUET_EXTENSIONS = (".parquet", ".pq")
 
-# What a new output is called when the caller does not say. Parquet,
-# for the reason in the module docstring.
+# Set the default extension of new tables.
 DEFAULT_TABLE_EXT = ".parquet"
 
-# The order a reader tries extensions in when it is looking for a table
-# whose format it does not know. Parquet first because it is what is
-# written now; '.csv' last because it is what was written before, and
-# the data already on disk has to keep loading.
+# Set the extensions to try, in order, when reading a table of unknown
+# format.
 READ_EXTENSIONS = PARQUET_EXTENSIONS + (".csv",)
 
 
@@ -78,9 +55,20 @@ READ_EXTENSIONS = PARQUET_EXTENSIONS + (".csv",)
 
 
 def is_parquet(file_path):
+    """Return whether a file is a Parquet file, by its extension.
 
-    """Whether a path names a Parquet file, by its extension."""
+    Parameters
+    ----------
+    file_path : :class:`str`
+        The file's path.
 
+    Returns
+    -------
+    is_parquet : :class:`bool`
+        Whether the file is a Parquet file.
+    """
+
+    # Return whether the file has a Parquet extension.
     return str(file_path).lower().endswith(PARQUET_EXTENSIONS)
 
 
@@ -93,8 +81,7 @@ def save_table(df,
                index = True,
                header = True,
                compression = "infer"):
-
-    """Write a table, as Parquet or as text, by the path's extension.
+    """Write a table as Parquet or as text, by the path's extension.
 
     Parameters
     ----------
@@ -102,40 +89,37 @@ def save_table(df,
         The table to write.
 
     file_path : :class:`str`
-        Where to write it. An extension of '.parquet' or '.pq' selects
-        Parquet; anything else is written as delimited text.
+        The output file ('.parquet' or '.pq' for Parquet, delimited
+        text otherwise).
 
     sep : :class:`str`, ``","``
-        The column separator, for the text case only.
+        The column separator (text only).
 
     index : :class:`bool`, ``True``
-        Whether to write the index. Parquet keeps it as the frame's
-        index, text writes it as the first column.
+        Whether to write the index.
 
     header : :class:`bool`, ``True``
-        Whether to write the column names, for the text case only.
-        Parquet always carries them, since they are part of the schema.
+        Whether to write the column names (text only; Parquet always
+        writes them).
 
     compression : :class:`str`, ``"infer"``
-        How to compress the text file. ``"infer"`` takes it from
-        the path's extension, so a name ending in '.gz' is gzipped.
-        Parquet carries its own compression and ignores this.
+        The compression of the text file (``"infer"`` takes it from
+        the path's extension).
     """
 
+    # If the file is a Parquet file
     if is_parquet(file_path):
 
-        # 'header' has no counterpart in Parquet: the column names are
-        # in the schema and cannot be omitted. A caller that passed
-        # header = False wanted a headerless text file and is getting
-        # Parquet instead, so the names come back, which is the more
-        # useful outcome and the one that round-trips.
+        # Write the table (the column names are always written).
         df.to_parquet(file_path,
                       engine = "pyarrow",
                       compression = "snappy",
                       index = index)
 
+    # Otherwise
     else:
 
+        # Write the table.
         df.to_csv(file_path,
                   sep = sep,
                   index = index,
@@ -149,50 +133,96 @@ def save_table(df,
 def load_table(file_path,
                sep = ",",
                index_col = None):
+    """Read a table written by :func:`save_table`.
 
-    """Read a table written by :func:`save_table`."""
+    Parameters
+    ----------
+    file_path : :class:`str`
+        The input file.
 
+    sep : :class:`str`, ``","``
+        The column separator (text only).
+
+    index_col : :class:`int` or :class:`str`, optional
+        The column to use as index (text only).
+
+    Returns
+    -------
+    df : :class:`pandas.DataFrame`
+        The table.
+    """
+
+    # If the file is a Parquet file
     if is_parquet(file_path):
 
+        # Return the table.
         return pd.read_parquet(file_path)
 
-    return pd.read_csv(file_path, sep = sep, index_col = index_col)
+    # Return the table.
+    return pd.read_csv(file_path,
+                       sep = sep,
+                       index_col = index_col)
 
 
 #---------------------------------------------------------------------#
 
 
-def table_name(stem, ext = None):
+def table_name(stem,
+               ext = None):
+    """Get the file name of a new table.
 
-    """The file name a new table gets, Parquet unless told otherwise."""
+    Parameters
+    ----------
+    stem : :class:`str`
+        The file name without extension.
 
+    ext : :class:`str`, optional
+        The extension (``DEFAULT_TABLE_EXT`` if not given).
+
+    Returns
+    -------
+    name : :class:`str`
+        The file name.
+    """
+
+    # Return the file name.
     return f"{stem}{DEFAULT_TABLE_EXT if ext is None else ext}"
 
 
 #---------------------------------------------------------------------#
 
 
-def resolve_name(stem, available):
+def resolve_name(stem,
+                 available):
+    """Get which of a stem's possible file names is available,
+    trying the extensions in ``READ_EXTENSIONS`` in order.
 
-    """Which of a stem's possible file names is actually there.
+    Parameters
+    ----------
+    stem : :class:`str`
+        The file name without extension.
 
-    WHY A READER NEEDS THIS. The package writes Parquet now and wrote
-    text before, and both are on disk: hundreds of thousands of
-    per-sample differential expression tables were produced as '.csv'
-    and are not going to be regenerated to satisfy a file extension. A
-    reader that hardcodes either one is wrong for half the data, so it
-    asks for the stem and takes whichever exists, newest format first.
+    available : any container
+        The available file names (e.g., a directory listing or a set
+        of archive members' names).
 
-    `available` is any container supporting ``in``: a set of archive
-    member names, a directory listing, or a callable-free sequence.
+    Returns
+    -------
+    name : :class:`str` or :obj:`None`
+        The file name, or :obj:`None` if none is available.
     """
 
+    # For each extension
     for ext in READ_EXTENSIONS:
 
+        # Get the file name.
         name = f"{stem}{ext}"
 
+        # If the file name is available
         if name in available:
 
+            # Return it.
             return name
 
+    # Return None if no file name is available.
     return None

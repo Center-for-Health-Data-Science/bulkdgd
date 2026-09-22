@@ -5,7 +5,7 @@
 #
 #    Simple __init__.py file.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -29,20 +29,19 @@ import importlib.metadata as _importlib_metadata
 # Import everything from the 'defaults' module.
 from .defaults import *
 
-# Import what seeds a run's generators. It is here, and not in 'core',
-# because it has to be called before a model is built: by the time
-# 'BulkDGD' exists its decoder's weights have already been drawn, and
-# seeding afterwards seeds nothing that has already happened.
+# Import the functions to seed the generators (called before a model
+# is built).
 from .reproducibility import set_seeds, get_seeds_state
 
 
-# Set the package's version, read from the installed distribution's
-# metadata (falls back to 'unknown' for an unpacked source checkout
-# that was never installed).
+# Try to get the package's version.
 try:
 
+    # Get it from the installed package's metadata.
     __version__ = _importlib_metadata.version("bulkdgd")
 
+# If the package is not installed
 except _importlib_metadata.PackageNotFoundError:
 
+    # Set the version to 'unknown'.
     __version__ = "unknown"

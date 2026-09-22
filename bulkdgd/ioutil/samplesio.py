@@ -5,7 +5,7 @@
 #
 #    Utilities to load and save sets of samples.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -114,9 +114,9 @@ def load_samples(csv_file: str,
         If ``split`` is :class:`False`, only ``df_data`` is returned.
     """
 
-    # If we need to keep the samples' original names
+    # If the samples' original names should be kept
     if keep_samples_names:
-        
+
         # Load the data frame assuming the samples' names are in the
         # first column of the data frame.
         df = pd.read_csv(csv_file,
@@ -223,10 +223,11 @@ def save_samples(df: pd.DataFrame,
     """
 
     # Save the samples.
-    save_table(df, csv_file,
-              sep = sep,
-              index = True,
-              header = True)
+    save_table(df,
+               csv_file,
+               sep = sep,
+               index = True,
+               header = True)
 
 
 def preprocess_samples(df_samples: pd.DataFrame,
@@ -307,15 +308,24 @@ def preprocess_samples(df_samples: pd.DataFrame,
             # Get the gene ID and the version.
             gene, version = gene_id
 
-            # Try to split the version (it may contain the indication
-            # of a pseudoautosomal region, like PAR_Y).
-            pseudoatom_region = version.split("_")
+            # Split the version (it may indicate a pseudoautosomal
+            # region, like PAR_Y).
+            pseudoautosomal_region = version.split("_")
 
             # If there is an indication of a pseudoautosomal region
-            if len(pseudoatom_region) > 1:
+            if len(pseudoautosomal_region) > 1:
 
                 # Add the information to the unversioned gene ID.
-                gene = gene + "_".join(pseudoatom_region[1:])
+                gene = "_".join([gene] + pseudoautosomal_region[1:])
+
+        # Otherwise
+        else:
+
+            # Raise an error.
+            errstr = \
+                f"The gene column '{col}' is not a valid Ensembl " \
+                "gene ID with an optional version."
+            raise ValueError(errstr)
 
         # Add the new column to the list.
         genes_columns.append(gene)
@@ -341,14 +351,13 @@ def preprocess_samples(df_samples: pd.DataFrame,
         infostr = \
             f"{len(other_columns)} column(s) containing additional " \
             "information (not gene expression data) was (were) " \
-            "in the input data frame: " \
+            "found in the input data frame: " \
             f"{', '.join(other_columns)}."
         logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
-    # Inform the user that we are about to perform a check on
-    # duplicated samples.
+    # Inform the user of the check for duplicated samples.
     infostr = "Now looking for duplicated samples..."
     logger.info(infostr)
 
@@ -379,8 +388,7 @@ def preprocess_samples(df_samples: pd.DataFrame,
 
     #-----------------------------------------------------------------#
 
-    # Inform the user that we are about to perform a check on missing
-    # gene expression data.
+    # Inform the user of the check for missing values.
     infostr = \
         "Now looking for missing values in the columns containing " \
         "gene expression data..."
@@ -416,13 +424,13 @@ def preprocess_samples(df_samples: pd.DataFrame,
 
     #-----------------------------------------------------------------#
 
-    # Inform the user that we are looking for duplicated genes.
+    # Inform the user of the check for duplicated genes.
     infostr = "Now looking for duplicated genes..."
     logger.info(infostr)
 
     # If there are duplicate genes
     if len(genes_columns) > len(set(genes_columns)):
-        
+
         # Get the duplicate genes.
         genes_series = pd.Series(genes_columns)
         duplicated_genes = \
@@ -446,13 +454,13 @@ def preprocess_samples(df_samples: pd.DataFrame,
     # If the user did not pass a file with the list of genes
     if genes_txt_file is None:
 
-        # Use the default one
+        # Use the default one.
         genes_txt_file = defaults.DATA_FILES_MODEL["genes"]
 
-    # Load the list of genes
+    # Load the list of genes.
     genes_list_dgd = _internals.load_list(list_file = genes_txt_file)
 
-    # Warn the user that the genes' columns will be rearranged.
+    # Inform the user that the genes' columns will be rearranged.
     infostr = \
         "In the data frame containing the pre-processed samples, " \
         "the columns containing gene expression data will be " \
@@ -460,7 +468,7 @@ def preprocess_samples(df_samples: pd.DataFrame,
         f"the DGD model (taken from '{genes_txt_file}')."
     logger.info(infostr)
 
-    # Warn the user that the other columns were rearranged
+    # Inform the user that the other columns will be rearranged.
     infostr = \
         "In the data frame containing the pre-processed samples, " \
         "the columns found in the input data frame which did not " \
@@ -470,24 +478,16 @@ def preprocess_samples(df_samples: pd.DataFrame,
         "data frame."
     logger.info(infostr)
 
-    # Select only the genes included in the DGD model from the input
-    # data frame to obtain the data frame containing the preprocessed
-    # samples.
-    #
-    # Sort the columns (= genes) in the order expected by the DGD
-    # model, and, if no gene expression data were found for some genes,
-    # add those genes with a default count of 0.
+    # Keep only the model's genes, in the model's order, with a count
+    # of 0 for missing genes, followed by the other columns.
     df_preproc = df_samples.reindex(genes_list_dgd + other_columns,
                                     axis = 1,
                                     fill_value = 0)
 
     #-----------------------------------------------------------------#
 
-    # Create a list containing the genes present in the input data
-    # frame but not in the list of genes included in the DGD model.
-    #
-    # Use lists instead of sets (which would be faster) to preserve
-    # the order.
+    # Get the genes in the input data frame but not in the model (as
+    # a list, to preserve the order).
     genes_excluded = \
         [gene for gene in genes_columns if gene not in genes_list_dgd]
 
@@ -513,12 +513,8 @@ def preprocess_samples(df_samples: pd.DataFrame,
 
     #-----------------------------------------------------------------#
 
-    # Create a list containing the genes present in the list of genes
-    # included in the DGD model but not present in the input data
-    # frame.
-    #
-    # Use lists instead of sets (which would be faster) to preserve
-    # the order.
+    # Get the genes in the model but not in the input data frame (as
+    # a list, to preserve the order).
     genes_missing = \
         [gene for gene in genes_list_dgd if gene not in genes_columns]
 

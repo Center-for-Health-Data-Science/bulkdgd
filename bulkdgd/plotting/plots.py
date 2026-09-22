@@ -5,7 +5,7 @@
 #
 #    Utilities for plotting.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -72,43 +72,27 @@ def plot_representations_time(
         output_file: Optional[str] = None,
         config: Optional[dict[str, object]] = None,
         **kwargs: Optional[dict[str, object]]) -> None:
-    """Plot the CPU/wall clock time spent in each epoch of each
-    round of optimization when finding the representations for a
-    set of samples (both for the full epoch and for the
-    backward step performed in each epoch).
+    """Plot the CPU/wall clock time spent in each epoch (and in its
+    backward step) of each optimization round when finding the
+    representations for a set of samples.
 
     Parameters
     ----------
     df : :class:`pandas.DataFrame`
-        A data frame containing the time data. This data frame is
-        produced as an output by the
-        :class:`bulkdgd.core.model.BulkDGD.get_representations`
-        method.
+        A data frame containing the time data, as produced by
+        :meth:`bulkdgd.core.model.BulkDGD.get_representations`.
 
     output_file : :class:`str`, optional
         The file where the plot will be saved. If not provided, the
-        plot will be generated but not saved.
+        plot is shown instead.
 
     config : :class:`dict`, optional
-        A dictionary containing the configuration for the plot's
-        aesthetics.
-
-        Alternatively, the options for the plot's aesthetics can be
-        provided using keyword arguments.
-
-        The available options can be found in the :doc:`documentation
-        <plotting>`.
-
-        If no configuration is provided, the default configuration
-        (taken from the ``configs/plotting/lineplot.yaml`` file) will
-        be used.
+        The configuration for the plot's aesthetics. The available
+        options are listed in the :doc:`documentation <plotting>`.
+        It is merged with ``configs/plotting/lineplot.yaml``.
 
     **kwargs
-        Additional keyword arguments representing options for the
-        plot's aesthetics.
-
-        The available options can be found in the :doc:`documentation
-        <plotting>`.
+        Additional options for the plot's aesthetics.
     """
 
     # Close any figure that may be open.
@@ -124,9 +108,8 @@ def plot_representations_time(
 
     #-----------------------------------------------------------------#
 
-    # Get the configuration for the plot's aesthetics by merging the
-    # configuration provided (if any) with the keyword arguments (it
-    # any).
+    # Merge the configuration provided (if any) with the keyword
+    # arguments (if any).
     config = \
         _internals.recursive_merge_dicts(\
             config if config is not None else {},
@@ -144,13 +127,13 @@ def plot_representations_time(
         _internals.recursive_add_items(\
             d = config_default,
             paths2values = {("xaxis", "label", "xlabel"): "Epochs"})
-    
+
     # Add the default label for the y-axis to the configuration.
     config_default = \
         _internals.recursive_add_items(\
             d = config_default,
             paths2values = {("yaxis", "label", "ylabel"): "Time (s)"})
-    
+
     #-----------------------------------------------------------------#
 
     # Merge the default configuration with the configuration provided
@@ -159,7 +142,7 @@ def plot_representations_time(
         _internals.recursive_merge_dicts(\
             config_default,
             config)
-    
+
     #-----------------------------------------------------------------#
 
     # Check the configuration.
@@ -170,23 +153,22 @@ def plot_representations_time(
 
         # Raise an exception.
         errstr = \
-            "The configiration is not valid. Errors: " + \
+            "The configuration is not valid. Errors: " + \
             " ".join(errors)
         raise ValueError(errstr)
 
     #-----------------------------------------------------------------#
 
-    # Create a copy of the original data frame to modify before
-    # generating the plot.
+    # Create a copy of the original data frame.
     df_to_plot = copy.deepcopy(df)
 
-    # 'Unpack' the columns representing the different 'types' of
-    # time reported (CPU/wall clock) into only one column.
+    # Melt the CPU and wall clock time columns into one column.
     df_to_plot = \
-        df_to_plot.melt(["platform", "processor", "num_threads",
-                         "opt_round", "epoch"],
-                         var_name = "Time (CPU/Wall clock)",
-                         value_name = "Time (s)")
+        df_to_plot.melt(\
+            ["platform", "processor", "num_threads",
+             "opt_round", "epoch"],
+            var_name = "Time (CPU/Wall clock)",
+            value_name = "Time (s)")
 
     #-----------------------------------------------------------------#
 
@@ -195,13 +177,12 @@ def plot_representations_time(
 
     #-----------------------------------------------------------------#
 
-    # Generate the figure and axes. The plots will be arranged into
-    # one row and as many columns as the number of optimization rounds
-    # run when finding the representations.
+    # Generate the figure and axes (one column per optimization
+    # round).
     _, axes = plt.subplots(nrows = 1,
                            ncols = len(opt_rounds))
 
-    # Ensure iterable axes also when there is a single subplot.
+    # Make the axes iterable if there is a single subplot.
     axes = np.atleast_1d(axes)
 
     #-----------------------------------------------------------------#
@@ -219,11 +200,11 @@ def plot_representations_time(
         #-------------------------------------------------------------#
 
         # Create a copy of the configuration.
-        config_copy = dict(config)
+        config_copy = copy.deepcopy(config)
 
         #-------------------------------------------------------------#
 
-        # Get title's configuration.
+        # Get the title's configuration.
         config_title = config_copy.get("title", {})
 
         # If there is a label
@@ -235,12 +216,12 @@ def plot_representations_time(
             # Substitute the '[opt_round]' string with the actual
             # number/name of the current optimization round.
             label = label_raw.replace("[opt_round]",
-                                        str(opt_round),
-                                        1)
-            
+                                      str(opt_round),
+                                      1)
+
             # Replace it in the configuration.
             config_copy["title"]["label"] = label
-        
+
         #-------------------------------------------------------------#
 
         # Generate the line plot.
@@ -259,10 +240,10 @@ def plot_representations_time(
         # Save the plot in the output file.
         plt.savefig(fname = output_file,
                     **config.get("output", {}))
-    
+
     # Otherwise
     else:
-            
+
         # Show the plot.
         plt.show()
 
@@ -272,7 +253,7 @@ def plot_dimensionality_reduction(
         output_file: Optional[str] = None,
         config: Optional[dict[str, object]] = None,
         max_plots_per_output: int = 9,
-        columns: list[str] = ["C1", "C2"],
+        columns: Optional[list[str]] = None,
         groups_column: Optional[str] = None,
         groups: Optional[list[str]] = None,
         plot_other_groups: bool = False,
@@ -284,78 +265,45 @@ def plot_dimensionality_reduction(
 
     Parameters
     ----------
-    dfs : :class:`pandas.DataFrame`
+    dfs : :class:`list` or :class:`pandas.DataFrame`
         A list of data frames containing the results of the
-        dimensionality reduction analyses.
+        dimensionality reduction analyses (data points as rows,
+        projections along the components as columns).
 
-        The rows of each data frame should contain the data points,
-        while the columns should contain the values of each data
-        point's projection along the principal components.
-    
     output_file : :class:`str`, optional
         The file where the plot will be saved. If not provided, the
-        plot will be generated but not saved.
+        plot is shown instead.
 
     config : :class:`dict`, optional
-        A dictionary containing the configuration for the plot's
-        aesthetics.
+        The configuration for the plot's aesthetics. The available
+        options are listed in the :doc:`documentation <plotting>`.
+        It is merged with ``configs/plotting/scatterplot.yaml``.
 
-        Alternatively, the options for the plot's aesthetics can be
-        provided using keyword arguments.
-
-        The available options can be found in the :doc:`documentation
-        <plotting>`.
-
-        If no configuration is provided, the default configuration
-        (taken from the ``configs/plotting/scatterplot.yaml`` file)
-        will be used.
-    
     max_plots_per_output : :class:`int`, ``9``
         The maximum number of plots for each output file.
 
-    columns : :class:`list`, ``["PC1", "PC2"]``
-        A list with the names of the two columns in each data frame
-        that contain the values of the two dimensions of the
-        projection's space to be considered when plotting.
+    columns : :class:`list`, ``["C1", "C2"]``
+        The names of the two columns to plot on the x- and y-axis.
 
     groups_column : :class:`str`, optional
-        The name of the column containing the labels of different
-        groups of data points in the data frames, if any.
-
-        If provided, the data points will be colored according to the
-        group they belong.
-
-        If not provided, the data points will be assumed to belong to
-        one group.
+        The name of the column containing the groups of the data
+        points, if any.
 
     groups : :class:`list`, optional
-        A list of groups of interest.
-        
-        If a list of groups is provided and ``plot_other_groups``
-        is ``False``, only data points belonging to the groups of
-        interest will be plotted.
-        
-        If ``plot_other_groups`` is ``True``, the other groups will
-        be plotted according to the aesthetic specifications provided
-        in the configuration.
+        A list of groups of interest. If provided, only the data
+        points belonging to these groups are plotted, unless
+        ``plot_other_groups`` is ``True``.
 
     plot_other_groups : :class:`bool`, :obj:`False`
-        If a list of ``groups`` of interest if provided, set whether
-        to plot data points belonging to the other groups according to
-        the aesthetic specifications provided in the configuration
-        (``True``) or not to plot the data points belonging to the
-        other groups at all (``False``).
+        If ``groups`` is provided, whether to also plot the data
+        points belonging to the other groups.
 
-    dfs_names : :class:`list`, optional
-        A list of names for the data frames passed. These names, if
-        passed, will be used as the titles of the corresponding plots.
+    dfs_names : :class:`list` or :class:`str`, optional
+        The names of the data frames, used as the titles of the
+        corresponding plots.
 
     **kwargs
-        Additional keyword arguments representing options for the
-        plot's aesthetics.
-
-        The available options can be found in the :doc:`documentation
-        <plotting>`.
+        Additional options for the plot's aesthetics.
     """
 
     # Close any figure that may be open.
@@ -363,33 +311,41 @@ def plot_dimensionality_reduction(
 
     #-----------------------------------------------------------------#
 
+    # If no columns were passed
+    if columns is None:
+
+        # Use the default columns.
+        columns = ["C1", "C2"]
+
+    #-----------------------------------------------------------------#
+
     # If the data is a single data frame
     if isinstance(dfs, pd.DataFrame):
-        
+
         # Put it in a list.
         dfs = [dfs]
 
         # If the data frame's name was provided but is not a string
         if dfs_names is not None and not isinstance(dfs_names, str):
-                
+
             # Raise an error.
             errstr = \
                 "'dfs_names' must be a string if 'dfs' is a single " \
                 "data frame."
             raise ValueError(errstr)
-    
+
     # If the data is a list of data frames
     elif isinstance(dfs, list):
 
-        # If the names were provided but is not a list
+        # If the names were provided but are not a list
         if dfs_names is not None and not isinstance(dfs_names, list):
-                
+
             # Raise an error.
             errstr = \
                 "'dfs_names' must be a list if 'dfs' is a list of " \
                 "data frames."
             raise ValueError(errstr)
-    
+
     # Otherwise
     else:
 
@@ -417,7 +373,7 @@ def plot_dimensionality_reduction(
         _internals.recursive_add_items(\
             d = config_default,
             paths2values = {("yaxis", "label", "ylabel"): "C2"})
-    
+
     #-----------------------------------------------------------------#
 
     # Set the keyword arguments for the plotting function.
@@ -460,7 +416,7 @@ def plot_enrichment_scores(
     ----------
     df : :class:`pandas.DataFrame`
         A data frame containing the enrichment scores.
-    
+
     groups_column : :class:`str`
         The name of the column containing the labels of different
         groups in the data frame.
@@ -472,49 +428,34 @@ def plot_enrichment_scores(
     gene_set_column : :class:`str`, ``"gene_set"``
         The name of the column containing the labels of the gene sets
         in the data frame.
-    
+
     num_genes_in_set_column : :class:`str`, ``"num_genes_in_set"``
         The name of the column containing the number of genes in each
         gene set in the data frame.
-    
+
     num_genes_significant_column : :class:`str`, \
         ``"num_genes_significant"``
         The name of the column containing the number of significant
         genes in the data frame.
-    
+
     e_score_column : :class:`str`, ``"e_score"``
         The name of the column containing the enrichment scores in the
         data frame.
-    
+
     groups : :class:`list`, optional
-        A list of groups of interest.
-        
-        If a list of groups is provided, only the enrichment scores of
-        the samples belonging to the groups of interest will be
-        plotted.
-        
-        If not provided, the enrichment scores of all the samples
-        will be plotted.
-    
+        A list of groups of interest. If provided, only the enrichment
+        scores of these groups are plotted.
+
     config : :class:`dict`, optional
-        A dictionary containing the configuration for the plot's
-        aesthetics.
+        The configuration for the plot's aesthetics. The available
+        options are listed in the :doc:`documentation <plotting>`.
 
-        Alternatively, the options for the plot's aesthetics can be
-        provided using keyword arguments.
-
-        The available options can be found in the :doc:`documentation
-        <plotting>`.
-    
     output_file : :class:`str`, optional
-        The file where the plot will be saved.
-    
-    **kwargs
-        Additional keyword arguments representing options for the
-        plot's aesthetics.
+        The file where the plot will be saved. If not provided, the
+        plot is shown instead.
 
-        The available options can be found in the :doc:`documentation
-        <plotting>`.
+    **kwargs
+        Additional options for the plot's aesthetics.
     """
 
     # Close any figure that may be open.
@@ -542,15 +483,14 @@ def plot_enrichment_scores(
 
     #-----------------------------------------------------------------#
 
-    # Get the configuration for the plot's aesthetics by merging the
-    # configuration provided (if any) with the keyword arguments (it
-    # any) and the default configuration.
+    # Merge the default configuration, the configuration provided
+    # (if any), and the keyword arguments (if any).
     config = \
         _internals.recursive_merge_dicts(\
+            config_default,
             config if config is not None else {},
-            kwargs,
-            config_default)
-    
+            kwargs)
+
     #-----------------------------------------------------------------#
 
     # Check the configuration.
@@ -561,7 +501,7 @@ def plot_enrichment_scores(
 
         # Raise an exception.
         errstr = \
-            "The configiration is not valid. Errors: " + \
+            "The configuration is not valid. Errors: " + \
             " ".join(errors)
         raise ValueError(errstr)
 
@@ -597,10 +537,10 @@ def plot_enrichment_scores(
         # Save the plot in the output file.
         plt.savefig(fname = output_file,
                     **config.get("output", {}))
-    
+
     # Otherwise
     else:
-            
+
         # Show the plot.
         plt.show()
 
@@ -613,83 +553,55 @@ def plot_rvalues(dfs: list[pd.DataFrame] | pd.DataFrame,
                  max_plots_per_output: int = 9,
                  categories: Optional[list[str]] = None,
                  **kwargs: Optional[dict[str, object]]) -> None:
-    """Plot the distribution of r-values for specific genes for one
-    set of samples or two paired sets of samples (for instance, normal
-    samples and cancer samples for the same tissue).
+    """Plot the distribution of the r-values of specific genes in
+    one set of samples or in two paired sets of samples.
 
     Parameters
     ----------
     dfs : :class:`list` or :class:`pandas.DataFrame`
-        One or two data frames containing the r-values values for one
-        or two sets of samples.
+        One or two data frames containing the r-values for one or two
+        sets of samples (samples as rows, genes as columns).
 
-        The rows should contain the samples, while the columns should
-        contain the r-values of the negative binomial distributions
-        modeling the genes.
-    
     genes : :class:`list`
-        A list of the names of the genes for which the r-values will be
-        plotted.
+        The names of the genes whose r-values will be plotted.
 
     output_file : :class:`str`, optional
-        The file(s) where the plot(s) will be saved.
-        
-        If multiple files need to be generated, the output file name
-        will be constructed by appending a number to the name provided.
-        
-        The format of the output file is inferred from its extension. 
-        
-        If not provided, the plot(s) will be generated but not saved.
-    
-    plot_type : :class:`str`, {``"histogram"``, ``"histogram_dual``, \
-        ``"histogram_overlap"``, ``"boxplot"``, ``"violinplot"``}, \
-        ``"histogram"``
-        The type of plot to generate. The available options are:
+        The file where the plot(s) will be saved. Multiple files get
+        a number appended to the name. If not provided, the plot(s)
+        are shown instead.
 
-        * ``"histogram"``: histograms of the r-values of the genes of
-          interest for one set of samples.
+    plot_type : :class:`str`, {``"histogram"``, \
+        ``"histogram_bihist"``, ``"histogram_overlap"``, \
+        ``"boxplot"``, ``"violinplot"``}, ``"histogram"``
+        The type of plot to generate:
 
-        * ``"histogram_bihist"``: bi-histograms showing the
-          distributions of r-values of the genes of interest for two
-          paired sets of samples.
-        
-        * ``"histogram_overlap"``: two overlapping histograms showing
-          the distribution of r-values of the genes of interest for two
+        * ``"histogram"``: histograms for one set of samples.
+
+        * ``"histogram_bihist"``: bi-histograms for two paired sets
+          of samples.
+
+        * ``"histogram_overlap"``: overlapping histograms for two
           paired sets of samples.
 
-        * ``"boxplot"``: box plots showing the distributions of
-          r-values of the genes of interest in either a set of samples
-          or in two paired sets of samples (paired box plots).
+        * ``"boxplot"``: box plots for one set of samples or two
+          paired sets of samples.
 
-        * ``"violinplot"``: violin plots showing the distributions of
-          r-values of the genes of interest in either a set of samples
-          or in two paired sets of samples (paired violin plots).
+        * ``"violinplot"``: violin plots for one set of samples or two
+          paired sets of samples.
 
     config : :class:`dict`, optional
-        A dictionary containing the configuration for the plot's
-        aesthetics.
+        The configuration for the plot's aesthetics. The available
+        options are listed in the :doc:`documentation <plotting>`.
 
-        Alternatively, the options for the plot's aesthetics can be
-        provided using keyword arguments.
-
-        The available options can be found in the :doc:`documentation
-        <plotting>`.
-    
     max_plots_per_output : :class:`int`, ``9``
         The maximum number of plots for each output file.
-    
-    categories : :class:`list`, optional
-        A list of two categories used when generating dual histograms
-        or paired box plots or violin plots.
 
-        If provided, they are used to generate the legend of the plot.
+    categories : :class:`list`, optional
+        The names of the two paired sets of samples, used in the
+        legend.
 
     **kwargs
-        Additional keyword arguments representing options for the
-        plot's aesthetics.
-
-        The available options can be found in the :doc:`documentation
-        <plotting>`.
+        Additional options for the plot's aesthetics.
     """
 
     # Close any figure that may be open.
@@ -697,16 +609,15 @@ def plot_rvalues(dfs: list[pd.DataFrame] | pd.DataFrame,
 
     #-----------------------------------------------------------------#
 
-    # Keep a stable reference to the original input before reshaping
-    # per-gene data.
+    # Keep a reference to the original input.
     dfs_input = dfs
 
     # If the data is a single data frame
     if isinstance(dfs_input, pd.DataFrame):
-        
+
         # Put it in a list.
         dfs_input = [dfs_input]
-    
+
     #-----------------------------------------------------------------#
 
     # If only one data frame was passed
@@ -718,7 +629,7 @@ def plot_rvalues(dfs: list[pd.DataFrame] | pd.DataFrame,
         # Substitute infinite values with NaN.
         dfs = [df.replace([np.inf, -np.inf], np.nan) for df in dfs]
 
-        # The second set of data frames will be None.
+        # Set no second set of data frames.
         dfs_2 = None
 
     # If two data frames were passed
@@ -730,18 +641,18 @@ def plot_rvalues(dfs: list[pd.DataFrame] | pd.DataFrame,
         # Substitute infinite values with NaN.
         dfs = [df.replace([np.inf, -np.inf], np.nan) for df in dfs]
 
-        # Take only the columns of interest.
+        # Take only the columns of interest for the second set.
         dfs_2 = [dfs_input[1][gene] for gene in genes]
 
         # Substitute infinite values with NaN.
         dfs_2 = [df.replace([np.inf, -np.inf], np.nan) for df in dfs_2]
-        
+
         # If no categories were passed
         if categories is None:
 
             # Set them to default values.
             categories = ["Category 1", "Category 2"]
-    
+
     # Otherwise
     else:
 
@@ -752,7 +663,7 @@ def plot_rvalues(dfs: list[pd.DataFrame] | pd.DataFrame,
         raise ValueError(errstr)
 
     #-----------------------------------------------------------------#
-    
+
     # Merge the configuration provided by the user with the keyword
     # arguments.
     config = \
@@ -767,12 +678,22 @@ def plot_rvalues(dfs: list[pd.DataFrame] | pd.DataFrame,
     config_default = {}
 
     #-----------------------------------------------------------------#
-    
+
     # If the plot type is a histogram
-    if plot_type.startswith("histogram"):
+    if plot_type in \
+        ["histogram", "histogram_bihist", "histogram_overlap"]:
+
+        # Get the default configuration for the histogram.
+        config_hist = \
+            yaml.safe_load(\
+                open(defaults.CONFIG_FILES_PLOT[plot_type],
+                     "r")).get("histogram", {})
+
+        # Update it with the configuration provided.
+        config_hist.update(config.get("histogram", {}))
 
         # Get whether the plot is a density plot or not.
-        is_density = config.get(plot_type, {}).get("density", False)
+        is_density = config_hist.get("density", False)
 
         # Set the default label for the x-axis.
         x_label = "Magnitude of the r-values"
@@ -783,7 +704,7 @@ def plot_rvalues(dfs: list[pd.DataFrame] | pd.DataFrame,
         # If the plot type is a simple histogram
         if plot_type == "histogram":
 
-            # Add the default label to the configuration.
+            # Add the default colorbar label to the configuration.
             config_default = \
                 _internals.recursive_add_items(\
                     d = config_default,
@@ -791,7 +712,7 @@ def plot_rvalues(dfs: list[pd.DataFrame] | pd.DataFrame,
                         {("colorbar", "label", "label"): y_label})
 
     #-----------------------------------------------------------------#
-    
+
     # If the plot type is a boxplot or a violin plot
     elif plot_type in ["boxplot", "violinplot"]:
 
@@ -803,12 +724,24 @@ def plot_rvalues(dfs: list[pd.DataFrame] | pd.DataFrame,
 
     #-----------------------------------------------------------------#
 
+    # Otherwise
+    else:
+
+        # Raise an error.
+        errstr = \
+            f"Unsupported plot type '{plot_type}'. Supported plot " \
+            "types are: 'histogram', 'histogram_bihist', " \
+            "'histogram_overlap', 'boxplot', and 'violinplot'."
+        raise ValueError(errstr)
+
+    #-----------------------------------------------------------------#
+
     # Add the default label for the x-axis to the configuration.
     config_default = \
         _internals.recursive_add_items(\
             d = config_default,
             paths2values = {("xaxis", "label", "xlabel"): x_label})
-    
+
     # Add the default label for the y-axis to the configuration.
     config_default = \
         _internals.recursive_add_items(\
@@ -823,9 +756,9 @@ def plot_rvalues(dfs: list[pd.DataFrame] | pd.DataFrame,
             config_default,
             yaml.safe_load(\
                 open(defaults.CONFIG_FILES_PLOT[plot_type], "r")))
-    
+
     #-----------------------------------------------------------------#
-    
+
     # Generate the plots.
     _util.generate_plots(dfs = dfs,
                          dfs_2 = dfs_2,
