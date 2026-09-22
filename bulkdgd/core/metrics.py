@@ -84,7 +84,7 @@ SUPERVISED_METRICS = {
 
     # The adjusted mutual information score should be maximized.
     "adjusted_mutual_info_score" : "max",
-    
+
 }
 
 
@@ -106,10 +106,8 @@ def _to_numpy(x: object) -> np.ndarray:
         The input converted into a NumPy array.
     """
 
-    #
-
-    # If the object is a tensor-like object with a ``detach`` method
-    # (e.g., a :class:`torch.Tensor`), detach and move it to CPU.
+    # If the object has a 'detach' method (e.g., a tensor), detach it
+    # and move it to the CPU.
     if hasattr(x, "detach"):
         x = x.detach().cpu().numpy()
 
@@ -146,23 +144,24 @@ def _validate_clustering_inputs(
     # Convert the labels to a NumPy array.
     labels = _to_numpy(labels)
 
-    # The feature matrix must be 2D and labels must be 1D.
+    # If the feature matrix is not 2D or the labels are not 1D,
+    # return None.
     if X.ndim != 2 or labels.ndim != 1:
         return None, None
 
-    # The number of labels must match the number of samples and there
-    # must be at least two samples.
+    # If the numbers of labels and samples differ, or there are fewer
+    # than two samples, return None.
     if X.shape[0] != labels.shape[0] or X.shape[0] < 2:
         return None, None
 
     # Get the unique labels.
     unique_labels = np.unique(labels)
 
-    # At least two clusters are required, and the number of
-    # clusters must be less than the number of samples.
+    # If there are fewer than two clusters, or as many clusters as
+    # samples
     if unique_labels.shape[0] < 2 \
         or unique_labels.shape[0] >= X.shape[0]:
-        
+
         # Return None if inputs are invalid.
         return None, None
 
@@ -181,7 +180,7 @@ def encode_labels(labels_lists: list[list[str]]) -> list[np.ndarray]:
     Returns
     -------
     encoded_labels : :class:`list`
-        A list of Numpy arrays of encoded integer labels, one for each 
+        A list of Numpy arrays of encoded integer labels, one for each
         input list.
     """
 
@@ -198,9 +197,9 @@ def encode_labels(labels_lists: list[list[str]]) -> list[np.ndarray]:
     # integers.
     encoded_labels = \
         [encoder.transform(sub_list) for sub_list in labels_lists]
-    
+
     # Return the encoded labels.
-    return encoded_labels 
+    return encoded_labels
 
 
 def get_silhouette_score(X: object,
@@ -314,11 +313,11 @@ def get_adjusted_rand_score(y_true: object,
     # Convert the predicted labels.
     y_pred = _to_numpy(y_pred)
 
-    # Both arrays must be one-dimensional.
+    # If either array is not 1D, return NaN.
     if y_true.ndim != 1 or y_pred.ndim != 1:
         return float("nan")
 
-    # Both arrays must have the same non-zero length.
+    # If the arrays differ in length or are empty, return NaN.
     if y_true.shape[0] != y_pred.shape[0] or y_true.shape[0] == 0:
         return float("nan")
 
@@ -350,11 +349,11 @@ def get_normalized_mutual_info_score(y_true: object,
     # Convert the predicted labels.
     y_pred = _to_numpy(y_pred)
 
-    # Both arrays must be one-dimensional.
+    # If either array is not 1D, return NaN.
     if y_true.ndim != 1 or y_pred.ndim != 1:
         return float("nan")
 
-    # Both arrays must have the same non-zero length.
+    # If the arrays differ in length or are empty, return NaN.
     if y_true.shape[0] != y_pred.shape[0] or y_true.shape[0] == 0:
         return float("nan")
 
@@ -386,11 +385,11 @@ def get_adjusted_mutual_info_score(y_true: object,
     # Convert the predicted labels.
     y_pred = _to_numpy(y_pred)
 
-    # Both arrays must be one-dimensional.
+    # If either array is not 1D, return NaN.
     if y_true.ndim != 1 or y_pred.ndim != 1:
         return float("nan")
 
-    # Both arrays must have the same non-zero length.
+    # If the arrays differ in length or are empty, return NaN.
     if y_true.shape[0] != y_pred.shape[0] or y_true.shape[0] == 0:
         return float("nan")
 
@@ -417,61 +416,101 @@ def get_bic_score(gmm_model: object,
         The BIC score, or ``nan`` if undefined.
     """
 
-    # A fitted model is required.
+    # If there is no fitted model, return NaN.
     if gmm_model is None:
         return float("nan")
 
-    # Convert and validate the feature matrix.
+    # Convert the feature matrix to a NumPy array.
     X = _to_numpy(X)
+
+    # If it is not 2D or has fewer than two samples, return NaN.
     if X.ndim != 2 or X.shape[0] < 2:
         return float("nan")
 
-    # Extract model attributes required by the BIC formula.
+    # Get the model's covariance type.
     covariance_type = str(getattr(gmm_model,
                                   "covariance_type",
                                   "")).strip().lower()
-    lower_bound = getattr(gmm_model, "lower_bound_", None)
+
+    # Get the model's per-sample lower bound on the log-likelihood.
+    lower_bound = getattr(gmm_model,
+                          "lower_bound_",
+                          None)
+
+    # Get the model's number of components.
     n_components = getattr(gmm_model,
                            "n_components",
-                           getattr(gmm_model, "n_comp", None))
+                           getattr(gmm_model,
+                                   "n_comp",
+                                   None))
 
     # If required attributes are missing, return NaN.
     if lower_bound is None or n_components is None:
         return float("nan")
 
-    # Convert to numeric values.
+    # Get the numbers of samples and features.
     n_samples, n_features = X.shape
+
+    # Convert the attributes to numeric values.
     k = int(n_components)
     lower_bound = float(lower_bound)
 
-    # Compute covariance parameters according to covariance type.
+    # If the covariance is full
     if covariance_type == "full":
+
+        # Get the number of covariance parameters.
         cov_params = k * n_features * (n_features + 1) / 2.0
+
+    # If the covariance is diagonal
     elif covariance_type == "diag":
+
+        # Get the number of covariance parameters.
         cov_params = k * n_features
+
+    # If the covariance is spherical
     elif covariance_type == "spherical":
+
+        # Get the number of covariance parameters.
         cov_params = k
+
+    # If the covariance is full and tied
     elif covariance_type == "tied_full":
+
+        # Get the number of covariance parameters.
         cov_params = n_features * (n_features + 1) / 2.0
+
+    # If the covariance is diagonal and tied
     elif covariance_type == "tied_diag":
+
+        # Get the number of covariance parameters.
         cov_params = n_features
+
+    # If the covariance is spherical and tied
     elif covariance_type == "tied_spherical":
+
+        # Get the number of covariance parameters.
         cov_params = 1
+
+    # Otherwise
     else:
+
+        # Raise an error.
         errstr = \
             "Unsupported covariance type for BIC: " \
             f"'{covariance_type}'."
         raise ValueError(errstr)
 
-    # Means + weights.
+    # Get the numbers of mean and weight parameters.
     mean_params = n_features * k
     weight_params = k - 1
+
+    # Get the total number of parameters.
     n_parameters = cov_params + mean_params + weight_params
 
-    # Total log-likelihood.
+    # Get the total log-likelihood.
     log_likelihood = lower_bound * n_samples
 
-    # Return BIC (lower is better).
+    # Return the BIC (lower is better).
     return float(n_parameters * math.log(n_samples) - \
                  2.0 * log_likelihood)
 
@@ -538,7 +577,7 @@ def get_metric_score(metric_name: str,
     if metric_name == "adjusted_mutual_info_score":
         return get_adjusted_mutual_info_score(y_true, y_pred)
 
-    # Raise if the metric is unsupported.
+    # If the metric is unsupported, raise an error.
     raise ValueError(f"Unsupported metric '{metric_name}'.")
 
 
@@ -567,5 +606,5 @@ def get_metric_optimization_direction(metric_name: str) -> str:
     if metric_name in SUPERVISED_METRICS:
         return SUPERVISED_METRICS[metric_name]
 
-    # Raise if the metric is unsupported.
+    # If the metric is unsupported, raise an error.
     raise ValueError(f"Unsupported metric '{metric_name}'.")

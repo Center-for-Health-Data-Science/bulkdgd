@@ -30,7 +30,7 @@
 # Set the module's description.
 __doc__ = \
     "This module contains the class implementing the full BulkDGD " \
-    "model (:class:`core.model.BulkDGG`)."
+    "model (:class:`core.model.BulkDGD`)."
 
 
 #######################################################################
@@ -43,14 +43,16 @@ import hashlib
 import logging as log
 import math
 import os
+import random
 import re
+import string
 import time
 from typing import Optional, Union
 
 # Import from third-party libraries.
 import numpy as np
 import pandas as pd
-from scipy.stats import chi2, nbinom
+from scipy.stats import chi2, nbinom, poisson
 import torch
 from torch import nn
 import yaml
@@ -79,8 +81,7 @@ logger = log.getLogger(__name__)
 
 def clip_grads(optimizer: torch.optim.Optimizer,
                max_norm: Optional[Union[float, int]]) -> None:
-    """Clip an optimizer's gradients to a maximum norm before it steps,
-    to avoid a single large-gradient batch driving the loss to NaN.
+    """Clip an optimizer's gradients to a maximum norm.
 
     Parameters
     ----------
@@ -107,33 +108,31 @@ def clip_grads(optimizer: torch.optim.Optimizer,
 
     #-----------------------------------------------------------------#
 
-    # Zero out any non-finite gradient before clipping - scaling an
-    # infinite gradient by a finite factor still yields NaN, which then
-    # propagates into every parameter the optimizer touches.
+    # Zero out non-finite gradients, since clipping turns them into NaN.
     for p in params:
 
         # If the parameter's gradient is not entirely finite
         if not torch.isfinite(p.grad).all():
 
-            # Warn - this is rare, and worth knowing about.
+            # Warn the user.
             logger.warning(\
                 "A non-finite gradient was produced and has been "
                 "zeroed. The step it came from is effectively skipped.")
 
-            # Drop it.
+            # Zero the gradient.
             p.grad = torch.zeros_like(p.grad)
 
     #-----------------------------------------------------------------#
 
-    # Clip the gradients; the returned norm is the pre-clip norm, useful
-    # for calibrating 'max_norm'.
+    # Clip the gradients and get their norm before clipping.
     total_norm = \
         torch.nn.utils.clip_grad_norm_(parameters = params,
                                        max_norm = max_norm)
 
-    # Log the pre-clip gradient norm (one debug message per step).
-    logger.debug(f"Gradient norm before clipping: {float(total_norm):.4f} "
-                 f"(clipped to {max_norm}).")
+    # Log the gradient norm before clipping.
+    logger.debug(
+        f"Gradient norm before clipping: {float(total_norm):.4f} "
+        f"(clipped to {max_norm}).")
 
 
 #######################################################################
@@ -154,10 +153,10 @@ class BulkDGD(nn.Module):
     # Set the supported Gaussian mixture model types.
     GMM_TYPES = ["lgmm", "tgmm"]
 
-    # Set the precisions a model can be built in, and what each one is
-    # in torch's terms.
+    # Set the supported precisions.
     DTYPES = ["float32", "float64"]
 
+    # Map each precision to its torch data type.
     _DTYPES_TORCH = {"float32" : torch.float32,
                      "float64" : torch.float64}
 
@@ -176,49 +175,48 @@ class BulkDGD(nn.Module):
                  dtype: Optional[str] = None,
                  device: str = "cpu",
                  seed: Optional[str] = None) -> None:
-        """Initialize an instance of the class on the CPU.
+        """Initialize an instance of the class. If no architecture is
+        given, load the trained model shipped with the package.
 
         Parameters
         ----------
-        latent_dim : :class:`int`
+        latent_dim : :class:`int`, optional
             The dimensionality of the latent space.
+
+        latent_options : :class:`dict`, optional
+            The options for setting up the latent space.
+
+        decoder_options : :class:`dict`, optional
+            The options for setting up the decoder.
 
         latent_type : :class:`str`, {``"lgmm"``, ``"tgmm"``}, \
             ``"tgmm"``
             The type of the latent space to use.
-
-        latent_options : :class:`dict`
-            The options for setting up the latent space.
-
-        decoder_options : :class:`dict`
-            The options for setting up the decoder.
 
         gmm_final : :class:`dict`, optional
             The options for the Gaussian mixture fitted to the
             representations after training. If not given, no such
             mixture is fitted.
 
-        genes_txt_file : :class:`str`
+        genes_txt_file : :class:`str`, optional
             A plain text file containing the Ensembl IDs of the genes
             included in the model.
 
         scaling_factor : :class:`str`, \
             {``"mean"``, ``"median"``}, ``"mean"``
             How to compute a sample's scaling factor, used to rescale
-            the decoder's predicted means to the sample's own counts.
+            the decoder's predicted means to the sample's counts.
 
         dtype : :class:`str`, \
             {``"float32"``, ``"float64"``}, ``"float32"``
-            The precision the model's parameters are built in. Fixed
-            at construction time.
+            The precision of the model's parameters.
 
         device : :class:`str`, ``"cpu"``
             The device where the model will be initialized.
 
         seed : :class:`str`, optional
-            The seed identifying which shipped ensemble member to
-            load. Only valid when ``latent_dim``, ``latent_options``,
-            and ``decoder_options`` are all not given.
+            The seed of the shipped ensemble member to load. Only valid
+            when no architecture is given.
         """
 
         # Run the superclass' initialization.
@@ -226,31 +224,38 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # If no architecture is given, load the shipped, trained model
-        # instead; any argument the caller did pass overrides it.
+        # If no architecture is given
         if (latent_dim is None and latent_options is None
                 and decoder_options is None):
 
+            # Load the shipped model's settings.
             shipped = _util.load_shipped_model(seed = seed)
 
+            # Get the shipped architecture.
             latent_dim = shipped["latent_dim"]
             latent_options = shipped["latent_options"]
             decoder_options = shipped["decoder_options"]
 
+            # If no latent space type was given, use the shipped one.
             if latent_type is None:
                 latent_type = shipped["latent_type"]
 
+            # If no genes' file was given, use the shipped one.
             if genes_txt_file is None:
                 genes_txt_file = shipped["genes_txt_file"]
 
+            # If no scaling factor was given, use the shipped one.
             if scaling_factor is None:
                 scaling_factor = shipped["scaling_factor"]
 
+            # If no precision was given, use the shipped one.
             if dtype is None:
                 dtype = shipped["dtype"]
 
+        # If a seed was given together with an architecture
         elif seed is not None:
 
+            # Raise an error.
             errstr = \
                 "'seed' selects which shipped model to load and so " \
                 "cannot be combined with an explicit architecture. " \
@@ -258,21 +263,23 @@ class BulkDGD(nn.Module):
                 "'latent_options' and 'decoder_options'."
             raise ValueError(errstr)
 
-        # An architecture given by hand, with nothing said about the
-        # rest, keeps the values this class has always defaulted to.
+        # If no latent space type was given, use the default one.
         if latent_type is None:
             latent_type = "tgmm"
 
+        # If no scaling factor was given, use the default one.
         if scaling_factor is None:
             scaling_factor = "mean"
 
+        # If no precision was given, use the default one.
         if dtype is None:
             dtype = "float32"
 
-        # An architecture must be given in full, or not at all.
+        # If the architecture was only partly given
         if latent_dim is None or latent_options is None \
                 or decoder_options is None:
 
+            # Raise an error.
             errstr = \
                 "'latent_dim', 'latent_options' and " \
                 "'decoder_options' describe the architecture and " \
@@ -290,14 +297,12 @@ class BulkDGD(nn.Module):
             raise ValueError(
                 f"Unsupported scaling factor '{scaling_factor}'. The "
                 "supported scaling factors are: "
-                f"{', '.join(dataclasses.GeneExpressionDataset.SCALING_FACTORS)}.")
+    f"{', '.join(dataclasses.GeneExpressionDataset.SCALING_FACTORS)}.")
 
         # Save the scaling factor.
         self._scaling_factor = scaling_factor
 
-        # Inform the user, since a model whose scaling factor is not
-        # the one its data was written for fails by being wrong rather
-        # than by stopping.
+        # Inform the user about the scaling factor.
         logger.info(
             f"The scaling factor is the '{scaling_factor}' of a "
             "sample's counts.")
@@ -317,21 +322,20 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Get the genes included in the model. Resolve the "default"
-        # sentinel here, since it is understood by the configuration
-        # loader but not by 'open'.
+        # If no genes' file or the "default" one was given, use the
+        # default genes' file.
         if genes_txt_file in (None, "default"):
             genes_txt_file = defaults.DATA_FILES_MODEL["genes"]
 
+        # Get the genes included in the model.
         genes = \
             self.__class__._load_genes_list(\
                 genes_list_file = genes_txt_file)
 
         #-------------------------------------------------------------#
 
-        # Build the model in its own precision - parameters are
-        # created in torch's default dtype at construction time, so
-        # casting afterwards would just copy already-rounded numbers.
+        # Build the model in its own precision (casting it afterwards
+        # would keep the already-rounded values).
         with self._default_dtype(dtype):
 
             # Get the latent space.
@@ -345,16 +349,13 @@ class BulkDGD(nn.Module):
             # model's attributes.
             self._latent_initial_options = latent_options
 
-            # Keep the type of latent space the model was built with,
-            # so the model can write out a self-rebuilding config.
+            # Save the type of latent space.
             self._latent_type = latent_type
 
-            # Options for the final Gaussian mixture fitted to the
-            # representations after training; optional, and stored on
-            # the model since it decides what 'gmm_final.pth' contains.
+            # Save the options for the final Gaussian mixture.
             self._gmm_final_options = gmm_final
 
-            # The final mixture itself, once fitted; None until then.
+            # Set the final Gaussian mixture (fitted after training).
             self._latent_final = None
 
             # Inform the user that the latent space was set.
@@ -381,25 +382,20 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Whether this model came from fitted parameters.
-        #
-        # A trained decoder (not just a fitted mixture) is what makes
-        # this a trained model.
+        # Set whether the model is trained (has a trained decoder).
         self._is_trained = \
             decoder_options.get("decoder_pth_file") is not None
 
-        # Keep the genes the model knows, in decoder output order -
-        # needed by 'impute' without re-reading the source file.
+        # Save the genes, in the decoder's output order.
         self._genes = genes
 
-        # Keep the source gene list file; a pruned model reuses its
-        # parent's gene list rather than duplicating it.
+        # Save the genes' file.
         self._genes_txt_file = genes_txt_file
 
         #-------------------------------------------------------------#
 
-        # By default, only the winning representation is recorded,
-        # not the full candidate competition.
+        # By default, do not keep the details of the selection of the
+        # best representations.
         self._keep_selection_details = False
 
         # Initialize the list to hold the selection details.
@@ -407,7 +403,7 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # By default, the model is initialized on the CPU.
+        # Save the device.
         self._device = torch.device(device)
 
         # Move the model to the specified device.
@@ -429,28 +425,25 @@ class BulkDGD(nn.Module):
             The number of dimensions of the latent space.
 
         latent_type : :class:`str`, {``"lgmm"``, ``"tgmm"``}
-            The type of latent space to use: the legacy ("lgmm") or
-            TGMM ("tgmm") Gaussian mixture model implementation.
+            The type of latent space to use.
 
         latent_options : :class:`dict`
             A dictionary of options for the latent space.
-        
+
         device : :class:`str`
             The device where the Gaussian mixture model will be
             initialized.
-        
+
         Returns
         -------
-        latent : :class:`bulkdgd.core.latents.GaussianMixtureModelLegacy` \
-                 or :class:`bulkdgd.core.latents.GaussianMixtureModelTGMM`
+        latent : \
+            :class:`bulkdgd.core.latents.GaussianMixtureModelLegacy` \
+            or :class:`bulkdgd.core.latents.GaussianMixtureModelTGMM`
             The latent space.
         """
 
-        # Build a copy of the latent space's options without the
-        # (optional) path to a file with pre-trained parameters --
-        # it is not a valid constructor argument for either latent
-        # space class, and is used below (after construction) to
-        # load the pre-trained parameters, if provided.
+        # Copy the latent space's options without the path to the
+        # file with the trained parameters (loaded after construction).
         latent_options_init = \
             {k: v for k, v in latent_options.items()
              if k != "latent_pth_file"}
@@ -460,8 +453,9 @@ class BulkDGD(nn.Module):
 
             # Initialize the Gaussian mixture model.
             latent = \
-                latents.GaussianMixtureModelLegacy(dim = latent_dim,
-                                                   **latent_options_init)
+                latents.GaussianMixtureModelLegacy(
+                    dim = latent_dim,
+                    **latent_options_init)
 
         # If the user wants to use the 'tgmm' Gaussian Mixture Model
         elif latent_type == "tgmm":
@@ -472,7 +466,7 @@ class BulkDGD(nn.Module):
                     n_features = latent_dim,
                     device = device,
                     **latent_options_init)
-        
+
         # If the user provided an unsupported latent space type
         else:
 
@@ -480,11 +474,11 @@ class BulkDGD(nn.Module):
             err_msg = \
                 f"The latent space type '{latent_type}' is not " \
                 "supported. The supported latent space types are: " \
-                f"{', '.join(self.__class__.LATENT_TYPES)}."
+                f"{', '.join(self.__class__.GMM_TYPES)}."
             raise ValueError(err_msg)
-            
+
         #-------------------------------------------------------------#
-        
+
         # If the user provided a file with the latent space's trained
         # parameters
         if latent_options.get("latent_pth_file") is not None:
@@ -494,7 +488,7 @@ class BulkDGD(nn.Module):
                 mod = latent,
                 pth_file = latent_options["latent_pth_file"],
                 device = device)
-        
+
         #-------------------------------------------------------------#
 
         # Return the latent space.
@@ -531,7 +525,7 @@ class BulkDGD(nn.Module):
         r_values : :class:`pandas.Series` or :obj:`None`
             The negative binomials' r-values indexed by gene, or
             :obj:`None` if the output module is not
-            'nb_feature_dispersion'.
+            ``"nb_feature_dispersion"``.
         """
 
         # Create a copy of the configuration options for the
@@ -543,10 +537,8 @@ class BulkDGD(nn.Module):
         decoder_options_copy[
             "output_module_options"]["output_dim"] = len(genes)
 
-        # Remove the (optional) path to a file with pre-trained
-        # parameters -- it is not a valid constructor argument for
-        # 'decoders.Decoder', and is used below (after construction)
-        # to load the pre-trained parameters, if provided.
+        # Remove the path to the file with the trained parameters
+        # (loaded after construction).
         decoder_options_copy.pop("decoder_pth_file", None)
 
         # Get the decoder.
@@ -563,7 +555,7 @@ class BulkDGD(nn.Module):
                 mod = decoder,
                 pth_file = decoder_options["decoder_pth_file"],
                 device = device)
-        
+
         #-------------------------------------------------------------#
 
         # Get the output module's name.
@@ -581,13 +573,12 @@ class BulkDGD(nn.Module):
             r_values = pd.Series(r_values,
                                  index = genes)
 
-        # Otherwise (Poisson, full-dispersion NB, or a variant of it)
+        # Otherwise (the r-values are not stored per gene)
         else:
 
-            # The r-values are predicted per sample, not stored per
-            # gene, so there is no single per-gene value to return.
+            # There are no per-gene r-values.
             r_values = None
-        
+
         #-------------------------------------------------------------#
 
         # Return the decoder and the r-values.
@@ -615,7 +606,7 @@ class BulkDGD(nn.Module):
             The device to load the parameters onto.
         """
 
-        # Try to load the parameters
+        # Try to load the parameters.
         try:
 
             # Load the parameters.
@@ -627,13 +618,13 @@ class BulkDGD(nn.Module):
         # If something went wrong
         except Exception as e:
 
-            # Raise an error with a more specific exception type.
+            # Raise an error.
             err_msg = \
-                f"It was not possible to load the parameters " \
+                "It was not possible to load the parameters " \
                 f"from '{pth_file}'. Error: {e}"
             raise RuntimeError(err_msg)
 
-        # Inform the user that the parameters was successfully loaded.
+        # Inform the user that the parameters were loaded.
         info_msg = \
             "The parameters were successfully loaded from " \
             f"'{pth_file}'."
@@ -642,29 +633,37 @@ class BulkDGD(nn.Module):
 
     @classmethod
     @contextlib.contextmanager
-    def _default_dtype(cls, dtype: str):
-        """Set torch's default dtype for the duration of a block, and
-        put back the one that was there.
+    def _default_dtype(cls,
+                       dtype: str):
+        """Set torch's default data type for the duration of a block.
 
         Parameters
         ----------
         dtype : :class:`str`, {``"float32"``, ``"float64"``}
             The precision.
+
+        Returns
+        -------
+        context : :class:`contextlib.AbstractContextManager`
+            A context manager restoring the previous default data type
+            on exit.
         """
 
-        # Get the default dtype that is currently set.
+        # Get the current default data type.
         previous = torch.get_default_dtype()
 
-        # Set the one that was asked for.
+        # Set the requested one.
         torch.set_default_dtype(cls._DTYPES_TORCH[dtype])
 
+        # Run the block.
         try:
 
             yield
 
+        # Afterwards
         finally:
 
-            # Put back the one that was there, even on an exception.
+            # Restore the previous default data type.
             torch.set_default_dtype(previous)
 
 
@@ -690,16 +689,15 @@ class BulkDGD(nn.Module):
             return [line.rstrip("\n") for line in file_handle
                     if (not line.startswith("#")
                         and not re.match(r"^\s*$", line))]
-    
+
 
     ########################### PROPERTIES ############################
 
 
     @property
     def scaling_factor(self):
-        """How the scaling factor of a sample is computed - either
-        ``"mean"`` or ``"median"``. Fixed at initialization since the
-        decoder is fitted against it.
+        """How the scaling factor of a sample is computed
+        (``"mean"`` or ``"median"``).
         """
 
         return self._scaling_factor
@@ -713,23 +711,22 @@ class BulkDGD(nn.Module):
 
         Parameters
         ----------
-        value
-            The value (rejected unconditionally).
+        value : :class:`str`
+            The value.
         """
 
+        # Raise an error.
         errstr = \
-            "The value of 'scaling_factor' is set at initialization, " \
-            "and the decoder is fitted against it. Changing it on a " \
-            "trained model would leave every predicted mean wrong by " \
-            "the ratio of the two. Set it in the model's " \
+            "The value of 'scaling_factor' is set at initialization " \
+            "and cannot be changed. Set it in the model's " \
             "configuration file instead."
         raise ValueError(errstr)
 
 
     @property
     def dtype(self):
-        """The precision the model's parameters are in - either
-        ``"float32"`` or ``"float64"``. Fixed at initialization.
+        """The precision of the model's parameters (``"float32"`` or
+        ``"float64"``).
         """
 
         return self._dtype
@@ -747,20 +744,18 @@ class BulkDGD(nn.Module):
             The value.
         """
 
+        # Raise an error.
         errstr = \
-            "The value of 'dtype' is set at initialization, because " \
-            "it decides what the model's parameters are made of, and " \
-            "they are made when the model is built. Casting them " \
-            "afterwards gives double-precision copies of numbers that " \
-            "were rounded to single. Set it in the model's " \
-            "configuration file instead."
+            "The value of 'dtype' is set at initialization and " \
+            "cannot be changed. Set it in the model's configuration " \
+            "file instead."
         raise ValueError(errstr)
 
 
     @property
     def genes(self):
-        """The genes the model knows, in the order the decoder emits
-        them.
+        """The genes included in the model, in the decoder's output
+        order.
         """
 
         return self._genes
@@ -774,16 +769,16 @@ class BulkDGD(nn.Module):
 
         Parameters
         ----------
-        value
-            The value (rejected unconditionally).
+        value : :class:`list`
+            The value.
         """
 
+        # Raise an error.
         errstr = \
-            "The value of 'genes' is set at initialization and cannot " \
-            "be changed. It is the genes the decoder was built to " \
-            "emit, and a model of one set of genes is not a model of " \
-            "another."
-
+            "The value of 'genes' is set at initialization and " \
+            "cannot be changed. If you want to change the genes, " \
+            "initialize a new instance of " \
+            f"'{self.__class__.__name__}'."
         raise ValueError(errstr)
 
 
@@ -797,18 +792,19 @@ class BulkDGD(nn.Module):
 
     @latent.setter
     def latent(self,
-            value):
+               value):
         """Raise an exception if the user tries to modify the value
         of ``latent`` after initialization.
 
         Parameters
         ----------
-        value
-            The value (rejected unconditionally).
+        value : :class:`bulkdgd.core.latents.GaussianMixtureModelTGMM`
+            The value.
         """
 
+        # Raise an error.
         err_msg = \
-            "The value of 'latent' is set at initialization and  " \
+            "The value of 'latent' is set at initialization and " \
             "cannot be changed. If you want to change the " \
             "latent space, initialize a new instance of " \
             f"'{self.__class__.__name__}'."
@@ -818,7 +814,7 @@ class BulkDGD(nn.Module):
     @property
     def latent_final(self):
         """The Gaussian mixture fitted to the representations after
-        training. ``None`` until trained with a ``gmm_final`` section.
+        training, or ``None`` if none was fitted.
         """
 
         return self._latent_final
@@ -832,10 +828,11 @@ class BulkDGD(nn.Module):
 
         Parameters
         ----------
-        value
-            The value (rejected unconditionally).
+        value : :class:`bulkdgd.core.latents.GaussianMixtureModelTGMM`
+            The value.
         """
 
+        # Raise an error.
         err_msg = \
             "The value of 'latent_final' is set when the model is " \
             "trained, from the 'gmm_final' section of its " \
@@ -846,7 +843,7 @@ class BulkDGD(nn.Module):
     @property
     def gmm_final_options(self):
         """The options for the Gaussian mixture model fitted after
-        training, or ``None`` if the model does not ask for one.
+        training, or ``None`` if none is fitted.
         """
 
         return self._gmm_final_options
@@ -868,10 +865,11 @@ class BulkDGD(nn.Module):
 
         Parameters
         ----------
-        value
-            The value (rejected unconditionally).
+        value : :class:`bulkdgd.core.decoders.Decoder`
+            The value.
         """
 
+        # Raise an error.
         err_msg = \
             "The value of 'decoder' is set at initialization and " \
             "cannot be changed. If you want to change the decoder, " \
@@ -879,12 +877,14 @@ class BulkDGD(nn.Module):
             f"'{self.__class__.__name__}'."
         raise ValueError(err_msg)
 
+
     @property
     def device(self):
         """The device where the model is.
         """
 
         return self._device
+
 
     @device.setter
     def device(self,
@@ -901,9 +901,8 @@ class BulkDGD(nn.Module):
         self.to(device = torch.device(value))
 
         # Update the device the model is on.
-        # Store a torch.device for consistency.
         self._device = torch.device(value)
-    
+
 
     ######################### PRIVATE METHODS #########################
 
@@ -919,7 +918,7 @@ class BulkDGD(nn.Module):
         ----------
         optimizer_type : :class:`str`
             The type of optimizer to set up.
-        
+
         optimizer_options : :class:`dict`
             A dictionary of options for the optimizer.
 
@@ -946,24 +945,32 @@ class BulkDGD(nn.Module):
             # Set up the optimizer.
             optimizer = \
                 torch.optim.AdamW(optimizer_parameters,
-                                 **optimizer_options)
+                                  **optimizer_options)
 
         # If it is the L-BFGS optimizer
         elif optimizer_type == "lbfgs":
 
-            # Set up the optimizer. Unlike the first-order optimizers
-            # above, this one needs a closure ('_optimize_rep' provides
-            # one when it detects an L-BFGS optimizer).
+            # Set up the optimizer (it steps with a closure).
             optimizer = \
                 torch.optim.LBFGS(optimizer_parameters,
                                   **optimizer_options)
+
+        # If the optimizer is not supported
+        else:
+
+            # Raise an error.
+            errstr = \
+                f"Unsupported optimizer '{optimizer_type}'. The " \
+                "supported optimizers are: " \
+                f"{', '.join(self.OPTIMIZERS)}."
+            raise ValueError(errstr)
 
         #-------------------------------------------------------------#
 
         # Return the optimizer.
         return optimizer
-    
-    
+
+
     def _get_scheduler(self,
                        lr_scheduler_target: str,
                        lr_scheduler_type: str,
@@ -975,21 +982,22 @@ class BulkDGD(nn.Module):
                             -> Optional[
                                 torch.optim.lr_scheduler.LRScheduler]:
         """Get the learning rate scheduler.
-        
+
         Parameters
         ----------
         lr_scheduler_target : :class:`str`, {``"decoder"``, \
-            ``"representations"``}
-            The target for the scheduler: the decoder (steps per
-            batch) or the representations (steps per epoch).
+            ``"latent"``, ``"representations"``}
+            The target for the scheduler: the decoder or the latent
+            space (steps per batch) or the representations (steps per
+            epoch).
 
         lr_scheduler_type : :class:`str` or :obj:`None`
             The type of learning rate scheduler to set up,
             or :obj:`None`.
-        
+
         lr_scheduler_options : :class:`dict`
             A dictionary of options for the learning rate scheduler.
-        
+
         optimizer : :class:`torch.optim.Optimizer`
             The optimizer for which to set up the learning rate
             scheduler.
@@ -1001,7 +1009,7 @@ class BulkDGD(nn.Module):
             optional
             The training data loader, required if the scheduler steps
             per batch.
-        
+
         Returns
         -------
         scheduler : :class:`torch.optim.lr_scheduler.LRScheduler` or \
@@ -1017,28 +1025,40 @@ class BulkDGD(nn.Module):
             return None
 
         #-------------------------------------------------------------#
-            
+
         # If the scheduler is for the decoder or for the latent space
         if lr_scheduler_target in ("decoder", "latent"):
-            
+
             # Set the total steps to the total number of epochs times
             # the number of batches in the training data.
             total_steps = n_epochs * len(data_loader_train)
-        
+
         # If the scheduler is for the representations
         elif lr_scheduler_target == "representations":
 
             # Set the total steps to the total number of epochs.
             total_steps = n_epochs
 
+        # If the target is not supported
+        else:
+
+            # Raise an error.
+            errstr = \
+                "Unsupported learning rate scheduler target " \
+                f"'{lr_scheduler_target}'. The supported targets " \
+                "are: decoder, latent, representations."
+            raise ValueError(errstr)
+
         #-------------------------------------------------------------#
-        
+
         # If the type of scheduler is 'one_cycle'
         if lr_scheduler_type == "one_cycle":
 
-            # Set the scheduler.
+            # Copy the scheduler's options without the 'enabled' flag.
             lr_scheduler_opts = lr_scheduler_options.copy()
             lr_scheduler_opts.pop("enabled", None)
+
+            # Set the scheduler.
             lr_scheduler = \
                 torch.optim.lr_scheduler.OneCycleLR(\
                     optimizer,
@@ -1050,11 +1070,11 @@ class BulkDGD(nn.Module):
         # If the type of scheduler is 'cosine'
         elif lr_scheduler_type == "cosine":
 
-            # Set the scheduler. 'T_max' is the number of steps it
-            # anneals over - the same count 'one_cycle' uses for
-            # 'total_steps'.
+            # Copy the scheduler's options without the 'enabled' flag.
             lr_scheduler_opts = lr_scheduler_options.copy()
             lr_scheduler_opts.pop("enabled", None)
+
+            # Set the scheduler, annealing over all steps.
             lr_scheduler = \
                 torch.optim.lr_scheduler.CosineAnnealingLR(\
                     optimizer,
@@ -1063,10 +1083,22 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
+        # If the type of scheduler is not supported
+        else:
+
+            # Raise an error.
+            errstr = \
+                "Unsupported learning rate scheduler type " \
+                f"'{lr_scheduler_type}'. The supported types are: " \
+                "one_cycle, cosine."
+            raise ValueError(errstr)
+
+        #-------------------------------------------------------------#
+
         # Return the scheduler.
         return lr_scheduler
 
-    
+
     @staticmethod
     def _get_masked_scaling_factors(obs_counts: torch.Tensor,
                                     pred_means: torch.Tensor,
@@ -1074,8 +1106,8 @@ class BulkDGD(nn.Module):
                                     n_genes: int,
                                     scaling_factor: str = "mean") \
                                         -> torch.Tensor:
-        """Get the scaling factor of a sample only some of whose genes
-        were measured.
+        """Get the scaling factors of samples with only some genes
+        measured, from the measured counts and the predictions.
 
         Parameters
         ----------
@@ -1097,47 +1129,60 @@ class BulkDGD(nn.Module):
 
         Returns
         -------
-        :class:`torch.Tensor`
+        scaling_factors : :class:`torch.Tensor`
             The scaling factor(s).
         """
 
-        # If computing the median: a naive median over only the
-        # measured genes is biased when missingness isn't random, so
-        # find it directly rather than filling in and re-deriving it.
+        # If computing the median
         if scaling_factor == "median":
 
-            # Put the unmeasured genes beyond every measured one, so
-            # that sorting leaves them all at the end and they cannot be
-            # selected.
-            sortable = obs_counts.masked_fill(mask == 0.0, float("inf"))
+            # Mark the unmeasured genes.
+            unmeasured = mask == 0.0
 
             # Count the measured genes per sample.
             n_measured = mask.sum(dim = -1, keepdim = True).long()
 
-            # The lower of the two middle values when the count is even,
-            # which is what 'torch.median' returns for the unmasked
-            # sample - the two paths must agree when nothing is masked.
+            # Take the lower middle value, as 'torch.median' does.
             idx = ((n_measured - 1) // 2).clamp(min = 0)
 
-            # Gather the median value at the computed index.
-            return sortable.sort(dim = -1).values.gather(-1, idx)
+            # Get the median of the measured counts (the unmeasured
+            # genes are sorted past the end).
+            obs_median = \
+                obs_counts.masked_fill(unmeasured,
+                                       float("inf")).sort(\
+                    dim = -1).values.gather(-1, idx)
+
+            # Get the predicted median over the measured genes.
+            pred_measured = \
+                pred_means.masked_fill(unmeasured,
+                                       float("inf")).sort(\
+                    dim = -1).values.gather(\
+                        -1,
+                        idx.expand(*pred_means.shape[:-1], 1))
+
+            # Get the predicted median over every gene.
+            pred_all = pred_means.sort(dim = -1).values[\
+                ..., [(n_genes - 1) // 2]]
+
+            # Return the measured median, corrected by the ratio of the
+            # predicted medians over all and measured genes.
+            return obs_median * pred_all / pred_measured
 
         #-------------------------------------------------------------#
 
-        # Otherwise, solve for 's' so the predicted total matches the
-        # observed total over measured genes plus the model's own
-        # expectation for the rest; reduces to the plain mean when all
-        # genes are measured.
+        # Otherwise, sum the observed counts over the measured genes.
         obs_measured = (obs_counts * mask).sum(dim = -1, keepdim = True)
 
         # Sum the model's predicted means over the unmeasured genes.
         pred_unmeasured = \
             (pred_means * (1.0 - mask)).sum(dim = -1, keepdim = True)
 
-        # Roughly the number of measured genes (predicted means
-        # average about one); clamped so the division cannot blow up.
+        # Get the denominator (about the number of measured genes),
+        # clamped to avoid a division by zero.
         denominator = (n_genes - pred_unmeasured).clamp(min = 1e-6)
 
+        # Return the scaling factors (the plain mean when every gene
+        # is measured).
         return obs_measured / denominator
 
 
@@ -1157,18 +1202,14 @@ class BulkDGD(nn.Module):
                       contamination_r: float = 0.05,
                       noise_type: Optional[str] = None,
                       noise_options: Optional[dict] = None) -> \
-                        torch.Tensor:
+                        tuple[torch.Tensor, torch.Tensor,
+                              Optional[torch.Tensor], list[tuple]]:
         """Optimize the representation(s) found for each sample.
 
         Parameters
         ----------
         data_loader : :class:`torch.utils.data.DataLoader`
             The data loader.
-
-        genes_mask : :class:`torch.Tensor`, optional
-            A 2D 1.0/0.0 mask (samples x genes) of measured genes;
-            unmeasured genes are excluded from the loss and the
-            scaling factor. Defaults to all genes measured.
 
         rep_layer : :class:`bulkdgd.core.latents.RepresentationLayer`
             The representation layer containing the initial
@@ -1201,17 +1242,22 @@ class BulkDGD(nn.Module):
         latent_lambda : :class:`float`, optional
             The weight of the latent loss term in the total loss.
 
-        contamination : :class:`float`, optional
-            How much of a sample the model may give up on. Zero (the
-            default) disables it.
+        genes_mask : :class:`torch.Tensor`, optional
+            A 2D 1.0/0.0 mask (samples x genes) of measured genes.
+            Unmeasured genes are excluded from the loss and the
+            scaling factor. By default, all genes are measured.
 
-        contamination_r : :class:`float`, optional
+        contamination : :class:`float`, ``0.0``
+            How much of a sample the model may give up on. Zero
+            disables it.
+
+        contamination_r : :class:`float`, ``0.05``
             The dispersion used for the contamination model.
 
         noise_type : :class:`str`, optional
             The type of noise to inject into the representations
-            during optimization; only ``"gaussian"`` is implemented,
-            :obj:`None` disables it.
+            during optimization (only ``"gaussian"``). :obj:`None`
+            disables it.
 
         noise_options : :class:`dict`, optional
             The noise options: ``scale``, ``start``/``end`` (the
@@ -1255,67 +1301,67 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Unpack the noise options once, rather than once an epoch.
-        # Same perturbation training applies to its own representations,
-        # but off by default here since this is inference, not learning.
+        # Get the noise options.
         noise_options = noise_options or {}
 
-        # Only Gaussian noise is implemented; anything else, including
-        # the default None, disables it.
+        # Enable the noise only if it is Gaussian.
         noise_enabled = (noise_type == "gaussian")
 
-        # The base scale. Zero disables the injection just as surely as
-        # a null noise type, which is how training spells "off" too.
+        # Get the base noise scale (zero disables the noise).
         noise_scale_base = \
             float(noise_options.get("scale", 0.0)) if noise_enabled \
             else 0.0
 
+        # If the noise is enabled
         if noise_scale_base > 0:
 
-            # Unpack the annealing schedule.
+            # Get the annealing schedule and the gain.
             noise_start = float(noise_options["start"])
             noise_end = float(noise_options["end"])
             noise_gain = float(noise_options["gain"])
 
-            # The radius of the hypersphere holding the given fraction
-            # of the mass, which the noise is divided by so that its
-            # size means the same thing in any latent dimensionality.
-            # It does not depend on the epoch, so it is computed once.
+            # Get the radius holding the given fraction of the mass,
+            # making the noise's size independent of the dimensionality.
             noise_radius = \
                 float(chi2.ppf(
                     float(noise_options["within_radius_prob"]),
                     self.latent.dim)) ** 0.5
 
+            # Inform the user about the noise.
             logger.info(
                 f"Optimization number {opt_num} will inject Gaussian "
-                f"noise into the representations (scale "
+                "noise into the representations (scale "
                 f"{noise_scale_base}, annealed from {noise_start} to "
                 f"{noise_end}).")
 
         #-------------------------------------------------------------#
 
-        # Inform the user that the optimization is starting
+        # Inform the user that the optimization is starting.
         info_msg = f"Starting optimization number {opt_num}..."
         logger.info(info_msg)
 
         # For each epoch
         for epoch in range(1, epochs+1):
 
-            # Get the noise scale for this epoch, cosine-annealed
-            # between 'start' and 'end' over this optimization's own
-            # epochs (not shared with any other optimization round).
+            # If the noise is enabled
             if noise_scale_base > 0:
 
+                # Get the fraction of the epochs elapsed.
                 progress = (epoch - 1) / max(epochs - 1, 1)
 
+                # Get the noise scale for this epoch, cosine-annealed
+                # between 'start' and 'end'.
                 noise_scale = \
                     noise_end + (noise_start - noise_end) * 0.5 * \
                         (1 + math.cos(math.pi * progress))
 
+                # Multiply it by the base scale.
                 noise_scale = noise_scale * noise_scale_base
 
+            # Otherwise
             else:
 
+                # Set no noise.
                 noise_scale = 0.0
 
             # Mark the CPU start time of the epoch.
@@ -1324,19 +1370,23 @@ class BulkDGD(nn.Module):
             # Mark the wall clock start time of the epoch.
             time_start_epoch_wall = time.time()
 
-            # Declared here so that the closure below can rebind
-            # them: a nonlocal name has to exist in the enclosing
-            # scope first.
+            # Initialize the totals the closure rebinds.
             time_tot_bw_cpu = 0.0
             time_tot_bw_wall = 0.0
             rep_avg_loss_epoch = 0.0
 
-            # Everything the epoch does to the loss, as a closure -
-            # L-BFGS re-evaluates it several times per step, so the
-            # totals below are reset inside, not outside, to avoid
-            # accumulating across probes.
+            # Define the epoch's loss computation as a closure (L-BFGS
+            # evaluates it several times per step).
             def closure():
+                """Compute the epoch's loss and its gradients.
 
+                Returns
+                -------
+                rep_avg_loss_epoch : :class:`float`
+                    The epoch's loss.
+                """
+
+                # Rebind the epoch's totals.
                 nonlocal time_tot_bw_cpu, time_tot_bw_wall
                 nonlocal rep_avg_loss_epoch
 
@@ -1362,7 +1412,7 @@ class BulkDGD(nn.Module):
                     # Get the number of samples in the batch.
                     n_samples_in_batch = len(samples_ixs)
 
-                    #-----------------------------------------------------#
+                    #-------------------------------------------------#
 
                     # Move the gene expression of the samples to the
                     # correct device.
@@ -1372,13 +1422,13 @@ class BulkDGD(nn.Module):
                     # the correct device.
                     samples_mean_exp = samples_mean_exp.to(self.device)
 
-                    #-----------------------------------------------------#
+                    #-------------------------------------------------#
 
                     # Get the representations from the representation
                     # layer: shape (samples * components * reps, dim).
                     z_all = rep_layer()
 
-                    #-----------------------------------------------------#
+                    #-------------------------------------------------#
 
                     # Reshape to (samples, reps, components, dim) and
                     # select this batch's samples.
@@ -1394,21 +1444,20 @@ class BulkDGD(nn.Module):
                                     n_components,
                                   dim)
 
-                    #-----------------------------------------------------#
+                    #-------------------------------------------------#
 
-                    # Inject the noise, if any was asked for, into the
-                    # value the decoder sees rather than the parameter
-                    # being optimized - this yields a representation
-                    # robust to noise, not merely a noisy one.
+                    # If the noise is enabled
                     if noise_scale > 0:
 
+                        # Add it to the decoder's input (not to the
+                        # optimized representations).
                         z = z + noise_scale * noise_gain * \
                                 torch.randn_like(z) / noise_radius
 
-                    #-----------------------------------------------------#
+                    #-------------------------------------------------#
 
-                    # If the chosen output module means that the r-values
-                    # are not learned
+                    # If the output module means that the r-values are
+                    # not learned
                     if isinstance(\
                         self.decoder.nb,
                         (outputmodules.OutputModuleNBFeatureDispersion,
@@ -1418,15 +1467,19 @@ class BulkDGD(nn.Module):
                         # (batch * reps * components, genes).
                         pred_means = self.decoder(z = z)
 
-                    # If the chosen output module means that the r-values
-                    # are learned
+                        # There are no predicted r-values.
+                        pred_log_r_values = None
+
+                    # If the output module means that the r-values are
+                    # learned
                     elif isinstance(\
                         self.decoder.nb,
                         outputmodules.OutputModuleNBFullDispersion):
 
-                        # Get the predicted scaled means and r-values:
-                        # both shaped (batch * reps * components, genes).
-                        pred_means, pred_log_r_values = self.decoder(z = z)
+                        # Get the predicted scaled means and r-values,
+                        # shaped (batch * reps * components, genes).
+                        pred_means, pred_log_r_values = \
+                            self.decoder(z = z)
 
                         # Reshape the r-values to (batch, reps,
                         # components, genes) to compute the loss.
@@ -1436,11 +1489,10 @@ class BulkDGD(nn.Module):
                                                    n_components,
                                                    n_genes)
 
-                    #-----------------------------------------------------#
+                    #-------------------------------------------------#
 
-                    # Expand the observed gene expression to
-                    # (batch, reps, components, genes) to match the
-                    # shape required to compute the reconstruction loss.
+                    # Expand the observed gene expression to (batch,
+                    # reps, components, genes).
                     obs_counts = \
                         samples_exp.unsqueeze(1).unsqueeze(1).expand(\
                             -1,
@@ -1448,23 +1500,25 @@ class BulkDGD(nn.Module):
                             n_components,
                             -1)
 
-                    #-----------------------------------------------------#
+                    #-------------------------------------------------#
 
-                    # Reshape the per-gene scaling factors to
-                    # (batch, 1, 1, 1), broadcastable over the loss.
+                    # Reshape the scaling factors to (batch, 1, 1, 1),
+                    # broadcastable over the loss.
                     scaling_factors = \
-                        decoders.reshape_scaling_factors(samples_mean_exp,
-                                                         4)
+                        decoders.reshape_scaling_factors(
+                            samples_mean_exp,
+                            4)
 
-                    #-----------------------------------------------------#
+                    #-------------------------------------------------#
 
-                    # The batch's mask, if any, shaped to broadcast over
-                    # the representations and the components.
+                    # Get the batch's mask, if any, shaped to broadcast
+                    # over the representations and the components.
                     mask_batch = \
-                        genes_mask[samples_ixs].unsqueeze(1).unsqueeze(1) \
+                        genes_mask[samples_ixs].unsqueeze(1).\
+                            unsqueeze(1) \
                             if genes_mask is not None else None
 
-                    #-----------------------------------------------------#
+                    #-------------------------------------------------#
 
                     # Reshape the predicted means to (batch, reps,
                     # components, genes) to compute the loss.
@@ -1473,13 +1527,13 @@ class BulkDGD(nn.Module):
                                                  n_components,
                                                  n_genes)
 
-                    #-----------------------------------------------------#
+                    #-------------------------------------------------#
 
-                    # If only some genes were measured, re-estimate the
-                    # scaling factor from the measured genes alone every
-                    # step, since 'pred_means' moves at every step.
+                    # If only some genes were measured
                     if mask_batch is not None:
 
+                        # Re-estimate the scaling factors from the
+                        # measured genes.
                         scaling_factors = \
                             self.__class__._get_masked_scaling_factors(
                                 obs_counts = obs_counts,
@@ -1488,10 +1542,10 @@ class BulkDGD(nn.Module):
                                 n_genes = n_genes,
                                 scaling_factor = self._scaling_factor)
 
-                    #-----------------------------------------------------#
+                    #-------------------------------------------------#
 
-                    # If the chosen output module means that the r-values
-                    # are not learned
+                    # If the output module means that the r-values are
+                    # not learned
                     if isinstance(\
                         self.decoder.nb,
                         (outputmodules.OutputModuleNBFeatureDispersion,
@@ -1504,8 +1558,8 @@ class BulkDGD(nn.Module):
                              "pred_means" : pred_means,
                              "scaling_factors" : scaling_factors}
 
-                    # If the chosen output module means that the r-values
-                    # are learned
+                    # If the output module means that the r-values are
+                    # learned
                     elif isinstance(\
                         self.decoder.nb,
                         outputmodules.OutputModuleNBFullDispersion):
@@ -1518,73 +1572,69 @@ class BulkDGD(nn.Module):
                              "pred_log_r_values" : pred_log_r_values,
                              "scaling_factors" : scaling_factors}
 
-                    # Bound what a gene the model cannot reach is allowed
-                    # to do to the representation. Off unless asked for.
+                    # If contamination is enabled
                     if contamination:
 
-                        recon_loss_options["contamination"] = contamination
-
+                        # Add the contamination options.
+                        recon_loss_options["contamination"] = \
+                            contamination
                         recon_loss_options["contamination_r"] = \
                             contamination_r
 
                     # Get the reconstruction loss: shape (batch, reps,
                     # components, genes).
-                    recon_loss = self.decoder.nb.loss(**recon_loss_options)
+                    recon_loss = \
+                        self.decoder.nb.loss(**recon_loss_options)
 
-                    #-----------------------------------------------------#
+                    #-------------------------------------------------#
 
-                    # Zero out unmeasured genes' loss terms before the
-                    # reduction below, or an unmeasured gene would read
-                    # as one measured to be off.
+                    # If only some genes were measured
                     if mask_batch is not None:
 
+                        # Zero out the unmeasured genes' loss terms.
                         recon_loss = recon_loss * mask_batch
 
-                    #-----------------------------------------------------#
+                    #-------------------------------------------------#
 
                     # If the reduction method is 'sum'
                     if loss_reduction_type == "sum":
 
-                        # Get the total reconstruction loss by summing all
-                        # values in the 'recon_loss' tensor.
-                        #
-                        # The output is a tensor containing a single value.
+                        # Get the total reconstruction loss by summing
+                        # all the values (a single-value tensor).
                         recon_loss_final = recon_loss.sum().clone()
-                
+
                     # If the reduction method is 'mean'
                     elif loss_reduction_type == "mean":
 
                         # Get the total reconstruction loss by averaging
-                        # all values in the 'recon_loss' tensor.
-                        #
-                        # The output is a tensor containing a single value.
+                        # all the values (a single-value tensor).
                         recon_loss_final = recon_loss.mean().clone()
 
-                    #-----------------------------------------------------#
+                    #-------------------------------------------------#
 
                     # If the latent space is the legacy Gaussian mixture
                     # model
                     if isinstance(self.latent,
                                   latents.GaussianMixtureModelLegacy):
-                    
+
                         # If the reduction method is 'sum'
                         if loss_reduction_type == "sum":
 
                             # Get the loss.
                             latent_loss_final = \
                                 self.latent(x = z).sum().clone()
-                    
+
                         # If the reduction method is 'mean'
-                        elif loss_reduction_type == "mean": 
+                        elif loss_reduction_type == "mean":
 
                             # Get the loss.
                             latent_loss_final = \
                                 self.latent(x = z).mean().clone()
-                
+
                     # If the latent space is the TorchGMM wrapper
                     elif isinstance(self.latent,
                                     latents.GaussianMixtureModelTGMM):
-                    
+
                         # If the reduction method is 'sum'
                         if loss_reduction_type == "sum":
 
@@ -1593,7 +1643,7 @@ class BulkDGD(nn.Module):
                                 - latent_lambda * \
                                     torch.sum(\
                                         self.latent.log_prob(z))
-                    
+
                         # If the reduction method is 'mean'
                         elif loss_reduction_type == "mean":
 
@@ -1603,33 +1653,30 @@ class BulkDGD(nn.Module):
                                     torch.mean(\
                                         self.latent.log_prob(z))
 
-                    #-----------------------------------------------------#
+                    #-------------------------------------------------#
 
-                    # The dispersion regularization the output module
-                    # asks for; zero except for modules that shrink the
-                    # per-sample dispersion toward a baseline.
+                    # Get the output module's dispersion regularization
+                    # (zero unless it shrinks the dispersion).
                     dispersion_reg = \
                         self.decoder.nb.dispersion_regularization(
                             pred_means = pred_means,
                             pred_log_r_values = pred_log_r_values,
                             reduction = loss_reduction_type)
 
-                    #-----------------------------------------------------#
+                    #-------------------------------------------------#
 
-                    # Get the total loss by summing the reconstruction loss,
-                    # the loss of the latent space, and the dispersion
-                    # regularization.
-                    #
-                    # The output is a tensor containing a single value.
+                    # Get the total loss (a single-value tensor).
                     total_loss = \
-                        recon_loss_final + latent_loss_final + dispersion_reg
+                        recon_loss_final + latent_loss_final + \
+                            dispersion_reg
 
-                    #-----------------------------------------------------#
+                    #-------------------------------------------------#
 
                     # Mark the CPU start time of the backward step.
                     time_start_bw_cpu = time.process_time()
 
-                    # Mark the wall clock start time of the backward step.
+                    # Mark the wall clock start time of the backward
+                    # step.
                     time_start_bw_wall = time.time()
 
                     # Propagate the loss backward.
@@ -1650,7 +1697,7 @@ class BulkDGD(nn.Module):
                     time_tot_bw_wall += \
                         time_end_bw_wall - time_start_bw_wall
 
-                    #-----------------------------------------------------#
+                    #-------------------------------------------------#
 
                     # Update the average loss for the current epoch.
                     rep_avg_loss_epoch += \
@@ -1658,29 +1705,29 @@ class BulkDGD(nn.Module):
                             loss = total_loss.item(),
                             loss_type = "total",
                             loss_norm_type = loss_norm_type,
-                            loss_norm_options = {"n_samples" : n_samples,
-                                                 "n_genes" : n_genes})
+                            loss_norm_options = \
+                                {"n_samples" : n_samples,
+                                 "n_genes" : n_genes})
 
-                # Hand the epoch's loss back to the optimizer, which
-                # is what a line search compares.
+                # Return the epoch's loss.
                 return rep_avg_loss_epoch
 
             #---------------------------------------------------------#
 
-            # Take an optimization step. L-BFGS drives the closure
-            # itself (its line search needs multiple probes); every
-            # other optimizer gets one evaluation, then steps.
+            # If the optimizer is L-BFGS
             if isinstance(optimizer, torch.optim.LBFGS):
 
+                # Take a step (the optimizer evaluates the closure).
                 optimizer.step(closure)
 
             # If it is any other optimizer
             else:
 
+                # Compute the loss and its gradients.
                 closure()
 
+                # Take a step.
                 optimizer.step()
-
 
             #---------------------------------------------------------#
 
@@ -1728,8 +1775,7 @@ class BulkDGD(nn.Module):
                 #-----------------------------------------------------#
 
                 # If the genes' counts are modelled by negative
-                # binomial distributions whose r-values are learned
-                # per gene (but not per sample)
+                # binomials with per-gene r-values
                 if isinstance(\
                     self.decoder.nb,
                     outputmodules.OutputModuleNBFeatureDispersion):
@@ -1743,8 +1789,7 @@ class BulkDGD(nn.Module):
                             self.decoder.nb.log_r).squeeze().detach()
 
                 # If the genes' counts are modelled by negative
-                # binomial distributions whose r-values are learned
-                # per gene per sample
+                # binomials with per-gene, per-sample r-values
                 elif isinstance(\
                     self.decoder.nb,
                     outputmodules.OutputModuleNBFullDispersion):
@@ -1760,7 +1805,7 @@ class BulkDGD(nn.Module):
 
                 # If the genes' counts are modelled by Poisson
                 # distributions
-                elif isinstance(    
+                elif isinstance(
                     self.decoder.nb,
                     outputmodules.OutputModulePoisson):
 
@@ -1816,22 +1861,20 @@ class BulkDGD(nn.Module):
             The weight of the GMM loss term in the total loss.
 
         genes_mask : :class:`torch.Tensor`, optional
-            A 2D mask of which genes were measured, matching the one
-            passed to the optimization that produced the candidates.
-            Excludes unmeasured genes from the candidates' losses, so
-            the winner is not chosen on genes that were never read.
+            A 2D mask of the measured genes, as used in the
+            optimization. Unmeasured genes are excluded from the
+            candidates' losses.
 
-        contamination : :class:`float`, optional
-            How much of a sample the model is allowed to give up on,
-            matching the value used during optimization.
+        contamination : :class:`float`, ``0.0``
+            How much of a sample the model may give up on, as used in
+            the optimization.
 
-        contamination_r : :class:`float`, optional
-            The dispersion used for the contamination model, if
-            ``contamination`` is nonzero.
+        contamination_r : :class:`float`, ``0.05``
+            The dispersion used for the contamination model.
 
         n_components : :class:`int`, optional
             The number of components to lay the candidates out over.
-            If not given, the mixture's own component count is used.
+            By default, the mixture's number of components.
 
         Returns
         -------
@@ -1843,9 +1886,7 @@ class BulkDGD(nn.Module):
         # Get the total number of samples.
         n_samples = len(data_loader.dataset)
 
-        # Number of GMM components; a caller may override it (e.g. a
-        # layer already holding one representation per sample), else
-        # it defaults to the mixture's own count.
+        # Get the number of components (by default, the mixture's).
         n_components = \
             self.latent.n_components if n_components is None \
             else int(n_components)
@@ -1856,7 +1897,7 @@ class BulkDGD(nn.Module):
         # Get the number of genes (= dimensionality of the decoder's
         # output).
         n_genes = self.decoder.nb.output_dim
-        
+
         #-------------------------------------------------------------#
 
         # Initialize an empty tensor, shape (samples, dim), to store
@@ -1905,8 +1946,8 @@ class BulkDGD(nn.Module):
 
             #---------------------------------------------------------#
 
-            # If the chosen output module means that the r-values
-            # are not learned
+            # If the output module means that the r-values are not
+            # learned
             if isinstance(\
                 self.decoder.nb,
                 (outputmodules.OutputModuleNBFeatureDispersion,
@@ -1916,8 +1957,7 @@ class BulkDGD(nn.Module):
                 # (batch * reps * components, genes).
                 pred_means = self.decoder(z = z)
 
-            # If the chosen output module means that the r-values
-            # are learned
+            # If the output module means that the r-values are learned
             elif isinstance(\
                 self.decoder.nb,
                 outputmodules.OutputModuleNBFullDispersion):
@@ -1937,8 +1977,7 @@ class BulkDGD(nn.Module):
             #---------------------------------------------------------#
 
             # Expand the observed gene expression to (batch, reps,
-            # components, genes) to match the shape required to
-            # compute the reconstruction loss.
+            # components, genes).
             obs_counts = \
                 samples_exp.unsqueeze(1).unsqueeze(1).expand(\
                     -1,
@@ -1948,15 +1987,17 @@ class BulkDGD(nn.Module):
 
             #---------------------------------------------------------#
 
-            # Reshape the per-gene scaling factors to (batch, 1, 1, 1),
+            # Reshape the scaling factors to (batch, 1, 1, 1),
             # broadcastable over the loss.
             scaling_factors = \
-                decoders.reshape_scaling_factors(samples_mean_exp,
-                                                 4)
+                decoders.reshape_scaling_factors(
+                    samples_mean_exp,
+                    4)
 
             #---------------------------------------------------------#
 
-            # The mask of the samples in this batch, if there is one.
+            # Get the batch's mask, if any, shaped to broadcast over the
+            # representations and the components.
             mask_batch = \
                 genes_mask[samples_ixs].unsqueeze(1).unsqueeze(1) \
                     if genes_mask is not None else None
@@ -1972,11 +2013,11 @@ class BulkDGD(nn.Module):
 
             #---------------------------------------------------------#
 
-            # Re-estimate the scaling factor on the measured genes
-            # alone, matching what the optimization used - candidates
-            # must be compared on the loss they were optimized under.
+            # If only some genes were measured
             if mask_batch is not None:
 
+                # Re-estimate the scaling factors from the measured
+                # genes, as in the optimization.
                 scaling_factors = \
                     self.__class__._get_masked_scaling_factors(
                         obs_counts = obs_counts,
@@ -1987,8 +2028,8 @@ class BulkDGD(nn.Module):
 
             #---------------------------------------------------------#
 
-            # If the chosen output module means that the r-values
-            # are not learned
+            # If the output module means that the r-values are not
+            # learned
             if isinstance(\
                 self.decoder.nb,
                 (outputmodules.OutputModuleNBFeatureDispersion,
@@ -2001,8 +2042,7 @@ class BulkDGD(nn.Module):
                      "pred_means" : pred_means,
                      "scaling_factors" : scaling_factors}
 
-            # If the chosen output module means that the r-values
-            # are learned
+            # If the output module means that the r-values are learned
             elif isinstance(\
                 self.decoder.nb,
                 outputmodules.OutputModuleNBFullDispersion):
@@ -2015,47 +2055,39 @@ class BulkDGD(nn.Module):
                      "pred_log_r_values" : pred_log_r_values,
                      "scaling_factors" : scaling_factors}
 
-                # A representation being selected must be scored the
-                # same way it was optimized (with the same bound),
-                # or the choice reverts to the genes the bound exists
-                # to keep out of it.
-                if contamination:
+            # If contamination is enabled (as in the optimization)
+            if contamination:
 
-                    recon_loss_options["contamination"] = contamination
-
-                    recon_loss_options["contamination_r"] = \
-                        contamination_r
+                # Add the contamination options.
+                recon_loss_options["contamination"] = contamination
+                recon_loss_options["contamination_r"] = \
+                    contamination_r
 
             # Get the reconstruction loss: shape (batch, reps,
             # components, genes).
             recon_loss = self.decoder.nb.loss(**recon_loss_options)
 
-            # Take out the genes that were not measured, so that the
-            # candidates are compared on the genes that were.
+            # If only some genes were measured
             if mask_batch is not None:
 
+                # Zero out the unmeasured genes' loss terms.
                 recon_loss = recon_loss * mask_batch
-
-            # Sum or average over genes, leaving one loss per
-            # representation per sample: shape (batch, reps,
-            # components).
 
             # If the reduction method is 'sum'
             if loss_reduction_type == "sum":
 
-                # Get the total reconstruction loss by summing over the
-                # last dimension of the 'recon_loss' tensor.
+                # Get the reconstruction loss per representation by
+                # summing over the genes: shape (batch, reps, comps).
                 recon_loss_final = recon_loss.sum(-1).clone()
 
             # If the reduction method is 'mean'
             elif loss_reduction_type == "mean":
 
-                # Get the total reconstruction loss by averaging over
-                # the last dimension of the 'recon_loss' tensor.
+                # Get the reconstruction loss per representation by
+                # averaging over the genes: shape (batch, reps, comps).
                 recon_loss_final = recon_loss.mean(-1).clone()
 
-            # Flatten to 1D (batch * reps * components) so it can be
-            # summed with the GMM loss below.
+            # Flatten it to (batch * reps * components).
             recon_loss_final_reshaped = \
                 recon_loss_final.view(n_samples_in_batch * \
                                       n_rep_per_comp * \
@@ -2063,17 +2095,13 @@ class BulkDGD(nn.Module):
 
             #---------------------------------------------------------#
 
-            # Get the latent space loss - for Gaussian mixture models,
-            # 'latent(z)' is the negative log density of 'z' under the
-            # model, shaped like 'recon_loss_final_reshaped'.
-
             # If the latent space is the legacy Gaussian mixture model
             if isinstance(self.latent,
                           latents.GaussianMixtureModelLegacy):
 
-                # Get the loss.
+                # Get the loss (the negative log density of 'z').
                 latent_loss = self.latent(x = z).clone()
-            
+
             # If the latent space is the TorchGMM wrapper
             elif isinstance(self.latent,
                             latents.GaussianMixtureModelTGMM):
@@ -2084,17 +2112,8 @@ class BulkDGD(nn.Module):
 
             #---------------------------------------------------------#
 
-            # Get the total loss.
-            #
-            # The loss has as many components as the total number of
-            # representations computed for the current batch of samples
-            # ('n_rep_per_comp' * 'n_components' representations for
-            # each sample in the batch).
-            #
-            # The output is, therefore, a 1D tensor with the number of
-            # samples in the current batch times the number of
-            # components in the Gaussian mixture model times the number
-            # of representations taken per component per sample.
+            # Get the total loss per representation: shape
+            # (batch * reps * components).
             total_loss = recon_loss_final_reshaped + latent_loss
 
             #---------------------------------------------------------#
@@ -2122,44 +2141,46 @@ class BulkDGD(nn.Module):
 
             #---------------------------------------------------------#
 
-            # Add the best representations found for the current batch
-            # of samples to the tensor containing the best
-            # representations for all samples.
+            # Add the batch's best representations to those of all
+            # samples.
             best_reps[samples_ixs] = rep
 
             #---------------------------------------------------------#
 
-            # Optionally keep the losses and each candidate's starting
-            # vs. final component (they may drift, since candidates are
-            # optimized before judging), not just the winner's index.
+            # If the selection details should be kept
             if self._keep_selection_details:
 
+                # Without tracking gradients
                 with torch.no_grad():
 
+                    # Get the candidates: shape (batch, reps *
+                    # components, dim).
                     z_cand = z.view(n_samples_in_batch,
                                     n_rep_per_comp * n_components,
                                     dim)
 
-                    # Which component each candidate now belongs to,
-                    # under the mixture.
+                    # Get the log-probability of each candidate under
+                    # each component.
                     log_prob_comp = \
                         self.latent._get_log_prob_comp(
                             z_cand.reshape(-1, dim))
 
+                    # Get the component each candidate ended in.
                     arrived = log_prob_comp.argmax(dim = 1).view(
                         n_samples_in_batch,
                         n_rep_per_comp * n_components)
 
-                    # Which component it was born in - candidates are
-                    # laid out as (sample, rep, component), so this is
-                    # the index modulo the component count.
+                    # Get the component each candidate started in
+                    # (candidates are laid out as (sample, rep, comp)).
                     born = torch.arange(
                         n_rep_per_comp * n_components,
                         device = arrived.device) % n_components
 
+                    # Repeat it for each sample in the batch.
                     born = born.unsqueeze(0).expand(
                         n_samples_in_batch, -1)
 
+                    # Save the batch's selection details.
                     self._selection_details.append(
                         {"samples_ixs" :
                             samples_ixs.detach().cpu().clone(),
@@ -2182,8 +2203,6 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        #-------------------------------------------------------------#
-
         # Return the best representations found for the samples.
         return best_reps
 
@@ -2198,9 +2217,7 @@ class BulkDGD(nn.Module):
                        original_n_samples: Optional[int] = None,
                        chunk_size: Optional[int] = None) -> \
             torch.Tensor:
-        """Draw the candidate representations for one seed - the
-        initialization step of the 'two_opt' scheme, split out so a
-        multi-seed run can reproduce a single-seed one exactly.
+        """Draw the candidate representations for one seed.
 
         Parameters
         ----------
@@ -2221,11 +2238,11 @@ class BulkDGD(nn.Module):
 
         mode : :class:`str`, {``"sample_keyed"``, \
             ``"legacy_positional"``, ``"legacy_indexed"``}
-            The initialization mode: ``sample_keyed`` derives an
-            independent stream per sample ID; ``legacy_positional``
-            consumes one global stream in chunk order; ``legacy_indexed``
-            reconstructs ``legacy_positional``'s draws from an index
-            table so the input can be reordered or subsetted.
+            The initialization mode: ``sample_keyed`` draws an
+            independent stream per sample ID, ``legacy_positional``
+            one global stream in chunk order, and ``legacy_indexed``
+            the ``legacy_positional`` draws of the positions in an
+            index table.
 
         index_file : :class:`str`, optional
             The CSV file mapping sample names to historical absolute
@@ -2245,6 +2262,7 @@ class BulkDGD(nn.Module):
             The initialized candidate representations.
         """
 
+        # Set the supported initialization modes.
         modes = {"sample_keyed", "legacy_positional", "legacy_indexed"}
 
         # If the user provided an unsupported initialization mode
@@ -2252,7 +2270,7 @@ class BulkDGD(nn.Module):
 
             # Raise an error.
             raise ValueError(
-                f"Unsupported representation initialization mode "
+                "Unsupported representation initialization mode "
                 f"'{mode}'. The supported modes are: "
                 f"{', '.join(sorted(modes))}.")
 
@@ -2275,25 +2293,28 @@ class BulkDGD(nn.Module):
 
             Returns
             -------
-            :class:`torch.Tensor`
-                The drawn candidates for the chunk.
+            component_samples : :class:`torch.Tensor`
+                The drawn candidates for the chunk, shaped (samples,
+                reps, components, dim).
             """
 
-            # Collect one draw per component, in component order.
+            # Initialize the list of per-component draws.
             component_samples = []
 
+            # In a context that may hold a forked RNG
             with contextlib.ExitStack() as stack:
 
-                # If a seed was given, fork the RNG so this draw does
-                # not disturb the global stream.
+                # If a seed was given
                 if seed is not None:
 
+                    # Fork the RNG to leave the global stream alone.
                     stack.enter_context(
                         torch.random.fork_rng(devices = []))
 
+                    # Seed the forked RNG.
                     torch.manual_seed(int(seed))
 
-                # For each component, in order.
+                # For each component, in order
                 for comp_idx in range(n_components):
 
                     # Draw this component's samples for the chunk.
@@ -2301,6 +2322,7 @@ class BulkDGD(nn.Module):
                         n_samples = chunk_n_samples * n_rep_per_comp,
                         component = comp_idx)
 
+                    # Add them to the list.
                     component_samples.append(samples_comp)
 
             # Stack the per-component draws into one tensor.
@@ -2313,7 +2335,11 @@ class BulkDGD(nn.Module):
                 n_rep_per_comp,
                 n_dim)
 
-            return component_samples.permute(1, 2, 0, 3)
+            # Return the draws as (samples, reps, components, dim).
+            return component_samples.permute(1,
+                                             2,
+                                             0,
+                                             3)
 
         #-------------------------------------------------------------#
 
@@ -2329,14 +2355,12 @@ class BulkDGD(nn.Module):
 
             Returns
             -------
-            :class:`torch.Tensor`
-                One row per ``(sample, n_rep_per_comp, component)``
-                combination, in that order.
+            samples : :class:`torch.Tensor`
+                The drawn candidates, shaped (samples, reps,
+                components, dim).
             """
 
-            # One CPU generator call per sample, independent of row,
-            # chunk and every other sample; a cryptographic digest is
-            # used since Python's hash is randomized between processes.
+            # Initialize the list of per-sample standard normal draws.
             standard_normal = []
 
             # For each sample ID
@@ -2346,7 +2370,8 @@ class BulkDGD(nn.Module):
                 payload = \
                     f"{int(seed)}\0{sample_id}".encode("utf-8")
 
-                # Hash the payload into a fixed-size digest.
+                # Hash the payload into a fixed-size digest (Python's
+                # 'hash' is randomized between processes).
                 digest = hashlib.blake2b(
                     payload,
                     digest_size = 8,
@@ -2374,10 +2399,7 @@ class BulkDGD(nn.Module):
             # Stack the per-sample draws into one tensor.
             standard_normal = torch.stack(standard_normal, dim = 0)
 
-            # Transform the standard normals by every component's
-            # covariance in one batched operation - the same law
-            # 'GaussianMixture.sample' uses, without its single
-            # global RNG stream.
+            # Get the components' means.
             means = self.latent.means
 
             # Get the component indices.
@@ -2396,18 +2418,22 @@ class BulkDGD(nn.Module):
             # Move the standard normals to the means' device.
             standard_normal = standard_normal.to(device = means.device)
 
-            # Shift and scale the standard normals into the mixture's
-            # own space, and return them.
-            return means.view(1, 1, n_components, n_dim) + \
+            # Shift and scale the standard normals by each component's
+            # mean and covariance, and return them.
+            return means.view(1,
+                              1,
+                              n_components,
+                              n_dim) + \
                 torch.einsum("srcj,cij->srci",
                              standard_normal,
                              scale_tril)
 
         #-------------------------------------------------------------#
 
-        # The historical path is kept byte-for-byte in its draw order.
+        # If the legacy positional initialization mode was requested
         if mode == "legacy_positional":
 
+            # Draw, flatten and return the candidates.
             return draw_legacy_chunk(n_samples).reshape(
                 n_samples * n_rep_per_comp * n_components, n_dim)
 
@@ -2476,7 +2502,7 @@ class BulkDGD(nn.Module):
 
                 # Raise an error.
                 raise ValueError(
-                    f"The indexed legacy initializer received "
+                    "The indexed legacy initializer received "
                     f"{len(samples_names)} sample IDs for {n_samples} "
                     "samples.")
 
@@ -2527,32 +2553,36 @@ class BulkDGD(nn.Module):
                     "position for the following sample IDs: "
                     f"{missing}.")
 
-            # A row whose value equals the sample's own ID means
-            # 'treat this sample as sample-keyed'; every other row
-            # must hold a numeric historical position.
+            # Get the positions as strings (a row holding the sample's
+            # own ID marks a sample-keyed sample).
             positions_raw = df_positions.iloc[:, 0].astype(str)
 
+            # Get the sample-keyed samples.
             keyed_ids = \
                 [sample_id for sample_id in samples_names
                  if positions_raw.loc[sample_id] == sample_id]
 
+            # Get the legacy positional samples.
             legacy_ids = \
                 [sample_id for sample_id in samples_names
                  if sample_id not in keyed_ids]
 
+            # Initialize the candidates drawn per sample.
             drawn = {}
 
-            # Compute the self-keyed rows through the same
-            # identity-keyed mechanism 'sample_keyed' mode uses.
+            # If there are sample-keyed samples
             if keyed_ids:
 
+                # Draw their candidates.
                 keyed_samples = draw_sample_keyed(keyed_ids)
 
+                # For each sample-keyed sample
                 for i, sample_id in enumerate(keyed_ids):
 
+                    # Save its candidates.
                     drawn[sample_id] = keyed_samples[i]
 
-            #-----------------------------------------------------#
+            #---------------------------------------------------------#
 
             # If there are non-keyed (legacy-positional) samples
             if legacy_ids:
@@ -2570,7 +2600,7 @@ class BulkDGD(nn.Module):
 
                     # Raise an error.
                     raise ValueError(
-                        f"Every non-keyed position in the legacy "
+                        "Every non-keyed position in the legacy "
                         f"index file '{index_file}' must be an "
                         "integer.")
 
@@ -2584,7 +2614,7 @@ class BulkDGD(nn.Module):
 
                     # Raise an error.
                     raise ValueError(
-                        f"Every non-keyed position in the legacy "
+                        "Every non-keyed position in the legacy "
                         f"index file '{index_file}' must be an "
                         "integer.")
 
@@ -2613,12 +2643,11 @@ class BulkDGD(nn.Module):
 
                     # Raise an error.
                     raise ValueError(
-                        f"Legacy positions must be in [0, "
+                        "Legacy positions must be in [0, "
                         f"{original_n_samples - 1}]; got {invalid}.")
 
-                # Every full historical chunk has the same candidate
-                # tensor (the old code reset the same seed each call),
-                # so cache one draw per distinct chunk length.
+                # Cache one draw per chunk length (the seed is reset
+                # for each chunk, so equal lengths give equal draws).
                 chunks_by_length = {}
 
                 # For each non-keyed sample
@@ -2633,7 +2662,8 @@ class BulkDGD(nn.Module):
 
                     # Get the size of that historical chunk.
                     old_chunk_n_samples = \
-                        min(chunk_size, original_n_samples - chunk_start)
+                        min(chunk_size,
+                            original_n_samples - chunk_start)
 
                     # Get its position within that chunk.
                     position_in_chunk = \
@@ -2651,7 +2681,7 @@ class BulkDGD(nn.Module):
                         chunks_by_length[old_chunk_n_samples][
                             position_in_chunk]
 
-            #-----------------------------------------------------#
+            #---------------------------------------------------------#
 
             # Reassemble in the caller's requested order.
             selected = [drawn[sample_id] for sample_id in samples_names]
@@ -2662,8 +2692,6 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # A keyed stream needs both the seed and the sample IDs, so
-        # fail rather than silently falling back to positional draws.
         # If no seed was given
         if seed is None:
 
@@ -2728,8 +2756,7 @@ class BulkDGD(nn.Module):
 
         genes_mask : :class:`torch.Tensor`, optional
             A 2D mask of which genes were measured for each sample.
-            If not passed, every gene of every sample is taken as
-            measured.
+            By default, all genes are measured.
 
         Returns
         -------
@@ -2766,8 +2793,7 @@ class BulkDGD(nn.Module):
         loss_reduction_type = \
             config["scheme_options"]["loss_reduction_type"]
 
-        # Reset the record of the candidate competition, so a second
-        # run does not report the first run's candidates too.
+        # Reset the selection details.
         self._selection_details = []
 
         # Reset the record of which component each sample settled in.
@@ -2787,8 +2813,8 @@ class BulkDGD(nn.Module):
         # Get the number of epochs to run the first optimization for.
         epochs_1 = config_opt_1["epochs"]
 
-        # Get the noise to inject during the first optimization;
-        # absent from the configuration means none.
+        # Get the noise to inject during the first optimization, if
+        # any.
         noise_type_1 = config_opt_1.get("noise_type")
         noise_options_1 = config_opt_1.get("noise_options")
 
@@ -2807,10 +2833,8 @@ class BulkDGD(nn.Module):
         # Get the number of epochs to run the second optimization for.
         epochs_2 = config_opt_2["epochs"]
 
-        # Get the noise to inject into the representations during the
-        # second optimization, independently of the first: the second
-        # refines a single winner and may well want less noise, or
-        # none, where the first was still exploring.
+        # Get the noise to inject during the second optimization, if
+        # any.
         noise_type_2 = config_opt_2.get("noise_type")
         noise_options_2 = config_opt_2.get("noise_options")
 
@@ -2823,23 +2847,29 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Get the initial values for the representations by sampling
-        # from the latent space.
+        # Get the number of components.
+        n_components = self.latent.n_components
+
+        # Get the dimensionality.
+        n_dim = self.latent.dim
+
+        #-------------------------------------------------------------#
 
         # If the latent space is the legacy Gaussian mixture model
         if isinstance(self.latent,
                       latents.GaussianMixtureModelLegacy):
 
-            # Sample new points from the GMM.
+            # Get the initial representations by sampling new points
+            # from the GMM.
             rep_init = \
                 self.latent.sample_new_points(\
-                    n_points = n_samples, 
+                    n_points = n_samples,
                     sampling_method = "mean",
                     n_samples_per_comp = n_rep_per_comp)
 
             # Set the lambda parameter for the GMM loss to None.
             latent_lambda = None
-        
+
         # If the latent space is the TorchGMM wrapper
         elif isinstance(self.latent,
                         latents.GaussianMixtureModelTGMM):
@@ -2849,19 +2879,9 @@ class BulkDGD(nn.Module):
                 config["scheme_options"][
                     "latent_loss_calculation"]["lambda"]
 
-            # Get the number of components.
-            n_components = self.latent.n_components
-
-            # Get the dimensionality.
-            n_dim = self.latent.dim
-
             #---------------------------------------------------------#
 
-            # Get the seed of the draw that places the candidates. A
-            # candidate drawn from its component's Gaussian lands about
-            # 'sqrt(latent_dim)' standard deviations from the mean in a
-            # high-dimensional space - near where trained
-            # representations actually live.
+            # Get the initialization options.
             init_options = \
                 config["scheme_options"].get("initialization", {})
 
@@ -2888,10 +2908,7 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Seed the search with a data-driven starting point, if asked
-        # for, by replacing one mixture draw rather than adding an
-        # extra candidate - this keeps the candidate count unchanged
-        # for the downstream reshapes and argmins.
+        # Get the warm-start options, if any.
         warm_start_cfg = \
             config.get("scheme_options", {}).get("warm_start") or {}
 
@@ -2903,21 +2920,28 @@ class BulkDGD(nn.Module):
                 warm_start_cfg["pth_file"])
 
             # Predict a starting representation for each sample.
-            z_ws = ws.predict(dataset.data_exp.cpu().numpy(),
-                              device = rep_init.device).to(rep_init.dtype)
+            z_ws = ws.predict(
+                dataset.data_exp.cpu().numpy(),
+                device = rep_init.device).to(rep_init.dtype)
 
             # Get the total number of candidates per sample.
             n_cand = n_rep_per_comp * n_components
 
-            # Overwrite the first candidate of each sample with the
-            # warm-start prediction.
-            rep_init = rep_init.view(n_samples, n_cand, n_dim)
+            # Reshape the candidates to (samples, candidates, dim).
+            rep_init = rep_init.view(n_samples,
+                                     n_cand,
+                                     n_dim)
+
+            # Replace each sample's first candidate with the warm-start
+            # prediction.
             rep_init[:, 0, :] = z_ws
+
+            # Flatten the candidates back.
             rep_init = rep_init.reshape(n_samples * n_cand, n_dim)
 
             # Inform the user that the warm start was applied.
             logger.info(
-                f"The ridge warm start from "
+                "The ridge warm start from "
                 f"'{warm_start_cfg['pth_file']}' replaced one of the "
                 f"{n_cand} candidates of each sample. The other "
                 f"{n_cand - 1} are drawn from the mixture as usual.")
@@ -2931,9 +2955,8 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # How much of a sample the model may give up on. Zero (the
-        # default) is the plain negative binomial; a small value bounds
-        # what an unreachable gene may do to the representation.
+        # Get how much of a sample the model may give up on (zero
+        # disables the contamination model).
         contamination = \
             float(config["scheme_options"].get("contamination", 0.0))
 
@@ -2945,9 +2968,9 @@ class BulkDGD(nn.Module):
         if contamination:
 
             # Inform the user.
-            log.info(
-                f"Representations will be found with a contaminated "
-                f"negative binomial (contamination "
+            logger.info(
+                "Representations will be found with a contaminated "
+                "output distribution (contamination "
                 f"{contamination:.2e}, r {contamination_r:g}).")
 
         # Get the optimizer for the first optimization.
@@ -2959,10 +2982,7 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Get the optimized representations, the predicted means of
-        # the distributions modelling the counts, the predicted
-        # r-values of the distributions modelling the counts (if any),
-        # and the time data.
+        # Get the optimized representations and the time data.
         rep_1, _, _, time_1 = \
             self._optimize_rep(\
                 data_loader = data_loader,
@@ -2985,7 +3005,7 @@ class BulkDGD(nn.Module):
 
         # Create the representation layer.
         rep_layer_1 = \
-            latents.RepresentationLayer(values = rep_1, 
+            latents.RepresentationLayer(values = rep_1,
                                         device = self.device)
 
         #-------------------------------------------------------------#
@@ -2995,9 +3015,8 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Select the best representation for each sample among those
-        # initialized (at least one representation per sample per
-        # component of the Gaussian mixture model).
+        # Select the best representation for each sample among
+        # those initialized.
         rep_best = \
             self._select_best_rep(\
                 data_loader = data_loader,
@@ -3026,10 +3045,8 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Get the optimized representations, predicted means and
-        # r-values (if any), and the time data. 'rep_layer_best' holds
-        # one representation per sample, so 'n_rep_per_comp' and
-        # 'n_components' are both passed as 1.
+        # Get the optimized representations (one per sample),
+        # predicted means and r-values (if any), and time data.
         rep_2, pred_means_2, pred_r_values_2, time_2 = \
             self._optimize_rep(\
                 data_loader = data_loader,
@@ -3061,15 +3078,16 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # The winner keeps moving after being picked (it is optimized
-        # for 'epochs_2' more, and may leave its winning component), so
-        # record where it ended up, not where it was chosen.
+        # If the selection details should be kept
         if self._keep_selection_details \
                 and isinstance(self.latent,
                                latents.GaussianMixtureModelTGMM):
 
+            # Without tracking gradients
             with torch.no_grad():
 
+                # Get the component each sample ended in after the
+                # second optimization.
                 self._settled_in = \
                     self.latent._get_log_prob_comp(
                         rep_2.to(self.device)).argmax(
@@ -3078,7 +3096,7 @@ class BulkDGD(nn.Module):
         #-------------------------------------------------------------#
 
         # Return the representations, the predicted means and r-values,
-        # the time information for both rounds of optimization.
+        # and the time data.
         return rep_2, pred_means_2, pred_r_values_2, time
 
 
@@ -3090,9 +3108,7 @@ class BulkDGD(nn.Module):
                       genes_mask: Optional[torch.Tensor],
                       contamination: float,
                       contamination_r: float) -> np.ndarray:
-
-        """Get the loss of the one representation per sample, as it
-        currently stands.
+        """Get the current loss of each sample's representation.
 
         Parameters
         ----------
@@ -3113,37 +3129,33 @@ class BulkDGD(nn.Module):
             A 2D mask of which genes were measured for each sample.
 
         contamination : :class:`float`
-            How much of a sample the model is allowed to give up on.
+            How much of a sample the model may give up on.
 
         contamination_r : :class:`float`
-            The dispersion used for the contamination model, if
-            ``contamination`` is nonzero.
+            The dispersion used for the contamination model.
 
         Returns
         -------
-        :class:`numpy.ndarray`
+        losses : :class:`numpy.ndarray`
             The per-sample loss.
         """
 
         # Get the number of samples.
         n_samples = rep.shape[0]
 
-        # Save the selection-details state to restore afterwards.
+        # Save the selection details' state to restore afterwards.
         keep_before = self._keep_selection_details
-
         details_before = self._selection_details
 
-        # Turn on selection-details recording for this call.
+        # Record the selection details for this call.
         self._keep_selection_details = True
-
         self._selection_details = []
 
-        # Reuse '_select_best_rep' with one candidate per sample,
-        # rather than reimplementing the same loss computation.
+        # Try to compute the losses.
         try:
 
-            # Run the "selection" with a single candidate per sample,
-            # to compute its loss.
+            # Run the selection with a single candidate per sample to
+            # compute its loss.
             self._select_best_rep(
                 data_loader = data_loader,
                 rep_layer = latents.RepresentationLayer(
@@ -3157,7 +3169,9 @@ class BulkDGD(nn.Module):
                 n_components = 1)
 
             # Initialize the per-sample loss array to NaN.
-            out = np.full(n_samples, np.nan, dtype = np.float64)
+            out = np.full(n_samples,
+                          np.nan,
+                          dtype = np.float64)
 
             # For each batch's recorded selection details
             for d in self._selection_details:
@@ -3171,13 +3185,11 @@ class BulkDGD(nn.Module):
             # Return the per-sample losses.
             return out
 
+        # Afterwards
         finally:
 
-            # The flag and the buffer are restored whatever happens, so
-            # that asking for the losses never leaves the model in a
-            # state the caller did not ask for.
+            # Restore the selection details' state.
             self._keep_selection_details = keep_before
-
             self._selection_details = details_before
 
 
@@ -3188,9 +3200,8 @@ class BulkDGD(nn.Module):
             genes_mask: Optional[torch.Tensor] = None) -> \
                 tuple[torch.Tensor, torch.Tensor,
                       Optional[torch.Tensor], list[tuple]]:
-
         """Run the two-optimization scheme once per seed, and keep
-        every seed's answer.
+        every seed's results in ``multiseed_results``.
 
         Parameters
         ----------
@@ -3203,8 +3214,7 @@ class BulkDGD(nn.Module):
 
         genes_mask : :class:`torch.Tensor`, optional
             A 2D mask of which genes were measured for each sample.
-            If not passed, every gene of every sample is taken as
-            measured.
+            By default, all genes are measured.
 
         Returns
         -------
@@ -3235,14 +3245,12 @@ class BulkDGD(nn.Module):
 
             # Raise an error.
             raise ValueError(
-                f"The seeds must be distinct; got {seeds}. Two runs "
-                f"from the same seed produce the same representation "
-                f"and their agreement measures nothing.")
+                f"The seeds must be distinct; got {seeds}.")
 
         # Inform the user.
-        log.info(
+        logger.info(
             f"Representations will be found from {len(seeds)} "
-            f"independent initializations (seeds "
+            "independent initializations (seeds "
             f"{', '.join(map(str, seeds))}).")
 
         #-------------------------------------------------------------#
@@ -3256,8 +3264,7 @@ class BulkDGD(nn.Module):
         # Initialize the combined timing data.
         time_all = []
 
-        # A data loader of this scheme's own, built like 'two_opt'
-        # builds its one, for the final-loss pass.
+        # Create the data loader for computing the final losses.
         data_loader = \
             _util.get_data_loader(
                 dataset = dataset,
@@ -3265,14 +3272,14 @@ class BulkDGD(nn.Module):
 
         # Get the latent loss weight (TGMM only).
         latent_lambda = \
-            config["scheme_options"]["latent_loss_calculation"]["lambda"] \
+            config["scheme_options"]["latent_loss_calculation"][\
+                "lambda"] \
             if isinstance(self.latent,
                           latents.GaussianMixtureModelTGMM) else None
 
         # Get the contamination options.
         contamination = \
             float(config["scheme_options"].get("contamination", 0.0))
-
         contamination_r = \
             float(config["scheme_options"].get("contamination_r", 0.05))
 
@@ -3283,13 +3290,11 @@ class BulkDGD(nn.Module):
         # Get the total number of samples.
         n_samples = len(dataset.samples)
 
-        # Run each seed at the batch shape a standalone run would use
-        # (rather than batching seeds together), so results reproduce
-        # a single-seed run regardless of how many seeds are requested.
+        # For each seed (run separately to reproduce a single-seed
+        # run)
         for seed in seeds:
 
-            # Run the 'two_opt' scheme itself for this seed, rather
-            # than reimplementing it, so the two cannot drift apart.
+            # Copy the configuration.
             cfg = copy.deepcopy(config)
 
             # Set this seed as the single initialization seed.
@@ -3301,19 +3306,17 @@ class BulkDGD(nn.Module):
             cfg["scheme_options"]["initialization"].pop("seeds", None)
 
             # Inform the user.
-            log.info(f"Optimizing from seed {seed}...")
+            logger.info(f"Optimizing from seed {seed}...")
 
-            # Turn on selection-detail recording for this call only,
-            # since the candidates' losses exist only while the
-            # selection happens; restore the previous setting after.
+            # Save the selection details' state to restore afterwards.
             keep_before = self._keep_selection_details
-
             details_before = self._selection_details
 
+            # Record the selection details for this seed.
             self._keep_selection_details = True
-
             self._selection_details = []
 
+            # Try to find the representations.
             try:
 
                 # Run the two-optimization scheme for this seed.
@@ -3323,10 +3326,11 @@ class BulkDGD(nn.Module):
                         config = cfg,
                         genes_mask = genes_mask)
 
-                # The winner's loss at the end of the first
-                # optimization: the competition's own number for the
-                # candidate the 'argmin' kept.
-                won = np.full(n_samples, np.nan, dtype = np.float64)
+                # Initialize the winners' losses at the end of the
+                # first optimization.
+                won = np.full(n_samples,
+                              np.nan,
+                              dtype = np.float64)
 
                 # For each batch's recorded selection details
                 for d in self._selection_details:
@@ -3341,11 +3345,11 @@ class BulkDGD(nn.Module):
                     won[ixs] = tl[np.arange(len(ixs)),
                                   d["winner"].numpy()]
 
+            # Afterwards
             finally:
 
-                # Restore the selection-details state.
+                # Restore the selection details' state.
                 self._keep_selection_details = keep_before
-
                 self._selection_details = details_before
 
             # Store this seed's representations and predicted means.
@@ -3360,8 +3364,7 @@ class BulkDGD(nn.Module):
             # Store this seed's first-optimization losses.
             losses[f"loss_opt1_seed{seed}"] = won
 
-            # And the same representation's loss once the second
-            # optimization has finished moving it.
+            # Store this seed's second-optimization losses.
             losses[f"loss_opt2_seed{seed}"] = \
                 self._final_losses(
                     data_loader = data_loader,
@@ -3374,8 +3377,7 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # One row per sample, two columns per seed, in the order the
-        # seeds were given so that the table reads as it was asked for.
+        # Initialize the loss columns (two per seed, in seed order).
         cols = []
 
         # For each seed
@@ -3391,8 +3393,7 @@ class BulkDGD(nn.Module):
         # Name the index.
         df_losses.index.name = "sample"
 
-        # Keep every seed's results here; only the first seed's are
-        # returned below, to match the single-seed scheme's output.
+        # Save every seed's results.
         self.multiseed_results = \
             {"seeds" : seeds,
              "representations" : reps,
@@ -3402,34 +3403,34 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Return the first seed's results, matching the single-seed
-        # scheme's output.
+        # Get the first seed.
         first = seeds[0]
 
+        # Return the first seed's results.
         return (reps[first], pred_means[first], pred_r_values[first],
                 time_all)
 
 
     def keep_selection_details(self,
                                keep: bool = True) -> None:
-        """Record the competition between the candidate representations,
-        and not only its winner.
+        """Set whether to record the details of the selection of the
+        best representations, not only the winners.
 
         Parameters
         ----------
         keep : :class:`bool`, ``True``
-            Whether to record it.
+            Whether to record them.
         """
 
+        # Set whether to record the details.
         self._keep_selection_details = bool(keep)
 
 
     def get_selection_details(
             self,
             samples_names: Optional[list] = None) -> pd.DataFrame:
-        """Get the candidate-representation competition's details, one
-        row per candidate per sample (only the winner otherwise
-        survives ``argmin``).
+        """Get the details of the selection of the best
+        representations, one row per candidate per sample.
 
         Parameters
         ----------
@@ -3441,12 +3442,11 @@ class BulkDGD(nn.Module):
         df : :class:`pandas.DataFrame`
             One row per candidate per sample. Columns: ``sample``,
             ``candidate``; ``born_in``/``arrived_in``/``settled_in``,
-            the component at start, at judging, and (winner only)
+            the component at start, at selection, and (winner only)
             after the second optimization; ``recon_loss``,
             ``latent_loss``, ``total_loss`` in nats; ``is_winner``;
-            ``margin`` (loss above the winner's, zero for the winner);
-            ``softmax`` (unreliable at this loss scale - prefer
-            ``margin``).
+            ``margin`` (loss above the winner's); ``softmax``
+            (unreliable at this loss scale).
         """
 
         # If there is nothing recorded
@@ -3495,6 +3495,7 @@ class BulkDGD(nn.Module):
                 # For each candidate
                 for c in range(n_cand):
 
+                    # Add the candidate's row.
                     rows.append(
                         {"sample" : name,
                          "candidate" : c,
@@ -3521,93 +3522,93 @@ class BulkDGD(nn.Module):
                           z: torch.Tensor) -> torch.Tensor:
         """Compute a saliency map showing the importance of each latent
         dimension for each gene.
-        
+
         Parameters
         ----------
         z : :class:`torch.Tensor`
             A tensor containing the representations.
-        
+
         Returns
         -------
         saliency_map : :class:`torch.Tensor`
-            A 2D tensor of shape (n_genes, latent_dim) containing
+            A 2D CPU tensor of shape (n_genes, latent_dim) containing
             gradients indicating the importance of each latent
             dimension for each gene's expression.
         """
-        
+
         # Get the representations (detached from the computational
         # graph).
         z_in = z.clone().detach().to(self.device).requires_grad_(True)
 
         #-------------------------------------------------------------#
-        
+
         # If the output module is NB with full dispersion
         if isinstance(self.decoder.nb,
                       outputmodules.OutputModuleNBFullDispersion):
-            
+
             # Get predicted means and dispersions.
             pred_means, _ = self.decoder(z=z_in)
-        
+
         # Otherwise
         else:
-            
+
             # Get the predicted means.
             pred_means = self.decoder(z = z_in)
 
         #-------------------------------------------------------------#
-        
+
         # Get the number of genes.
         n_genes = pred_means.shape[1]
-        
+
         # Initialize the saliency map: (n_genes, latent_dim).
         saliency_map = \
             torch.zeros(n_genes, self.latent.dim).to(self.device)
 
         #-------------------------------------------------------------#
-        
-        # For each gene, compute gradient of its predicted expression
-        # w.r.t. representations
+
+        # For each gene
         for gene_idx in range(n_genes):
-            
+
             # If there are gradients
             if z_in.grad is not None:
-                
+
                 # Zero out the gradients.
                 z_in.grad.zero_()
-            
+
             # Sum the predicted expression for this gene across all
             # samples.
             gene_output = pred_means[:, gene_idx].sum()
-            
+
             # Compute the gradients.
             gene_output.backward(retain_graph = True)
-            
+
             # Store the mean absolute gradient across all samples for
             # this gene.
             saliency_map[gene_idx] = z_in.grad.abs().mean(dim = 0)
 
         #-------------------------------------------------------------#
-        
+
         # Clean up.
         del z_in
 
         #-------------------------------------------------------------#
 
         # Return the saliency map detached from the computational
-        # graph.
-        return saliency_map.detach()
+        # graph, on the CPU.
+        return saliency_map.detach().cpu()
 
 
     def _get_best_latent_tgmm(self,
-                      rep_train: torch.Tensor,
-                      latent_n_components_target: int,
-                      max_iter: int,
-                      is_full_refit_epoch: bool,
-                      epoch: int,
-                      model_selection_metric: str,
-                      model_selection_step: int = 1) -> int:
-        """Select the best TGMM candidate across nearby component
-        counts, ranked by an unsupervised model-selection metric.
+                              rep_train: torch.Tensor,
+                              latent_n_components_target: int,
+                              max_iter: int,
+                              is_full_refit_epoch: bool,
+                              epoch: int,
+                              model_selection_metric: str,
+                              model_selection_step: int = 1) -> None:
+        """Replace the latent space with the best TGMM candidate across
+        nearby numbers of components, ranked by a model-selection
+        metric.
 
         Parameters
         ----------
@@ -3615,8 +3616,7 @@ class BulkDGD(nn.Module):
             The current representations used to fit candidate models.
 
         latent_n_components_target : :class:`int`
-            The target (or ceiling, in dynamic mode) number of
-            components.
+            The maximum number of components.
 
         max_iter : :class:`int`
             The maximum number of EM iterations for each candidate
@@ -3631,17 +3631,12 @@ class BulkDGD(nn.Module):
         model_selection_metric : :class:`str`
             The metric used to rank candidates.
 
-        model_selection_step : :class:`int`, optional
-            How many components either side of the current count to
+        model_selection_step : :class:`int`, ``1``
+            How many components either side of the current number to
             try as candidates.
-
-        Returns
-        -------
-        best_n_components : :class:`int`
-            The number of components of the best candidate model.
         """
 
-        # Cache the latent space's dimensionality.
+        # Get the latent space's dimensionality.
         latent_dim = self.latent.dim
 
         #-------------------------------------------------------------#
@@ -3657,16 +3652,17 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # The configured number of components is interpreted as the
-        # ceiling when dynamic mode is enabled.
+        # Get the maximum number of components.
         gmm_n_components_ceiling = latent_n_components_target
 
         #-------------------------------------------------------------#
 
         # Clamp the current number of components between 1 and the
-        # ceiling to ensure valid candidate component counts.
+        # maximum.
         current_n_components = \
-            max(1, min(latent_n_components_target, self.latent.n_components))
+            max(1,
+                min(latent_n_components_target,
+                    self.latent.n_components))
 
         #-------------------------------------------------------------#
 
@@ -3674,21 +3670,20 @@ class BulkDGD(nn.Module):
         # the current models' number of components.
         candidates_n_components = set([current_n_components])
 
-        # Look 'step' components either side of where we are - a
-        # larger step reaches a far-off target in fewer refits, since
-        # each refit moves the count by at most one step.
+        # Get how many components either side of the current number to
+        # try.
         step = max(1, int(model_selection_step))
 
-        # Below, but never below one: a mixture of no components is not
-        # a mixture.
+        # If the lower candidate has at least one component
         if current_n_components - step >= 1:
 
+            # Add it.
             candidates_n_components.add(current_n_components - step)
 
-        # Above, but never above the ceiling, which is the number of
-        # components the configuration asked for.
+        # If the upper candidate does not exceed the maximum
         if current_n_components + step <= gmm_n_components_ceiling:
 
+            # Add it.
             candidates_n_components.add(current_n_components + step)
 
         # Sort the candidate number of components.
@@ -3748,8 +3743,8 @@ class BulkDGD(nn.Module):
 
             #---------------------------------------------------------#
 
-            # Initialize the best model with the first valid
-            # candidate as a fallback.
+            # If there is no best model yet, use the current candidate
+            # as a fallback.
             if best_model is None:
                 best_model = candidate_model
                 best_n_components = candidate_n_components
@@ -3761,7 +3756,7 @@ class BulkDGD(nn.Module):
                 # The current candidate is not better than the best one
                 # found so far.
                 is_better = False
-            
+
             # If the current best selection value is NaN
             elif (best_selection_value is None) \
                 or (np.isnan(best_selection_value)):
@@ -3769,29 +3764,27 @@ class BulkDGD(nn.Module):
                 # The current candidate is better than the best one
                 # found so far.
                 is_better = True
-            
+
             # If both the current candidate and the best one found so
             # far are valid and the optimization direction is 'max'
             elif optimize_direction == "max":
 
-                # The current candidate is better than the best one
-                # found so far if its selection value is higher than
+                # It is better if its selection value is higher than
                 # the best one.
                 is_better = selection_value > best_selection_value
-            
+
             # If both the current candidate and the best one found so
             # far are valid and the optimization direction is 'min'
             elif optimize_direction == "min":
 
-                # The current candidate is better than the best one
-                # found so far if its selection value is lower than
+                # It is better if its selection value is lower than
                 # the best one.
                 is_better = selection_value < best_selection_value
 
             #---------------------------------------------------------#
 
             # If the current candidate is better than the best one
-            # found so far.
+            # found so far
             if is_better:
 
                 # Update the best number of components with the current
@@ -3808,7 +3801,8 @@ class BulkDGD(nn.Module):
 
         # If the best selection value is NaN or None, meaning that
         # all candidates were invalid or no valid candidate was found
-        if not best_selection_value:
+        if best_selection_value is None \
+                or np.isnan(best_selection_value):
 
             # Raise an error.
             err_msg = \
@@ -3816,7 +3810,7 @@ class BulkDGD(nn.Module):
                 f"{model_selection_metric}' are invalid during " \
                 "dynamic latent space selection."
             raise RuntimeError(err_msg)
-        
+
         #-------------------------------------------------------------#
 
         # If no best model was found
@@ -3825,7 +3819,7 @@ class BulkDGD(nn.Module):
             # Raise an error.
             err_msg = \
                 "No valid latent space candidate was found during " \
-                "dyanmic component selection."
+                "dynamic component selection."
             raise RuntimeError(err_msg)
 
         #-------------------------------------------------------------#
@@ -3838,12 +3832,14 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Log candidate model-selection metric values and winner.
+        # Get the candidates' metric values as a string.
         candidate_selection_str = \
             ", ".join([
                 f"number of components={k}: "
                 f"{candidate_selection_values[k]:.6f}"
                 for k in candidates_n_components])
+
+        # Inform the user about the selection.
         logger.info(
             f"Epoch {epoch}: selection metric " \
             f"'{model_selection_metric}' candidates "
@@ -3858,18 +3854,16 @@ class BulkDGD(nn.Module):
             self,
             collapse_weight_threshold: float,
             epoch: int) -> bool:
-        """Remove collapsed components from the current latent space.
-
-        A component is considered collapsed if its mixture weight is
-        lower than ``collapse_weight_threshold``.
+        """Remove the collapsed components (with a mixture weight below
+        ``collapse_weight_threshold``) from the latent space.
 
         Parameters
         ----------
         collapse_weight_threshold : :class:`float`
-            Threshold below which a component is considered collapsed.
+            The weight below which a component is considered collapsed.
 
         epoch : :class:`int`
-            Current training epoch (used for logging).
+            The current training epoch (used for logging).
 
         Returns
         -------
@@ -3893,7 +3887,7 @@ class BulkDGD(nn.Module):
 
             # Get the components' mixture probabilities.
             weights = self.latent.weights.detach().clone()
-        
+
         # If the latent space is the legacy Gaussian mixture model
         elif isinstance(self.latent,
                         latents.GaussianMixtureModelLegacy):
@@ -3958,11 +3952,11 @@ class BulkDGD(nn.Module):
                 # Slice the covariances for active components.
                 covariances_new = \
                     self.latent.covariances_[keep_ixs].detach().clone()
-            
+
             # Otherwise
             else:
 
-                # Keep the covariances for all components (they will be
+                # Keep the covariances for all components (they are
                 # re-initialized in the new model).
                 covariances_new = \
                     self.latent.covariances_.detach().clone()
@@ -3973,9 +3967,8 @@ class BulkDGD(nn.Module):
             weight_concentration_prior = \
                 self.latent.weight_concentration_prior
 
-            # If the weight concentration prior is a 1D tensor with one
-            # value per component and the number of components matches
-            # the number before removal
+            # If the weight concentration prior has one value per
+            # component before removal
             if isinstance(weight_concentration_prior, torch.Tensor) \
                 and weight_concentration_prior.ndim == 1 and \
                 weight_concentration_prior.numel() == \
@@ -3992,9 +3985,8 @@ class BulkDGD(nn.Module):
             # Get the mean prior.
             mean_prior = self.latent.mean_prior
 
-            # If the mean prior is a 2D tensor with one value per
-            # component and the number of components matches the number
-            # before removal
+            # If the mean prior has one row per component before
+            # removal
             if isinstance(mean_prior, torch.Tensor) and \
                 mean_prior.ndim == 2 and \
                 mean_prior.shape[0] == n_components_before:
@@ -4011,9 +4003,7 @@ class BulkDGD(nn.Module):
             if isinstance(covariance_prior, torch.Tensor):
 
                 # If the covariance type is 'spherical' and the
-                # covariance prior is a 1D tensor with one value per
-                # component and the number of components matches
-                # the number before removal
+                # prior has one value per component before removal
                 if covariance_type == "spherical" and \
                     covariance_prior.ndim == 1 and \
                     covariance_prior.numel() == n_components_before:
@@ -4024,9 +4014,7 @@ class BulkDGD(nn.Module):
                         covariance_prior[keep_ixs].detach().clone()
 
                 # If the covariance type is 'full' or 'diag' and the
-                # covariance prior is a 3D or 2D tensor with one value
-                # per component and the number of components matches
-                # the number before removal
+                # prior has one entry per component before removal
                 elif covariance_type in ("full", "diag") and \
                     covariance_prior.ndim > 0 and \
                     covariance_prior.shape[0] == n_components_before:
@@ -4068,7 +4056,7 @@ class BulkDGD(nn.Module):
 
             #---------------------------------------------------------#
 
-            # Keep fitted parameters.
+            # Keep the fitted parameters.
             latent_new.weights_ = weights_new
             latent_new.means_ = means_new
             latent_new.covariances_ = covariances_new
@@ -4085,11 +4073,11 @@ class BulkDGD(nn.Module):
                 latent_new.initial_weights_ = \
                     self.latent.initial_weights_[keep_ixs].detach(
                         ).clone()
-            
+
             # Otherwise
             else:
 
-                # Keep the initial weights for the all components.
+                # Use the new weights as the initial weights.
                 latent_new.initial_weights_ = \
                     weights_new.detach().clone()
 
@@ -4105,49 +4093,46 @@ class BulkDGD(nn.Module):
                 latent_new.initial_means_ = \
                     self.latent.initial_means_[
                         keep_ixs].detach().clone()
-            
+
             # Otherwise
             else:
 
-                # Keep the initial means for the all components.
+                # Use the new means as the initial means.
                 latent_new.initial_means_ = means_new.detach().clone()
 
             #---------------------------------------------------------#
 
-            # If there are initial covariances and their number matches
-            # the number of components before removal
+            # If there are initial covariances
             if self.latent.initial_covariances_ is not None:
 
                 # If the covariance type is 'full', 'diag', or
-                # 'spherical' and the initial covariances have one
-                # value per component and the number of components
-                # matches the number before removal
+                # 'spherical' and there is one per component
                 if covariance_type in ("full", "diag", "spherical") \
                     and self.latent.initial_covariances_.shape[0] \
                         == n_components_before:
-                    
+
                     # Slice the initial covariances for the active
                     # components.
                     latent_new.initial_covariances_ = \
                         self.latent.initial_covariances_[
                             keep_ixs].detach().clone()
-                
+
                 # Otherwise
                 else:
 
-                    # Keep the initial covariances for the all
+                    # Keep the initial covariances for all the
                     # components.
                     latent_new.initial_covariances_ = \
                         self.latent.initial_covariances_.detach(
                             ).clone()
-            
+
             # Otherwise
             else:
 
-                # Keep the initial covariances for the all components.
+                # Use the new covariances as the initial covariances.
                 latent_new.initial_covariances_ = \
                     covariances_new.detach().clone()
-            
+
             #---------------------------------------------------------#
 
             # Keep the fit status.
@@ -4168,7 +4153,7 @@ class BulkDGD(nn.Module):
 
             #---------------------------------------------------------#
 
-            # Keep compatibility attributes.
+            # Keep the dimensionality and the number of components.
             latent_new.dim = self.latent.dim
             latent_new.n_components = n_components_after
 
@@ -4186,7 +4171,7 @@ class BulkDGD(nn.Module):
 
             # Get the original options used to initialize the legacy
             # GMM.
-            initial_options = self.latent._latent_initial_options
+            initial_options = self._latent_initial_options
 
             # Build a new legacy GMM with fewer components.
             latent_new = \
@@ -4209,19 +4194,19 @@ class BulkDGD(nn.Module):
                         initial_options["covariance_type"]).to(
                             self.device)
 
-            # Copy means, weights, and log-variance for kept
+            # Copy the means, weights, and log-variances of the kept
             # components.
             with torch.no_grad():
-                latent_new.set_means(self.latent.means[keep_ixs])
-                latent_new.set_weights(self.latent.weights[keep_ixs])
-                latent_new.set_log_var(self.latent.log_var[keep_ixs])
+                latent_new.means.copy_(self.latent.means[keep_ixs])
+                latent_new.weights.copy_(self.latent.weights[keep_ixs])
+                latent_new.log_var.copy_(self.latent.log_var[keep_ixs])
 
             # Replace the current GMM.
             self._latent = latent_new
 
         #-------------------------------------------------------------#
 
-        # Log the component-removal event.
+        # Inform the user about the removed components.
         info_msg = \
             f"Epoch {epoch}: removed " \
             f"{n_components_before - n_components_after} " \
@@ -4236,7 +4221,7 @@ class BulkDGD(nn.Module):
 
         # Return that components were removed.
         return True
-    
+
 
     def _save_optional_outputs(
             self,
@@ -4256,23 +4241,23 @@ class BulkDGD(nn.Module):
         ----------
         reporting_options : :class:`dict`
             The configuration for reporting.
-        
+
         rep_layer_train : \
             :class:`bulkdgd.core.latents.RepresentationLayer`
             The representation layer for the training samples.
-        
+
         rep_layer_test : \
             :class:`bulkdgd.core.latents.RepresentationLayer`
             The representation layer for the test samples.
-        
+
         samples_names_train : :class:`list` of :class:`str`
             The names of the training samples, in the same order as the
             training data.
-        
+
         samples_names_test : :class:`list` of :class:`str`
             The names of the test samples, in the same order as the
             test data.
-        
+
         epoch : :class:`int`
             The current epoch number (used for naming the saved
             outputs).
@@ -4298,32 +4283,32 @@ class BulkDGD(nn.Module):
 
         # Get whether to save the representations at each epoch.
         save_rep_epoch = config_train_outputs_rep_epoch["enabled"]
-        
+
         # Get the stride for saving the representations at each epoch.
         save_rep_epoch_stride = \
             config_train_outputs_rep_epoch.get("stride", 1)
-        
+
         # Get the directory for saving the representations at each
         # epoch.
         save_rep_epoch_dir = \
             config_train_outputs_rep_epoch.get("dir", None)
 
         #-------------------------------------------------------------#
-        
+
         # Get the configuration for the latent probabilities to save at
         # each epoch.
         config_train_outputs_latent_probs_epoch = \
             reporting_options["latent_probs_epoch"]
-        
+
         # Get whether to save the latent probabilities at each epoch.
         save_latent_probs_epoch = \
             config_train_outputs_latent_probs_epoch["enabled"]
-        
+
         # Get the stride for saving the latent probabilities at each
         # epoch.
         save_latent_probs_epoch_stride = \
             config_train_outputs_latent_probs_epoch.get("stride", 1)
-        
+
         # Get the directory for saving the latent probabilities at each
         # epoch.
         save_latent_probs_epoch_dir = \
@@ -4335,7 +4320,7 @@ class BulkDGD(nn.Module):
         # epoch.
         config_train_outputs_latent_means_epoch = \
             reporting_options["latent_means_epoch"]
-        
+
         # Get whether to save the latent means at each epoch.
         save_latent_means_epoch = \
             config_train_outputs_latent_means_epoch["enabled"]
@@ -4343,7 +4328,7 @@ class BulkDGD(nn.Module):
         # Get the stride for saving the latent means at each epoch.
         save_latent_means_epoch_stride = \
             config_train_outputs_latent_means_epoch.get("stride", 1)
-        
+
         # Get the directory for saving the latent means at each epoch.
         save_latent_means_epoch_dir = \
             config_train_outputs_latent_means_epoch.get("dir", None)
@@ -4354,18 +4339,18 @@ class BulkDGD(nn.Module):
         # at each epoch.
         config_train_outputs_genes_saliency_maps_epoch = \
             reporting_options["genes_saliency_maps_epoch"]
-        
+
         # Get whether to save the genes' saliency maps at each epoch.
         save_genes_saliency_maps_epoch = \
             config_train_outputs_genes_saliency_maps_epoch["enabled"]
-        
+
         # Get the stride for saving the genes' saliency maps at each
         # epoch.
         save_genes_saliency_maps_epoch_stride = \
             config_train_outputs_genes_saliency_maps_epoch.get(
                 "stride",
                 1)
-        
+
         # Get the directory for saving the genes' saliency maps at each
         # epoch.
         save_genes_saliency_maps_epoch_dir = \
@@ -4385,21 +4370,21 @@ class BulkDGD(nn.Module):
         save_pathways_saliency_maps_epoch = \
             config_train_outputs_pathways_saliency_maps_epoch[
                 "enabled"]
-        
+
         # Get the stride for saving the pathways' saliency maps at each
         # epoch.
         save_pathways_saliency_maps_epoch_stride = \
             config_train_outputs_pathways_saliency_maps_epoch.get(
                 "stride",
                 1)
-        
+
         # Get the directory for saving the pathways' saliency maps at
         # each epoch.
         save_pathways_saliency_maps_epoch_dir = \
             config_train_outputs_pathways_saliency_maps_epoch.get(
                 "dir",
                 None)
-    
+
         #-------------------------------------------------------------#
 
         # Get the configuration for the model to save at each epoch.
@@ -4447,7 +4432,7 @@ class BulkDGD(nn.Module):
                 save_dir = save_rep_epoch_dir,
                 rep_layer = rep_layer_train,
                 samples_names = samples_names_train)
-            
+
             # Save the current representations for the test
             # samples.
             _util.save_rep_epoch(\
@@ -4478,12 +4463,12 @@ class BulkDGD(nn.Module):
                 n_components = self.latent.n_components,
                 save_dir = save_latent_probs_epoch_dir,
                 samples_names = samples_names_train)
-            
+
             # Get the probability densities for the
             # representations of the test samples.
             probs_test = \
                 self.latent.sample_probs(x = rep_layer_test())
-            
+
             # Save the probability densities for the current
             # representations of the test samples.
             _util.save_latent_probs_epoch(\
@@ -4493,7 +4478,7 @@ class BulkDGD(nn.Module):
                 n_components = self.latent.n_components,
                 save_dir = save_latent_probs_epoch_dir,
                 samples_names = samples_names_test)
-            
+
         #-------------------------------------------------------------#
 
         # If the user wants to save the means of the GMM components
@@ -4520,23 +4505,23 @@ class BulkDGD(nn.Module):
             or (save_pathways_saliency_maps_epoch and \
                 (epoch % \
                     save_pathways_saliency_maps_epoch_stride == 0)):
-            
+
             # Get the saliency map for the training samples.
             saliency_map_train = \
                 self._get_saliency_map(\
                     z = rep_layer_train())
-            
+
             # Get the saliency map for the test samples.
             saliency_map_test = \
                 self._get_saliency_map(\
                     z = rep_layer_test())
-            
+
             # If the user wants to save the saliency maps for
             # the genes
             if save_genes_saliency_maps_epoch and \
                 (epoch % \
                     save_genes_saliency_maps_epoch_stride == 0):
-                
+
                 # Save the saliency maps for the training samples.
                 _util.save_genes_saliency_maps_epoch(\
                     saliency_map = saliency_map_train,
@@ -4544,7 +4529,7 @@ class BulkDGD(nn.Module):
                     prefix = "train",
                     genes_names = genes_names,
                     save_dir = save_genes_saliency_maps_epoch_dir)
-                
+
                 # Save the saliency maps for the test samples.
                 _util.save_genes_saliency_maps_epoch(\
                     saliency_map = saliency_map_test,
@@ -4552,13 +4537,13 @@ class BulkDGD(nn.Module):
                     prefix = "test",
                     genes_names = genes_names,
                     save_dir = save_genes_saliency_maps_epoch_dir)
-            
+
             # If the user wants to save the saliency maps for
             # the pathways
             if save_pathways_saliency_maps_epoch and \
                 (epoch % \
                     save_pathways_saliency_maps_epoch_stride == 0):
-                    
+
                 # Get the saliency maps for the pathways
                 # in the training samples.
                 saliency_pathways_train = \
@@ -4618,96 +4603,72 @@ class BulkDGD(nn.Module):
         Parameters
         ----------
         config_train : :class:`dict`
-            A dictionary of options for the training.
+            The parsed options for the training.
 
         samples_names_train : :class:`list`
             A list of the training samples' names.
-        
+
         samples_names_test : :class:`list`
             A list of the testing samples' names.
 
         genes_names : :class:`list`
             A list of the genes' names.
-        
+
         data_loader_train : :class:`torch.utils.data.DataLoader`
             The data loader for the training samples.
-        
+
         data_loader_test : :class:`torch.utils.data.DataLoader`
             The data loader for the test samples.
-        
+
         rep_layer_train : \
             :class:`bulkdgd.core.latents.RepresentationLayer`
             The representation layer for the training samples.
-        
+
         rep_layer_test : \
             :class:`bulkdgd.core.latents.RepresentationLayer`
             The representation layer for the test samples.
-        
+
         pathways : :class:`dict` or :obj:`None`
             A dictionary where the keys are the names of the pathways
             and the values are lists of genes belonging to each
             pathway.
-        
+
         labels_train : :class:`torch.Tensor` or :obj:`None`
             The clusters' labels for the training samples.
-        
+
         labels_test : :class:`torch.Tensor` or :obj:`None`
             The clusters' labels for the test samples.
 
         Returns
         -------
-        :class:`tuple`
+        results : :class:`tuple`
             ``((rep_train, rep_test), (pred_means_train,
             pred_means_test), pred_r_values, losses,
             (metrics_train, metrics_test), time_train)``.
             ``pred_r_values`` is a single tensor for per-gene
             r-values, a ``(train, test)`` tuple for per-sample
             r-values, or :obj:`None` for Poisson counts. ``losses``
-            holds each epoch's GMM, reconstruction and total losses;
-            ``metrics_train``/``metrics_test`` hold each epoch's
-            reporting metrics; ``time_train`` holds the per-epoch
+            holds each epoch's GMM, reconstruction and total losses,
+            ``metrics_train``/``metrics_test`` each epoch's
+            reporting metrics, and ``time_train`` the per-epoch
             CPU/wall-clock timing.
         """
-
-        # Parse and check the configuration.
-        config_train, errors, warnings = \
-            _util.parse_config_train(config = config_train)
-        
-        # If there are errors in the configuration
-        if errors:
-
-            # Raise an exception with the error messages.
-            error_msg = \
-                "Errors in the training configuration: " + \
-                "|".join(errors)
-            raise ValueError(error_msg)
-        
-        # If there are warnings in the configuration
-        if warnings:
-
-            # Log the warning messages.
-            warning_msg = \
-                "Warnings in the training configuration: " + \
-                "|".join(warnings)
-            logger.warning(warning_msg)
-
-        #-------------------------------------------------------------#
 
         # Get the number of training samples.
         n_samples_train = len(samples_names_train)
 
         # Get the number of testing samples.
         n_samples_test = len(samples_names_test)
-        
+
         # Get the number of genes.
         n_genes = len(genes_names)
-        
+
         # If a dictionary of pathways is provided
         if pathways is not None:
-            
+
             # Get the names of the pathways.
             pathways_names = list(pathways.keys())
-        
+
         # Otherwise
         else:
 
@@ -4739,8 +4700,7 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Get the norms to which the gradients are clipped before each
-        # optimizer takes its step. If not set, they are not clipped.
+        # Get the norms to clip the gradients to, if any.
         grad_clip_decoder = \
             decoder_options.get("grad_clipping_max_norm")
         grad_clip_rep = \
@@ -4749,38 +4709,38 @@ class BulkDGD(nn.Module):
             latent_options.get("grad_clipping_max_norm")
 
         #-------------------------------------------------------------#
-        
+
         # Initialize the learning rate scheduler for the latent space.
         lr_scheduler_latent = None
 
         # If the latent space is the legacy Gaussian mixture model
         if isinstance(self.latent,
                       latents.GaussianMixtureModelLegacy):
-            
+
             # Get the type of optimizer to use for the latent space.
             optimizer_latent_type = \
                 latent_options["optimizer_type"]
-            
+
             # Get the options for the optimizer for the latent space.
             optimizer_latent_options = \
                 latent_options["optimizer_options"]
-            
+
             # Get the optimizer for the latent space.
             optimizer_latent = \
                 self._get_optimizer(\
                     optimizer_type = optimizer_latent_type,
                     optimizer_options = optimizer_latent_options,
                     optimizer_parameters = self.latent.parameters())
-            
+
             # Get the type of learning rate scheduler to use for the
             # latent space.
             lr_scheduler_latent_type = \
                 latent_options["lr_scheduler_type"]
-            
+
             # Get the options for the learning rate scheduler for the
             # latent space.
             lr_scheduler_latent_options = \
-                latent_options["lr_scheduler_options"]
+                latent_options.get("lr_scheduler_options")
 
             # Get the learning rate scheduler for the latent space.
             lr_scheduler_latent = \
@@ -4817,8 +4777,8 @@ class BulkDGD(nn.Module):
         # Get the options for the learning rate scheduler for the
         # decoder.
         lr_scheduler_decoder_options = \
-            decoder_options["lr_scheduler_options"]
-        
+            decoder_options.get("lr_scheduler_options")
+
         # Get the learning rate scheduler for the decoder.
         lr_scheduler_decoder = \
             self._get_scheduler(
@@ -4835,7 +4795,7 @@ class BulkDGD(nn.Module):
         # the training samples.
         optimizer_rep_type = \
             representations_options["optimizer_type"]
-        
+
         # Get the options for the optimizer for the representations for
         # the training samples.
         optimizer_rep_options = \
@@ -4845,11 +4805,11 @@ class BulkDGD(nn.Module):
         # training representations.
         lr_scheduler_rep_type = \
             representations_options["lr_scheduler_type"]
-       
+
         # Get the options for the learning rate scheduler for the
         # training representations.
         lr_scheduler_rep_options = \
-            representations_options["lr_scheduler_options"]
+            representations_options.get("lr_scheduler_options")
 
         #-------------------------------------------------------------#
 
@@ -4860,7 +4820,7 @@ class BulkDGD(nn.Module):
                 optimizer_type = optimizer_rep_type,
                 optimizer_options = optimizer_rep_options,
                 optimizer_parameters = rep_layer_train.parameters())
-        
+
         # Get the learning rate scheduler for the training
         # representations.
         lr_scheduler_rep_train = \
@@ -4889,7 +4849,7 @@ class BulkDGD(nn.Module):
                 lr_scheduler_options = lr_scheduler_rep_options,
                 optimizer = optimizer_rep_test,
                 n_epochs = n_epochs)
-            
+
         #-------------------------------------------------------------#
 
         # Get the type of noise to inject in the representations for
@@ -4900,13 +4860,12 @@ class BulkDGD(nn.Module):
         # Get the noise options for the representations for the
         # training samples.
         train_noise_options = \
-            representations_options["train_noise_options"]
+            representations_options.get("train_noise_options")
 
-        # If the noise if Gaussian
+        # If the noise is Gaussian
         if train_noise_type == "gaussian":
 
-            # Get the noise scale. If it is 0.0 (the default), no noise
-            # will be injected.
+            # Get the noise scale (zero disables the noise).
             train_noise_scale_base = train_noise_options["scale"]
 
             # Get the starting noise scale (for cosine annealing).
@@ -4914,14 +4873,14 @@ class BulkDGD(nn.Module):
 
             # Get the ending noise scale (for cosine annealing).
             train_noise_end = train_noise_options["end"]
-            
-            # Get the percentage of training samples within 2 standard
-            # deviations. 
+
+            # Get the fraction of the mass within the radius the noise
+            # is scaled by.
             train_noise_within_radius_prob = \
                 train_noise_options["within_radius_prob"]
-            
+
             # Get the gain factor.
-            train_noise_gain = train_noise_options["gain"]    
+            train_noise_gain = train_noise_options["gain"]
 
         #-------------------------------------------------------------#
 
@@ -4938,35 +4897,32 @@ class BulkDGD(nn.Module):
         # If the early stopping is based on the loss
         if early_stopping_type == "loss":
 
-            # The patience (number of epochs without improvement in test
-            # loss before stopping).
+            # Get the patience (the number of epochs without improvement
+            # in the test loss before stopping).
             early_stopping_patience = \
                 early_stopping_options.get("patience", 10)
 
             # Initialize the best test loss to positive infinity.
             early_stopping_best_test_loss = float("inf")
-            
+
             # Initialize the number of the epoch with the best test
             # loss to zero.
             early_stopping_best_epoch = 0
-            
+
             # Initialize the number of epochs without improvement in
             # the test loss to zero.
             early_stopping_epochs_without_improvement = 0
-            
-            # Initialize the state of the best modelto None.
+
+            # Initialize the state of the best model to None.
             early_stopping_best_model_state = None
 
-            # Early stopping should only be active after the GMM is
-            # fitted (to avoid false triggers during the initial
-            # epochs).
+            # Keep early stopping inactive until the GMM is fitted.
             early_stopping_active = False
 
         #-------------------------------------------------------------#
 
-        # Create an empty list to store the loss for the
-        # Gaussian mixture model, the reconstruction loss, and the
-        # overall loss.
+        # Create an empty list to store the GMM's loss, the
+        # reconstruction loss, and the overall loss.
         losses_list = []
 
         # Create an empty list to store the training time.
@@ -4978,7 +4934,7 @@ class BulkDGD(nn.Module):
         components_removal_type = \
             latent_options["components_removal_type"]
 
-        # If the component removal is based on a weight threshold  
+        # If the component removal is based on a weight threshold
         if components_removal_type == "weight_threshold":
 
             # Get the weight threshold for collapsed-component removal.
@@ -4986,7 +4942,7 @@ class BulkDGD(nn.Module):
                 latent_options["components_removal_options"][
                         "threshold"]
 
-            # Log the selected behavior.
+            # Inform the user.
             info_msg = \
                 "Weight-threshold collapsed-component removal is " \
                 "enabled " \
@@ -5003,48 +4959,48 @@ class BulkDGD(nn.Module):
             # Gaussian mixture model.
             latent_model_selection_type = \
                 latent_options["model_selection_type"]
-                
+
             # Get the options for GMM model selection.
             latent_model_selection_options = \
                 latent_options.get("model_selection_options")
 
-            # How far either side of the current number of components to
-            # look, when the model selection is dynamic. One, unless the
-            # configuration says otherwise.
+            # Set how many components either side of the current number
+            # to try (by default, one).
             latent_model_selection_step = 1
 
             # If the model selection is based on a metric
             if latent_model_selection_type == "metric" and \
                 latent_model_selection_options is not None:
 
-                # Fail clearly if a bare metric-name string was passed
-                # instead of a mapping.
+                # If the options are not a dictionary
                 if not isinstance(latent_model_selection_options, dict):
 
+                    # Raise an error.
                     errstr = \
-                        "'model_selection_options' must be a mapping, " \
-                        "with a 'metric' and, if you like, a 'step' - " \
-                        "for instance " \
+                        "'model_selection_options' must be a " \
+                        "mapping, with a 'metric' and, optionally, " \
+                        "a 'step' - for instance " \
                         "'{'metric' : 'bic', 'step' : 4}'. It is a " \
-                        f"'{type(latent_model_selection_options).__name__}'."
+                f"'{type(latent_model_selection_options).__name__}'."
                     raise TypeError(errstr)
 
                 # Get the metric used to select candidate models.
                 latent_model_selection_metric = \
                     latent_model_selection_options.get("metric", "bic")
 
-                # Get how far to look either side.
+                # Get how many components either side to try.
                 latent_model_selection_step = \
                     int(latent_model_selection_options.get("step", 1))
 
+                # Inform the user.
                 logger.info(
-                    f"The number of components of the Gaussian "
-                    f"mixture model is selected dynamically, on the "
+                    "The number of components of the Gaussian "
+                    "mixture model is selected dynamically, on the "
                     f"'{latent_model_selection_metric}', looking "
                     f"{latent_model_selection_step} component(s) "
-                    f"either side of the current number at every "
-                    f"refit.")
-            
+                    "either side of the current number at every "
+                    "refit.")
+
             #---------------------------------------------------------#
 
             # Get the options for fitting.
@@ -5062,36 +5018,33 @@ class BulkDGD(nn.Module):
             # Get whether to refit the GMM at the end of training.
             gmm_refit_final = \
                 latent_options_fitting["refit_final"]
-            
+
             # Get the number of EM iterations to perform at the
             # 'first epoch' for the Gaussian mixture model.
             latent_max_iter_first_epoch = \
                 latent_options_fitting["max_iter_first_epoch"]
-            
-            # Get the maximum number of EM iterations to perform at
-            # a full-refit epoch that is not 'first epoch'
-            # (i.e., epochs that are multiples of
-            # 'refit_interval').
+
+            # Get the maximum number of EM iterations at a
+            # full-refit epoch (a multiple of 'refit_interval').
             latent_max_iter_full_refit = \
                 latent_options_fitting["max_iter_full_refit"]
-            
-            # Get the maximum number of EM iterations to perform at
-            # a "warm"-refit epoch (i.e., at epochs later than the
-            # first epoch that are not full-refit epochs).
+
+            # Get the maximum number of EM iterations at a
+            # "warm"-refit epoch (any other epoch).
             latent_max_iter_warm_refit = \
                 latent_options_fitting["max_iter_warm_refit"]
-                
+
             # Get the maximum number of EM iterations to perform at
             # the final refit (if 'final_refit' is True).
             latent_max_iter_final_refit = \
                 latent_options_fitting["max_iter_final_refit"]
 
-            # Get the options for the calculation of the loss.
+            # Get the weight of the latent loss.
             latent_lambda = \
                 latent_options["loss_calculation"]["lambda"]
 
         #-------------------------------------------------------------#
-    
+
         # Get the methods that will be used to normalize the losses.
         loss_norm_types = {
             "latent": \
@@ -5101,24 +5054,23 @@ class BulkDGD(nn.Module):
             "total": \
                 reporting_options["loss"]["total"]["norm_type"],
         }
-        
+
         #-------------------------------------------------------------#
 
-        # Reporting metrics logged and exported per epoch.
+        # Get the latent space's reporting metrics.
         reporting_metrics_latent = \
             reporting_options["metrics"]["latent"]
 
         # If there are reporting metrics
         if reporting_metrics_latent:
-            
+
             # Initialize a list to store the metrics that will be used.
             filtered_metrics = []
 
             # For each of the reporting metrics
             for m in reporting_metrics_latent:
-                
-                # If the metric is a supervised metric and no labels
-                # were provided
+
+                # If the metric is supervised
                 if m in metrics.SUPERVISED_METRICS:
 
                     # If no labels were provided for training or test
@@ -5134,7 +5086,7 @@ class BulkDGD(nn.Module):
                         # Move to the next metric.
                         continue
 
-                # Add the metric to the filtered list   .
+                # Add the metric to the filtered list.
                 filtered_metrics.append(m)
 
             # Replace the reporting metrics with the filtered ones.
@@ -5146,8 +5098,8 @@ class BulkDGD(nn.Module):
             # Create a string containing the metrics.
             metrics_str = \
                 ", ".join([f"'{m}'" for m in reporting_metrics_latent])
-            
-            # Log the selected reporting metrics. 
+
+            # Inform the user about the reporting metrics.
             logger.info(
                 "Selected reporting metrics for the latent space: " \
                 f"{metrics_str}.")
@@ -5164,15 +5116,19 @@ class BulkDGD(nn.Module):
         if isinstance(self.latent,
                       latents.GaussianMixtureModelLegacy):
 
-            # The latent metrics will be active from the first epoch.
-            latent_metrics_active = True
+            # If there are reporting metrics
+            if reporting_metrics_latent:
 
-            # If early stopping is enabled, activate it from the
-            # first epoch.
+                # Warn that they are not computed.
+                logger.warning(
+                    "The latent metrics are only computed for the "
+                    "'tgmm' latent type, so they will be NaN.")
+
+            # If early stopping is enabled
             if early_stopping_type == "loss":
-                early_stopping_active = True
 
-        #-------------------------------------------------------------#
+                # Activate it from the first epoch.
+                early_stopping_active = True
 
         #-------------------------------------------------------------#
 
@@ -5182,14 +5138,9 @@ class BulkDGD(nn.Module):
             # Initialize the losses to 0 for the current epoch.
             losses_list.append([epoch, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
-            # Initialize per-epoch metrics rows with NaNs.
+            # Initialize the epoch's metrics rows.
             metrics_row_train = {"epoch": epoch}
             metrics_row_test = {"epoch": epoch}
-
-            # Pre-populate all configured metrics with NaN so that
-            # every epoch has a complete schema even when some metrics
-            # are unavailable (for example, supervised metrics without
-            # labels).
 
             # For each metric
             for metric_name in reporting_metrics_latent:
@@ -5214,15 +5165,14 @@ class BulkDGD(nn.Module):
             if isinstance(self.latent,
                           latents.GaussianMixtureModelTGMM):
 
-                # Get the target number of components (when dynamic
-                # mode is disabled) and the maximum number of
-                # components (when dynamic mode is enabled).
+                # Get the target (or, with dynamic selection, maximum)
+                # number of components.
                 latent_n_components_target = \
                     int(latent_options.get("n_components",
                                            self.latent.n_components))
 
                 #-----------------------------------------------------#
-            
+
                 # Get the representations for the training samples.
                 rep_train = rep_layer_train().detach().to(self.device)
 
@@ -5245,7 +5195,7 @@ class BulkDGD(nn.Module):
                 #-----------------------------------------------------#
 
                 # If we are at or after the first epoch where the GMM
-                # should be fitted.
+                # should be fitted
                 elif epoch >= latent_first_epoch:
 
                     # Disable gradient computation.
@@ -5257,9 +5207,6 @@ class BulkDGD(nn.Module):
                             (latent_refit_interval \
                                 and epoch % latent_refit_interval == 0)
 
-                        # Set the maximum number of iterations for
-                        # this epoch's fitting step.
-
                         # If we are at the first epoch where the GMM
                         # should be fitted
                         if epoch == latent_first_epoch:
@@ -5267,29 +5214,28 @@ class BulkDGD(nn.Module):
                             # Use the configured number of iterations
                             # for the first epoch.
                             max_iter = latent_max_iter_first_epoch
-                        
+
                         # If we are at a full refit epoch
                         elif is_full_refit_epoch:
 
                             # Use the configured number of iterations
                             # for a full refit.
                             max_iter = latent_max_iter_full_refit
-                        
+
                         # Otherwise
                         else:
 
                             # Use the configured number of iterations
                             # for a "warm" refit.
                             max_iter = latent_max_iter_warm_refit
-                        
+
                         #---------------------------------------------#
 
                         # If the model selection is based on a metric
                         if latent_model_selection_type == "metric":
-                            
-                            # Compare k, k - step and k + step via the
-                            # configured selection metric and keep the
-                            # best model.
+
+                            # Keep the best of the models with k,
+                            # k - step and k + step components.
                             self._get_best_latent_tgmm(
                                 rep_train = rep_train,
                                 latent_n_components_target = \
@@ -5305,7 +5251,7 @@ class BulkDGD(nn.Module):
 
                         #---------------------------------------------#
 
-                        # Otherwise.
+                        # Otherwise
                         else:
 
                             # If it is a full refit epoch
@@ -5314,17 +5260,16 @@ class BulkDGD(nn.Module):
                                 # Fit the GMM.
                                 self.latent.fit(rep_train,
                                                 max_iter = max_iter)
-                            
+
                             # If it is not a full refit epoch
                             else:
 
-                                # Fit the GMM with warm start
-                                # to continue from the previous epoch's
-                                # solution.
+                                # Fit the GMM starting from the previous
+                                # epoch's solution.
                                 self.latent.fit(rep_train,
                                                 max_iter = max_iter,
                                                 warm_start = True)
-    
+
                         #---------------------------------------------#
 
                         # If the weight-threshold removal of collapsed
@@ -5334,7 +5279,7 @@ class BulkDGD(nn.Module):
 
                             # Remove collapsed components.
                             self._remove_collapsed_latent_components(
-                                collapse_weight_threshold =  \
+                                collapse_weight_threshold = \
                                     component_weight_threshold,
                                 epoch = epoch)
 
@@ -5357,7 +5302,7 @@ class BulkDGD(nn.Module):
 
                 #-----------------------------------------------------#
 
-                # Calculate clustering metrics after the GMM is fitted.
+                # If the GMM has been fitted
                 if epoch >= latent_first_epoch:
 
                     # Enable the calculation of latent metrics from
@@ -5373,10 +5318,10 @@ class BulkDGD(nn.Module):
                 # If noise injection is enabled for the training
                 # representations
                 if train_noise_scale_base > 0:
-                    
+
                     # Get the noise progress.
                     progress = (epoch - 1) / max(n_epochs - 1, 1)
-                    
+
                     # Compute the noise scale using cosine annealing
                     # between the start and end values.
                     train_noise_scale = \
@@ -5384,19 +5329,18 @@ class BulkDGD(nn.Module):
                             (train_noise_start - train_noise_end) * \
                                 0.5 * \
                                     (1 + math.cos(math.pi * progress))
-                    
+
                     # Set the noise scale.
                     train_noise_scale = \
                         train_noise_scale * train_noise_scale_base
-                
+
                 # Otherwise
                 else:
-                    
+
                     # No noise will be injected.
                     train_noise_scale = 0.0
 
-            # Otherwise (the noise type is not Gaussian, e.g. it is
-            # disabled/None)
+            # Otherwise (no noise)
             else:
 
                 # No noise will be injected.
@@ -5420,9 +5364,8 @@ class BulkDGD(nn.Module):
             # For each batch of training samples
             for batch_data in data_loader_train:
 
-                # Unpack the batch data (the data loader may
-                # return 3 or 4 items depending on whether
-                # labels are available).
+                # Unpack the batch data (3 or 4 items, depending on
+                # whether labels are available).
                 samples_exp = batch_data[0]
                 samples_mean_exp = batch_data[1]
                 samples_ixs = batch_data[2]
@@ -5449,23 +5392,23 @@ class BulkDGD(nn.Module):
 
                 # If noise injection is enabled
                 if train_noise_scale > 0:
-                    
+
                     # Get the radius of the hypersphere within which
                     # the specified fraction of samples lie.
                     radius = \
                         float(
                             chi2.ppf(train_noise_within_radius_prob,
                                      self.latent.dim)) ** 0.5
-                    
+
                     # Get the base noise.
                     base_noise = torch.randn_like(z) / radius
-                    
+
                     # Scale the base noise to get the final noise to
                     # inject.
                     noise = \
                         train_noise_scale * base_noise * \
                             train_noise_gain
-                    
+
                     # Add the noise.
                     z = z + noise
 
@@ -5478,19 +5421,19 @@ class BulkDGD(nn.Module):
                     # Make the gradients for the Gaussian mixture
                     # model zero.
                     optimizer_latent.zero_grad()
-                    
+
                     # If the loss reduction type is 'sum'
                     if loss_reduction_type == "sum":
 
                         # Get the Gaussian mixture model's loss.
                         latent_loss = self.latent(x = z).sum()
-                    
+
                     # If the loss reduction type is 'mean'
                     elif loss_reduction_type == "mean":
 
                         # Get the Gaussian mixture model's loss.
                         latent_loss = self.latent(x = z).mean()
-                
+
                 # If the Gaussian mixture model is the TGMM wrapper
                 elif isinstance(self.latent,
                                 latents.GaussianMixtureModelTGMM):
@@ -5498,7 +5441,7 @@ class BulkDGD(nn.Module):
                     # If we are at any epoch after the
                     # Gaussian mixture model was fitted
                     if epoch >= latent_first_epoch:
-                        
+
                         # If the loss reduction type is 'sum'
                         if loss_reduction_type == "sum":
 
@@ -5507,7 +5450,7 @@ class BulkDGD(nn.Module):
                                 - latent_lambda * \
                                     torch.sum(\
                                         self.latent.log_prob(z))
-                        
+
                         # If the loss reduction type is 'mean'
                         elif loss_reduction_type == "mean":
 
@@ -5517,10 +5460,9 @@ class BulkDGD(nn.Module):
                                     torch.mean(\
                                         self.latent.log_prob(z))
 
-                    # If we are not at the first epoch after the
-                    # Gaussian mixture model was fitted
+                    # If the Gaussian mixture model was not fitted yet
                     else:
-                        
+
                         # Set the Gaussian mixture model's loss to
                         # zero.
                         latent_loss = \
@@ -5528,16 +5470,18 @@ class BulkDGD(nn.Module):
 
                 #-----------------------------------------------------#
 
-                # If the chosen output module means that the
-                # r-values are not learned
+                # If the output module means that the r-values are not
+                # learned
                 if isinstance(\
                     self.decoder.nb,
                     (outputmodules.OutputModuleNBFeatureDispersion,
                      outputmodules.OutputModulePoisson)):
-                    
-                    # Get the predicted means: shape (batch * reps *
-                    # components, genes).
+
+                    # Get the predicted means: shape (batch, genes).
                     pred_means = self.decoder(z = z)
+
+                    # There are no predicted r-values.
+                    pred_log_r_values = None
 
                     # Set the options to compute the reconstruction
                     # loss.
@@ -5546,14 +5490,14 @@ class BulkDGD(nn.Module):
                          "pred_means" : pred_means,
                          "scaling_factors" : samples_mean_exp}
 
-                # If the chosen output module means that the
-                # r-values are learned
+                # If the output module means that the r-values are
+                # learned
                 elif isinstance(\
                     self.decoder.nb,
                     outputmodules.OutputModuleNBFullDispersion):
 
-                    # Get the predicted means and r-values: both
-                    # shaped (batch * reps * components, genes).
+                    # Get the predicted means and r-values, both shaped
+                    # (batch, genes).
                     pred_means, pred_log_r_values = self.decoder(z = z)
 
                     # Set the options to compute the reconstruction
@@ -5565,7 +5509,7 @@ class BulkDGD(nn.Module):
                          "scaling_factors" : samples_mean_exp}
 
                 #-----------------------------------------------------#
-                
+
                 # If the loss reduction type is 'sum'
                 if loss_reduction_type == "sum":
 
@@ -5573,7 +5517,7 @@ class BulkDGD(nn.Module):
                     recon_loss = \
                         self.decoder.nb.loss(
                             **recon_loss_options).sum()
-                
+
                 # If the loss reduction type is 'mean'
                 elif loss_reduction_type == "mean":
 
@@ -5590,35 +5534,30 @@ class BulkDGD(nn.Module):
 
                     # Get the overall loss.
                     loss = latent_loss.clone() + recon_loss.clone()
-                
+
                 # If the Gaussian mixture model is the TGMM wrapper
                 elif isinstance(self.latent,
                                 latents.GaussianMixtureModelTGMM):
-                    
+
                     # If we are at any epoch after the Gaussian mixture
                     # model was fitted
                     if epoch >= latent_first_epoch:
-                        
-                        # The overall loss is the sum of the
-                        # reconstruction loss and the Gaussian
-                        # mixture model's loss.
+
+                        # Get the overall loss (reconstruction loss plus
+                        # the Gaussian mixture model's loss).
                         loss = latent_loss.clone() + recon_loss.clone()
 
-                    # If we are not at the first epoch after the
-                    # Gaussian mixture model was fitted
+                    # If the Gaussian mixture model was not fitted yet
                     else:
-                        
-                        # The overall loss is just the
-                        # reconstruction loss (the GMM loss is not
-                        # active yet).
+
+                        # Get the overall loss (the reconstruction loss
+                        # only).
                         loss = recon_loss.clone()
 
                 #-----------------------------------------------------#
 
-                # The dispersion regularization the output module asks
-                # for (zero except for modules anchoring per-sample
-                # dispersion to a baseline); applied here too, matching
-                # '_optimize_rep', so the decoder learns the shrinkage.
+                # Add the output module's dispersion regularization
+                # (zero unless it shrinks the dispersion).
                 loss = loss + \
                     self.decoder.nb.dispersion_regularization(
                         pred_means = pred_means,
@@ -5630,8 +5569,7 @@ class BulkDGD(nn.Module):
 
                 #-----------------------------------------------------#
 
-                # Clip the gradients, if a maximum norm was set for
-                # them, before any optimizer steps on them.
+                # Clip the gradients, if a maximum norm was set.
                 clip_grads(optimizer = optimizer_decoder,
                            max_norm = grad_clip_decoder)
                 clip_grads(optimizer = optimizer_rep_train,
@@ -5643,7 +5581,7 @@ class BulkDGD(nn.Module):
                 if isinstance(self.latent,
                               latents.GaussianMixtureModelLegacy):
 
-                    # Clip the Gaussian mixture model's gradients, too.
+                    # Clip the Gaussian mixture model's gradients.
                     clip_grads(optimizer = optimizer_latent,
                                max_norm = grad_clip_latent)
 
@@ -5663,7 +5601,7 @@ class BulkDGD(nn.Module):
                 if lr_scheduler_latent is not None and \
                     isinstance(self.latent,
                                latents.GaussianMixtureModelLegacy):
-                    
+
                     # Take a step with the scheduler.
                     lr_scheduler_latent.step()
 
@@ -5723,17 +5661,17 @@ class BulkDGD(nn.Module):
                 # If the Gaussian mixture model is the TGMM wrapper
                 elif isinstance(self.latent,
                                 latents.GaussianMixtureModelTGMM):
-                    
+
                     # If we are at any epoch after the Gaussian mixture
                     # model was fitted
                     if epoch >= latent_first_epoch:
-                        
+
                         # Update the losses list.
                         losses_list[-1][1] += latent_loss_epoch
-                
+
                 # Update the losses list with the reconstruction loss.
                 losses_list[-1][2] += recon_loss_epoch
-                
+
                 # Update the losses list with the overall loss.
                 losses_list[-1][3] += loss_epoch
 
@@ -5769,7 +5707,7 @@ class BulkDGD(nn.Module):
             # of the decoder.
             dec_requires_grad = \
                 [p.requires_grad for p in self.decoder.parameters()]
-            
+
             # For each parameter of the decoder
             for p in self.decoder.parameters():
 
@@ -5786,7 +5724,7 @@ class BulkDGD(nn.Module):
                 # parameters.
                 latent_requires_grad = \
                     [p.requires_grad for p in self.latent.parameters()]
-                
+
                 # For each parameter
                 for p in self.latent.parameters():
 
@@ -5796,8 +5734,7 @@ class BulkDGD(nn.Module):
             # If the Gaussian mixture model is the TGMM wrapper
             else:
 
-                # No GMM parameter gradients are tracked in this
-                # branch.
+                # Set no gradient computation status to restore.
                 latent_requires_grad = None
 
             #---------------------------------------------------------#
@@ -5805,9 +5742,8 @@ class BulkDGD(nn.Module):
             # For each batch of testing samples
             for batch_data in data_loader_test:
 
-                # Unpack the batch data (the data loader may
-                # return 3 or 4 items depending on whether
-                # labels are available).
+                # Unpack the batch data (3 or 4 items, depending on
+                # whether labels are available).
                 samples_exp = batch_data[0]
                 samples_mean_exp = batch_data[1]
                 samples_ixs = batch_data[2]
@@ -5830,27 +5766,27 @@ class BulkDGD(nn.Module):
                 # If the Gaussian mixture model is the legacy one
                 if isinstance(self.latent,
                               latents.GaussianMixtureModelLegacy):
-                    
+
                     # If the loss reduction type is 'sum'
                     if loss_reduction_type == "sum":
 
                         # Get the Gaussian mixture model's loss.
                         latent_loss = self.latent(x = z).sum()
-                    
+
                     # If the loss reduction type is 'mean'
                     elif loss_reduction_type == "mean":
-                        
+
                         # Get the Gaussian mixture model's loss.
                         latent_loss = self.latent(x = z).mean()
-                
+
                 # If the Gaussian mixture model is the TGMM wrapper
                 elif isinstance(self.latent,
                                 latents.GaussianMixtureModelTGMM):
 
-                    # If we are at the first epoch after the
-                    # Gaussian mixture model was fitted
+                    # If we are at any epoch after the Gaussian mixture
+                    # model was fitted
                     if epoch >= latent_first_epoch:
-                        
+
                         # If the loss reduction type is 'sum'
                         if loss_reduction_type == "sum":
 
@@ -5859,7 +5795,7 @@ class BulkDGD(nn.Module):
                                 - latent_lambda * \
                                     torch.sum(\
                                         self.latent.log_prob(z))
-                        
+
                         # If the loss reduction type is 'mean'
                         elif loss_reduction_type == "mean":
 
@@ -5869,10 +5805,9 @@ class BulkDGD(nn.Module):
                                     torch.mean(\
                                         self.latent.log_prob(z))
 
-                    # If we are not at the first epoch after the
-                    # Gaussian mixture model was fitted
+                    # If the Gaussian mixture model was not fitted yet
                     else:
-                        
+
                         # Set the Gaussian mixture model's loss to
                         # zero.
                         latent_loss = \
@@ -5880,16 +5815,18 @@ class BulkDGD(nn.Module):
 
                 #-----------------------------------------------------#
 
-                # If the chosen output module means that the
-                # r-values are not learned
+                # If the output module means that the r-values are not
+                # learned
                 if isinstance(\
                     self.decoder.nb,
                     (outputmodules.OutputModuleNBFeatureDispersion,
                      outputmodules.OutputModulePoisson)):
-                    
-                    # Get the predicted means: shape (batch * reps *
-                    # components, genes).
+
+                    # Get the predicted means: shape (batch, genes).
                     pred_means = self.decoder(z = z)
+
+                    # There are no predicted r-values.
+                    pred_log_r_values = None
 
                     # Set the options to compute the reconstruction
                     # loss.
@@ -5898,14 +5835,14 @@ class BulkDGD(nn.Module):
                          "pred_means" : pred_means,
                          "scaling_factors" : samples_mean_exp}
 
-                # If the chosen output module means that the
-                # r-values are learned
+                # If the output module means that the r-values are
+                # learned
                 elif isinstance(\
                     self.decoder.nb,
                     outputmodules.OutputModuleNBFullDispersion):
 
-                    # Get the predicted means and r-values: both
-                    # shaped (batch * reps * components, genes).
+                    # Get the predicted means and r-values, both shaped
+                    # (batch, genes).
                     pred_means, pred_log_r_values = self.decoder(z = z)
 
                     # Set the options to compute the reconstruction
@@ -5917,7 +5854,7 @@ class BulkDGD(nn.Module):
                          "scaling_factors" : samples_mean_exp}
 
                 #-----------------------------------------------------#
-                
+
                 # If the loss reduction type is 'sum'
                 if loss_reduction_type == "sum":
 
@@ -5925,10 +5862,10 @@ class BulkDGD(nn.Module):
                     recon_loss = \
                         self.decoder.nb.loss(
                             **recon_loss_options).sum()
-                
+
                 # If the loss reduction type is 'mean'
                 elif loss_reduction_type == "mean":
-                    
+
                     # Get the reconstruction loss.
                     recon_loss = \
                         self.decoder.nb.loss(
@@ -5942,33 +5879,30 @@ class BulkDGD(nn.Module):
 
                     # Get the overall loss.
                     loss = latent_loss.clone() + recon_loss.clone()
-                
+
                 # If the Gaussian mixture model is the TGMM wrapper
                 elif isinstance(self.latent,
                                 latents.GaussianMixtureModelTGMM):
-                    
+
                     # If we are at any epoch after the Gaussian mixture
                     # model was fitted
                     if epoch >= latent_first_epoch:
-                        
-                        # The overall loss is the sum of the
-                        # reconstruction loss and the Gaussian
-                        # mixture model's loss.
+
+                        # Get the overall loss (reconstruction loss plus
+                        # the Gaussian mixture model's loss).
                         loss = latent_loss.clone() + recon_loss.clone()
 
-                    # If we are not at the first epoch after the
-                    # Gaussian mixture model was fitted
+                    # If the Gaussian mixture model was not fitted yet
                     else:
-                        
-                        # The overall loss is just the
-                        # reconstruction loss (the GMM loss is not
-                        # active yet).
+
+                        # Get the overall loss (the reconstruction loss
+                        # only).
                         loss = recon_loss.clone()
 
                 #-----------------------------------------------------#
 
-                # Same penalty as training, but the decoder is frozen
-                # here, so it only reaches the representations.
+                # Add the output module's dispersion regularization
+                # (with the decoder frozen).
                 loss = loss + \
                     self.decoder.nb.dispersion_regularization(
                         pred_means = pred_means,
@@ -6027,17 +5961,17 @@ class BulkDGD(nn.Module):
                 # If the Gaussian mixture model is the TGMM wrapper
                 elif isinstance(self.latent,
                                 latents.GaussianMixtureModelTGMM):
-                    
+
                     # If we are at any epoch after the Gaussian mixture
                     # model was fitted
                     if epoch >= latent_first_epoch:
-                        
+
                         # Update the losses list.
                         losses_list[-1][4] += latent_loss_epoch
-                
+
                 # Update the losses list with the reconstruction loss.
                 losses_list[-1][5] += recon_loss_epoch
-                
+
                 # Update the losses list with the overall loss.
                 losses_list[-1][6] += loss_epoch
 
@@ -6046,7 +5980,7 @@ class BulkDGD(nn.Module):
             # For each parameter of the decoder
             for p, req_grad in zip(self.decoder.parameters(),
                                    dec_requires_grad):
-                
+
                 # Restore the original 'requires_grad' setting.
                 p.requires_grad_(req_grad)
 
@@ -6056,20 +5990,20 @@ class BulkDGD(nn.Module):
                 # For each parameter of the latent space
                 for p, req_grad in zip(self.latent.parameters(),
                                        latent_requires_grad):
-                    
+
                     # Restore the original 'requires_grad' setting.
                     p.requires_grad_(req_grad)
 
             #---------------------------------------------------------#
 
-            # Take a step with the optimizer for the test 
+            # Take a step with the optimizer for the test
             # representations.
             optimizer_rep_test.step()
 
             #---------------------------------------------------------#
 
-            # If the test representations were optimized and
-            # the learning rate scheduler is defined
+            # If the learning rate scheduler for the test
+            # representations is defined
             if lr_scheduler_rep_test is not None:
 
                 # Take a step with the scheduler.
@@ -6086,13 +6020,18 @@ class BulkDGD(nn.Module):
                 # Remove collapsed components, if any.
                 removed_components = \
                     self._remove_collapsed_latent_components(
-                        collapse_weight_threshold = component_weight_threshold,
+                        collapse_weight_threshold = \
+                            component_weight_threshold,
                         epoch = epoch)
 
-                # If some components were removed, recreate the
-                # optimizer so it points to the current GMM
-                # parameters.
+                # If some components were removed
                 if removed_components:
+
+                    # Get the old optimizer's parameter groups.
+                    param_groups_old = optimizer_latent.param_groups
+
+                    # Recreate the optimizer for the new GMM's
+                    # parameters.
                     optimizer_latent = \
                         self._get_optimizer(
                             optimizer_type = optimizer_latent_type,
@@ -6100,6 +6039,39 @@ class BulkDGD(nn.Module):
                                 optimizer_latent_options,
                             optimizer_parameters = \
                                 self.latent.parameters())
+
+                    # If there is a scheduler for the latent space
+                    if lr_scheduler_latent is not None:
+
+                        # Get the scheduler's state.
+                        lr_scheduler_latent_state = \
+                            lr_scheduler_latent.state_dict()
+
+                        # Recreate the scheduler for the new optimizer.
+                        lr_scheduler_latent = \
+                            self._get_scheduler(
+                                lr_scheduler_target = "latent",
+                                lr_scheduler_type = \
+                                    lr_scheduler_latent_type,
+                                lr_scheduler_options = \
+                                    lr_scheduler_latent_options,
+                                optimizer = optimizer_latent,
+                                n_epochs = n_epochs,
+                                data_loader_train = data_loader_train)
+
+                        # Resume the schedule where it was.
+                        lr_scheduler_latent.load_state_dict(
+                            lr_scheduler_latent_state)
+
+                        # For each new and old parameter group
+                        for group, group_old in \
+                            zip(optimizer_latent.param_groups,
+                                param_groups_old):
+
+                            # Keep the old group's current settings.
+                            group.update(
+                                {k : v for k, v in group_old.items()
+                                 if k != "params"})
 
             #=========================================================#
             #                      LOGGING PHASE                      #
@@ -6135,25 +6107,24 @@ class BulkDGD(nn.Module):
 
             #---------------------------------------------------------#
 
-            # Report the output module's own internals separately from
-            # the loss line: a diverging loss alone cannot say which of
-            # a module's several parameters (e.g. per-gene dispersion,
-            # per-gene prior width, per-sample deviation) caused it.
+            # Get the output module's diagnostics.
             diagnostics = self.decoder.nb.diagnostics()
 
+            # If there are any
             if diagnostics:
 
+                # Inform the user about them.
                 logger.info(
                     f"Epoch {epoch} [output module]: "
                     + ", ".join(f"{k}={v:.4g}"
                                 for k, v in diagnostics.items()))
-            
+
             # If the learning rate scheduler for the latent space is
             # enabled and the latent space is the legacy GMM
             if lr_scheduler_latent is not None and \
                 isinstance(self.latent,
                            latents.GaussianMixtureModelLegacy):
-                
+
                 # Get the learning rate for the latent space.
                 lr_latent = optimizer_latent.param_groups[0]["lr"]
 
@@ -6163,21 +6134,21 @@ class BulkDGD(nn.Module):
             # If the learning rate scheduler for the decoder is
             # enabled
             if lr_scheduler_decoder is not None:
-                
+
                 # Get the learning rate for the decoder.
                 lr_decoder = optimizer_decoder.param_groups[0]["lr"]
-                
+
                 # Add it to the log string.
                 info_msg += f", LR: decoder={lr_decoder:.2e}"
-            
+
             # If the learning rate scheduler for the representations
-            # for the training samples
+            # for the training samples is enabled
             if lr_scheduler_rep_train is not None:
-                
+
                 # Get the learning rate for the representations for the
                 # training samples.
                 lr_rep = optimizer_rep_train.param_groups[0]["lr"]
-                
+
                 # Add it to the log string.
                 info_msg += f", LR: rep_train={lr_rep:.2e}"
 
@@ -6191,16 +6162,19 @@ class BulkDGD(nn.Module):
                     info_msg += \
                         f", noise scale {train_noise_scale:.6f}"
 
-            # Add a period at the end of the log string and log it.
+            # End the log string and inform the user.
             info_msg += "."
             logger.info(info_msg)
 
             #---------------------------------------------------------#
 
-            # If latent metrics are active, compute and log them.
-            if latent_metrics_active:
-                
-                # Log the clustering metrics.
+            # If the latent metrics are active and the latent space is
+            # the TorchGMM wrapper
+            if latent_metrics_active \
+                and isinstance(self.latent,
+                               latents.GaussianMixtureModelTGMM):
+
+                # Initialize the parts of the metrics' log line.
                 metrics_parts = [f"Epoch {epoch}:"]
 
                 # Disable gradient computation.
@@ -6228,11 +6202,10 @@ class BulkDGD(nn.Module):
                         self.latent.predict(
                             rep_test).detach().cpu().numpy()
 
-                    # Compute configured reporting metrics.
+                    # For each reporting metric
                     for metric_name in reporting_metrics_latent:
 
-                        # Unsupervised metrics use representations
-                        # and predicted labels.
+                        # If the metric is unsupervised
                         if metric_name in \
                             metrics.UNSUPERVISED_METRICS:
 
@@ -6244,7 +6217,7 @@ class BulkDGD(nn.Module):
                                     gmm_model = self.latent,
                                     labels = \
                                         predicted_labels_train)
-                            
+
                             # Store the metric value for the train
                             # data.
                             metrics_row_train[metric_name] = \
@@ -6258,14 +6231,14 @@ class BulkDGD(nn.Module):
                                     gmm_model = self.latent,
                                     labels = \
                                         predicted_labels_test)
-                            
+
                             # Store the metric value for the test
                             # data.
                             metrics_row_test[metric_name] = \
                                 value_test
 
-                        # Supervised metrics require ground-truth
-                        # labels; leave NaN if unavailable.
+                        # If the metric is supervised (it stays NaN
+                        # without labels)
                         elif metric_name in \
                             metrics.SUPERVISED_METRICS:
 
@@ -6280,7 +6253,7 @@ class BulkDGD(nn.Module):
                                         metrics.encode_labels(
                                             [labels_train,
                                              labels_test])
-                                
+
                                 # Encode the predicted labels as
                                 # integers.
                                 enc_predicted_labels_train, \
@@ -6313,44 +6286,54 @@ class BulkDGD(nn.Module):
                                             enc_true_labels_test,
                                         y_pred = \
                                             enc_predicted_labels_test)
-                                
+
                                 # Store the metric value for the test
                                 # data.
                                 metrics_row_test[metric_name] = \
                                     value_test
 
-                        # Convert the train value to a pretty string,
-                        # keeping 'nan' for invalid values.
+                        # Get the train value.
                         train_value = metrics_row_train[metric_name]
+
+                        # Try to format it ('nan' if invalid).
                         try:
                             train_str = \
                                 f"{train_value:.4f}" \
                                 if train_value is not None and \
                                     np.isfinite(float(train_value)) \
                                 else "nan"
+
+                        # If it is not a number
                         except (TypeError, ValueError):
+
+                            # Use 'nan'.
                             train_str = "nan"
 
-                        # Convert the test value to a pretty string,
-                        # keeping 'nan' for invalid values.
+                        # Get the test value.
                         test_value = metrics_row_test[metric_name]
+
+                        # Try to format it ('nan' if invalid).
                         try:
                             test_str = \
                                 f"{test_value:.4f}" \
                                 if test_value is not None \
                                     and np.isfinite(float(test_value)) \
                                 else "nan"
+
+                        # If it is not a number
                         except (TypeError, ValueError):
+
+                            # Use 'nan'.
                             test_str = "nan"
 
-                        # Append metric summary.
+                        # Add the metric's summary.
                         metrics_parts.append(
                             f"{metric_name}: train={train_str}, "
                             f"test={test_str}")
-            
+
                 #-----------------------------------------------------#
 
-                # Emit a single log line per epoch.
+                # Inform the user about the metrics.
                 logger.info(" ".join(metrics_parts) + ".")
 
             #=========================================================#
@@ -6374,7 +6357,7 @@ class BulkDGD(nn.Module):
             #                 EARLY STOPPING PHASE                    #
             #=========================================================#
 
-            # Save per-epoch metrics rows.
+            # Save the epoch's metrics rows.
             metrics_rows_train.append(metrics_row_train)
             metrics_rows_test.append(metrics_row_test)
 
@@ -6424,9 +6407,9 @@ class BulkDGD(nn.Module):
                 if early_stopping_epochs_without_improvement \
                     >= early_stopping_patience:
 
-                    # Log the event.
+                    # Inform the user.
                     info_msg = \
-                        f"Early stopping triggered at epoch " \
+                        "Early stopping triggered at epoch " \
                         f"{epoch}. Best test loss " \
                         f"{early_stopping_best_test_loss:.3f} " \
                         "was at epoch " \
@@ -6454,22 +6437,20 @@ class BulkDGD(nn.Module):
 
             # Inform the user.
             info_msg = \
-                f"Restored best model state from epoch " \
+                "Restored best model state from epoch " \
                 f"{early_stopping_best_epoch}."
             logger.info(info_msg)
 
         #=============================================================#
         #                        RETURN PHASE                         #
         #=============================================================#
-            
+
         # If the Gaussian mixture model is the TGMM wrapper and a final
-        # refitting of the Gaussian mixture model is needed after
-        # training (it is going to happen even if there was early
-        # stopping, since the refitting is done after training)
+        # refit is needed (also after early stopping)
         if isinstance(self.latent,
                       latents.GaussianMixtureModelTGMM) \
             and gmm_refit_final:
-            
+
             # Disable gradient computation.
             with torch.no_grad():
 
@@ -6501,9 +6482,8 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # If the genes' counts are modelled by negative binomial
-        # distributions whose r-values are learned per gene (but not
-        # per sample)
+        # If the genes' counts are modelled by negative binomials
+        # with per-gene r-values
         if isinstance(self.decoder.nb,
                       outputmodules.OutputModuleNBFeatureDispersion):
 
@@ -6513,7 +6493,7 @@ class BulkDGD(nn.Module):
             # Get the predicted scaled means for the test samples.
             means_final_test = self.decoder(z = rep_test)
 
-            # Get the r-values for the training samples.
+            # Get the r-values.
             r_values_final = \
                 torch.exp(self.decoder.nb.log_r).squeeze().detach()
 
@@ -6527,7 +6507,7 @@ class BulkDGD(nn.Module):
                     time_train)
 
         #-------------------------------------------------------------#
-        
+
         # If the genes' counts are modelled by negative binomial
         # distributions whose r-values are learned per gene per sample
         elif isinstance(self.decoder.nb,
@@ -6547,7 +6527,7 @@ class BulkDGD(nn.Module):
             # test samples.
             means_final_test, log_r_values_final_test = \
                 self.decoder(z = rep_test)
-            
+
             # Get the r-values for the test samples.
             r_values_final_test = \
                 torch.exp(\
@@ -6587,7 +6567,7 @@ class BulkDGD(nn.Module):
                     time_train)
 
 
-    ######################### PUBLIC METHODS #########################
+    ######################### PUBLIC METHODS ##########################
 
 
     @staticmethod
@@ -6690,7 +6670,7 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Return the new data frame
+        # Return the new data frame.
         return df_final_means
 
 
@@ -6710,17 +6690,16 @@ class BulkDGD(nn.Module):
         df_samples : :class:`pandas.DataFrame`
             A data frame containing the samples.
 
-        genes_mask : :class:`torch.Tensor`, optional
-            A 2D 1.0/0.0 mask (samples x genes) of which genes were
-            measured. Defaults to all genes measured.
-
         config_rep : :class:`dict`
             A dictionary of options for the optimization(s), varying
-            by the selected ``method``.
+            by the selected scheme.
 
-        get_saliency_map : :class:`bool`, optional
+        get_saliency_map : :class:`bool`, ``False``
             Whether to also compute and return the saliency maps.
-            Default: ``False``.
+
+        genes_mask : :class:`torch.Tensor`, optional
+            A 2D 1.0/0.0 mask (samples x genes) of which genes were
+            measured. By default, all genes are measured.
 
         Returns
         -------
@@ -6750,6 +6729,62 @@ class BulkDGD(nn.Module):
             ``True``.
         """
 
+        # Get the batch size the data loader will use, if any.
+        batch_size = config_rep.get(
+            "data_loader_options", {}).get("batch_size")
+
+        # Get whether to pad the samples out to whole batches.
+        use_padding = config_rep.get("use_batch_size_padding", True)
+
+        # Get how many samples are missing from the last batch (GPU
+        # results depend on the batch shape).
+        n_padding = \
+            -len(df_samples) % batch_size \
+            if use_padding and batch_size else 0
+
+        # If the last batch would be a short one
+        if n_padding:
+
+            # Get the sample identifiers already taken.
+            taken = set(df_samples.index.astype(str))
+
+            # Initialize the padding samples' own identifiers.
+            padding_names = []
+
+            # Until there is one for every padding sample
+            while len(padding_names) < n_padding:
+
+                # Draw an identifier at random.
+                name = "".join(
+                    random.choices(
+                        string.ascii_letters + string.digits,
+                        k = 16))
+
+                # If no sample already has it
+                if name not in taken:
+
+                    # Keep it.
+                    taken.add(name)
+                    padding_names.append(name)
+
+            # Repeat the first sample under those identifiers.
+            df_padding = df_samples.iloc[[0] * n_padding].copy()
+            df_padding.index = padding_names
+
+            # Add the padding to the samples.
+            df_samples = pd.concat([df_samples, df_padding])
+
+            # If the measured genes were given as a mask
+            if genes_mask is not None:
+
+                # Repeat its first row for the padding samples.
+                genes_mask = \
+                    torch.cat([genes_mask,
+                               genes_mask[[0]].repeat(n_padding, 1)],
+                              dim = 0)
+
+        #-------------------------------------------------------------#
+
         # Get the columns containing gene expression data.
         genes_columns = \
             [col for col in df_samples.columns \
@@ -6772,10 +6807,8 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Create the dataset. The mask goes in with it: a sample only
-        # part of which was measured has no scaling factor over all of
-        # its genes, and the unmeasured ones must not enter it as the
-        # zeros they were filled with.
+        # Create the dataset (with the mask, keeping the unmeasured
+        # genes out of the scaling factors).
         dataset = \
             dataclasses.GeneExpressionDataset(\
                 df = df_expr_data,
@@ -6815,37 +6848,34 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # If the user selected the two-optimizations scheme (the only
-        # scheme implemented; adding one means a branch here and a
-        # case in 'CONFIG_REP')
+        # If the user selected the two-optimizations scheme
         if opt_scheme == "two_opt":
 
             # Select the corresponding method.
             opt_method = self._get_representations_two_opt
 
         # If the user selected the multi-seed two-optimizations scheme
-        # (the same scheme run once per seed, keeping every answer)
         elif opt_scheme == "two_opt_multiseed":
 
+            # Select the corresponding method.
             opt_method = self._get_representations_two_opt_multiseed
 
-        # If it is a scheme this version does not implement
+        # If the scheme is not supported
         else:
 
-            # Raise an error, rather than leaving 'opt_method' unbound.
+            # Raise an error.
             raise ValueError(
                 f"Unsupported optimization scheme '{opt_scheme}'. "
-                f"The schemes are 'two_opt' and "
-                f"'two_opt_multiseed'.")
+                "The schemes are 'two_opt' and "
+                "'two_opt_multiseed'.")
 
         #-------------------------------------------------------------#
-            
-        # Get the representations, predicted means, r-values (if any),
-        # and timing data, in the model's own precision - otherwise the
-        # tensors are built in torch's default dtype, which may not
-        # match the model's.
+
+        # In the model's own precision
         with self._default_dtype(self._dtype):
 
+            # Get the representations, predicted means, r-values (if
+            # any), and time data.
             rep, pred_means, pred_r_values, time_opt = \
                 opt_method(dataset = dataset,
                            config = config_rep,
@@ -6885,21 +6915,40 @@ class BulkDGD(nn.Module):
                           axis = 1)
 
         #-------------------------------------------------------------#
-        
+
+        # If padding was added to fill the last batch
+        if n_padding:
+
+            # Drop it from the representations.
+            df_rep = df_rep.iloc[:-n_padding]
+
+            # Drop it from the predicted scaled means.
+            df_pred_means = df_pred_means.iloc[:-n_padding]
+
+            # If there are predicted r-values
+            if df_pred_r_values is not None:
+
+                # Drop it from the predicted r-values.
+                df_pred_r_values = df_pred_r_values.iloc[:-n_padding]
+
+        #-------------------------------------------------------------#
+
         # If saliency maps are requested
         if get_saliency_map:
-            
+
             # Compute the saliency map.
             saliency_tensor = self._get_saliency_map(z = rep)
-            
-            # Create a dataframe.
+
+            # Get the names of the latent dimensions' columns.
             latent_cols = \
                 [f"latent_dim_{i}" for i in range(self.latent.dim)]
+
+            # Create a data frame for the saliency map.
             df_saliency_map = \
                 pd.DataFrame(saliency_tensor.cpu().numpy(),
                              index = genes_names,
                              columns = latent_cols)
-            
+
             # Return the data frames along with the saliency map.
             return (df_rep, df_pred_means,
                     df_pred_r_values, df_time,
@@ -6915,13 +6964,10 @@ class BulkDGD(nn.Module):
                genes_measured: Optional[list[str]] = None,
                quantiles: tuple[float, float] = (0.025, 0.975)) -> \
                 tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame,
-                      pd.DataFrame, pd.DataFrame]:
+                      Optional[pd.DataFrame], pd.DataFrame]:
         """Predict the counts of the genes a sample does not have,
-        from the genes it does.
-
-        Missing genes must be :obj:`numpy.nan`, not zero - a zero is
-        evidence the model fits the representation to, and would be
-        read as those genes being silenced.
+        from the genes it does. Missing genes must be
+        :obj:`numpy.nan`, not zero.
 
         Parameters
         ----------
@@ -6939,40 +6985,29 @@ class BulkDGD(nn.Module):
             :obj:`numpy.nan` everywhere else. Every other gene is
             taken to be unmeasured in every sample.
 
-        quantiles : :class:`tuple`, optional
-            The quantiles of the predicted negative binomial to
-            report. Default: the central 95%.
+        quantiles : :class:`tuple`, ``(0.025, 0.975)``
+            The quantiles of the predicted distribution to report.
 
         Returns
         -------
         df_imputed : :class:`pandas.DataFrame`
             The expected count of every gene of every sample (the
-            negative binomial's mean), including the measured genes.
+            predicted distribution's mean), including the measured
+            genes.
 
         df_lower, df_upper : :class:`pandas.DataFrame`
             The requested quantiles of the predicted distribution.
 
-        df_pred_r_values : :class:`pandas.DataFrame`
-            The r-values of the predicted negative binomials.
+        df_pred_r_values : :class:`pandas.DataFrame` or :obj:`None`
+            The r-values of the predicted negative binomials, or
+            :obj:`None` for Poisson counts.
 
         df_rep : :class:`pandas.DataFrame`
             The representations found from the measured genes.
         """
 
-        # If the model is median-scaled and was handed a panel.
-        #
-        # A mean-scaled model recovers the scale of a partly measured
-        # sample by solving for it, and the equation can be solved
-        # because a mean is a sum, of which the unmeasured part can be
-        # filled in with the model's expectation. A median is not a sum
-        # and gives no such equation.
-        #
-        # What it gives instead is a condition. The measured genes'
-        # median estimates the whole sample's only when the unmeasured
-        # genes are missing at random, not when they are a panel chosen
-        # for being worth measuring (which biases the panel's median
-        # upward). The mean-scaled path is indifferent to which of the
-        # two it was handed; this one is not.
+        # If the model is median-scaled and was given a panel (whose
+        # median, unlike a random subset's, is biased)
         if self._scaling_factor == "median" \
            and genes_measured is not None:
 
@@ -6980,13 +7015,9 @@ class BulkDGD(nn.Module):
             raise NotImplementedError(
                 "Imputation from a fixed panel of measured genes is "
                 "only implemented for a model whose scaling factor is "
-                f"the mean, and this one's is the "
-                f"'{self._scaling_factor}'. A median-scaled model takes "
-                "the scale of a partly measured sample to be the median "
-                "over the genes it did measure, which is right when "
-                "those are a random subset of the transcriptome and "
-                "biased when they were chosen, as a panel is. Mask at "
-                "random - pass the unmeasured counts as NaN and leave "
+                "the mean, and this one's is the "
+                f"'{self._scaling_factor}'. Mask genes at random - "
+                "pass the unmeasured counts as NaN and leave "
                 "'genes_measured' unset - or use a mean-scaled model.")
 
         #-------------------------------------------------------------#
@@ -6997,8 +7028,7 @@ class BulkDGD(nn.Module):
         # Reindex the samples to the model's own gene order.
         df = df_samples.reindex(columns = genes_model)
 
-        # What was measured. A gene absent from the data frame, and a
-        # gene present and NaN, are the same thing: not measured.
+        # Get what was measured (absent and NaN genes are not).
         measured = df.notna().to_numpy()
 
         # If an explicit list of measured genes was given
@@ -7016,24 +7046,22 @@ class BulkDGD(nn.Module):
 
             # Raise an error.
             raise ValueError(
-                "At least one sample has no measured gene at all. There "
-                "is nothing to find a representation from.")
+                "At least one sample has no measured gene at all. "
+                "There is nothing to find a representation from.")
 
         # Get the number of measured genes per sample.
         n_measured = measured.sum(axis = 1)
 
         # Inform the user.
         logger.info(
-            f"The samples have a median of "
+            "The samples have a median of "
             f"{int(np.median(n_measured)):,} measured gene(s), of the "
             f"{len(genes_model):,} the model knows.")
 
         #-------------------------------------------------------------#
 
-        # The unmeasured genes are filled with zeros, and the zeros go
-        # nowhere: the mask takes their terms out of the loss. They are
-        # filled because a NaN multiplied by a mask of 0.0 is still a
-        # NaN, and the loss would be one too.
+        # Fill the unmeasured genes with zeros (masked out of the loss,
+        # while NaNs would still turn the loss into NaN).
         df_filled = df.fillna(0.0)
 
         # Build the genes mask tensor.
@@ -7055,17 +7083,16 @@ class BulkDGD(nn.Module):
         # Get the predicted means as a plain array.
         pred = df_pred_means[genes_model].to_numpy(dtype = "float64")
 
-        # Get the predicted r-values as a plain array.
-        r = df_pred_r_values[genes_model].to_numpy(dtype = "float64")
+        # Get the predicted r-values as a plain array (none for
+        # Poisson counts).
+        r = df_pred_r_values[genes_model].to_numpy(dtype = "float64") \
+            if df_pred_r_values is not None else None
 
         # Get the (zero-filled) observed counts as a plain array.
         obs = df_filled[genes_model].to_numpy(dtype = "float64")
 
-        # Re-estimate the scaling factor from the measured genes alone
-        # (the same estimate the optimization used) - 'get_representations'
-        # returns the decoder's output before any scale is applied.
-        # Reusing the same method, rather than a second copy of its
-        # arithmetic, keeps the two from drifting apart.
+        # Re-estimate the scaling factors from the measured genes, as
+        # in the optimization (the predicted means are unscaled).
         scale = \
             self.__class__._get_masked_scaling_factors(
                 obs_counts = torch.from_numpy(obs),
@@ -7080,15 +7107,33 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # The negative binomial's own parameterization: scipy wants the
-        # probability of a success, which is 'r / (r + mean)'.
-        p = r / (r + means)
+        # If the counts are modelled by Poisson distributions
+        if r is None:
 
-        # Get the lower quantile of the predicted distribution.
-        lower = nbinom.ppf(quantiles[0], r, p)
+            # Get the lower quantile of the predicted distribution.
+            lower = poisson.ppf(quantiles[0],
+                                means)
 
-        # Get the upper quantile of the predicted distribution.
-        upper = nbinom.ppf(quantiles[1], r, p)
+            # Get the upper quantile of the predicted distribution.
+            upper = poisson.ppf(quantiles[1],
+                                means)
+
+        # Otherwise
+        else:
+
+            # Get the negative binomials' probability of success
+            # (scipy's parameterization).
+            p = r / (r + means)
+
+            # Get the lower quantile of the predicted distribution.
+            lower = nbinom.ppf(quantiles[0],
+                               r,
+                               p)
+
+            # Get the upper quantile of the predicted distribution.
+            upper = nbinom.ppf(quantiles[1],
+                               r,
+                               p)
 
         #-------------------------------------------------------------#
 
@@ -7096,19 +7141,25 @@ class BulkDGD(nn.Module):
         index = df.index
 
         # Assemble the imputed-means data frame.
-        df_imputed = pd.DataFrame(means, index = index,
+        df_imputed = pd.DataFrame(means,
+                                  index = index,
                                   columns = genes_model)
 
         # Assemble the lower-quantile data frame.
-        df_lower = pd.DataFrame(lower, index = index,
+        df_lower = pd.DataFrame(lower,
+                                index = index,
                                 columns = genes_model)
 
         # Assemble the upper-quantile data frame.
-        df_upper = pd.DataFrame(upper, index = index,
+        df_upper = pd.DataFrame(upper,
+                                index = index,
                                 columns = genes_model)
 
-        # Assemble the r-values data frame.
-        df_r = pd.DataFrame(r, index = index, columns = genes_model)
+        # Assemble the r-values data frame (none for Poisson counts).
+        df_r = pd.DataFrame(r,
+                            index = index,
+                            columns = genes_model) \
+            if r is not None else None
 
         # Return the imputed means, quantiles, r-values, and
         # representations.
@@ -7116,7 +7167,8 @@ class BulkDGD(nn.Module):
 
 
     def get_probability_density(self,
-                                df_rep: pd.DataFrame) -> pd.DataFrame:
+                                df_rep: pd.DataFrame) -> \
+                                    tuple[pd.DataFrame, pd.DataFrame]:
         """Get each component's probability density for each
         representation, and the representation(s) of maximum density
         per component.
@@ -7142,14 +7194,12 @@ class BulkDGD(nn.Module):
         # probability density found per sample.
         MAX_PROB_COL = "max_prob_density"
 
-        # Set the name of the column that will contain the component
-        # for which the maximum probability density was found per
-        # sample.
+        # Set the name of the column that will contain the
+        # component of maximum probability density per sample.
         MAX_PROB_COMP_COL = "max_prob_density_comp"
 
-        # Set the name of the column that will contain the unique
-        # index of the sample having the maximum probability for a
-        # component.
+        # Set the name of the column that will contain the index
+        # of the sample of maximum probability per component.
         SAMPLE_IDX_COL = "sample_idx"
 
         #-------------------------------------------------------------#
@@ -7172,7 +7222,7 @@ class BulkDGD(nn.Module):
             df_rep[latent_dims_columns], df_rep[other_columns]
 
         #-------------------------------------------------------------#
-        
+
         # Get the probability densities of the representations for
         # each component.
         probs_values = \
@@ -7193,9 +7243,8 @@ class BulkDGD(nn.Module):
         # probability density per representation.
         df_prob_rep[MAX_PROB_COMP_COL] = df_prob_rep.idxmax(axis = 1)
 
-        # Initialize an empty list to store the rows containing
-        # the representations/samples that have the highest
-        # probability density for each component .
+        # Initialize the list of the rows of the samples with
+        # the highest probability density for each component.
         rows_with_max = []
 
         # For each component for which at least one representation
@@ -7208,21 +7257,18 @@ class BulkDGD(nn.Module):
                 df_prob_rep.loc[df_prob_rep[MAX_PROB_COMP_COL] == comp]
 
             # Get the sample with maximum probability for the
-            # component (we use 'max()' instead of 'idxmax()' because
-            # it does not preserve numbers in scientific notation,
-            # possibly because it returns a Series with a different
-            # data type).
+            # component ('idxmax()' does not preserve the values).
             max_for_comp = \
                 sub_df.loc[sub_df[MAX_PROB_COL] == \
                            sub_df[MAX_PROB_COL].max()].copy()
-            
+
             # Add a column storing the representation/sample unique
             # index.
             max_for_comp[SAMPLE_IDX_COL] = max_for_comp.index
 
-            # The new index will be the component number.
+            # Index the data frame by the component.
             max_for_comp = max_for_comp.set_index(MAX_PROB_COMP_COL)
-            
+
             # Append the data frame to the list of data frames.
             rows_with_max.append(max_for_comp)
 
@@ -7258,30 +7304,25 @@ class BulkDGD(nn.Module):
             parameters will be saved.
         """
 
-        # Fits the density of the space training arrived at, not the
-        # prior (which stays as training left it, in 'gmm.pth'). Copy
-        # the options so the model's own are not modified by reading
-        # them.
+        # Copy the options for the final mixture.
         options = dict(self._gmm_final_options)
 
-        # Fall back to the fit-time configuration for what is not set.
+        # Use the fitting configuration for the options not set.
         options.setdefault("fit",
                            config_final.get("fit", "covariance_only"))
-
         options.setdefault("max_iter",
                            config_final.get("max_iter", 1000))
 
-        # Fit the mixture to the representations training arrived at.
+        # Fit the mixture to the training representations.
         self._latent_final = \
             self._fit_gmm_to_reps(reps = reps_train,
                                   options = options)
 
-        # Save the final mixture's parameters, to its own file.
+        # Save the final mixture's parameters to its own file.
         self._latent_final.save(\
             _internals.uniquify_file_path(gmm_final_pth_file))
 
-        # Inform the user that the parameters were saved, and that the
-        # prior is still the prior.
+        # Inform the user that the parameters were saved.
         logger.info(
             "The final Gaussian mixture model (covariance type: "
             f"'{options.get('covariance_type')}', shrinkage: "
@@ -7294,9 +7335,7 @@ class BulkDGD(nn.Module):
     def _fit_gmm_to_reps(self,
                          reps: torch.Tensor,
                          options: dict[str, object]):
-        """Fit a Gaussian mixture model to a set of representations,
-        and return it - shared by the end-of-training fit and
-        :meth:`fit_gmm`, so both fit identically.
+        """Fit a Gaussian mixture model to a set of representations.
 
         Parameters
         ----------
@@ -7304,14 +7343,13 @@ class BulkDGD(nn.Module):
             The representations to fit the mixture to.
 
         options : :class:`dict`
-            The options for the fit - the covariance's type and
+            The options for the fit: the covariance's type and
             shrinkage, the regularization added to its diagonal, what
-            the fit is allowed to move, and how many iterations it may
-            take.
+            the fit may move, and the maximum number of iterations.
 
         Returns
         -------
-        gmm
+        gmm : :class:`bulkdgd.core.latents.GaussianMixtureModelTGMM`
             The fitted Gaussian mixture model.
         """
 
@@ -7321,9 +7359,7 @@ class BulkDGD(nn.Module):
         # If no covariance type was given
         if covariance_type is None:
 
-            # Raise an error. There is no default: a model that asks
-            # for a final mixture is asking for a covariance the prior
-            # did not have, and which one is the whole of the request.
+            # Raise an error.
             errstr = \
                 "The 'gmm_final' section of the model's " \
                 "configuration must specify a 'covariance_type'."
@@ -7333,21 +7369,13 @@ class BulkDGD(nn.Module):
         # the one shared by all of them.
         shrinkage = options.get("shrinkage", 0.0)
 
-        # If a per-component full covariance was asked for without any
-        # shrinkage
+        # If a full covariance was requested without shrinkage
         if covariance_type == "full" and not shrinkage:
 
-            # Raise an error. Each component would be fitting a full
-            # covariance matrix from the samples it alone collected,
-            # which is not estimable and comes back with negative
-            # variances - refusing is better than returning a mixture
-            # whose density is undefined.
+            # Raise an error.
             errstr = \
                 "A 'full' covariance for the final Gaussian mixture " \
-                "model needs a non-zero 'shrinkage': each component " \
-                "would otherwise be fitting a full covariance matrix " \
-                "from the samples it alone collected, which is not " \
-                "estimable and returns negative variances."
+                "model needs a non-zero 'shrinkage'."
             raise ValueError(errstr)
 
         #-------------------------------------------------------------#
@@ -7358,8 +7386,8 @@ class BulkDGD(nn.Module):
         # If only the covariance is refitted
         if fit == "covariance_only":
 
-            # Refit it, with the means and the weights frozen where
-            # training left them.
+            # Refit it, with the means and the weights frozen, and
+            # return the mixture.
             return \
                 latents.fit_final_gmm(\
                     gmm = self.latent,
@@ -7371,27 +7399,19 @@ class BulkDGD(nn.Module):
         # If the whole mixture is refitted
         elif fit == "full_em":
 
-            # Warn the user. Everything moves: the means, the weights,
-            # and which sample belongs to which component, so whatever
-            # a component was labelled with before is no longer
-            # necessarily what it holds.
+            # Warn the user that the components no longer match the
+            # prior's.
             warn_msg = \
-                "The final Gaussian mixture model is being fitted " \
-                "with 'fit: full_em', so its means and weights are " \
-                "re-estimated and its components are NOT the " \
-                "components of the prior. Anything that maps a " \
-                "component to a label - a tissue, a cancer type - " \
-                "was established on the prior's components and does " \
-                "not carry over. Use 'fit: covariance_only' to keep " \
-                "the components as they are."
+                "The final Gaussian mixture model is fitted with " \
+                "'fit: full_em', so its components are not the " \
+                "prior's. Use 'fit: covariance_only' to keep the " \
+                "prior's components."
             logger.warning(warn_msg)
 
-            # Copy the trained mixture, so that the prior is not the
-            # thing being refitted.
+            # Copy the trained mixture (the prior stays untouched).
             gmm_final = copy.deepcopy(self.latent)
 
-            # Set the type of covariance asked for, before fitting, so
-            # that the fit estimates that shape.
+            # Set the requested covariance type.
             gmm_final.covariance_type = covariance_type
 
             # Fit the copy to the final representations.
@@ -7417,10 +7437,8 @@ class BulkDGD(nn.Module):
                 input_reps: Union[str, pd.DataFrame,
                                   list[Union[str, pd.DataFrame]]],
                 config_fit: dict[str, object]) -> "BulkDGD":
-        """Fit a new Gaussian mixture to a trained model's
-        representations, and return a new model using it. Fit it to
-        the representations the model was trained on, not the ones
-        it is about to be used on.
+        """Fit a new Gaussian mixture to a trained model's training
+        representations, and return a new model using it.
 
         Parameters
         ----------
@@ -7433,24 +7451,22 @@ class BulkDGD(nn.Module):
 
         config_fit : :class:`dict`
             The configuration for the fit: ``gmm_new_pth_file`` (the
-            file the fitted mixture is written to), ``config_model_new``
-            (the YAML file the new model's configuration is written
-            to), ``dec_pth_file`` (optional, the trained decoder's
-            parameters, defaulting to the model's own), and
-            ``gmm_options`` (a dict with ``covariance_type``, required;
-            ``shrinkage``, required non-zero for ``"full"`` covariance;
-            ``reg_covar``; ``fit`` - ``"covariance_only"`` (default,
-            keeps the prior's means/weights/components) or
-            ``"full_em"`` (re-estimates everything, so components no
-            longer match the prior's); and ``max_iter`` for
-            ``"full_em"``).
+            file the fitted mixture is written to),
+            ``config_model_new`` (the YAML file the new model's
+            configuration is written to), ``dec_pth_file`` (optional,
+            the trained decoder's parameters, by default the model's
+            own), and ``gmm_options`` (``covariance_type``, required;
+            ``shrinkage``, non-zero for ``"full"`` covariances;
+            ``reg_covar``; ``fit``, either ``"covariance_only"``
+            (default, keeping the prior's means and weights) or
+            ``"full_em"`` (re-estimating everything); and
+            ``max_iter`` for ``"full_em"``).
 
         Returns
         -------
         model : :class:`BulkDGD`
             A new model with the fitted mixture and the trained
-            decoder. Its files have already been written, so it can
-            also be rebuilt from them later.
+            decoder, built from the files written.
         """
 
         # Get the required paths from the configuration.
@@ -7460,8 +7476,7 @@ class BulkDGD(nn.Module):
         # Get the options for the fit.
         options = dict(config_fit.get("gmm_options") or {})
 
-        # Get the trained decoder's parameters, which the new model
-        # reuses as they are - only the mixture is refitted.
+        # Get the file with the trained decoder's parameters.
         dec_pth_file = \
             config_fit.get(
                 "dec_pth_file",
@@ -7470,8 +7485,7 @@ class BulkDGD(nn.Module):
         # If there are none
         if dec_pth_file is None:
 
-            # Raise an error, rather than writing out a model whose
-            # decoder is untrained as if it were trained.
+            # Raise an error.
             raise ValueError(
                 "No trained decoder's parameters were given, and the "
                 "model's configuration points at none. Pass "
@@ -7483,53 +7497,60 @@ class BulkDGD(nn.Module):
         reps = self._load_reps(input_reps = input_reps,
                                latent_dim = self.latent.dim)
 
+        # Inform the user.
         logger.info(
             f"The mixture will be fitted to {len(reps):,} "
             "representations.")
 
-        # Put them on the device, and in the precision, the mixture
-        # lives in.
+        # Convert them to a tensor on the mixture's device and in its
+        # precision.
         reps = torch.tensor(reps,
                             device = self.device,
                             dtype = self.latent.means.dtype)
 
         #-------------------------------------------------------------#
 
-        # Fit the mixture - the same fitting the one written at the
-        # end of training goes through.
+        # Fit the mixture.
         gmm_new = self._fit_gmm_to_reps(reps = reps,
                                         options = options)
 
         #-------------------------------------------------------------#
 
-        # Write the fitted mixture's parameters.
+        # Create the directory of the mixture's file, if needed.
         os.makedirs(
             os.path.dirname(os.path.abspath(gmm_new_pth_file)),
             exist_ok = True)
 
+        # Write the fitted mixture's parameters.
         gmm_new.save(gmm_new_pth_file)
 
         #-------------------------------------------------------------#
 
-        # Assemble the new model's configuration, recording the just-
-        # fitted covariance type so a rebuild does not expect the
-        # prior's shape.
+        # Get the configuration to rebuild the model.
         config = self._get_config_for_rebuilding()
 
+        # Set the fitted covariance type.
         config["latent_options"]["covariance_type"] = \
             options.get("covariance_type")
 
+        # Point at the fitted mixture's parameters.
         config["latent_options"]["latent_pth_file"] = gmm_new_pth_file
 
+        # Point at the trained decoder's parameters.
         config["decoder_options"]["decoder_pth_file"] = dec_pth_file
 
+        # Create the directory of the configuration file, if needed.
         os.makedirs(
             os.path.dirname(os.path.abspath(config_model_new)),
             exist_ok = True)
 
+        # Write the new model's configuration.
         with open(config_model_new, "w") as fh:
-            yaml.safe_dump(config, fh, sort_keys = False)
+            yaml.safe_dump(config,
+                           fh,
+                           sort_keys = False)
 
+        # Inform the user.
         logger.info(
             f"The fitted mixture was written to '{gmm_new_pth_file}' "
             f"and '{config_model_new}'. The prior the model was "
@@ -7537,7 +7558,7 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Return a model built from what was just written.
+        # Return a model built from the files written.
         return self.__class__(**config, device = str(self.device))
 
 
@@ -7564,16 +7585,17 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Carry over the final mixture's options, if the model has any.
+        # If the model has options for a final mixture
         if self._gmm_final_options is not None:
 
+            # Carry them over.
             config["gmm_final"] = \
                 copy.deepcopy(self._gmm_final_options)
 
-        # Point at the gene list the model was built from, if it was
-        # built from one.
+        # If the model was built from a genes' file
         if self._genes_txt_file is not None:
 
+            # Point at it.
             config["genes_txt_file"] = self._genes_txt_file
 
         #-------------------------------------------------------------#
@@ -7586,40 +7608,38 @@ class BulkDGD(nn.Module):
               input_reps: Union[str, pd.DataFrame,
                                 list[Union[str, pd.DataFrame]]],
               config_prune: dict[str, object]) -> "BulkDGD":
-        """Prune a trained decoder to the hidden units it actually
-        uses (dead or constant ones removed), without retraining, and
-        return a new, smaller model computing the same function. The
-        latent space is untouched; the probe set should include every
-        representation the model has produced, in and out of
-        distribution, or a unit alive only off-distribution gets cut.
+        """Prune a trained decoder to the hidden units it uses, without
+        retraining, and return a new, smaller model computing the same
+        function (with the same latent space).
 
         Parameters
         ----------
         input_reps : :class:`str`, :class:`pandas.DataFrame`, or a \
             :class:`list` of either
-            The probe-set representations. Each may be a path to a CSV
-            file (samples on the rows, the latent dimensions in
-            columns named ``latent_dim_*``) or an in-memory
-            :class:`pandas.DataFrame` in the same format.
+            The probe-set representations, which should include every
+            representation the model has produced, in and out of
+            distribution. Each may be a path to a CSV file (samples on
+            the rows, the latent dimensions in columns named
+            ``latent_dim_*``) or a :class:`pandas.DataFrame` in the
+            same format.
 
         config_prune : :class:`dict`
             The configuration for the pruning: ``gmm_pth_file`` (the
-            latent space, unchanged and referenced as-is),
-            ``dec_pth_file`` (the decoder to prune),
-            ``dec_pruned_pth_file`` and ``config_model_pruned`` (where
-            the results are written), and optional ``pruning_options``
-            - ``rel_tol`` (keep-footprint threshold, default
-            ``1e-7``), ``verification_tol`` (max allowed relative
-            error against the unpruned decoder, default ``1e-4``),
+            latent space, reused unchanged), ``dec_pth_file`` (the
+            decoder to prune), ``dec_pruned_pth_file`` and
+            ``config_model_pruned`` (where the results are written),
+            and optional ``pruning_options``: ``rel_tol`` (the
+            footprint threshold, default ``1e-7``),
+            ``verification_tol`` (the maximum relative error against
+            the unpruned decoder, default ``1e-4``),
             ``n_jitter_copies`` (default ``2``), ``jitter_sd``
             (default ``0.25``), and ``seed`` (default ``0``).
 
         Returns
         -------
         pruned_model : :class:`BulkDGD`
-            A new model with the pruned decoder. Its files have
-            already been written, so it can also be rebuilt from them
-            later.
+            A new model with the pruned decoder, built from the files
+            written.
         """
 
         # Get the required paths from the configuration.
@@ -7628,70 +7648,87 @@ class BulkDGD(nn.Module):
         dec_pruned_pth_file = config_prune["dec_pruned_pth_file"]
         config_model_pruned = config_prune["config_model_pruned"]
 
-        # Get the pruning options, falling back on the conservative,
-        # vetted defaults.
+        # Get the pruning options.
         p_opts = config_prune.get("pruning_options") or {}
+
+        # Get the footprint and verification tolerances.
         rel_tol = float(p_opts.get("rel_tol", 1e-7))
         verification_tol = float(p_opts.get("verification_tol", 1e-4))
+
+        # Get the jittering options and the seed.
         n_jitter_copies = int(p_opts.get("n_jitter_copies", 2))
         jitter_sd = float(p_opts.get("jitter_sd", 0.25))
         seed = int(p_opts.get("seed", 0))
 
         #-------------------------------------------------------------#
 
-        # The latent dimensionality and the genes are unchanged by
-        # pruning - they are properties of the model, not the decoder's
-        # width.
+        # Get the latent dimensionality, the genes, and the device.
         latent_dim = self.latent.dim
         genes = list(self._genes)
         device = str(self.device)
 
-        # Build the trained ("full") decoder from the model's own
-        # architecture, in the model's own precision (so a float64
-        # checkpoint is not silently cast down), and load its
+        # Get the full decoder's options without the path to its
         # parameters.
         full_options = \
             {k: v for k, v in self._decoder_initial_options.items()
              if k != "decoder_pth_file"}
 
+        # In the model's own precision
         with self._default_dtype(self._dtype):
 
+            # Build the full decoder.
             dec_full, _ = \
                 self._get_decoder(latent_dim = latent_dim,
                                   genes = genes,
                                   decoder_options = full_options,
                                   device = device)
 
+        # Set the full decoder in eval mode.
         dec_full = dec_full.eval()
+
+        # Load its trained parameters.
         dec_full.load_state_dict(
             torch.load(dec_pth_file, map_location = self.device))
 
-        # Get the device and precision the decoder actually lives in;
-        # every tensor built below matches them.
+        # Get the device and the precision of the decoder's parameters.
         dev = next(dec_full.parameters()).device
         pdtype = next(dec_full.parameters()).dtype
 
         #-------------------------------------------------------------#
 
-        # Assemble the probe set: every representation passed in, plus a
-        # handful of jittered copies.
+        # Load the representations.
         z_real = self._load_reps(input_reps = input_reps,
                                  latent_dim = latent_dim)
 
+        # Get a random number generator.
         rng = np.random.default_rng(seed)
+
+        # Get the representations' standard deviation per dimension.
         sd_per_dim = z_real.std(axis = 0, keepdims = True)
 
+        # Initialize the probe set with the representations.
         probes = [z_real]
+
+        # For each jittered copy
         for _ in range(n_jitter_copies):
+
+            # Add a jittered copy of the representations.
             probes.append(
                 z_real + rng.normal(size = z_real.shape) \
                     * sd_per_dim * jitter_sd)
 
+        # Concatenate the probes.
         z_probe = np.concatenate(probes, axis = 0)
 
-        z_probe = torch.tensor(z_probe, device = dev, dtype = pdtype)
-        z_real = torch.tensor(z_real, device = dev, dtype = pdtype)
+        # Convert the probes and the representations to tensors.
+        z_probe = torch.tensor(z_probe,
+                               device = dev,
+                               dtype = pdtype)
+        z_real = torch.tensor(z_real,
+                              device = dev,
+                              dtype = pdtype)
 
+        # Inform the user about the probes.
         logger.info(
             f"Pruning against {len(z_probe):,} probes "
             f"({len(z_real):,} real representations plus "
@@ -7699,54 +7736,85 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # The two hidden layers and the two output heads of the decoder.
+        # Get the decoder's parameters.
         sd = {k: v.detach() for k, v in dec_full.state_dict().items()}
+
+        # Get the weights and biases of the two hidden layers and the
+        # weights of the two output heads.
         w0, b0 = sd["main.0.weight"], sd["main.0.bias"]
         w2, b2 = sd["main.2.weight"], sd["main.2.bias"]
         w_means = sd["nb._layer_means.weight"]
         w_r_values = sd["nb._layer_r_values.weight"]
 
-        # Accumulate, in one streamed pass over the probes, each hidden
-        # unit's mean and standard deviation after the ReLU.
+        # Set the batch size for the pass over the probes.
         batch_size = 4096
+
+        # Get the number of probes.
         n_probes = len(z_probe)
-        s1 = torch.zeros(w0.shape[0], device = dev, dtype = pdtype)
+
+        # Initialize the sums and the sums of squares of the hidden
+        # units' activations.
+        s1 = torch.zeros(w0.shape[0],
+                         device = dev,
+                         dtype = pdtype)
         ss1 = torch.zeros_like(s1)
-        s2 = torch.zeros(w2.shape[0], device = dev, dtype = pdtype)
+        s2 = torch.zeros(w2.shape[0],
+                         device = dev,
+                         dtype = pdtype)
         ss2 = torch.zeros_like(s2)
 
+        # Without tracking gradients
         with torch.no_grad():
-            for i in range(0, n_probes, batch_size):
+
+            # For each batch of probes
+            for i in range(0,
+                           n_probes,
+                           batch_size):
+
+                # Get the batch.
                 z = z_probe[i:i + batch_size]
+
+                # Get the hidden layers' activations (after the ReLU).
                 h1 = torch.clamp(z @ w0.T + b0, min = 0.0)
                 h2 = torch.clamp(h1 @ w2.T + b2, min = 0.0)
+
+                # Accumulate the sums and the sums of squares.
                 s1 += h1.sum(0)
                 ss1 += (h1 * h1).sum(0)
                 s2 += h2.sum(0)
                 ss2 += (h2 * h2).sum(0)
 
+        # Get the mean and standard deviation of each unit in the first
+        # hidden layer.
         mean1 = s1 / n_probes
         std1 = torch.sqrt(torch.clamp(ss1 / n_probes - mean1 ** 2,
                                       min = 0.0))
+
+        # Get the mean and standard deviation of each unit in the
+        # second hidden layer.
         mean2 = s2 / n_probes
         std2 = torch.sqrt(torch.clamp(ss2 / n_probes - mean2 ** 2,
                                       min = 0.0))
 
-        # A unit's footprint on the next layer is how much its output
-        # varies times how strongly it is read out. Keep the units whose
-        # footprint is a real fraction of the largest in the layer.
+        # Get each unit's footprint on the next layer (how much its
+        # output varies times how strongly it is read out).
         foot1 = std1 * torch.linalg.norm(w2, dim = 0)
         foot2 = torch.maximum(
             std2 * torch.linalg.norm(w_means, dim = 0),
             std2 * torch.linalg.norm(w_r_values, dim = 0))
 
+        # Keep the units whose footprint is at least 'rel_tol' times the
+        # largest in the layer.
         keep1 = foot1 >= rel_tol * foot1.max()
         keep2 = foot2 >= rel_tol * foot2.max()
+
+        # Get the indexes of the kept and dropped units.
         k1 = torch.where(keep1)[0]
         d1 = torch.where(~keep1)[0]
         k2 = torch.where(keep2)[0]
         d2 = torch.where(~keep2)[0]
 
+        # Inform the user about the kept units.
         logger.info(
             f"Layer 1: keeping {len(k1)}/{w0.shape[0]} units "
             f"(dropping {len(d1)}). "
@@ -7755,22 +7823,28 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Fold each dropped unit's constant contribution (its mean
-        # activation times its outgoing weights) into the next layer's
-        # bias, then keep only the surviving rows and columns.
+        # Fold the first layer's dropped units' constant contributions
+        # (mean activation times outgoing weights) into the next bias.
         b2_folded = b2 + w2[:, d1] @ mean1[d1]
+
+        # Keep the surviving rows and columns of the hidden layers.
         w0_pruned = w0[k1, :].contiguous()
         b0_pruned = b0[k1].contiguous()
         w2_pruned = w2[:, k1][k2, :].contiguous()
         b2_pruned = b2_folded[k2].contiguous()
 
+        # Fold the second layer's dropped units' constant contributions
+        # into the output heads' biases.
         bm_folded = sd["nb._layer_means.bias"] \
             + w_means[:, d2] @ mean2[d2]
         br_folded = sd["nb._layer_r_values.bias"] \
             + w_r_values[:, d2] @ mean2[d2]
+
+        # Keep the surviving columns of the output heads.
         wm_pruned = w_means[:, k2].contiguous()
         wr_pruned = w_r_values[:, k2].contiguous()
 
+        # Assemble the pruned parameters.
         pruned_sd = {
             "main.0.weight": w0_pruned,
             "main.0.bias": b0_pruned,
@@ -7783,66 +7857,61 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Build the pruned decoder - same architecture, narrower hidden
-        # layers - and load the folded parameters into it.
+        # Get the pruned decoder's options (narrower hidden layers).
         pruned_options = copy.deepcopy(self._decoder_initial_options)
         pruned_options["n_units_hidden_layers"] = \
             [int(len(k1)), int(len(k2))]
         pruned_options.pop("decoder_pth_file", None)
 
+        # In the model's own precision
         with self._default_dtype(self._dtype):
 
+            # Build the pruned decoder.
             dec_pruned, _ = \
                 self._get_decoder(latent_dim = latent_dim,
                                   genes = genes,
                                   decoder_options = pruned_options,
                                   device = device)
 
+        # Set the pruned decoder in eval mode.
         dec_pruned = dec_pruned.eval()
+
+        # Load the pruned parameters.
         dec_pruned.load_state_dict(
             {k: v.clone() for k, v in pruned_sd.items()})
 
         #-------------------------------------------------------------#
 
-        # Verify the pruned decoder against the full one on the real
-        # representations. If the relative error is too large, the "no
-        # variance" threshold cut a unit that carried something - do not
-        # write a model that is quietly wrong.
+        # Without tracking gradients
         with torch.no_grad():
+
+            # Get the full and pruned decoders' outputs for the real
+            # representations.
             means_full, log_r_full = dec_full(z_real)
             means_pruned, log_r_pruned = dec_pruned(z_real)
 
-        def _rel_error(a, b):
-            """Get the maximum relative error between two tensors.
+        # Get the maximum relative error of the means.
+        rel_means = \
+            (means_full - means_pruned).abs().max().item() \
+            / (means_full.abs().max().item() + 1e-30)
 
-            Parameters
-            ----------
-            a : :class:`torch.Tensor`
-                The reference tensor.
+        # Get the maximum relative error of the log r-values.
+        rel_log_r = \
+            (log_r_full - log_r_pruned).abs().max().item() \
+            / (log_r_full.abs().max().item() + 1e-30)
 
-            b : :class:`torch.Tensor`
-                The tensor to compare against the reference.
-
-            Returns
-            -------
-            :class:`float`
-                The maximum relative error.
-            """
-            return (a - b).abs().max().item() \
-                / (a.abs().max().item() + 1e-30)
-
-        rel_means = _rel_error(means_full, means_pruned)
-        rel_log_r = _rel_error(log_r_full, log_r_pruned)
-
+        # If the pruned decoder does not reproduce the full one
         if max(rel_means, rel_log_r) > verification_tol:
 
+            # Raise an error.
             raise RuntimeError(
                 "The pruned decoder does not reproduce the full one "
                 f"(maximum relative error: means {rel_means:.3e}, "
                 f"log-r-values {rel_log_r:.3e}; tolerance "
-                f"{verification_tol:.1e}). Lower 'rel_tol' or widen the "
-                "probe set.")
+                f"{verification_tol:.1e}). Lower 'rel_tol' or widen "
+                "the probe set.")
 
+        # Inform the user about the verification.
         logger.info(
             "The pruned decoder reproduces the full one "
             f"(maximum relative error: means {rel_means:.3e}, "
@@ -7850,15 +7919,17 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Write the pruned decoder's parameters.
+        # Get the directory of the pruned decoder's file.
         dec_pruned_dir = \
             os.path.dirname(os.path.abspath(dec_pruned_pth_file))
+
+        # Create it, if needed.
         os.makedirs(dec_pruned_dir, exist_ok = True)
+
+        # Write the pruned decoder's parameters.
         torch.save(dec_pruned.state_dict(), dec_pruned_pth_file)
 
-        # Assemble the pruned model's configuration and write it. The
-        # latent space is reused unchanged; only the decoder is narrower
-        # and points at the file just written.
+        # Build the pruned model's configuration.
         pruned_config = \
             self._build_pruned_config(
                 gmm_pth_file = gmm_pth_file,
@@ -7866,21 +7937,28 @@ class BulkDGD(nn.Module):
                 n_units_hidden_layers = [int(len(k1)), int(len(k2))],
                 config_model_pruned = config_model_pruned)
 
+        # Get the directory of the configuration file.
         config_dir = \
             os.path.dirname(os.path.abspath(config_model_pruned))
-        os.makedirs(config_dir, exist_ok = True)
-        with open(config_model_pruned, "w") as fh:
-            yaml.safe_dump(pruned_config, fh, sort_keys = False)
 
+        # Create it, if needed.
+        os.makedirs(config_dir, exist_ok = True)
+
+        # Write the configuration.
+        with open(config_model_pruned, "w") as fh:
+            yaml.safe_dump(pruned_config,
+                           fh,
+                           sort_keys = False)
+
+        # Inform the user.
         logger.info(
             f"The pruned model was written to '{dec_pruned_pth_file}' "
             f"and '{config_model_pruned}'.")
 
         #-------------------------------------------------------------#
 
-        # Return a fresh instance of the pruned model, on the same
-        # device as this one, with the trained latent space and the
-        # pruned decoder loaded.
+        # Return a new instance of the pruned model, on the same
+        # device.
         return self.__class__(**pruned_config, device = device)
 
 
@@ -7889,8 +7967,8 @@ class BulkDGD(nn.Module):
             input_reps: Union[str, pd.DataFrame,
                               list[Union[str, pd.DataFrame]]],
             latent_dim: int) -> np.ndarray:
-        """Load representations into one array of latent points, from
-        CSV file(s) and/or :class:`pandas.DataFrame`(s).
+        """Load representations from CSV files and/or data frames into
+        one array.
 
         Parameters
         ----------
@@ -7909,24 +7987,30 @@ class BulkDGD(nn.Module):
             in double precision.
         """
 
-        # Normalize the input to a list of items.
+        # If a single item was given
         if isinstance(input_reps, (str, pd.DataFrame)):
+
+            # Make it a list.
             input_reps = [input_reps]
 
+        # Initialize the list of the representations' arrays.
         frames = []
 
+        # For each item
         for item in input_reps:
 
             # Read the item if it is a path, otherwise use it directly.
             df = item if isinstance(item, pd.DataFrame) \
                 else pd.read_csv(item, index_col = 0)
 
-            # Keep only the latent-dimension columns.
+            # Get the latent dimensions' columns.
             cols = [c for c in df.columns
                     if str(c).startswith("latent_dim_")]
 
-            # If none of the expected columns were found.
+            # If none of the expected columns were found
             if not cols:
+
+                # Raise an error.
                 raise ValueError(
                     "No 'latent_dim_*' columns were found in one of "
                     "the representations passed. Pass the "
@@ -7936,15 +8020,19 @@ class BulkDGD(nn.Module):
             # Add this item's representations to the collected ones.
             frames.append(df[cols].to_numpy(dtype = "float64"))
 
+        # Concatenate the representations.
         z = np.concatenate(frames, axis = 0)
 
-        # Make sure the representations match the model's latent space.
+        # If the representations do not match the latent space
         if z.shape[1] != latent_dim:
+
+            # Raise an error.
             raise ValueError(
                 f"The representations have {z.shape[1]} latent "
-                f"dimensions, but the model's latent space has "
+                "dimensions, but the model's latent space has "
                 f"{latent_dim}.")
 
+        # Return the representations.
         return z
 
 
@@ -7954,8 +8042,7 @@ class BulkDGD(nn.Module):
             dec_pruned_pth_file: str,
             n_units_hidden_layers: list[int],
             config_model_pruned: str) -> dict[str, object]:
-        """Build the configuration of a pruned model from this model's
-        own configuration, for :meth:`prune`.
+        """Build the configuration of a pruned version of the model.
 
         Parameters
         ----------
@@ -7969,23 +8056,22 @@ class BulkDGD(nn.Module):
             The number of units in the pruned decoder's hidden layers.
 
         config_model_pruned : :class:`str`
-            Where the configuration will be written - used only to place
-            a sidecar gene list next to it, should the model have no
-            gene file of its own.
+            The configuration file to be written (a genes' file is
+            written next to it if the model has none).
 
         Returns
         -------
         config : :class:`dict`
-            The pruned model's configuration, ready to be dumped to YAML
-            and to be passed to the constructor.
+            The pruned model's configuration.
         """
 
-        # Reuse the latent space unchanged, only pointing it at the
+        # Copy the latent space's options, pointing them at the
         # trained parameters.
         latent_options = copy.deepcopy(self._latent_initial_options)
         latent_options["latent_pth_file"] = gmm_pth_file
 
-        # The decoder is narrower and points at the pruned parameters.
+        # Copy the decoder's options, with the pruned hidden layers
+        # and parameters.
         decoder_options = copy.deepcopy(self._decoder_initial_options)
         decoder_options["n_units_hidden_layers"] = n_units_hidden_layers
         decoder_options["decoder_pth_file"] = dec_pruned_pth_file
@@ -7999,25 +8085,36 @@ class BulkDGD(nn.Module):
             "scaling_factor": self._scaling_factor,
             "dtype": self._dtype}
 
-        # Carry over the final-mixture options, if the model has them.
+        # If the model has options for a final mixture
         if self._gmm_final_options is not None:
+
+            # Carry them over.
             config["gmm_final"] = self._gmm_final_options
 
-        # Point at the same gene list the model was built from. If the
-        # model was not built from a file, write the genes to a sidecar
-        # next to the configuration so the pruned model is still
-        # self-contained.
+        # If the model was built from a genes' file
         if self._genes_txt_file is not None:
+
+            # Point at it.
             config["genes_txt_file"] = self._genes_txt_file
+
+        # Otherwise
         else:
+
+            # Get the path of a genes' file next to the configuration.
             genes_txt_file = \
                 os.path.join(
-                    os.path.dirname(os.path.abspath(config_model_pruned)),
+                    os.path.dirname(
+                        os.path.abspath(config_model_pruned)),
                     "genes_pruned.txt")
+
+            # Write the genes to it.
             with open(genes_txt_file, "w") as fh:
                 fh.write("\n".join(self._genes) + "\n")
+
+            # Point at it.
             config["genes_txt_file"] = genes_txt_file
 
+        # Return the configuration.
         return config
 
 
@@ -8033,34 +8130,32 @@ class BulkDGD(nn.Module):
               labels_train: Optional[object] = None,
               labels_test: Optional[object] = None) -> \
                 tuple[tuple[pd.DataFrame, pd.DataFrame],
-                  tuple[pd.DataFrame, pd.DataFrame],
-                  Optional[tuple[pd.DataFrame, pd.DataFrame]],
-                  pd.DataFrame,
-                  Optional[tuple[pd.DataFrame, pd.DataFrame]],
-                  pd.DataFrame]:
+                      tuple[pd.DataFrame, pd.DataFrame],
+                      Optional[tuple[pd.DataFrame, pd.DataFrame]],
+                      pd.DataFrame,
+                      Optional[tuple[pd.DataFrame, pd.DataFrame]],
+                      pd.DataFrame]:
         """Train the model.
 
         Parameters
         ----------
         df_samples : :class:`pandas.DataFrame`
-            A data frame containing the samples.
-
-            Each row should contain a unique sample, and each
-            column should either contain a gene's expression for that
-            sample (if the column is named after the gene's Ensembl
-            ID) or additional information about the sample.
+            A data frame containing the samples, one per row. Each
+            column contains either a gene's expression (if named
+            after the gene's Ensembl ID) or additional information.
 
         names_train : :class:`list`
             A list of the names of the training samples, which should
             be a subset of the names of the samples in the input data
             frame.
-        
+
         names_test : :class:`list`
             A list of the names of the test samples, which should be a
             subset of the names of the samples in the input data frame.
 
-        config_train : :class:`dict`
-            A dictionary of options for the training.
+        config_train : :class:`dict`, optional
+            A dictionary of options for the training. By default, the
+            configuration the shipped models were trained with.
 
         gmm_pth_file : :class:`str`, ``"gmm.pth"``
             The .pth file where to save the GMM's trained parameters
@@ -8074,20 +8169,16 @@ class BulkDGD(nn.Module):
         gmm_final_pth_file : :class:`str`, ``"gmm_final.pth"``
             The .pth file for the Gaussian mixture fitted to the
             representations after training, written only if the
-            configuration has a ``gmm_final`` section. Separate from
-            ``gmm_pth_file``, which keeps the training prior.
+            model has ``gmm_final`` options.
 
         pathways : :class:`dict`, optional
             A dictionary where the keys are pathway names and the
             values are lists of genes' Ensembl IDs belonging to
-            each pathway.
-            
-            It is needed if ``save_pathways_saliency_maps_epoch`` is
-            set to :obj:`True`.
-        
+            each pathway. Needed to save the pathways' saliency maps.
+
         labels_train : :class:`numpy.ndarray`, optional
             The ground-truth labels for the training samples.
-        
+
         labels_test : :class:`numpy.ndarray`, optional
             The ground-truth labels for the test samples.
 
@@ -8120,32 +8211,33 @@ class BulkDGD(nn.Module):
             The training-time metrics.
         """
 
-        #-------------------------------------------------------------#
-
-        # No configuration means the one the shipped models used.
-        # Imported here, not at module level, to avoid a circular
-        # import ('ioutil' imports 'core._util').
+        # If no configuration was given
         if config_train is None:
 
+            # Import the configuration module (here, to avoid a
+            # circular import).
             from bulkdgd.ioutil import configio
 
-            config_train = configio.load_config_train(config_file = None)
+            # Load the configuration the shipped models used.
+            config_train = \
+                configio.load_config_train(config_file = None)
 
+            # Inform the user.
             logger.info(
                 "No training configuration was given, so the one the "
                 "published ensemble was trained with is used.")
 
         #-------------------------------------------------------------#
 
-        # Training an already-trained model would silently move it
-        # away from its optimum, so allow it only when the
-        # configuration explicitly asks for it.
+        # Get whether an already-trained model may be trained further.
         continue_training = bool(config_train.get("continue_training",
                                                   False)) \
             if hasattr(config_train, "get") else False
 
+        # If the model is trained and may not be trained further
         if self._is_trained and not continue_training:
 
+            # Raise an error.
             errstr = \
                 "This model was built from trained parameters, and " \
                 "training it would move it away from them. To " \
@@ -8171,8 +8263,17 @@ class BulkDGD(nn.Module):
                 " ".join(errors)
             raise ValueError(err_msg)
 
+        # If there are warnings in the configuration
+        if warnings:
+
+            # Log the warning messages.
+            warning_msg = \
+                "Warnings in the training configuration: " + \
+                "|".join(warnings)
+            logger.warning(warning_msg)
+
         #-------------------------------------------------------------#
-        
+
         # Get the scale factor for the initialization of the
         # representations from the configuration.
         init_rep_scale = \
@@ -8180,12 +8281,12 @@ class BulkDGD(nn.Module):
                 "init_rep_scale", 0.0)
 
         # Get the distribution the initial representations are drawn
-        # from, and the options for it. Naming none defaults to a
-        # scaled normal, matching 'RepresentationLayer's default.
+        # from (by default, a scaled normal).
         init_rep_dist = \
             config_train["representations_training_options"].get(
                 "init_rep_dist", None)
 
+        # Get the options for the distribution.
         init_rep_dist_options = \
             dict(config_train["representations_training_options"].get(
                 "init_rep_dist_options", {}))
@@ -8193,8 +8294,7 @@ class BulkDGD(nn.Module):
         #-------------------------------------------------------------#
 
         def _make_rep_layer(n_samples):
-
-            """Build a representation layer for `n_samples` samples.
+            """Build a representation layer for ``n_samples`` samples.
 
             Parameters
             ----------
@@ -8203,34 +8303,31 @@ class BulkDGD(nn.Module):
 
             Returns
             -------
-            :class:`bulkdgd.core.latents.RepresentationLayer`
+            rep_layer : \
+                :class:`bulkdgd.core.latents.RepresentationLayer`
                 The representation layer.
             """
 
-            # Cast to the model's own precision explicitly:
-            # 'RepresentationLayer's samplers call 'torch.randn'
-            # without a dtype, so they would otherwise follow
-            # whatever torch's default dtype is when 'train' is
-            # called, which need not match the model's.
+            # Get the model's precision (the samplers would otherwise
+            # use torch's default data type).
             dtype = self._DTYPES_TORCH[self._dtype]
 
-            # No distribution named - the behaviour this had before
-            # the option existed.
+            # If no distribution was given
             if init_rep_dist is None:
 
+                # Return a layer of scaled standard normal draws.
                 return latents.RepresentationLayer(\
                     values = init_rep_scale * torch.randn(\
                         size = (n_samples, self.latent.dim),
                         dtype = dtype)).to(self.device)
 
-            # The shape is not the caller's to choose; it follows from
-            # the data and the model, so it is set here and any value
-            # supplied in the configuration is overridden rather than
-            # silently disagreeing with the number of samples.
+            # Copy the distribution's options, setting the shape from
+            # the data and the model.
             options = dict(init_rep_dist_options)
             options["n_samples"] = n_samples
             options["dim"] = self.latent.dim
 
+            # Return the representation layer.
             return latents.RepresentationLayer(\
                 dist = init_rep_dist,
                 dist_options = options,
@@ -8250,7 +8347,7 @@ class BulkDGD(nn.Module):
         genes_columns = \
             [col for col in df_samples.columns \
              if col.startswith("ENSG")]
-        
+
         # Get the names of the columns not containing gene expression
         # data.
         other_columns = \
@@ -8258,9 +8355,9 @@ class BulkDGD(nn.Module):
              if col not in genes_columns]
 
         #-------------------------------------------------------------#
-        
-        # Check if the user wants to save pathways' saliency maps
-        # during training.
+
+        # Get whether to save the pathways' saliency maps during
+        # training.
         _opt_outputs = config_train.get(
             "reporting_options", {}).get(
                 "optional_outputs", {})
@@ -8271,11 +8368,12 @@ class BulkDGD(nn.Module):
         # If the user wants to save pathways' saliency maps but
         # did not provide the 'pathways' option
         if _save_pathways and pathways is None:
-            
+
             # Raise an error.
             err_msg = \
                 "The 'pathways' option must be provided if " \
-                "'save_pathways_saliency_maps_epoch' is set to True."
+                "'pathways_saliency_maps_epoch.enabled' is set to " \
+                "True."
             raise ValueError(err_msg)
 
         #-------------------------------------------------------------#
@@ -8308,8 +8406,7 @@ class BulkDGD(nn.Module):
                 dataset = dataset_train,
                 config = config_train["data_loader_options"]["train"])
 
-        # Create the representation layer for the training samples,
-        # from whichever distribution the configuration named.
+        # Create the representation layer for the training samples.
         rep_layer_train = _make_rep_layer(n_samples_train)
 
         #-------------------------------------------------------------#
@@ -8341,8 +8438,7 @@ class BulkDGD(nn.Module):
                 dataset = dataset_test,
                 config = config_train["data_loader_options"]["test"])
 
-        # Create the representation layer for the testing samples,
-        # from the same distribution as the training one.
+        # Create the representation layer for the testing samples.
         rep_layer_test = _make_rep_layer(n_samples_test)
 
         #-------------------------------------------------------------#
@@ -8379,12 +8475,10 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Fit the final Gaussian mixture model, if the model asks for
-        # one. This happens after the prior has been saved, and writes
-        # a different file: the prior is what training used and what
-        # finding a representation goes through, and it is not touched.
+        # If the model has options for a final Gaussian mixture model
         if self._gmm_final_options is not None:
 
+            # Fit and save it (separately from the prior).
             self._fit_final_gmm(\
                 reps_train = reps[0],
                 config_final = \
@@ -8407,15 +8501,15 @@ class BulkDGD(nn.Module):
 
         # Create and return the final data frames.
         return _util.get_final_data_frames_train(\
-                    reps = reps,
-                    pred_means = pred_means,
-                    pred_r_values = pred_r_values,
-                    losses_list = losses_list,
-                    metrics_rows_train = metrics_rows_train,
-                    metrics_rows_test = metrics_rows_test,
-                    time_train = time_train,
-                    samples_names_train = samples_names_train,
-                    samples_names_test = samples_names_test,
-                    df_other_data_train = df_other_data_train,
-                    df_other_data_test = df_other_data_test,
-                    genes_names = genes_columns)
+            reps = reps,
+            pred_means = pred_means,
+            pred_r_values = pred_r_values,
+            losses_list = losses_list,
+            metrics_rows_train = metrics_rows_train,
+            metrics_rows_test = metrics_rows_test,
+            time_train = time_train,
+            samples_names_train = samples_names_train,
+            samples_names_test = samples_names_test,
+            df_other_data_train = df_other_data_train,
+            df_other_data_test = df_other_data_test,
+            genes_names = genes_columns)

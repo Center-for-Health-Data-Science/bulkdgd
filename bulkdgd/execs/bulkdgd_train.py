@@ -5,7 +5,7 @@
 #
 #    Train the :class:`core.model.BulkDGD`.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -42,8 +42,10 @@ import sys
 # Import from third-party libraries.
 import pandas as pd
 
-# Import from the package.
+# Import from 'bulkdgd'.
 from bulkdgd.ioutil.tableio import save_table
+
+# Import from third-party libraries.
 import torch
 
 # Import from 'bulkdgd'.
@@ -64,6 +66,13 @@ logger = log.getLogger(__name__)
 
 # Define a function to set up the parser.
 def set_parser() -> argparse.ArgumentParser:
+    """Set up the argument parser.
+
+    Returns
+    -------
+    parser : :class:`argparse.ArgumentParser`
+        The argument parser.
+    """
 
     # Create the argument parser.
     parser = \
@@ -81,7 +90,7 @@ def set_parser() -> argparse.ArgumentParser:
     output_group = \
         parser.add_argument_group(title = "Output files")
 
-    # Create a group of argument for the run options.
+    # Create a group of arguments for the run options.
     run_group = \
         parser.add_argument_group(title = "Run options")
 
@@ -203,7 +212,7 @@ def set_parser() -> argparse.ArgumentParser:
         f"""The output .pth file where the latent space's parameters 
         will be saved after training. By default, the file will be
         named '{olat_default}'."""
-    
+
     # Add the argument to the group.
     output_group.add_argument("-olat", "--output-latent",
                               type = str,
@@ -237,9 +246,7 @@ def set_parser() -> argparse.ArgumentParser:
         f"""The output .pth file where the parameters of the Gaussian
         mixture model fitted to the representations after training will
         be saved. It is only written if the model's configuration has a
-        'gmm_final' section. It is a separate file from the one given
-        by '--output-latent', which keeps the prior the model was
-        trained with. By default, the file will be named
+        'gmm_final' section. By default, the file will be named
         '{ogmmf_default}'."""
 
     # Add the argument to the group.
@@ -283,7 +290,7 @@ def set_parser() -> argparse.ArgumentParser:
                               help = ore_help)
 
     #-----------------------------------------------------------------#
-    
+
     # Set the default value for the argument.
     opmt_default = "pred_means_train.csv"
 
@@ -329,7 +336,7 @@ def set_parser() -> argparse.ArgumentParser:
         r-values per gene and per sample, the '-opvt',
         '--output-pred-rvalues-train' and '-opve',
         '--output-pred-rvalues-test' options should be used instead."""
-    
+
     # Add the argument to the group.
     output_group.add_argument("-opv", "--output-pred-rvalues",
                               type = str,
@@ -405,7 +412,7 @@ def set_parser() -> argparse.ArgumentParser:
         clustering metric is computed during training (they are
         specified in the '-ict', '--input-config-file-train'
         configuration file)."""
-    
+
     # Add the argument to the group.
     output_group.add_argument("-omt", "--output-metrics-train",
                               type = str,
@@ -481,6 +488,13 @@ def set_parser() -> argparse.ArgumentParser:
 
 # Define the 'main' function.
 def main(args: argparse.Namespace) -> None:
+    """Train the model.
+
+    Parameters
+    ----------
+    args : :class:`argparse.Namespace`
+        The parsed arguments.
+    """
 
     # Get the argument corresponding to the working directory.
     wd = args.work_dir
@@ -600,9 +614,14 @@ def main(args: argparse.Namespace) -> None:
     # Try to load the names/indexes/IDs for the training samples.
     try:
 
-        names_train = \
-            [line.strip() for line in open(input_train, "r") \
-                if line.strip() != "" and not line.startswith("#")]
+        # Open the file.
+        with open(input_train, "r") as f:
+
+            # Get the names, skipping empty and comment lines.
+            names_train = \
+                [line.strip() for line in f \
+                    if line.strip() != "" \
+                    and not line.startswith("#")]
 
     # If something went wrong
     except Exception as e:
@@ -625,10 +644,15 @@ def main(args: argparse.Namespace) -> None:
     # Try to load the names/indexes/IDs for the test samples.
     try:
 
-        names_test = \
-            [line.strip() for line in open(input_test, "r") \
-                if line.strip() != "" and not line.startswith("#")]
-    
+        # Open the file.
+        with open(input_test, "r") as f:
+
+            # Get the names, skipping empty and comment lines.
+            names_test = \
+                [line.strip() for line in f \
+                    if line.strip() != "" \
+                    and not line.startswith("#")]
+
     # If something went wrong
     except Exception as e:
 
@@ -638,7 +662,7 @@ def main(args: argparse.Namespace) -> None:
             f"the test samples from '{input_test}'. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
-    
+
     # Inform the user that the data were successfully loaded.
     infostr = \
         "The names/indexes/IDs for the test samples were " \
@@ -647,13 +671,13 @@ def main(args: argparse.Namespace) -> None:
 
     #-----------------------------------------------------------------#
 
-    # Initialize the labels for the training and test samples to None.
+    # Initialize the labels for the training samples to None.
     labels_train = None
 
     # If there are labels for the training samples
     if input_labels_train is not None:
 
-        # Try to load the labels for the training samples.     
+        # Try to load the labels for the training samples.
         try:
 
             # Load the labels.
@@ -661,7 +685,7 @@ def main(args: argparse.Namespace) -> None:
                 pd.read_csv(input_labels_train,
                             header = None,
                             names = ["sample", "label"])
-            
+
         # If something went wrong
         except Exception as e:
 
@@ -672,19 +696,19 @@ def main(args: argparse.Namespace) -> None:
                 f"Error: {e}"
             logger.exception(errstr)
             sys.exit(errstr)
-        
+
         # Inform the user that the labels were successfully loaded.
         infostr = \
             "The labels for the training samples were successfully " \
             f"loaded from '{input_labels_train}'."
-        
+        logger.info(infostr)
+
         # Convert the data frame into a dictionary mapping each sample
         # to the corresponding label.
         dict_labels_train = dict(zip(df_labels_train["sample"],
-                                    df_labels_train["label"]))
-        
-        # The final labels will be the ones corresponding to the
-        # training samples, in the same order.
+                                     df_labels_train["label"]))
+
+        # Get the labels of the training samples, in order.
         labels_train = \
             [dict_labels_train[name] for name in names_train]
 
@@ -704,7 +728,7 @@ def main(args: argparse.Namespace) -> None:
                 pd.read_csv(input_labels_test,
                             header = None,
                             names = ["sample", "label"])
-        
+
         # If something went wrong
         except Exception as e:
 
@@ -714,26 +738,26 @@ def main(args: argparse.Namespace) -> None:
                 f"test samples from '{input_labels_test}'. Error: {e}"
             logger.exception(errstr)
             sys.exit(errstr)
-        
+
         # Inform the user that the labels were successfully loaded.
         infostr = \
             "The labels for the test samples were successfully " \
             f"loaded from '{input_labels_test}'."
-        
+        logger.info(infostr)
+
         # Convert the data frame into a dictionary mapping each sample
         # to the corresponding label.
         dict_labels_test = dict(zip(df_labels_test["sample"],
                                     df_labels_test["label"]))
-        
-        # The final labels will be the ones corresponding to the test
-        # samples, in the same order.
+
+        # Get the labels of the test samples, in order.
         labels_test = [dict_labels_test[name] for name in names_test]
 
     #-----------------------------------------------------------------#
 
     # Try to set the model.
     try:
-        
+
         dgd_model = model.BulkDGD(**config_model)
 
     # If something went wrong
@@ -753,8 +777,8 @@ def main(args: argparse.Namespace) -> None:
 
     # If no device was passed
     if device is None:
-        
-        # If a CPU with CUDA is available.
+
+        # If a GPU is available
         if torch.cuda.is_available():
 
             # Set the GPU as the device.
@@ -768,7 +792,7 @@ def main(args: argparse.Namespace) -> None:
 
     # Try to move the model to the device.
     try:
-        
+
         dgd_model.device = device
 
     # If something went wrong
@@ -909,7 +933,7 @@ def main(args: argparse.Namespace) -> None:
             f"'{output_pred_means_train}'. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
-    
+
     # Inform the user that the predicted means for the training
     # samples were successfully written in the output file.
     infostr = \
@@ -927,10 +951,10 @@ def main(args: argparse.Namespace) -> None:
             df = dfs_pred_means[1],
             csv_file = output_pred_means_test,
             sep = ",")
-        
+
     # If something went wrong
     except Exception as e:
-        
+
         # Warn the user and exit.
         errstr = \
             "It was not possible to write the predicted means " \
@@ -938,7 +962,7 @@ def main(args: argparse.Namespace) -> None:
             f"Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
-    
+
     # Inform the user that the predicted means for the test
     # samples were successfully written in the output file.
     infostr = \
@@ -948,9 +972,9 @@ def main(args: argparse.Namespace) -> None:
 
     #-----------------------------------------------------------------#
 
-    # If thre are r-values to write
+    # If there are r-values to write
     if dfs_pred_r_values is not None:
-        
+
         # If there is only one data frame
         if len(dfs_pred_r_values) == 1:
 
@@ -973,14 +997,14 @@ def main(args: argparse.Namespace) -> None:
                     f"Error: {e}"
                 logger.exception(errstr)
                 sys.exit(errstr)
-            
+
             # Inform the user that the r-values for each gene
             # were successfully written in the output file.
             infostr = \
                 "The r-values for each gene were successfully " \
                 f"written in '{output_pred_r_values}'."
             logger.info(infostr)
-        
+
         # If there are two data frames
         elif len(dfs_pred_r_values) == 2:
 
@@ -1003,16 +1027,15 @@ def main(args: argparse.Namespace) -> None:
                     f"'{output_pred_r_values_train}'. Error: {e}"
                 logger.exception(errstr)
                 sys.exit(errstr)
-            
-            # Inform the user that the r-values for each gene
-            # in each training sample were successfully
-            # written in the output file.
+
+            # Inform the user that the r-values for the training
+            # samples were successfully written in the output file.
             infostr = \
                 "The r-values for each gene in each training " \
                 f"sample were successfully written in " \
                 f"'{output_pred_r_values_train}'."
             logger.info(infostr)
-        
+
             # Try to write the r-values for each gene in each
             # test sample in the output CSV file.
             try:
@@ -1021,7 +1044,7 @@ def main(args: argparse.Namespace) -> None:
                     df = dfs_pred_r_values[1],
                     csv_file = output_pred_r_values_test,
                     sep = ",")
-            
+
             # If something went wrong
             except Exception as e:
 
@@ -1032,10 +1055,9 @@ def main(args: argparse.Namespace) -> None:
                     f"'{output_pred_r_values_test}'. Error: {e}"
                 logger.exception(errstr)
                 sys.exit(errstr)
-            
-            # Inform the user that the r-values for each gene
-            # in each test sample were successfully written
-            # in the output file.
+
+            # Inform the user that the r-values for the test samples
+            # were successfully written in the output file.
             infostr = \
                 "The r-values for each gene in each test " \
                 f"sample were successfully written in " \
@@ -1048,10 +1070,11 @@ def main(args: argparse.Namespace) -> None:
     try:
 
         # Save the loss(es).
-        save_table(df_loss, output_loss,
-                       sep = ",",
-                       index = False,
-                       header = True)
+        save_table(df_loss,
+                   output_loss,
+                   sep = ",",
+                   index = False,
+                   header = True)
 
     # If something went wrong
     except Exception as e:
@@ -1078,10 +1101,11 @@ def main(args: argparse.Namespace) -> None:
         # dedicated CSV file.
         try:
 
-            save_table(df_metrics_train, output_metrics_train,
-                                    sep = ",",
-                                    index = False,
-                                    header = True)
+            save_table(df_metrics_train,
+                       output_metrics_train,
+                       sep = ",",
+                       index = False,
+                       header = True)
 
         # If something went wrong
         except Exception as e:
@@ -1105,10 +1129,11 @@ def main(args: argparse.Namespace) -> None:
         # dedicated CSV file.
         try:
 
-            save_table(df_metrics_test, output_metrics_test,
-                                   sep = ",",
-                                   index = False,
-                                   header = True)
+            save_table(df_metrics_test,
+                       output_metrics_test,
+                       sep = ",",
+                       index = False,
+                       header = True)
 
         # If something went wrong
         except Exception as e:
@@ -1126,17 +1151,18 @@ def main(args: argparse.Namespace) -> None:
         infostr = \
             "The metrics for the test samples were successfully " \
             f"written in '{output_metrics_test}'."
-        logger.info(infostr) 
+        logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
     # Try to write the time data in the dedicated CSV file.
     try:
 
-        save_table(df_time, output_time,
-                       sep = ",",
-                       index = False,
-                       header = True)
+        save_table(df_time,
+                   output_time,
+                   sep = ",",
+                   index = False,
+                   header = True)
 
     # If something went wrong
     except Exception as e:
@@ -1160,6 +1186,7 @@ def main(args: argparse.Namespace) -> None:
 
 # Define the entry point for the standalone executable.
 def entry_point() -> None:
+    """Run the executable."""
 
     # Build the parser.
     parser = set_parser()
@@ -1170,13 +1197,16 @@ def entry_point() -> None:
     # Set up the logging.
     util.set_main_logging(args = args)
 
-    # Check if the execution should be parallelized.
-    if getattr(args, "parallelize", False):
+    # If the execution should be parallelized
+    if getattr(args,
+               "parallelize",
+               False):
 
         # Run with parallelization.
         util.run_with_parallelization(\
             executable = "bulkdgd_train",
-            args = args)
+            args = args,
+            parser = parser)
 
     # Otherwise
     else:

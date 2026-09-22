@@ -5,7 +5,7 @@
 #
 #    Utilities to load and save configurations.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -106,14 +106,15 @@ def _load_config(config_file: str,
 
     # Otherwise
     else:
-        
+
         # Assume it is a file name/file path.
         config_file = os.path.abspath(config_file)
 
     #-----------------------------------------------------------------#
 
     # Load the configuration from the file.
-    config = yaml.safe_load(open(config_file, "r"))
+    with open(config_file, "r") as f:
+        config = yaml.safe_load(f)
 
     #-----------------------------------------------------------------#
 
@@ -122,12 +123,18 @@ def _load_config(config_file: str,
     if config_type in \
         ["model", "representations", "training", "plotting"]:
 
-        # Parse and check the configuration.
+        # If it is the model's configuration
         if config_type == "model":
+
+            # Parse and check it (using the file's path).
             config_validated, errors, warnings = \
                 type2parsefunc[config_type](config = config,
                                             path = config_file)
+
+        # Otherwise
         else:
+
+            # Parse and check it.
             config_validated, errors, warnings = \
                 type2parsefunc[config_type](config = config)
 
@@ -136,10 +143,10 @@ def _load_config(config_file: str,
 
             # Raise an exception.
             errstr = \
-                f"The configiration loaded from '{config_file}' is  " \
+                f"The configuration loaded from '{config_file}' is " \
                 "not valid. Errors: " + "|".join(errors)
             raise ValueError(errstr)
-        
+
         # If there are warnings in the configuration
         if warnings:
 
@@ -153,9 +160,19 @@ def _load_config(config_file: str,
     # "dimensionality_reduction"
     elif config_type in ["genes", "dimensionality_reduction"]:
 
-        # Do not check the configuration, as there is no function to
-        # do it so far.
+        # Do not check the configuration (no function checks it).
         config_validated = config
+
+    # Otherwise
+    else:
+
+        # Raise an error.
+        errstr = \
+            f"Unknown configuration type '{config_type}'. The " \
+            "supported types are: 'model', 'representations', " \
+            "'training', 'plotting', 'genes', " \
+            "'dimensionality_reduction'."
+        raise ValueError(errstr)
 
     #-----------------------------------------------------------------#
 
@@ -190,7 +207,7 @@ def load_config_model(config_file: Optional[str]) -> dict[str, object]:
         # Use the default configuration file.
         config_file = \
             os.path.join(defaults.CONFIG_DIRS["model"],
-                        "model_tgmm.yaml")
+                         "model_tgmm.yaml")
 
     # Load and check the configuration.
     return _load_config(config_file = config_file,
@@ -222,7 +239,7 @@ def load_config_rep(config_file: Optional[str]) -> dict[str, object]:
         # Use the default configuration file.
         config_file = \
             os.path.join(defaults.CONFIG_DIRS["representations"],
-                        "two_opt.yaml")
+                         "two_opt.yaml")
 
     # Load and check the configuration.
     return _load_config(config_file = config_file,
@@ -238,10 +255,8 @@ def load_config_train(config_file: Optional[str]) -> dict[str, object]:
     config_file : :class:`str`, optional
         The YAML configuration file. If no file is provided, the
         default configuration file "training.yaml" in the directory
-        storing configuration files for the training will be used.
-        That is the configuration the published ensemble was trained
-        with, so a model trained with no configuration given is
-        trained the way the shipped models were.
+        storing configuration files for the training (the one the
+        published ensemble was trained with) will be used.
 
     Returns
     -------
@@ -255,7 +270,7 @@ def load_config_train(config_file: Optional[str]) -> dict[str, object]:
         # Use the default configuration file.
         config_file = \
             os.path.join(defaults.CONFIG_DIRS["training"],
-                        "training.yaml")
+                         "training.yaml")
 
     # Load the configuration from the file.
     return _load_config(config_file = config_file,

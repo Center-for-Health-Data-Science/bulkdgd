@@ -5,7 +5,7 @@
 #
 #    Utilities to load and save the representations.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -38,6 +38,9 @@ import logging as log
 
 # Import from third-party libraries.
 import pandas as pd
+
+# Import from the package.
+from .tableio import is_parquet
 
 
 #######################################################################
@@ -70,7 +73,7 @@ def load_representations(
     sep : :class:`str`, ``","``
         The column separator in the input CSV file.
 
-    split : :class:`bool`, ``True``
+    split : :class:`bool`, ``False``
         Whether to split the input data frame into two data frames,
         one with only the columns with the representations' values
         along the latent space's dimensions, and the other containing
@@ -102,17 +105,17 @@ def load_representations(
         If ``split`` is ``False``, only ``df_data`` is returned.
     """
 
-    # Load the data frame with the representations.
-    #
-    # The format follows the extension, so a file written by
-    # 'save_representations' is read back by this whatever
-    # format it was written in.
-    if _is_parquet(csv_file):
+    # If the file is a Parquet file
+    if is_parquet(csv_file):
 
-        df = pd.read_parquet(csv_file, engine = "pyarrow")
+        # Load the data frame with the representations.
+        df = pd.read_parquet(csv_file,
+                             engine = "pyarrow")
 
+    # Otherwise
     else:
 
+        # Load the data frame with the representations.
         df = pd.read_csv(csv_file,
                          sep = sep,
                          index_col = 0,
@@ -151,7 +154,7 @@ def load_representations(
                 f"{len(other_columns)} column(s) containing " \
                 "additional information (not values of the " \
                 "representations along the latent space's " \
-                "dimensions ) was (were) found the input data " \
+                "dimensions) was (were) found in the input data " \
                 f"frame: {', '.join(other_columns)}."
             logger.info(infostr)
 
@@ -168,32 +171,10 @@ def load_representations(
         return df
 
 
-
-
-# The extensions that mean Parquet rather than delimited text.
-PARQUET_EXTENSIONS = (".parquet", ".pq")
-
-
-def _is_parquet(file_path):
-
-    """Whether a path names a Parquet file, by its extension."""
-
-    return str(file_path).lower().endswith(PARQUET_EXTENSIONS)
-
-
 def save_representations(df: pd.DataFrame,
                          csv_file: str,
                          sep: str = ",") -> None:
     """Save the representations to a CSV or Parquet file.
-
-    The format is chosen by the file's extension: '.parquet' or '.pq'
-    give Parquet, anything else gives delimited text. Parquet is worth
-    reaching for on anything gene-sized - measured on a 1,000 x 14,740
-    matrix of predicted means it writes in 3.4 s against 46.6 s and
-    takes 146 MB against 280 MB - and it is also the FAITHFUL one: a
-    float64 written to text and read back differs from the original by
-    up to about 1e-12, and one written to Parquet does not differ at
-    all.
 
     Parameters
     ----------
@@ -202,22 +183,26 @@ def save_representations(df: pd.DataFrame,
         additional information about the representations.
 
     csv_file : :class:`str`
-        The output CSV file.
+        The output file ('.parquet' or '.pq' for Parquet, delimited
+        text otherwise).
 
     sep : :class:`str`, ``","``
         The column separator in the output CSV file.
     """
 
-    # Save the representations.
-    if _is_parquet(csv_file):
+    # If the file is a Parquet file
+    if is_parquet(csv_file):
 
+        # Save the representations.
         df.to_parquet(csv_file,
                       engine = "pyarrow",
                       compression = "snappy",
                       index = True)
 
+    # Otherwise
     else:
 
+        # Save the representations.
         df.to_csv(csv_file,
                   sep = sep,
                   index = True,

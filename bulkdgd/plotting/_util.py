@@ -5,7 +5,7 @@
 #
 #    Private utilities for plotting.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -30,7 +30,7 @@
 __doc__ = "Private utilities for plotting."
 
 
-####################################################################### 
+#######################################################################
 
 
 # Import from the standard library.
@@ -70,7 +70,7 @@ logger = log.getLogger(__name__)
 # Get all palettes available in Seaborn.
 SEABORN_PALETTES = \
     set(sns.palettes.SEABORN_PALETTES.keys()).union(\
-        {"cubehelix", "dark", "colorblind", "husl", "hls", 
+        {"cubehelix", "dark", "colorblind", "husl", "hls",
          "muted", "pastel", "bright"})
 
 # Get all color maps available in Matplotlib.
@@ -85,40 +85,72 @@ def recurse_config_plot(
         template: dict[str, object],
         general_fontproperties: Optional[dict[str, object]] = None,
         key_path: tuple[str, ...] = ()):
+    """Recursively check a plot's configuration against a template.
 
-    # Avoid sharing mutable defaults across calls.
+    Parameters
+    ----------
+    config : :class:`dict`
+        The configuration, or an option's value.
+
+    template : :class:`dict`
+        The section of the template matching ``config``.
+
+    general_fontproperties : :class:`dict`, optional
+        The general font properties.
+
+    key_path : :class:`tuple`, ``()``
+        The keys leading to ``config`` in the configuration.
+
+    Returns
+    -------
+    config : :class:`dict`
+        The pruned configuration, or the option's value.
+
+    errors : :class:`list`
+        The list of errors found in the configuration.
+
+    warnings : :class:`list`
+        The list of warnings found in the configuration.
+    """
+
+    # If no general font properties were passed
     if general_fontproperties is None:
+
+        # Initialize them as an empty dictionary.
         general_fontproperties = {}
-    
+
     # Initialize an empty list to store the errors.
     errors = []
 
-    # Initialize an empty list to store the warnings
+    # Initialize an empty list to store the warnings.
     warnings = []
 
-    # If the configuration or the template is not a dictionary
+    # If the configuration is not a dictionary but the template is
     if not isinstance(config, dict) and isinstance(template, dict):
 
-        # If this template dictionary does not describe an option with
-        # explicit dtypes/help, this section expected a dictionary.
+        # If the template describes a section, not an option
         if "dtypes" not in template or "help" not in template:
+
+            # Get the section's name.
             section_name = key_path[-1] if key_path else "<root>"
+
+            # Set the error message.
             errstr = \
                 f"Section '{section_name}' must be a dictionary."
+
+            # Append the error message to the list of errors.
             errors.append(errstr)
 
-            # Return the configuration and the errors.
+            # Return the configuration, the errors, and the warnings.
             return config, errors, warnings
 
-        # If the key is a 'palette' option
+        # Get the supported data types, including None.
         dtypes = template["dtypes"] + (None.__class__,)
 
-        # Get the length of the supported data types.
-        len_dtypes = \
-            [len(dtype) for dtype in dtypes if isinstance(dtype, list)]
+        # Initialize an empty list to store the errors about lists.
+        list_errors = []
 
-        # Set a flag to check a supported the data type is
-        # found.
+        # Set a flag to check whether a supported data type is found.
         dtype_found = False
 
         # For each supported data type
@@ -127,50 +159,56 @@ def recurse_config_plot(
             # If the data type is a list
             if isinstance(dtype, list):
 
-                # If the value is not a list or the list is
-                # of a different length with respect to the
-                # expected one
+                # If the value is not a list of the expected length
                 if not isinstance(config, list) \
-                or len(config) not in len_dtypes:
+                or len(config) != len(dtype):
 
                     # Set the error message.
                     err_msg = \
                         f"Expected {len(dtype)} values " \
                         f"for option '{key_path[-1]}'."
-                    
+
                     # Append the error message to the list of
-                    # errors.
-                    errors.append(err_msg)
+                    # errors about lists.
+                    list_errors.append(err_msg)
 
                     # Continue to the next supported data type.
                     continue
-                
+
+                # Set a flag to check whether all values match.
+                values_match = True
+
                 # For each value in the list
                 for i, v in enumerate(config):
 
-                    # If the value is not of the expected
-                    # type
+                    # If the value is not of the expected type
                     if not isinstance(v, dtype[i]):
-                        
+
                         # Set the error message.
                         errstr = \
                             f"Element {i} of option " \
                             f"'{key_path[-1]}' must be of type " \
                             f"{dtype[i]}."
-                        
-                        # Append the error message to the
-                        # list of errors.
-                        errors.append(errstr)
 
-                        # Continue to the next supported data type.
-                        continue
-                
-                # Set the flag to True.
-                dtype_found = True
-            
+                        # Append the error message to the
+                        # list of errors about lists.
+                        list_errors.append(errstr)
+
+                        # Set the flag to False.
+                        values_match = False
+
+                # If all values are of the expected types
+                if values_match:
+
+                    # Set the flag to True.
+                    dtype_found = True
+
+                    # Break the loop.
+                    break
+
             # Otherwise
             else:
-                
+
                 # If the value is of a supported type
                 if isinstance(config, dtype):
 
@@ -179,11 +217,14 @@ def recurse_config_plot(
 
                     # Break the loop.
                     break
-        
+
         #-------------------------------------------------------------#
-        
-        # If not dtype was found
+
+        # If no supported data type was found
         if not dtype_found:
+
+            # Add the errors about lists to the list of errors.
+            errors.extend(list_errors)
 
             # Get the supported data types as a string.
             dtypes_str = \
@@ -198,18 +239,18 @@ def recurse_config_plot(
                 f"these types: {dtypes_str}. The option " \
                 "defines: " \
                 f"{help_msg[0].lower() + help_msg[1:]}"
-            
+
             # Append the error message to the list of errors.
             errors.append(errstr)
 
-            # Continue to the next key.
+            # Return the configuration, the errors, and the warnings.
             return config, errors, warnings
-        
+
         #-------------------------------------------------------------#
 
-        # Return the configuration.
+        # Return the configuration, the errors, and the warnings.
         return config, errors, warnings
-    
+
     #-----------------------------------------------------------------#
 
     # If there is a configuration for the general font properties
@@ -217,15 +258,15 @@ def recurse_config_plot(
 
         # Set the general font properties.
         general_fontproperties.update(config["general_fontproperties"])
-    
+
     #-----------------------------------------------------------------#
 
     # Initialize an empty dictionary to store the pruned configuration.
     pruned_dict = {}
-    
+
     # For each key in the configuration
     for key in config:
-        
+
         # If the key is in the template
         if key in template:
 
@@ -239,12 +280,12 @@ def recurse_config_plot(
 
             # If the key indicates that the section is a font
             # properties section
-            if key in ("prop", "fontproperties", 
+            if key in ("prop", "fontproperties",
                        "title_fontproperties"):
 
                 # If the value is a dictionary
                 if isinstance(actual_value, dict):
-                    
+
                     # Get the general font properties, if any.
                     opts = dict(general_fontproperties)
 
@@ -254,7 +295,7 @@ def recurse_config_plot(
 
                     # For each option in the dictionary
                     for opt, opt_val in actual_value.items():
-                        
+
                         # If the option has conflicts
                         if "conflicts" in template[key][opt]:
 
@@ -266,11 +307,11 @@ def recurse_config_plot(
                             # If the option conflicts with any other
                             # option
                             if conflicts:
-                                
+
                                 # Get the priority of the option.
                                 has_priority = \
                                     template[key][opt]["has_priority"]
-                                
+
                                 # If the option does not have priority
                                 if not has_priority:
 
@@ -278,12 +319,14 @@ def recurse_config_plot(
                                     # dictionary.
                                     opts.pop(opt)
 
-                                    # Warn the user about the conflict
-                                    # and the fact that the option has
-                                    # been removed.
+                                    # Get the conflicting options as
+                                    # a string.
                                     conflicts_str = \
                                         ", ".join([f"'{c}'" \
                                                    for c in conflicts])
+
+                                    # Warn the user that the option
+                                    # will be ignored.
                                     warn_msg = \
                                         f"Option '{opt}' conflicts " \
                                         "with option(s) " \
@@ -299,7 +342,7 @@ def recurse_config_plot(
                     pruned_dict[key] = fp
 
                 #-----------------------------------------------------#
-                
+
                 # Otherwise
                 else:
 
@@ -308,39 +351,36 @@ def recurse_config_plot(
                         "All 'prop'/'fontproperties'/" \
                         "'title_fontproperties' sections must " \
                         "be dictionaries."
-                    
+
                     # Append the error message to the list of
                     # errors.
                     errors.append(errstr)
 
                     # Continue to the next key.
                     continue
-            
+
             #---------------------------------------------------------#
 
             # Otherwise
             else:
 
-                # If the value is a dictionary
+                # If the template's value is a dictionary
                 if isinstance(template_value, dict):
-                    
-                    # The new key's name defaults to the old one.
+
+                    # Use the key as the new key by default.
                     new_key = key
-                    
+
                     # If the key is a 'boxplot' option
                     if len(key_path) > 0 and key_path[-1] == "boxplot":
 
                         # If the key is a 'meanprops' option
                         if key.startswith("meanprops_"):
-                            
+
                             # Get the meanline option.
                             meanline = config.get("meanline", False)
 
-                            # If 'meanline' is False and the
-                            # properties are specified for the mean as
-                            # a line, or if 'meanline' is True and the
-                            # properties are specified for the mean as
-                            # a marker
+                            # If the properties do not match the
+                            # 'meanline' setting
                             if not (meanline \
                                     and key == "meanprops_line") \
                             and not (not meanline \
@@ -348,13 +388,13 @@ def recurse_config_plot(
 
                                 # Skip the key.
                                 continue
-                            
+
                             # Otherwise
                             else:
-                                
+
                                 # Set the new key to 'meanprops'.
                                 new_key = "meanprops"
-                    
+
                     #-------------------------------------------------#
 
                     # Recurse into the nested dictionaries.
@@ -366,25 +406,26 @@ def recurse_config_plot(
                                 general_fontproperties,
                             key_path = key_path + (key,))
 
-                    # Merge nested errors and warnings into the
-                    # current level.
+                    # Add the nested errors to the list of errors.
                     errors.extend(nested_errors)
+
+                    # Add the nested warnings to the list of warnings.
                     warnings.extend(nested_warnings)
 
                     # Update the pruned dictionary.
                     pruned_dict[new_key] = pruned_value
-        
+
         #-------------------------------------------------------------#
 
         # Otherwise
         else:
-            
-            # Warn the user about the key not being in the template.
+
+            # Warn the user that the key will be ignored.
             warn_msg = \
                 f"Option '{key}' is not recognized and will be " \
                 "ignored."
             warnings.append(warn_msg)
-    
+
     #-----------------------------------------------------------------#
 
     # Return the pruned dictionary and the lists of errors and
@@ -405,9 +446,12 @@ def parse_config_plot(config: dict[str, object]) -> \
     ----------
     config : :class:`dict`
         The configuration.
-    
+
     Returns
     -------
+    config : :class:`dict`
+        The parsed configuration.
+
     errors : :class:`list`
         The list of errors found in the configuration.
 
@@ -422,7 +466,7 @@ def parse_config_plot(config: dict[str, object]) -> \
 
     #-----------------------------------------------------------------#
 
-    # Return the configuration and the errors.
+    # Return the configuration, the errors, and the warnings.
     return config, errors, warnings
 
 
@@ -435,7 +479,7 @@ def check_config_plot(config: dict[str, object]) -> \
     ----------
     config : :class:`dict`
         The configuration.
-    
+
     Returns
     -------
     config : :class:`dict`
@@ -448,14 +492,11 @@ def check_config_plot(config: dict[str, object]) -> \
     # Check the configuration.
     config, errors, warnings = parse_config_plot(config = config)
 
-    # SAY WHAT WAS THROWN AWAY. An unrecognized option is pruned rather
-    # than raised on, which is deliberate - but the warning that said so
-    # used to be discarded here, so an option that never reached the
-    # plot looked exactly like one that did. That is how a palette could
-    # be passed, ignored, and never missed.
+    # For each warning
     for warn_msg in warnings:
 
-        log.warning(warn_msg)
+        # Log it.
+        logger.warning(warn_msg)
 
     # Return the configuration and the errors.
     return config, errors
@@ -472,10 +513,10 @@ def split_text_by_length(text: object,
     ----------
     text : :class:`str`
         The text to split.
-    
+
     max_length : :class:`int`
         The maximum length of a piece of text.
-    
+
     Returns
     -------
     result : :class:`str`
@@ -485,7 +526,7 @@ def split_text_by_length(text: object,
 
     # Split the text into words.
     words = text.split()
-    
+
     #-----------------------------------------------------------------#
 
     # Initialize an empty list to store the pieces.
@@ -508,7 +549,7 @@ def split_text_by_length(text: object,
 
                 # Add the current word to the current piece.
                 current_piece += " " + word
-            
+
             # Otherwise
             else:
 
@@ -517,7 +558,7 @@ def split_text_by_length(text: object,
 
                 # Start a new piece with the current word.
                 current_piece = word
-        
+
         #-------------------------------------------------------------#
 
         # Otherwise
@@ -528,16 +569,16 @@ def split_text_by_length(text: object,
 
                 # Start a new piece with the current word.
                 current_piece = word
-            
+
             # Otherwise
             else:
-                
-                # Append the whole word to the piece.
+
+                # Add the whole word to the list of pieces.
                 pieces.append(word)
 
                 # Start a new piece.
                 current_piece = ""
-    
+
     #-----------------------------------------------------------------#
 
     # If there is a current piece
@@ -545,9 +586,9 @@ def split_text_by_length(text: object,
 
         # Add it to the list of pieces.
         pieces.append(current_piece)
-    
+
     #-----------------------------------------------------------------#
-    
+
     # Join the pieces with newline characters.
     result = '\n'.join(pieces)
 
@@ -569,9 +610,9 @@ def get_formatted_ticklabels(
     ticklabels : :class:`numpy.ndarray` or :class:`list`
         An array or list of labels.
 
-    fmt: :class:`str`, ``"{:s}"``
+    fmt : :class:`str`, ``"{:s}"``
         The format string.
-    
+
     max_length : :class:`int`, ``20``
         The maximum length of a tick's label. If a label exceeds this
         length, it will be split into pieces of at most this length.
@@ -609,15 +650,14 @@ def get_formatted_ticklabels(
 
         # If the label is a float
         if "." in fmt_ticklabel or "," in fmt_ticklabel:
-            
+
             # Strip the label of trailing zeroes.
             fmt_ticklabel = fmt_ticklabel.rstrip("0")
 
         #-------------------------------------------------------------#
 
-        # If the label now ends with a dot or a comma (because it was
-        # an integer expressed as 1.0, 3,00, etc., and we removed all
-        # trailing zeroes)
+        # If the label now ends with a dot or a comma (it was an
+        # integer, e.g., 1.0 or 3,00)
         if fmt_ticklabel.endswith(".") or fmt_ticklabel.endswith(","):
 
             # Remove the dot/comma.
@@ -625,12 +665,12 @@ def get_formatted_ticklabels(
 
         #-------------------------------------------------------------#
 
-        # Split the label into pieces of at most 'max_length'
-        # characters. The pieces are separated by newline characters.
+        # Split the label into lines of at most 'max_length'
+        # characters.
         fmt_ticklabel = \
             split_text_by_length(text = fmt_ticklabel,
                                  max_length = max_length)
-        
+
         #-------------------------------------------------------------#
 
         # Add the label to the list.
@@ -643,18 +683,14 @@ def get_formatted_ticklabels(
 
 
 def find_rectangular_grid(n: int) -> tuple[int, int]:
-    """Given an array of ``n`` items, find the best way to arrange
-    them in the 'squarest' possible two-dimensional grid (namely, the
-    grid where the difference between the two dimensions is minimal).
+    """Find the 'squarest' two-dimensional grid for ``n`` items.
 
-    Allow for blank 'cells' in the grid, so that the number of cells
-    in the grid may exceed the number of items to avoid making a grid
-    with only one row in case the number of items is a prime number.
+    If ``n`` is prime, the grid has one more cell than items.
 
     Parameters
     ----------
-    n : :class:`numpy.ndarray`
-        The array of items.
+    n : :class:`int`
+        The number of items.
 
     Returns
     -------
@@ -699,8 +735,7 @@ def find_rectangular_grid(n: int) -> tuple[int, int]:
 
     #-----------------------------------------------------------------#
 
-    # If we ended up with only one row (because we did not find any
-    # factors, meaning that 'n' is prime)
+    # If there is only one row ('n' is prime)
     if nrows == 1:
 
         # For each possible number ranging from 2 to the square root
@@ -722,16 +757,8 @@ def find_rectangular_grid(n: int) -> tuple[int, int]:
 def get_ticks_positions(values: tuple[np.ndarray, list[str]],
                         item: str,
                         config: dict[str, object]) -> np.ndarray:
-    """Generate the positions that the ticks will have on a plot's
-    axis/colorbar/etc.
-
-    This original code for this function was originally developed
-    by Valentina Sora for the RosettaDDGPrediction package.
-    
-    The original function can be found at:
-
-    https://github.com/ELELAB/RosettaDDGPrediction/
-    blob/master/RosettaDDGPrediction/plotting.py
+    """Generate the positions of the ticks on a plot's axis or
+    colorbar.
 
     Parameters
     ----------
@@ -753,12 +780,12 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
         An array containing the ticks' positions.
     """
 
-    # Get the top configuration.
+    # Get the configuration for the interval.
     config = config.get("interval", {})
 
     #-----------------------------------------------------------------#
-    
-    # Get the configurations.
+
+    # Get the interval's options.
     int_type = config.get("type", "continuous")
     rtn = config.get("round_to_nearest")
     top = config.get("top")
@@ -767,7 +794,7 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
     spacing = config.get("spacing")
     caz = config.get("center_around_zero")
 
-    # Inform the user that we are now setting the ticks' interval.
+    # Inform the user that the ticks' interval is being set.
     debugstr = \
         f"Now setting the interval for the plot's {item}'s ticks..."
     logger.debug(debugstr)
@@ -785,7 +812,7 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
 
         # If the interval is continuous
         elif int_type == "continuous":
-        
+
             # Default to rounding to the nearest 0.5.
             rtn = 0.5
 
@@ -809,12 +836,11 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
 
     # If the maximum of the ticks interval was not specified
     if top is None:
-        
+
         # If the interval is discrete
         if int_type == "discrete":
-            
-            # The default top value will be the maximum of the values
-            # provided.
+
+            # Set the top value to the maximum value.
             top = int(np.ceil(max(values)))
 
             # Inform the user about the top value.
@@ -823,12 +849,11 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
                 f"'{int_type}', 'top' will be the maximum of all " \
                 f"values found, ({top})."
             logger.debug(debugstr)
-        
+
         # If the interval is continuous
         elif int_type == "continuous":
-            
-            # The default top value will be the maximum of the values
-            # provided, rounded up.
+
+            # Set the top value to the maximum value, rounded up.
             top = np.ceil(max(values)/rtn) * rtn
 
             # Inform the user about the top value.
@@ -851,12 +876,11 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
 
     # If the minimum of the ticks interval was not specified
     if bottom is None:
-        
+
         # If the interval is discrete
         if int_type == "discrete":
-            
-            # The default bottom value is the minimum of the values
-            # provided.
+
+            # Set the bottom value to the minimum value.
             bottom = int(min(values))
 
             # Inform the user about the bottom value.
@@ -865,12 +889,11 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
                 f"'{int_type}', 'bottom' will be the minimum of all " \
                 f"values found ({bottom})."
             logger.debug(debugstr)
-        
+
         # If the interval is continuous
         elif int_type == "continuous":
-            
-            # The default bottom value is the minimum of the values
-            # provided, rounded down.
+
+            # Set the bottom value to the minimum value, rounded down.
             bottom = np.floor(min(values)/rtn) * rtn
 
             # Inform the user about the bottom value.
@@ -884,7 +907,7 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
     # Otherwise
     else:
 
-        # Inform the user about the chosen top value
+        # Inform the user about the chosen bottom value.
         debugstr = \
             f"The user set the bottom value to {bottom} ('bottom' " \
             f"= {bottom})."
@@ -894,7 +917,7 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
 
     # If the two extremes of the interval coincide
     if top == bottom:
-        
+
         # Return only one value.
         return np.array([bottom])
 
@@ -903,7 +926,7 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
     # If the number of steps in the interval was not specified
     if steps is None:
 
-        # A default of 10 steps will be set.
+        # Set a default of 10 steps.
         steps = 10
 
         # Inform the user about the steps.
@@ -925,12 +948,11 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
 
     # If the interval spacing was not specified
     if spacing is None:
-        
+
         # If the interval is discrete
         if int_type == "discrete":
 
-            # The default spacing will be the one between two steps,
-            # rounded up.
+            # Set the spacing between two steps, rounded up.
             spacing = \
                 int(np.ceil(np.linspace(bottom,
                                         top,
@@ -949,16 +971,14 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
 
         # If the interval is continuous
         elif int_type == "continuous":
-            
-            # The default spacing will be the one between two steps,
-            # rounded up.
+
+            # Get the spacing between two steps.
             spacing = np.linspace(bottom,
                                   top,
                                   steps,
                                   retstep = True)[1]
 
-            # Get the spacing by rounding up the spacing obtained
-            # obtained above.
+            # Round the spacing up to the nearest 'rtn'.
             spacing = np.ceil(spacing / rtn) * rtn
 
             # Inform the user about the spacing.
@@ -974,18 +994,18 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
 
     # If the interval should be centered in zero
     if caz:
-        
+
         # Get the highest absolute value.
-        absval = \
-            np.ceil(top) if top > bottom else np.floor(bottom)
-        
-        # The top and bottom values will be opposite numbers with
-        # absolute value equal to the highest absolute value found.
+        absval = np.ceil(max(abs(top), abs(bottom)))
+
+        # Set the top and bottom to +/- the highest absolute value.
         top, bottom = absval, -absval
 
         # Get an evenly-spaced interval between the bottom and top
-        # value.
-        interval = np.arange(bottom, top + spacing, spacing)
+        # values.
+        interval = np.arange(bottom,
+                             top + spacing,
+                             spacing)
 
         # Inform the user about the change in the interval.
         debugstr = \
@@ -994,14 +1014,16 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
             f"and {bottom} with {steps} number of steps: " \
             f"{', '.join([str(i) for i in interval.tolist()])}."
         logger.debug(debugstr)
-        
+
         # Return the interval.
         return interval
 
     #-----------------------------------------------------------------#
 
     # Get the interval.
-    interval = np.arange(bottom, top + spacing, spacing)
+    interval = np.arange(bottom,
+                         top + spacing,
+                         spacing)
 
     # Inform the user about the interval that will be used.
     debugstr = \
@@ -1036,7 +1058,7 @@ def get_colormap(cmap: str,
         the color map.
     """
 
-    # If the color map is available both in Seaborn and in Matplotlib.
+    # If the color map is available both in Seaborn and in Matplotlib
     if cmap in SEABORN_PALETTES and cmap in MATPLOTLIB_CMAPS:
 
         # Inform the user about it.
@@ -1048,23 +1070,23 @@ def get_colormap(cmap: str,
 
         # Get the color map from Seaborn.
         cmap = sns.color_palette(cmap, as_cmap = True)
-    
+
     #-----------------------------------------------------------------#
 
-    # If the color map is available in Seaborn.
+    # If the color map is available in Seaborn
     elif cmap in SEABORN_PALETTES:
 
         # Get the color map from Seaborn.
         cmap = sns.color_palette(cmap, as_cmap = True)
-    
+
     #-----------------------------------------------------------------#
 
-    # If the color map is available in Matplotlib.
+    # If the color map is available in Matplotlib
     elif cmap in MATPLOTLIB_CMAPS:
 
         # Get the color map from Matplotlib.
         cmap = plt.get_cmap(cmap)
-    
+
     #-----------------------------------------------------------------#
 
     # Otherwise
@@ -1074,20 +1096,30 @@ def get_colormap(cmap: str,
         available_cmaps = \
             ", ".join([f"'{c}'" for c \
                        in SEABORN_PALETTES.union(MATPLOTLIB_CMAPS)])
-        # Raise an error
+
+        # Raise an error.
         errstr = \
             f"Unrecognized '{cmap}' color map. Available color " \
             f"maps are: {available_cmaps}."
         raise ValueError(errstr)
 
     #-----------------------------------------------------------------#
-    
-    # If a discrete number of colors was specified.
+
+    # If a discrete number of colors was specified
     if n_colors:
-        
-        # Discretize the color map.
-        colors = cmap(np.linspace(0, 1, n_colors))
-        
+
+        # Tell whether the color map ends where it starts.
+        cyclic = np.allclose(cmap(0.0),
+                             cmap(1.0),
+                             atol = 0.02)
+
+        # Discretize the color map, not repeating the start of a
+        # cyclic one.
+        colors = cmap(np.linspace(0,
+                                  1,
+                                  n_colors,
+                                  endpoint = not cyclic))
+
         # Return the list of colors.
         return [c.tolist() for c \
                 in mcolors.ListedColormap(colors).colors]
@@ -1106,10 +1138,10 @@ def get_colors(config: dict[str, object],
     ----------
     config : :class:`dict`
         The configuration for the plot.
-    
+
     len_data : :class:`int`
         The number of data frames/categories that will be plotted.
-    
+
     Returns
     -------
     colors_plot : :class:`list`
@@ -1118,26 +1150,26 @@ def get_colors(config: dict[str, object],
 
     # Get the configuration for the colors to be used for the
     # sub-plots.
-    config_colors = config.pop("colors", {})
+    config_colors = config.get("colors", {})
 
     #-----------------------------------------------------------------#
 
     # If no configuration for the colors was provided
-    if not config_colors:
+    if not {"color", "colors", "cmap"} & config_colors.keys():
 
         # Get the colors that will be used for the sub-plots from the
         # default color map.
         colors_plot = get_colormap(cmap = "husl",
                                    n_colors = len_data)
-    
+
     #-----------------------------------------------------------------#
 
     # If there is a single color specified in the configuration
     if "color" in config_colors:
 
-        # Each sub-plot will have the defined color.
+        # Use the color for all sub-plots.
         colors_plot = [config_colors["color"]]
-    
+
     #-----------------------------------------------------------------#
 
     # If there is a list of colors defined
@@ -1150,10 +1182,10 @@ def get_colors(config: dict[str, object],
             errstr = \
                 "The 'colors:colors' option must be a list of colors."
             raise TypeError(errstr)
-        
+
         #-------------------------------------------------------------#
 
-        # Get now many colors were provided.
+        # Get how many colors were provided.
         num_colors = len(config_colors["colors"])
 
         #-------------------------------------------------------------#
@@ -1167,16 +1199,14 @@ def get_colors(config: dict[str, object],
                 "will be re-used."
             logger.warning(warnstr)
 
-            # Set the cycle from which we are going to extract the
-            # colors.
+            # Set a cycle over the colors.
             cycle_colors = itertools.cycle(config_colors["colors"])
 
-            # Set the list of colors cycling through the available
-            # ones.
+            # Get the colors by cycling through the available ones.
             colors_plot = [next(cycle_colors) for _ in range(len_data)]
-        
+
         #-------------------------------------------------------------#
-        
+
         # If there are more colors than the number of sub-plots
         elif num_colors > len_data:
 
@@ -1188,29 +1218,29 @@ def get_colors(config: dict[str, object],
 
             # Set the list of colors to the first 'len_data' colors.
             colors_plot = config_colors["colors"][:len_data]
-        
+
         #-------------------------------------------------------------#
-        
+
         # If the number of colors is the same as the number of
         # sub-plots
         else:
 
             # Use the colors as they are.
             colors_plot = config_colors["colors"]
-    
+
     #-----------------------------------------------------------------#
 
     # If there is a color map defined
     if "cmap" in config_colors:
-        
+
         # Get the colors that will be used for the sub-plots from the
         # color map.
         colors_plot = \
             get_colormap(cmap = config_colors["cmap"],
                          n_colors = len_data)
-    
+
     #-----------------------------------------------------------------#
-    
+
     # Return the colors.
     return colors_plot
 
@@ -1219,7 +1249,7 @@ def get_colors(config: dict[str, object],
 
 
 def set_figure(num_plots: int,
-               config: dict[str, object] = {}) -> \
+               config: Optional[dict[str, object]] = None) -> \
                 tuple[matplotlib.figure.Figure, np.ndarray]:
     """Set up a figure and the sub-plots for a plot.
 
@@ -1227,22 +1257,26 @@ def set_figure(num_plots: int,
     ----------
     num_plots : :class:`int`
         The number of plots that will be generated.
-    
+
     config : :class:`dict`, optional
         The configuration for the figure and the sub-plots.
-    
+
     Returns
     -------
     fig : :class:`matplotlib.figure.Figure`
         The figure.
-    
+
     sub_plots : :class:`numpy.ndarray`
         The sub-plots.
     """
 
-    # Get the best layout (the rectangle with the smallest
-    # different between dimensions) for the sub-plots from
-    # the number of data frames passed.
+    # If no configuration was passed
+    if config is None:
+
+        # Use an empty configuration.
+        config = {}
+
+    # Get the squarest grid for the sub-plots.
     nrows, ncols = find_rectangular_grid(n = num_plots)
 
     # Get the figure's size.
@@ -1256,7 +1290,7 @@ def set_figure(num_plots: int,
             nrows = nrows,
             ncols = ncols,
             figsize = fig_size)
-    
+
     # If there is only one axis
     if not isinstance(sub_plots, np.ndarray):
 
@@ -1270,7 +1304,7 @@ def set_figure(num_plots: int,
 
         # Adjust the sub-plots.
         plt.subplots_adjust(**config["subplots"])
-    
+
     #-----------------------------------------------------------------#
 
     # Return the figure and the sub-plots.
@@ -1279,42 +1313,44 @@ def set_figure(num_plots: int,
 
 def set_title(title: str,
               sub_plot: matplotlib.axes.Axes,
-              config: dict[str, object] = {}) -> matplotlib.axes.Axes:
+              config: Optional[dict[str, object]] = None) -> \
+                matplotlib.axes.Axes:
     """Set the title of a plot.
 
     Parameters
     ----------
     title : :class:`str`
         The title of the plot.
-    
+
     sub_plot : :class:`matplotlib.axes.Axes`
         The sub-plot.
-    
+
     config : :class:`dict`, optional
         The configuration for setting the title.
-    
+
     Returns
     -------
     sub_plot : :class:`matplotlib.axes.Axes`
         The sub-plot.
     """
 
+    # Create a copy of the configuration, if any.
+    config = dict(config) if config is not None else {}
+
     # Get the maximum length of a title.
     max_length = config.pop("max_length", 20)
 
-    # Split the title into pieces of at most 10 characters.
-    # The pieces are separated by newline characters.
+    # Split the title into lines of at most 'max_length' characters.
     title_fmt = \
         split_text_by_length(text = title,
                              max_length = max_length)
-    
+
     #-----------------------------------------------------------------#
-    
-    # Set the current plot's title based on the
-    # data frame that is being plotted.
+
+    # Set the sub-plot's title.
     sub_plot.set_title(label = title_fmt,
                        **config)
-    
+
     #-----------------------------------------------------------------#
 
     # Return the sub-plot.
@@ -1324,17 +1360,18 @@ def set_title(title: str,
 def set_extra_subplots(sub_plots: np.ndarray,
                        x_ticks: list,
                        y_ticks: list,
-                       config: dict[str, object] = {}) -> None:
+                       config: Optional[dict[str, object]] = None) \
+                        -> None:
     """Set the unused slots for sub-plots in a multi-panel plot.
 
     Parameters
     ----------
     sub_plots : :class:`numpy.ndarray`
         The sub-plots.
-    
+
     x_ticks : :class:`list`
         The ticks' positions for the x-axis.
-    
+
     y_ticks : :class:`list`
         The ticks' positions for the y-axis.
 
@@ -1342,12 +1379,16 @@ def set_extra_subplots(sub_plots: np.ndarray,
         The configuration for the figure and the sub-plots.
     """
 
+    # If no configuration was passed
+    if config is None:
+
+        # Use an empty configuration.
+        config = {}
+
     # For each extra sub-plot in the figure
     for sub_plot in sub_plots:
 
-        # Set it to mimic the last one in the figure.
-
-        # Set the x-axis.
+        # Set the x-axis as in the other sub-plots.
         sub_plot = set_axis(sub_plot = sub_plot,
                             axis = "x",
                             config = config.get("xaxis", {}),
@@ -1355,7 +1396,7 @@ def set_extra_subplots(sub_plots: np.ndarray,
 
         #-------------------------------------------------------------#
 
-        # Set the y-axis.
+        # Set the y-axis as in the other sub-plots.
         sub_plot = set_axis(sub_plot = sub_plot,
                             axis = "y",
                             config = config.get("yaxis", {}),
@@ -1363,17 +1404,18 @@ def set_extra_subplots(sub_plots: np.ndarray,
 
         #-------------------------------------------------------------#
 
-        # Remove it.
+        # Hide it.
         sub_plot.set_visible(False)
 
 
 def set_axis(sub_plot: matplotlib.axes.Axes,
              axis: str,
-             config: dict[str, object] = {},
+             config: Optional[dict[str, object]] = None,
              label: Optional[str] = None,
              ticks: Optional[list[float]] = None,
              tick_labels: Optional[list[str]] = None,
-             abs_values: bool = False) -> matplotlib.axes.Axes:
+             abs_values: bool = False,
+             categorical: bool = False) -> matplotlib.axes.Axes:
     """Set up the x- or y-axis after generating a plot.
 
     Parameters
@@ -1386,7 +1428,7 @@ def set_axis(sub_plot: matplotlib.axes.Axes,
 
     config : :class:`dict`, optional
         The configuration for setting the axis.
-    
+
     label : :class:`str`, optional
         The axis' label. If it is provided, it overrides the label
         specified in the configuration.
@@ -1399,11 +1441,14 @@ def set_axis(sub_plot: matplotlib.axes.Axes,
     tick_labels : :class:`list`, optional
         A list of ticks' labels. If not passed, the ticks' labels
         will represent the ticks' positions.
-    
+
     abs_values : :class:`bool`, optional
         Whether the ticks' positions should be absolute values. If
         ``True``, the ticks' positions will be the absolute values of
         the original positions.
+
+    categorical : :class:`bool`, :obj:`False`
+        Whether the axis is categorical.
 
     Returns
     -------
@@ -1411,8 +1456,8 @@ def set_axis(sub_plot: matplotlib.axes.Axes,
         The sub-plot.
     """
 
-    # Create a copy of the configuration.
-    config = copy.deepcopy(config)
+    # Create a copy of the configuration, if any.
+    config = copy.deepcopy(config) if config is not None else {}
 
     #-----------------------------------------------------------------#
 
@@ -1455,7 +1500,7 @@ def set_axis(sub_plot: matplotlib.axes.Axes,
             # Set the spine's option.
             sub_plot.spines[spine].set(**{opt : val})
 
-        # If there is a configuration for the spine's position
+        # If no position was set for the spine
         if "position" not in config["spine"]:
 
             # Set the default for the spine's position.
@@ -1475,18 +1520,18 @@ def set_axis(sub_plot: matplotlib.axes.Axes,
             # Get the maximum length of a label.
             max_length = config["label"].pop("max_length", 20)
 
-            # Split the label into pieces of at most 10 characters. The
-            # pieces are separated by newline characters.
+            # Split the label into lines of at most 'max_length'
+            # characters.
             fmt_label = \
                 split_text_by_length(text = label,
-                                    max_length = max_length)
-            
+                                     max_length = max_length)
+
             # Set the axis label.
             set_label(\
-                **{f"{axis}label" : fmt_label, **config["label"]})        
+                **{f"{axis}label" : fmt_label, **config["label"]})
 
     #-----------------------------------------------------------------#
-    
+
     # If no ticks' positions were passed
     if ticks is None:
 
@@ -1495,15 +1540,19 @@ def set_axis(sub_plot: matplotlib.axes.Axes,
 
     #-----------------------------------------------------------------#
 
+    # Get the margin past the first and last ticks (half a category
+    # for a categorical axis).
+    margin = 0.5 if categorical else 0.0
+
     # If there are any ticks on the axis
-    if len(ticks) > 0:      
-        
+    if len(ticks) > 0:
+
         # Set the axis boundaries.
-        sub_plot.spines[spine].set_bounds(ticks[0],
-                                          ticks[-1])
-        
+        sub_plot.spines[spine].set_bounds(ticks[0] - margin,
+                                          ticks[-1] + margin)
+
         # Set the axis limits.
-        set_lim(ticks[0], ticks[-1])
+        set_lim(ticks[0] - margin, ticks[-1] + margin)
 
     #-----------------------------------------------------------------#
 
@@ -1519,7 +1568,7 @@ def set_axis(sub_plot: matplotlib.axes.Axes,
         config_tick_params = \
             {opt : val for opt, val in config["tick_params"].items() \
              if opt != "alpha"}
-        
+
         # Apply the configuration to the ticks.
         sub_plot.tick_params(axis = axis,
                              **config_tick_params)
@@ -1537,13 +1586,13 @@ def set_axis(sub_plot: matplotlib.axes.Axes,
                 tick.set_alpha(alpha)
 
     #-----------------------------------------------------------------#
-    
+
     # Get the configuration for the ticks' labels.
     tick_labels_config = config.get("ticklabels", {})
 
     # Get the options for the ticks' labels.
     tick_labels_options = tick_labels_config.get("options", {})
-    
+
     # If no ticks' labels were passed
     if tick_labels is None:
 
@@ -1553,11 +1602,11 @@ def set_axis(sub_plot: matplotlib.axes.Axes,
 
             # Get the absolute values of the ticks.
             tick_labels = np.abs(ticks)
-        
+
         # Otherwise
         else:
 
-            # The tick labels will be the ticks' positions.
+            # Use the ticks' positions as labels.
             tick_labels = ticks
 
         # Get the format to be used for the tick labels.
@@ -1565,14 +1614,13 @@ def set_axis(sub_plot: matplotlib.axes.Axes,
 
         # Get the maximum length of a tick's label.
         max_length = tick_labels_config.get("max_length", 20)
-        
-        # Default to the string representations of the ticks'
-        # positions.
+
+        # Format the ticks' labels.
         tick_labels = \
             get_formatted_ticklabels(ticklabels = tick_labels,
                                      fmt = tick_labels_fmt,
                                      max_length = max_length)
-    
+
     # Set the ticks' labels.
     set_ticklabels(labels = tick_labels,
                    **tick_labels_options)
@@ -1584,7 +1632,7 @@ def set_axis(sub_plot: matplotlib.axes.Axes,
 
 
 def set_cbar_axis(cbar: matplotlib.colorbar.Colorbar,
-                  config: dict[str, object] = {},
+                  config: Optional[dict[str, object]] = None,
                   label: Optional[str] = None,
                   ticks: Optional[list[float]] = None,
                   tick_labels: Optional[list[str]] = None) -> \
@@ -1598,7 +1646,7 @@ def set_cbar_axis(cbar: matplotlib.colorbar.Colorbar,
 
     config : :class:`dict`, optional
         The configuration for setting the colorbar's axis.
-    
+
     label : :class:`str`, optional
         The colorbar's label. If it is provided, it overrides the
         label specified in the configuration.
@@ -1622,8 +1670,8 @@ def set_cbar_axis(cbar: matplotlib.colorbar.Colorbar,
         The colorbar.
     """
 
-    # Create a copy of the configuration.
-    config = copy.deepcopy(config)
+    # Create a copy of the configuration, if any.
+    config = copy.deepcopy(config) if config is not None else {}
 
     #-----------------------------------------------------------------#
 
@@ -1633,15 +1681,12 @@ def set_cbar_axis(cbar: matplotlib.colorbar.Colorbar,
         # For each option for the spine
         for opt, val in config["spine"].items():
 
-            # Set the spine's option.
-            cbar.ax.spines["bottom"].set(**{opt : val})
-            cbar.ax.spines["left"].set(**{opt : val})
-            cbar.ax.spines["top"].set(**{opt : val})
-            cbar.ax.spines["right"].set(**{opt : val})
+            # Set the outline's option.
+            cbar.outline.set(**{opt : val})
 
     #-----------------------------------------------------------------#
 
-    # If there is a configuration for the colorbar's label.
+    # If there is a configuration for the colorbar's label
     if config.get("label") is not None:
 
         # Get the label.
@@ -1653,15 +1698,15 @@ def set_cbar_axis(cbar: matplotlib.colorbar.Colorbar,
             # Get the maximum length of a label.
             max_length = config["label"].pop("max_length", 20)
 
-            # Split the label into pieces of at most 10 characters. The
-            # pieces are separated by newline characters.
+            # Split the label into lines of at most 'max_length'
+            # characters.
             fmt_label = \
                 split_text_by_length(text = label,
-                                    max_length = max_length)
-            
+                                     max_length = max_length)
+
             # Set the colorbar's label.
             cbar.set_label(\
-                **{"label" : fmt_label, **config["label"]})        
+                **{"label" : fmt_label, **config["label"]})
 
     #-----------------------------------------------------------------#
 
@@ -1683,12 +1728,12 @@ def set_cbar_axis(cbar: matplotlib.colorbar.Colorbar,
         config_tick_params = \
             {opt : val for opt, val in config["tick_params"].items() \
              if opt != "alpha"}
-        
+
         # Apply the configuration to the ticks.
         cbar.ax.tick_params(axis = "both",
-                           **config_tick_params)
+                            **config_tick_params)
 
-        # Get the alpha value, if provided
+        # Get the alpha value, if provided.
         alpha = config["tick_params"].get("alpha", None)
 
         # If an alpha was provided
@@ -1728,14 +1773,13 @@ def set_cbar_axis(cbar: matplotlib.colorbar.Colorbar,
 
         # Get the maximum length of a tick's label.
         max_length = tick_labels_config.get("max_length", 20)
-        
-        # Default to the string representations of the ticks'
-        # positions.
+
+        # Format the ticks' labels.
         tick_labels = \
             get_formatted_ticklabels(ticklabels = ticks,
                                      fmt = tick_labels_fmt,
                                      max_length = max_length)
-    
+
     # Set the ticks' labels.
     cbar.set_ticklabels(ticklabels = tick_labels,
                         **tick_labels_options)
@@ -1747,7 +1791,8 @@ def set_cbar_axis(cbar: matplotlib.colorbar.Colorbar,
 
 
 def set_legend(sub_plot: matplotlib.axes.Axes,
-               config: dict[str, object] = {}) -> matplotlib.axes.Axes:
+               config: Optional[dict[str, object]] = None) -> \
+                matplotlib.axes.Axes:
     """Set a legend for the current plot.
 
     Parameters
@@ -1764,26 +1809,8 @@ def set_legend(sub_plot: matplotlib.axes.Axes,
         The sub-plot.
     """
 
-    # Get the legend's handles and labels.
-    handles, labels = sub_plot.get_legend_handles_labels()
-
-    #-----------------------------------------------------------------#
-
-    # If there are handles
-    if handles:
-
-        # Draw the legend.
-        legend = \
-            sub_plot.legend(handles = handles,
-                            labels = labels,
-                            bbox_transform = plt.gcf().transFigure,
-                            **config)
-    
-    # Otherwise
-    else:
-
-        # Return the sub-plot.
-        return sub_plot
+    # Create a copy of the configuration, if any.
+    config = dict(config) if config is not None else {}
 
     #-----------------------------------------------------------------#
 
@@ -1800,12 +1827,35 @@ def set_legend(sub_plot: matplotlib.axes.Axes,
 
     # Set the labels' text properties to None.
     label_text_properties = None
-    
+
     # If there are text properties for the labels
     if "label_text_properties" in config:
 
         # Get the labels' text properties.
         label_text_properties = config.pop("label_text_properties")
+
+    #-----------------------------------------------------------------#
+
+    # Get the legend's handles and labels.
+    handles, labels = sub_plot.get_legend_handles_labels()
+
+    #-----------------------------------------------------------------#
+
+    # If there are handles
+    if handles:
+
+        # Draw the legend.
+        legend = \
+            sub_plot.legend(handles = handles,
+                            labels = labels,
+                            bbox_transform = plt.gcf().transFigure,
+                            **config)
+
+    # Otherwise
+    else:
+
+        # Return the sub-plot.
+        return sub_plot
 
     #-----------------------------------------------------------------#
 
@@ -1819,9 +1869,11 @@ def set_legend(sub_plot: matplotlib.axes.Axes,
 
     # If there are text properties for the labels
     if label_text_properties is not None:
-            
-        # Set the labels' text properties.
+
+        # For each label's text
         for text in legend.get_texts():
+
+            # Set its text properties.
             text.set(**label_text_properties)
 
     #-----------------------------------------------------------------#
@@ -1831,7 +1883,7 @@ def set_legend(sub_plot: matplotlib.axes.Axes,
 
 
 def set_text(fig: matplotlib.figure.Figure,
-             config: dict[str, object] = {}) -> \
+             config: Optional[dict[str, object]] = None) -> \
                 matplotlib.figure.Figure:
     """Write text on a plot.
 
@@ -1843,7 +1895,18 @@ def set_text(fig: matplotlib.figure.Figure,
 
     config : :class:`dict`, optional
         The configuration for the text.
+
+    Returns
+    -------
+    fig : :class:`matplotlib.figure.Figure`
+        The figure.
     """
+
+    # If no configuration was passed
+    if config is None:
+
+        # Use an empty configuration.
+        config = {}
 
     # Add the text.
     fig.text(**config)
@@ -1861,13 +1924,13 @@ def generate_plots(dfs: list[pd.DataFrame],
                    output_file: str,
                    max_plots_per_output: int,
                    plot_type: str,
-                   config: dict[str, object] = {},
-                   plot_func_kwargs: object = {},
+                   config: Optional[dict[str, object]] = None,
+                   plot_func_kwargs: Optional[object] = None,
                    config_default: Optional[dict[str, object]] = None,
                    dfs_2: Optional[list[pd.DataFrame]] = None,
                    dfs_names: Optional[list[str]] = None,
                    categories: Optional[list[str]] = None,
-                   kwargs: dict[str, object] = {}) -> None:
+                   kwargs: Optional[dict[str, object]] = None) -> None:
     """Generate one or multiple plots from a data frame or a list of
     data frames.
 
@@ -1875,39 +1938,51 @@ def generate_plots(dfs: list[pd.DataFrame],
     ----------
     dfs : :class:`list`
         A list of data frames.
-    
+
     output_file : :class:`str`
         The name of the output file.
 
     max_plots_per_output : :class:`int`
         The number of plots that should be written in each output
         file.
-    
+
     plot_type : :class:`str`
         The type of plot that will be generated.
-    
+
+    config : :class:`dict`, optional
+        The configuration for the plot.
+
     plot_func_kwargs : :class:`dict`, optional
         Additional keyword arguments to be passed to the plot
         function.
-    
-    config : :class:`dict`, optional
-        The configuration for the plot.
-    
+
     config_default : :class:`dict`, optional
         The default configuration for the plot.
 
     dfs_2 : :class:`list`, optional
-        A list of data frames.
-    
+        A list of data frames paired with the data frames in ``dfs``.
+
     dfs_names : :class:`list`, optional
         A list of names for the data frames.
-    
+
     categories : :class:`list`, optional
         A list of categories that will be plotted.
 
-    kwargs : :class:`dict`
+    kwargs : :class:`dict`, optional
         Additional keyword arguments.
     """
+
+    # If no keyword arguments for the plot function were passed
+    if plot_func_kwargs is None:
+
+        # Use an empty dictionary.
+        plot_func_kwargs = {}
+
+    # If no keyword arguments were passed
+    if kwargs is None:
+
+        # Use an empty dictionary.
+        kwargs = {}
 
     #-----------------------------------------------------------------#
 
@@ -1920,34 +1995,23 @@ def generate_plots(dfs: list[pd.DataFrame],
 
     #-----------------------------------------------------------------#
 
-    # Get the configuration for the plot's aesthetics by merging the
-    # configuration provided (if any) with the keyword arguments (it
-    # any).
-    # THE DEFAULTS GO FIRST, because the merge is last-wins.
-    #
-    # They used to go last, which meant they overrode the caller's
-    # 'config' and the caller's keyword arguments for every key the
-    # default file defines - and the default file defines all of them.
-    # A caller could pass a palette, an axis label or a font size, get
-    # no error, and get the default back. Nothing a caller asked for
-    # ever reached a plot.
-    #
-    # The order is now least specific to most specific: the defaults,
-    # then the configuration the caller passed, then the keyword
-    # arguments they named one by one.
+    # Merge the default configuration, the configuration provided,
+    # and the keyword arguments (later ones take priority).
     config = \
         _internals.recursive_merge_dicts(\
             config_default if config_default is not None else {},
             config if config is not None else {},
             kwargs)
-    
+
     #-----------------------------------------------------------------#
 
     # Check the configuration.
     config, errors = check_config_plot(config = config)
 
-    # If there are validation errors, fail with all messages.
+    # If there are errors in the configuration
     if errors:
+
+        # Raise an error.
         errstr = "The configuration is not valid. Errors: " + \
             " ".join(errors)
         raise ValueError(errstr)
@@ -1958,7 +2022,9 @@ def generate_plots(dfs: list[pd.DataFrame],
     # with 'max_plots_per_output' data frames per chunk.
     dfs_chunks = \
         [dfs[i:i + max_plots_per_output] \
-         for i in range(0, len(dfs), max_plots_per_output)]
+         for i in range(0,
+                        len(dfs),
+                        max_plots_per_output)]
 
     # If there are names for the data frames
     if dfs_names is not None:
@@ -1966,24 +2032,25 @@ def generate_plots(dfs: list[pd.DataFrame],
         # Split the list of names into equally-sized chunks.
         dfs_names_chunks = \
             [dfs_names[i:i + max_plots_per_output] \
-             for i in range(0, len(dfs_names), max_plots_per_output)]
-    
+             for i in range(0,
+                            len(dfs_names),
+                            max_plots_per_output)]
+
     # Otherwise
     else:
 
         # Set the names to None.
         dfs_names_chunks = [None] * len(dfs_chunks)
-        
+
     #-----------------------------------------------------------------#
-    
+
     # Initialize an empty list to store the second set of data frames.
     dfs_2_chunks = []
 
-    # If there is a second set of dataframes
+    # If there is a second set of data frames
     if dfs_2 is not None:
 
-        # If the data frames are fewer/more than the data frames in
-        # the first set
+        # If the two sets have different numbers of data frames
         if len(dfs_2) != len(dfs):
 
             # Raise an error.
@@ -1997,22 +2064,23 @@ def generate_plots(dfs: list[pd.DataFrame],
         # chunks with 'max_plots_per_output' data frames per chunk.
         dfs_2_chunks = \
             [dfs_2[i:i + max_plots_per_output] \
-             for i in range(0, len(dfs_2), max_plots_per_output)]
+             for i in range(0,
+                            len(dfs_2),
+                            max_plots_per_output)]
 
     # Inform the user about how many output files will be written.
     infostr = f"{len(dfs_chunks)} output files will be generated."
     logger.info(infostr)
 
-    # All the chunks will have the same number of plots.
+    # Use the same number of plots for all chunks.
     num_plots = max([len(chunk) for chunk in dfs_chunks])
 
     #-----------------------------------------------------------------#
 
-    # Resolve output naming only when an output file was provided.
+    # If an output file was provided
     if output_file is not None:
 
-        # Convert the output file to the output prefix and output
-        # format.
+        # Split the output file into prefix and extension.
         output_prefix, output_ext = os.path.splitext(output_file)
 
         # Get the output format.
@@ -2029,7 +2097,7 @@ def generate_plots(dfs: list[pd.DataFrame],
             # Get the colors for the plot.
             colors_plot = get_colors(config = config,
                                      len_data = len(dfs_chunk))
-            
+
             # Generate the scatter plots.
             plot_scatterplots(\
                 dfs_chunk = dfs_chunk,
@@ -2039,21 +2107,21 @@ def generate_plots(dfs: list[pd.DataFrame],
                 colors = colors_plot,
                 config = config,
                 **plot_func_kwargs)
-        
+
         #-------------------------------------------------------------#
 
         # If we need to plot single histograms
         elif plot_type == "histogram":
-            
+
             # Generate the histograms.
             plot_histograms(\
                 dfs_chunk = dfs_chunk,
                 num_plots = num_plots,
                 dfs_names = dfs_names_chunks[num_output],
                 config = config)
-        
+
         #-------------------------------------------------------------#
-        
+
         # If we need to plot dual or overlapping histograms
         elif plot_type in ("histogram_bihist", "histogram_overlap"):
 
@@ -2066,24 +2134,24 @@ def generate_plots(dfs: list[pd.DataFrame],
                 categories = categories,
                 plot_type = plot_type,
                 config = config)
-        
+
         #-------------------------------------------------------------#
-        
+
         # If we need to plot a box plot or violin plot
         elif plot_type in ("boxplot", "violinplot"):
-            
+
             # If there is a second set of data frames
             if dfs_2_chunks:
-                
+
                 # Get the second set of data frames.
                 dfs_2_chunk = dfs_2_chunks[num_output]
 
             # Otherwise
             else:
-                
+
                 # Set it to None.
                 dfs_2_chunk = None
-            
+
             # Generate one box plot or violin plot per output.
             plot_box_violin(\
                 num_plots = num_plots,
@@ -2106,7 +2174,7 @@ def generate_plots(dfs: list[pd.DataFrame],
                 # Set the name of the output file.
                 output_file = \
                     output_prefix + f"{num_output+1}.{output_fmt}"
-            
+
             # Otherwise
             else:
 
@@ -2117,10 +2185,10 @@ def generate_plots(dfs: list[pd.DataFrame],
             # Save the plot in the output file.
             plt.savefig(fname = output_file,
                         **config.get("output", {}))
-        
+
         # Otherwise
         else:
-                
+
             # Show the plot.
             plt.show()
 
@@ -2135,9 +2203,9 @@ def plot_scatterplots(dfs_chunk: list[pd.DataFrame],
                       num_output: int,
                       columns: list[str],
                       colors: list[str],
-                      config: dict[str, object] = {},
+                      config: Optional[dict[str, object]] = None,
                       groups_column: Optional[str] = None,
-                      groups: dict[str, list[str]] = None,
+                      groups: Optional[list[str] | dict] = None,
                       plot_other_groups: Optional[bool] = None,
                       dfs_names: Optional[list[str]] = None) -> None:
     """Plot scatter plots.
@@ -2146,35 +2214,32 @@ def plot_scatterplots(dfs_chunk: list[pd.DataFrame],
     ----------
     dfs_chunk : :class:`list`
         A list of data frames.
-    
+
     num_plots : :class:`int`
         The number of plots that will be generated.
-    
+
     num_output : :class:`int`
         The number of the output file where the plots will be
         generated.
-    
+
     columns : :class:`list`
         A list of the names of the two columns containing the data that
         should be plotted on the x and y axes.
-    
+
     colors : :class:`list`
         A list of colors that will be used for the scatter plots.
 
     config : :class:`dict`, optional
         The configuration for the scatter plots.
-    
-    groups_column : :class:`str`, optional
-        The name of the column containing the names of different groups
-        of data points, if any are present.
 
-        It is needed if the user wants to plot data points belonging to
-        different groups with different colors.
-    
-    groups : :class:`dict`, optional
-        A dictionary containing the names of the groups of data points
-        that should be plotted for each scatter plot.
-    
+    groups_column : :class:`str`, optional
+        The name of the column containing the groups of the data
+        points, if any.
+
+    groups : :class:`list` or :class:`dict`, optional
+        The names of the groups of data points that should be plotted,
+        for all scatter plots (list) or for each scatter plot (dict).
+
     plot_other_groups : :class:`bool`, optional
         Whether data points not belonging to the groups of interest
         should also be plotted.
@@ -2183,21 +2248,24 @@ def plot_scatterplots(dfs_chunk: list[pd.DataFrame],
         A list of names for the data frames.
     """
 
-    # Create a copy of the original configuration.
-    config = copy.deepcopy(config)
+    # Create a copy of the original configuration, if any.
+    config = copy.deepcopy(config) if config is not None else {}
 
     #-----------------------------------------------------------------#
 
     # Set the figure and the sub-plots.
     fig, sub_plots = set_figure(num_plots = num_plots,
                                 config = config.get("figure", {}))
-    
+
     #-----------------------------------------------------------------#
 
     # Initialize the plot's number.
     plot_num = 0
 
-    #------------------------------------------------------------------#
+    # Keep the configuration shared by all plots.
+    config_base = config
+
+    #-----------------------------------------------------------------#
 
     # For each data frame
     for num_df, (df, sub_plot) in \
@@ -2210,7 +2278,7 @@ def plot_scatterplots(dfs_chunk: list[pd.DataFrame],
         #-------------------------------------------------------------#
 
         # Create a new copy of the configuration.
-        config = copy.deepcopy(config)
+        config = copy.deepcopy(config_base)
 
         #-------------------------------------------------------------#
 
@@ -2223,22 +2291,26 @@ def plot_scatterplots(dfs_chunk: list[pd.DataFrame],
         # Otherwise
         else:
 
-            # The name of the current plot will be just the plot's
-            # number.
+            # Use the plot's number as its name.
             plot_name = plot_num
-        
+
         #-------------------------------------------------------------#
 
         # If the user provided the names of selected groups
         if groups is not None:
-            
-            # If there are specific groups to be plotted for the
-            # current plot and the data frame is names
-            if plot_name in groups:
+
+            # If the groups are a list
+            if isinstance(groups, list):
+
+                # Use them for all plots.
+                plot_groups = groups
+
+            # If there are groups for the current plot's name
+            elif plot_name in groups:
 
                 # Get them using the plot's name.
                 plot_groups = groups[plot_name]
-            
+
             # Otherwise
             else:
 
@@ -2248,10 +2320,9 @@ def plot_scatterplots(dfs_chunk: list[pd.DataFrame],
         # Otherwise
         else:
 
-            # All groups will be treated the same for the current
-            # plot.
+            # Treat all groups the same.
             plot_groups = None
-        
+
         #-------------------------------------------------------------#
 
         # Get the names of the columns containing the values of the
@@ -2263,7 +2334,7 @@ def plot_scatterplots(dfs_chunk: list[pd.DataFrame],
         # If specific groups were defined
         if plot_groups is not None:
 
-            # Get the data points belonging to other groups,
+            # Get the data points belonging to other groups.
             df_2 = df[~df[groups_column].isin(plot_groups)]
 
             # Get the data points belonging to the groups of
@@ -2273,27 +2344,29 @@ def plot_scatterplots(dfs_chunk: list[pd.DataFrame],
         # Otherwise
         else:
 
-            # There will be no data points belonging to other
-            # groups.
+            # Set no data points for other groups.
             df_2 = None
 
         #-------------------------------------------------------------#
 
-        # If we have to color the data points belonging to the
-        # other groups differently
+        # If the data points of the other groups should be plotted
         if df_2 is not None and plot_other_groups:
 
-            # Plot them (we plot them fist so that the points of
-            # the groups of interest are plotted on top of them).
+            # Plot them first, below the groups of interest.
             sub_plot = sns.scatterplot(\
                     x = c1_col,
                     y = c2_col,
                     data = df_2,
                     ax = sub_plot,
                     legend = False,
-                    **config.get("other_groups", {}))
+                    **config.get("scatterplot_2", {}))
 
         #-------------------------------------------------------------#
+
+        # Get the scatter plot's options (the plot's color by default).
+        config_scatter = \
+            {"color" : colors[plot_num],
+             **config.get("scatterplot", {})}
 
         # Generate the scatter plot.
         sub_plot = sns.scatterplot(\
@@ -2302,8 +2375,7 @@ def plot_scatterplots(dfs_chunk: list[pd.DataFrame],
                 data = df,
                 ax = sub_plot,
                 legend = False,
-                color = colors[plot_num],
-                **config.get("scatterplot", {}))
+                **config_scatter)
 
         #-------------------------------------------------------------#
 
@@ -2338,7 +2410,7 @@ def plot_scatterplots(dfs_chunk: list[pd.DataFrame],
                             ticks = x_ticks)
 
         #-------------------------------------------------------------#
-        
+
         # Get the configuration for the y-axis.
         config_y_axis = config.get("yaxis", {})
 
@@ -2357,7 +2429,7 @@ def plot_scatterplots(dfs_chunk: list[pd.DataFrame],
 
         # Update the plot's number.
         plot_num += 1
-    
+
     #-----------------------------------------------------------------#
 
     # Set the extra sub-plots.
@@ -2369,7 +2441,7 @@ def plot_scatterplots(dfs_chunk: list[pd.DataFrame],
 
 def plot_histograms(dfs_chunk: list[pd.DataFrame],
                     num_plots: int,
-                    config: dict[str, object] = {},
+                    config: Optional[dict[str, object]] = None,
                     dfs_names: Optional[list[str]] = None) -> None:
     """Plot histograms.
 
@@ -2377,10 +2449,10 @@ def plot_histograms(dfs_chunk: list[pd.DataFrame],
     ----------
     dfs_chunk : :class:`list`
         A list of data frames.
-    
+
     num_plots : :class:`int`
         The number of plots to generate.
-    
+
     config : :class:`dict`, optional
         The configuration for the histograms.
 
@@ -2388,8 +2460,8 @@ def plot_histograms(dfs_chunk: list[pd.DataFrame],
         A list of names for the data frames.
     """
 
-    # Create a copy of the original configuration.
-    config = copy.deepcopy(config)
+    # Create a copy of the original configuration, if any.
+    config = copy.deepcopy(config) if config is not None else {}
 
     #-----------------------------------------------------------------#
 
@@ -2401,6 +2473,9 @@ def plot_histograms(dfs_chunk: list[pd.DataFrame],
 
     # Get whether the histograms are to be plotted as densities.
     plot_density = config.get("histogram", {}).pop("density", False)
+
+    # Keep the configuration shared by all plots.
+    config_base = config
 
     #-----------------------------------------------------------------#
 
@@ -2415,7 +2490,7 @@ def plot_histograms(dfs_chunk: list[pd.DataFrame],
         #-------------------------------------------------------------#
 
         # Create a new copy of the configuration.
-        config = copy.deepcopy(config)
+        config = copy.deepcopy(config_base)
 
         # Get the configuration for the histogram.
         config_hist = config.get("histogram", {})
@@ -2430,7 +2505,7 @@ def plot_histograms(dfs_chunk: list[pd.DataFrame],
 
             # If the title is not None
             if title is not None:
-            
+
                 # Set the title.
                 sub_plot = set_title(title = title,
                                      sub_plot = sub_plot,
@@ -2440,15 +2515,15 @@ def plot_histograms(dfs_chunk: list[pd.DataFrame],
 
         # Take all values.
         x = df.values.flatten()
-        
+
         #-------------------------------------------------------------#
-        
+
         # Remove NaN values from the data.
         x = x[~np.isnan(x)]
 
         #-------------------------------------------------------------#
 
-        # Get the minium value found in the data.
+        # Get the minimum value found in the data.
         min_val = min(x)
 
         # Get the maximum value found in the data.
@@ -2456,24 +2531,28 @@ def plot_histograms(dfs_chunk: list[pd.DataFrame],
 
         #-------------------------------------------------------------#
 
+        # Get the number of bins, if passed.
+        num_bins = config_hist.pop("num_bins", None)
+
+        # Get the width of the bins.
+        bin_width = config_hist.pop("width", 0.25)
+
         # If the user passed the number of bins
-        if "num_bins" in config_hist:
-                
-            # Get the number of bins.
-            num_bins = config_hist.pop("num_bins")
+        if num_bins is not None:
 
             # Get the bins.
-            bins = np.linspace(min_val, max_val, num_bins + 1)
-        
+            bins = np.linspace(min_val,
+                               max_val,
+                               num_bins + 1)
+
         # Otherwise
         else:
 
-            # Get the width of the bins.
-            bin_width = config_hist.get("width", 0.25)
-
             # Get the bins.
-            bins = np.arange(min_val, max_val + bin_width, bin_width)
-        
+            bins = np.arange(min_val,
+                             max_val + bin_width,
+                             bin_width)
+
         #-------------------------------------------------------------#
 
         # Generate the histogram.
@@ -2492,10 +2571,10 @@ def plot_histograms(dfs_chunk: list[pd.DataFrame],
 
         # If the histograms are to be plotted as densities
         if plot_density:
-            
+
             # Set the height of the bars for the histogram.
             height = counts / (np.sum(counts) * bins_width)
-        
+
         # Otherwise
         else:
 
@@ -2514,7 +2593,7 @@ def plot_histograms(dfs_chunk: list[pd.DataFrame],
 
         # Get the configuration of the y-axis.
         config_y_axis = config.get("yaxis", {})
-        
+
         # Get the positions of the ticks on the y-axis.
         y_ticks = get_ticks_positions(values = height,
                                       item = "y-axis",
@@ -2525,21 +2604,21 @@ def plot_histograms(dfs_chunk: list[pd.DataFrame],
         # If there is a configuration for the colorbar
         if "colorbar" in config:
 
-            # Get the color map to be used for the first histogram.
+            # Get the color map to be used for the histogram.
             cmap = \
                 plt.get_cmap(config["colorbar"].get(\
                     "cmap", "summer_r"))
 
-            # Normalize the densities to the range [0, 1].
+            # Normalize the heights to the range [0, 1].
             norm = mcolors.Normalize(vmin = y_ticks.min(),
                                      vmax = y_ticks.max())
-            
+
             # Get the color to be used for the histogram.
             color = cmap(norm(height))
-        
+
         # Otherwise
         else:
-            
+
             # Get the color to be used for the histogram.
             color = config_hist.pop("color", None)
 
@@ -2566,7 +2645,7 @@ def plot_histograms(dfs_chunk: list[pd.DataFrame],
                             axis = "x",
                             config = config_x_axis,
                             ticks = x_ticks)
-                        
+
         # Set the y-axis.
         sub_plot = set_axis(sub_plot = sub_plot,
                             axis = "y",
@@ -2584,7 +2663,7 @@ def plot_histograms(dfs_chunk: list[pd.DataFrame],
             # Create a 'ScalarMappable' object to use for the colorbar.
             sm = ScalarMappable(cmap = cmap,
                                 norm = norm)
-            
+
             # Set a dummy array for the colorbar to work.
             sm.set_array([])
 
@@ -2603,7 +2682,7 @@ def plot_histograms(dfs_chunk: list[pd.DataFrame],
             cbar = fig.colorbar(sm,
                                 cax = cbar_sub_plot,
                                 **config_cbar.get("options", {}))
-            
+
             #---------------------------------------------------------#
 
             # Get user-defined ticks, if provided.
@@ -2611,7 +2690,7 @@ def plot_histograms(dfs_chunk: list[pd.DataFrame],
 
             # If no user-defined ticks were provided
             if cbar_ticks is None:
-            
+
                 # Get the positions of the ticks on the colorbar's axis.
                 cbar_ticks = get_ticks_positions(values = y_ticks,
                                                  item = "cbar",
@@ -2644,13 +2723,12 @@ def plot_histograms(dfs_chunk: list[pd.DataFrame],
                        y_ticks = y_ticks)
 
 
-
 def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
                          dfs_2_chunk: list[pd.DataFrame],
                          plot_type: str,
                          num_plots: int,
                          categories: list[str],
-                         config: dict[str, object] = {},
+                         config: Optional[dict[str, object]] = None,
                          dfs_names: Optional[list[str]] = None) \
                             -> None:
     """Plot dual histograms.
@@ -2659,21 +2737,21 @@ def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
     ----------
     dfs_chunk : :class:`list`
         A list of data frames.
-    
+
     dfs_2_chunk : :class:`list`
         A list of data frames paired with the data frames in
         ``dfs_chunk``.
 
     plot_type : :class:`str`
         The type of plot to generate.
-    
+
     num_plots : :class:`int`
         The number of plots to generate.
-    
+
     categories : :class:`list`
         A list of names for the categories of data points represented
         by the two lists of data frames.
-    
+
     config : :class:`dict`, optional
         The configuration for the histograms.
 
@@ -2681,8 +2759,8 @@ def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
         A list of names for the data frames.
     """
 
-    # Create a copy of the original configuration.
-    config = copy.deepcopy(config)
+    # Create a copy of the original configuration, if any.
+    config = copy.deepcopy(config) if config is not None else {}
 
     #-----------------------------------------------------------------#
 
@@ -2698,10 +2776,17 @@ def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
     #-----------------------------------------------------------------#
 
     # If the user passed the number of bins for the second histogram
-    if "bins" in config.get("histogram_2", {}):
+    if "num_bins" in config.get("histogram_2", {}):
 
         # Remove the key from the configuration.
-        config["histogram_2"].pop("bins")
+        config["histogram_2"].pop("num_bins")
+
+    # If the user passed the width of the bins for the second
+    # histogram
+    if "width" in config.get("histogram_2", {}):
+
+        # Remove the key from the configuration.
+        config["histogram_2"].pop("width")
 
     # If the user passed the 'density' option for the second
     # histogram
@@ -2718,6 +2803,9 @@ def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
     # Get the color to be used for the second histogram.
     color_2 = config.get("histogram_2", {}).pop("color", color_1)
 
+    # Keep the configuration shared by all plots.
+    config_base = config
+
     #-----------------------------------------------------------------#
 
     # For each data frame
@@ -2732,7 +2820,7 @@ def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
         #-------------------------------------------------------------#
 
         # Create a new copy of the configuration.
-        config = copy.deepcopy(config)
+        config = copy.deepcopy(config_base)
 
         #-------------------------------------------------------------#
 
@@ -2752,7 +2840,7 @@ def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
 
             # If the title is not None
             if title is not None:
-            
+
                 # Set the title.
                 sub_plot = set_title(title = title,
                                      sub_plot = sub_plot,
@@ -2776,7 +2864,7 @@ def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
 
         #-------------------------------------------------------------#
 
-        # Get the minium value found in the data.
+        # Get the minimum value found in the data.
         min_val = min(x_1.min(), x_2.min())
 
         # Get the maximum value found in the data.
@@ -2784,23 +2872,27 @@ def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
 
         #-------------------------------------------------------------#
 
+        # Get the number of bins, if passed.
+        num_bins = config_hist.pop("num_bins", None)
+
+        # Get the width of each bin.
+        bin_width = config_hist.pop("width", 0.25)
+
         # If the user passed the number of bins
-        if "num_bins" in config_hist:
-                
-            # Get the number of bins.
-            num_bins = config_hist.pop("num_bins")
+        if num_bins is not None:
 
             # Get the bins.
-            bins = np.linspace(min_val, max_val, num_bins + 1)
-        
+            bins = np.linspace(min_val,
+                               max_val,
+                               num_bins + 1)
+
         # Otherwise
         else:
 
-            # Get the width of each bin.
-            bin_width = config_hist.get("width", 0.25)
-
             # Get the bins.
-            bins = np.arange(min_val, max_val + bin_width, bin_width)
+            bins = np.arange(min_val,
+                             max_val + bin_width,
+                             bin_width)
 
         #-------------------------------------------------------------#
 
@@ -2813,11 +2905,14 @@ def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
         counts_2, _ = np.histogram(x_2,
                                    bins = bins,
                                    weights = None)
-    
+
         #-------------------------------------------------------------#
 
         # Get the width of the bins.
         bins_width = np.diff(bins_edges)
+
+        # Get the bins' centers.
+        bins_centers = (bins_edges[:-1] + bins_edges[1:]) / 2
 
         #-------------------------------------------------------------#
 
@@ -2833,9 +2928,6 @@ def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
             # Get the negative of the density for the second set of
             # data.
             density_2_negated = - density_2
-            
-            # Get the bins of the first histogram.
-            bins_centers = (bins_edges[:-1] + bins_edges[1:]) / 2
 
         #-------------------------------------------------------------#
 
@@ -2845,13 +2937,13 @@ def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
 
             # If the histograms are to be plotted as densities
             if plot_density:
-            
+
                 # Set the height of the bars for the first histogram.
                 height_1 = density_1
 
                 # Set the height of the bars for the second histogram.
                 height_2 = density_2_negated
-            
+
             # Otherwise
             else:
 
@@ -2860,22 +2952,22 @@ def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
 
                 # Set the height of the bars for the second histogram.
                 height_2 = - counts_2
-        
+
         #-------------------------------------------------------------#
-        
+
         # If the histograms are to be plotted on the same side of a
-        # shared x-axis 
+        # shared x-axis
         elif plot_type == "histogram_overlap":
 
             # If the histograms are to be plotted as densities
             if plot_density:
-                
+
                 # Set the height of the bars for the first histogram.
                 height_1 = density_1
 
                 # Set the height of the bars for the second histogram.
                 height_2 = density_2
-            
+
             # Otherwise
             else:
 
@@ -2884,13 +2976,13 @@ def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
 
                 # Set the height of the bars for the second histogram.
                 height_2 = counts_2
-        
+
         #-------------------------------------------------------------#
 
-        # Get the minim height.
+        # Get the minimum height.
         min_height = min(np.min(height_1), np.min(height_2))
 
-        # Get the maxim height.
+        # Get the maximum height.
         max_height = max(np.max(height_1), np.max(height_2))
 
         # Get the range of heights.
@@ -2909,11 +3001,11 @@ def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
         # Generate the second histogram.
         sub_plot.bar(x = bins_centers,
                      height = height_2,
-                     width = bins_width, 
+                     width = bins_width,
                      align = "center",
                      color = color_2,
                      **config_hist_2)
-            
+
         #-------------------------------------------------------------#
 
         # Hide the top and right spine.
@@ -2945,19 +3037,19 @@ def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
         y_ticks = get_ticks_positions(values = range_heights,
                                       item = "y-axis",
                                       config = config_y_axis)
-        
+
         # If the histogram is a bi-histogram
         if plot_type == "histogram_bihist":
-            
-            # The labels of the ticks will be the absolute values.
+
+            # Use the absolute values as the ticks' labels.
             abs_values = True
-        
-        # Otherwise
+
+        # If the histograms overlap
         elif plot_type == "histogram_overlap":
 
-            # The labels of the ticks will be the values.
+            # Use the values as the ticks' labels.
             abs_values = False
-                        
+
         # Set the y-axis.
         sub_plot = set_axis(sub_plot = sub_plot,
                             axis = "y",
@@ -3005,36 +3097,32 @@ def plot_box_violin(plot_type: str,
                     num_plots: int,
                     num_output: int,
                     categories: list[str],
-                    config: dict[str, object] = {},
+                    config: Optional[dict[str, object]] = None,
                     dfs_names: Optional[list[str]] = None) -> None:
     """Plot distributions as box or violin plots.
 
     Parameters
     ----------
-    plot_type : :class:`str`
-        The type of plot to generate. It can be either 'boxplot' or
-        'violinplot'.
+    plot_type : :class:`str`, {``"boxplot"``, ``"violinplot"``}
+        The type of plot to generate.
 
     dfs_chunk : :class:`list`
         A list of data frames.
-    
-    dfs_2_chunk : :class:`list`
+
+    dfs_2_chunk : :class:`list` or :obj:`None`
         A list of data frames paired with the data frames in
         ``dfs_chunk``.
 
-    plot_type : :class:`str`
-        The type of plot to generate.
-
     num_plots : :class:`int`
         The number of plots to generate.
-    
+
     num_output : :class:`int`
         The number of the output being generated.
-    
+
     categories : :class:`list`
         A list of names for the categories of data points represented
         by the two lists of data frames.
-    
+
     config : :class:`dict`, optional
         The configuration for the plot.
 
@@ -3042,10 +3130,10 @@ def plot_box_violin(plot_type: str,
         A list of names for the data frames.
     """
 
-    # Create a copy of the original configuration.
-    config = copy.deepcopy(config)
+    # Create a copy of the original configuration, if any.
+    config = copy.deepcopy(config) if config is not None else {}
 
-    # Track whether this is a paired plot.
+    # Get whether the data is paired.
     paired = dfs_2_chunk is not None
 
     #-----------------------------------------------------------------#
@@ -3060,7 +3148,7 @@ def plot_box_violin(plot_type: str,
 
         # Get the function to be used for plotting.
         plot_func = sns.boxplot
-    
+
     # If the plot type is a violin plot
     elif plot_type == "violinplot":
 
@@ -3070,9 +3158,9 @@ def plot_box_violin(plot_type: str,
         # If the data is paired
         if paired:
 
-            # Add the 'split' parameter to the configuration.
+            # Add the 'split' option to the configuration.
             config_plot["split"] = True
-    
+
     # Otherwise
     else:
 
@@ -3096,7 +3184,7 @@ def plot_box_violin(plot_type: str,
 
     # Initialize an empty list to store the x values.
     x = []
-    
+
     # Initialize an empty list to store the y values.
     y = []
 
@@ -3116,7 +3204,7 @@ def plot_box_violin(plot_type: str,
 
         # Get the name of the current data frame.
         name = \
-            dfs_names[(num_output * num_plots) + i] \
+            dfs_names[i] \
             if dfs_names is not None else i
 
         # Add the names to the list.
@@ -3145,18 +3233,18 @@ def plot_box_violin(plot_type: str,
             # Add the hue values for the second data frame to the list.
             hue.extend([categories[1]] * len(values_2))
 
-            # The data is paired.
+            # Mark the data as paired.
             paired = True
-        
+
         # Otherwise
         else:
-            
+
             # Add the hue values for the only data frame to the list.
             hue.extend([name] * len(values_1))
 
-            # The data is not paired.
+            # Mark the data as not paired.
             paired = False
-            
+
     #-----------------------------------------------------------------#
 
     # Create a data frame.
@@ -3170,10 +3258,10 @@ def plot_box_violin(plot_type: str,
 
         # Set the column name for the hue values.
         hue = "hue"
-    
+
     # Otherwise
     else:
-        
+
         # Set the hue to None.
         hue = None
 
@@ -3193,28 +3281,24 @@ def plot_box_violin(plot_type: str,
     for spine in ["top", "right"]:
         sub_plot.spines[spine].set_visible(False)
 
-    #-------------------------------------------------------------#
+    #-----------------------------------------------------------------#
 
     # Get the configuration of the x-axis.
     config_x_axis = config.get("xaxis", {})
-    
-    # Get the positions of the ticks on the x-axis.
-    x_ticks = get_ticks_positions(values = sub_plot.get_xticks(),
-                                  item = "x-axis",
-                                  config = config_x_axis)
 
-    # Set the x-axis.
+    # Set the x-axis (one tick per category).
     sub_plot = set_axis(sub_plot = sub_plot,
                         axis = "x",
                         config = config_x_axis,
-                        ticks = x_ticks,
-                        tick_labels = sub_plot.get_xticklabels())
+                        ticks = sub_plot.get_xticks(),
+                        tick_labels = sub_plot.get_xticklabels(),
+                        categorical = True)
 
-    #-------------------------------------------------------------#
+    #-----------------------------------------------------------------#
 
     # Get the configuration of the y-axis.
     config_y_axis = config.get("yaxis", {})
-    
+
     # Get the positions of the ticks on the y-axis.
     y_ticks = get_ticks_positions(values = sub_plot.get_yticks(),
                                   item = "y-axis",
@@ -3243,7 +3327,7 @@ def plot_box_violin(plot_type: str,
     # If a configuration for the line was provided
     if config_hline:
 
-        # Plot the vertical line.
+        # Plot the horizontal line.
         sub_plot.axhline(**config_hline)
 
 
@@ -3253,27 +3337,30 @@ def plot_lineplot(data: np.ndarray,
                   hue: str,
                   sub_plot: Optional[matplotlib.axes.Axes] = None,
                   ax: Optional[matplotlib.axes.Axes] = None,
-                  config: dict[str, object] = {}) -> \
+                  config: Optional[dict[str, object]] = None) -> \
                     matplotlib.axes.Axes:
     """Plot a line plot.
 
     Parameters
     ----------
-    data : :class:`numpy.ndarray`
+    data : :class:`pandas.DataFrame`
         The data to be plotted.
-    
+
     x : :class:`str`
         The name of the column containing the x-values.
-    
+
     y : :class:`str`
         The name of the column containing the y-values.
-    
+
     hue : :class:`str`
         The name of the column containing the hue values.
 
-    sub_plot : :class:`matplotlib.axes.Axes`
+    sub_plot : :class:`matplotlib.axes.Axes`, optional
         The sub-plot where the line plot will be drawn.
-    
+
+    ax : :class:`matplotlib.axes.Axes`, optional
+        An alias for ``sub_plot``.
+
     config : :class:`dict`, optional
         The configuration for the line plot.
 
@@ -3283,16 +3370,20 @@ def plot_lineplot(data: np.ndarray,
         The sub-plot.
     """
 
-    # Allow the caller to pass either 'sub_plot' or Matplotlib's
-    # conventional 'ax' argument.
+    # If no sub-plot was passed
     if sub_plot is None:
+
+        # Use the 'ax' argument.
         sub_plot = ax
 
+    # If there is still no sub-plot
     if sub_plot is None:
+
+        # Raise an error.
         raise ValueError("A valid subplot axis must be provided.")
 
-    # Create a copy of the original configuration.
-    config = copy.deepcopy(config)
+    # Create a copy of the original configuration, if any.
+    config = copy.deepcopy(config) if config is not None else {}
 
     #-----------------------------------------------------------------#
 
@@ -3318,14 +3409,13 @@ def plot_lineplot(data: np.ndarray,
         # Get the maximum length of a title.
         max_length = config_title.pop("max_length", 20)
 
-        # Split the title into pieces of at most 10 characters.
-        # The pieces are separated by newline characters.
+        # Split the title into lines of at most 'max_length'
+        # characters.
         title_fmt = \
             split_text_by_length(text = title,
                                  max_length = max_length)
-         
-        # Set the current plot's title based on the
-        # data frame that is being plotted.
+
+        # Set the sub-plot's title.
         sub_plot.set_title(label = title_fmt,
                            **config.get("title", {}))
 
@@ -3339,7 +3429,7 @@ def plot_lineplot(data: np.ndarray,
 
     # Get the configuration of the x-axis.
     config_x_axis = config.get("xaxis", {})
-    
+
     # Get the positions of the ticks on the x-axis.
     x_ticks = get_ticks_positions(values = data[x].values,
                                   item = "x-axis",
@@ -3355,7 +3445,7 @@ def plot_lineplot(data: np.ndarray,
 
     # Get the configuration of the y-axis.
     config_y_axis = config.get("yaxis", {})
-    
+
     # Get the positions of the ticks on the y-axis.
     y_ticks = get_ticks_positions(values = data[y].values,
                                   item = "y-axis",
@@ -3388,34 +3478,34 @@ def plot_enrichplot(data: np.ndarray,
                     y_2: str,
                     y_3: str,
                     hue: str,
-                    config: dict[str, object] = {}) -> np.ndarray:
-    """Generate a plot with a bar plot, a violin plot, and a strip
-    plot to show the enrichment scores obtained from a differential
-    gene expression analysis.
+                    config: Optional[dict[str, object]] = None) -> \
+                        np.ndarray:
+    """Plot the enrichment scores as a bar plot, a violin plot, and
+    a strip plot.
 
     Parameters
     ----------
-    data : :class:`numpy.ndarray`
+    data : :class:`pandas.DataFrame`
         The data to be plotted.
-    
+
     x : :class:`str`
         The name of the column containing the x-values.
-    
+
     y_1 : :class:`str`
         The name of the column containing the y-values for the bar
         plot.
-    
+
     y_2 : :class:`str`
         The name of the column containing the y-values for the
         violin plot.
-    
+
     y_3 : :class:`str`
         The name of the column containing the y-values for the
         strip plot.
-    
+
     hue : :class:`str`
         The name of the column containing the hue values.
-    
+
     config : :class:`dict`, optional
         The configuration for the plot.
 
@@ -3425,8 +3515,8 @@ def plot_enrichplot(data: np.ndarray,
         The sub-plots.
     """
 
-    # Create a copy of the original configuration.
-    config = copy.deepcopy(config)
+    # Create a copy of the original configuration, if any.
+    config = copy.deepcopy(config) if config is not None else {}
 
     #-----------------------------------------------------------------#
 
@@ -3439,7 +3529,7 @@ def plot_enrichplot(data: np.ndarray,
                      ncols = 1,
                      sharex = True,
                      figsize = config_figure.get("sizeinches", None))
-    
+
     # If a configuration for the sub-plots is provided
     if "subplots" in config_figure:
 
@@ -3448,7 +3538,7 @@ def plot_enrichplot(data: np.ndarray,
 
     #-----------------------------------------------------------------#
 
-    # If a palette to be used for all three plots is provided
+    # If a palette for all three plots is provided
     if "general_palette" in config:
 
         # For each plot-specific section
@@ -3459,18 +3549,18 @@ def plot_enrichplot(data: np.ndarray,
 
                 # Add the section to the configuration.
                 config[section] = {}
-            
+
             # If there is no palette in the configuration for the
             # section
             if "palette" not in config[section]:
 
                 # Add the palette to the configuration.
                 config[section]["palette"] = config["general_palette"]
-            
+
             # Otherwise
             else:
 
-                # Warn the user that the specific palette will be
+                # Warn the user that the section's palette will be
                 # used.
                 warnstr = \
                     f"The 'palette' option in the '{section}' " \
@@ -3489,10 +3579,10 @@ def plot_enrichplot(data: np.ndarray,
                     "section will be used instead of the " \
                     "'general_palette' option."
                 logger.warning(warnstr)
-                
+
                 # Remove the 'color' option from the section.
                 config[section].pop("color")
-            
+
             # If there is no 'facecolor' in the section and a 'color'
             # is present
             elif ("facecolor" not in config[section] \
@@ -3504,7 +3594,7 @@ def plot_enrichplot(data: np.ndarray,
                     "section will be used instead of the " \
                     "'general_palette' option."
                 logger.warning(warnstr)
-            
+
             # If there is no 'color' in the section and a 'facecolor'
             # is present
             elif ("facecolor" in config[section] \
@@ -3526,18 +3616,20 @@ def plot_enrichplot(data: np.ndarray,
                 hue = hue,
                 ax = sub_plot_1,
                 **config.get("barplot", {}))
-    
+
     #-----------------------------------------------------------------#
+
+    # Get the configuration for the violin plot (no inner by default).
+    config_violin = {"inner" : None, **config.get("violinplot", {})}
 
     # Generate the violin plot for the significant genes.
     sns.violinplot(data = data,
                    x = x,
                    y = y_2,
                    ax = sub_plot_2,
-                   inner = None,
                    hue = hue,
-                   **config.get("violinplot", {}))
-    
+                   **config_violin)
+
     #-----------------------------------------------------------------#
 
     # Generate the strip plot for the enrichment scores.
@@ -3562,14 +3654,13 @@ def plot_enrichplot(data: np.ndarray,
         # Get the maximum length of a title.
         max_length = config_title.pop("max_length", 20)
 
-        # Split the title into pieces of at most 10 characters.
-        # The pieces are separated by newline characters.
+        # Split the title into lines of at most 'max_length'
+        # characters.
         title_fmt = \
             split_text_by_length(text = title,
                                  max_length = max_length)
-         
-        # Set the current plot's title based on the
-        # data frame that is being plotted.
+
+        # Set the figure's title.
         fig.suptitle(label = title_fmt,
                      **config.get("title", {}))
 
@@ -3587,17 +3678,14 @@ def plot_enrichplot(data: np.ndarray,
 
     # Get the configuration of the x-axis.
     config_x_axis = config.get("xaxis", {})
-    
-    # Get the positions of the ticks on the x-axis.
-    x_ticks = get_ticks_positions(values = sub_plot_3.get_xticks(),
-                                  item = "x-axis",
-                                  config = config_x_axis)
 
-    # Set the x-axis.
+    # Set the x-axis (one tick per category).
     sub_plot_3 = set_axis(sub_plot = sub_plot_3,
                           axis = "x",
                           config = config_x_axis,
-                          ticks = x_ticks)
+                          ticks = sub_plot_3.get_xticks(),
+                          tick_labels = sub_plot_3.get_xticklabels(),
+                          categorical = True)
 
     #-----------------------------------------------------------------#
 
@@ -3608,9 +3696,19 @@ def plot_enrichplot(data: np.ndarray,
             [y_1, y_2, y_3],
             ["barplot", "violinplot", "stripplot"]):
 
-        # Get the configuration of the y-axis.
-        config_y_axis = config.get(f"yaxis_{name}", {})
-        
+        # Hide the top and right spine.
+        for spine in ["top", "right"]:
+            sub_plot.spines[spine].set_visible(False)
+
+        #-------------------------------------------------------------#
+
+        # Get the configuration of the y-axis (the plot's options
+        # override the general ones).
+        config_y_axis = \
+            _internals.recursive_merge_dicts(\
+                config.get("yaxis", {}),
+                config.get(f"yaxis_{name}", {}))
+
         # Get the positions of the ticks on the y-axis.
         y_ticks = get_ticks_positions(values = data[y].values,
                                       item = "y-axis",
@@ -3621,3 +3719,23 @@ def plot_enrichplot(data: np.ndarray,
                  axis = "y",
                  config = config_y_axis,
                  ticks = y_ticks)
+
+        #-------------------------------------------------------------#
+
+        # Get the configuration for the horizontal line to be drawn
+        # (the plot's options override the general ones).
+        config_hline = \
+            _internals.recursive_merge_dicts(\
+                config.get("hline", {}),
+                config.get(f"hline_{name}", {}))
+
+        # If a configuration for the line was provided
+        if config_hline:
+
+            # Plot the horizontal line.
+            sub_plot.axhline(**config_hline)
+
+    #-----------------------------------------------------------------#
+
+    # Return the sub-plots.
+    return np.array([sub_plot_1, sub_plot_2, sub_plot_3])

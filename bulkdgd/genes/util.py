@@ -5,7 +5,7 @@
 #
 #    Utilities to generate customized lists of genes.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -42,7 +42,7 @@ from typing import Optional
 import pandas as pd
 import requests as rq
 
-# Import from 'bulkDGD'.
+# Import from 'bulkdgd'.
 from . import defaults
 
 
@@ -125,7 +125,7 @@ def get_genes_attributes(
         raise rq.exceptions.RequestException(data)
 
     #-----------------------------------------------------------------#
-            
+
     # Convert the data into a data frame.
     df = pd.read_table(StringIO(data),
                        sep = ",",

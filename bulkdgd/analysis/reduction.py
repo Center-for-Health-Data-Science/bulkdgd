@@ -5,7 +5,7 @@
 #
 #    Utilities to perform dimensionality reduction.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -89,13 +89,13 @@ def _perform_dim_red(df: pd.DataFrame,
 
     Parameters
     ----------
-    df_rep : :class:`pandas.DataFrame`
-        A data frame containing the representations.
+    df : :class:`pandas.DataFrame`
+        A data frame containing the data points.
 
     mod_fitted : :obj:`sklearn` model
         An already-fitted model on which to project the new data
         points.
-    
+
     mod_class : :obj:`sklearn` model class
         The class of the model that needs to be built.
 
@@ -121,13 +121,13 @@ def _perform_dim_red(df: pd.DataFrame,
     output_columns_prefix : :class:`str`
         A string representing the prefix used for the columns of
         the output data frame.
-    
+
     replace_nan : :obj:`int` or :obj:`float`, optional
         A value to replace NaNs with.
-    
+
     replace_inf : :obj:`int` or :obj:`float`, optional
         A value to replace positive infinities with.
-    
+
     replace_ninf : :obj:`int` or :obj:`float`, optional
         A value to replace negative infinities with.
 
@@ -142,7 +142,7 @@ def _perform_dim_red(df: pd.DataFrame,
     """
 
     # Create a copy of the options.
-    mod_options = dict(mod_options)
+    mod_options = dict(mod_options) if mod_options is not None else {}
 
     #-----------------------------------------------------------------#
 
@@ -152,13 +152,13 @@ def _perform_dim_red(df: pd.DataFrame,
         # Get the number of components.
         num_comp = mod_options["n_components"]
 
-        # If the number of components is lower than the number of
+        # If the number of components is higher than the number of
         # samples
         if num_comp > len(df):
 
             # Raise an error.
             errstr = \
-                "The number of components must be higher than or " \
+                "The number of components must be lower than or " \
                 "equal to the number of samples."
             raise ValueError(errstr)
 
@@ -170,7 +170,7 @@ def _perform_dim_red(df: pd.DataFrame,
 
         # Replace the positive infinities.
         df = df.replace([np.inf], replace_inf)
-    
+
     #-----------------------------------------------------------------#
 
     # If the user specified a number to replace negative infinities
@@ -190,8 +190,14 @@ def _perform_dim_red(df: pd.DataFrame,
 
     #-----------------------------------------------------------------#
 
+    # If no input columns were passed
+    if input_columns is None:
+
+        # Use all columns.
+        input_columns = df.columns.tolist()
+
     # If the input columns are defined by a string
-    if isinstance(input_columns, str):
+    elif isinstance(input_columns, str):
 
         # Get all columns in the data frame whose name matches the
         # string.
@@ -222,13 +228,17 @@ def _perform_dim_red(df: pd.DataFrame,
         # Set up the model.
         mod = mod_class(**mod_options)
 
-        # Fit the model.
-        mod.fit(data_values)
+        # Fit the model and apply the dimensionality reduction.
+        projected = mod.fit_transform(data_values)
 
-    #-----------------------------------------------------------------#
-    
-    # Fit the model and apply the dimensionality reduction.
-    projected = mod.fit_transform(data_values)
+    # Otherwise
+    else:
+
+        # Use the fitted model.
+        mod = mod_fitted
+
+        # Apply the dimensionality reduction.
+        projected = mod.transform(data_values)
 
     #-----------------------------------------------------------------#
 
@@ -247,12 +257,12 @@ def _perform_dim_red(df: pd.DataFrame,
 
     #-----------------------------------------------------------------#
 
-    # If we need to add the extra columns
+    # If the unused columns are to be kept
     if keep_unused_columns:
 
         # Add the extra columns.
         df_projected = pd.concat([df_projected, df_extra],
-                                  axis = 1)
+                                 axis = 1)
 
     #-----------------------------------------------------------------#
 
@@ -260,7 +270,7 @@ def _perform_dim_red(df: pd.DataFrame,
     return df_projected, mod
 
 
-########################## PUBLIC FUNCTIONS ########################### 
+########################## PUBLIC FUNCTIONS ###########################
 
 
 def perform_pca(df: pd.DataFrame,
@@ -289,7 +299,7 @@ def perform_pca(df: pd.DataFrame,
 
     fitted_model : :class:`sklearn.decomposition.PCA`, optional
         An already fitted model onto which the data points
-        should be projected. 
+        should be projected.
 
     options : :class:`dict`, optional
         A dictionary containing the options used when performing
@@ -315,10 +325,10 @@ def perform_pca(df: pd.DataFrame,
 
     replace_nan : :obj:`int` or :obj:`float`, optional
         A value to replace NaNs with.
-    
+
     replace_inf : :obj:`int` or :obj:`float`, optional
         A value to replace positive infinities with.
-    
+
     replace_ninf : :obj:`int` or :obj:`float`, optional
         A value to replace negative infinities with.
 
@@ -351,7 +361,7 @@ def perform_pca(df: pd.DataFrame,
 
 def perform_kpca(df: pd.DataFrame,
                  fitted_model: \
-                          Optional[decomposition.KernelPCA] = None,
+                    Optional[decomposition.KernelPCA] = None,
                  options: Optional[dict[str, object]] = None,
                  input_columns: Optional[str | list[str]] = None,
                  keep_unused_columns: bool = True,
@@ -360,7 +370,7 @@ def perform_kpca(df: pd.DataFrame,
                  replace_inf: Optional[int | float] = None,
                  replace_ninf: Optional[int | float] = None) -> \
                     tuple[pd.DataFrame,
-                                  decomposition.KernelPCA]:
+                          decomposition.KernelPCA]:
     """Perform a kernel principal component analysis (KPCA) on a set of
     data points.
 
@@ -375,12 +385,12 @@ def perform_kpca(df: pd.DataFrame,
 
     fitted_model : :class:`sklearn.decomposition.KernelPCA`, optional
         An already fitted model onto which the data points
-        should be projected. 
+        should be projected.
 
     options : :class:`dict`, optional
         A dictionary containing the options used when performing
         the analysis.
-        
+
         The available options are those that can be used to initialize
         a :class:`sklearn.decomposition.KernelPCA` instance.
 
@@ -401,10 +411,10 @@ def perform_kpca(df: pd.DataFrame,
 
     replace_nan : :obj:`int` or :obj:`float`, optional
         A value to replace NaNs with.
-    
+
     replace_inf : :obj:`int` or :obj:`float`, optional
         A value to replace positive infinities with.
-    
+
     replace_ninf : :obj:`int` or :obj:`float`, optional
         A value to replace negative infinities with.
 
@@ -417,7 +427,7 @@ def perform_kpca(df: pd.DataFrame,
         will contain the values of each data point's projection along
         the dimensions of the projection space.
 
-    pca : :class:`sklearn.decomposition.KernelPCA`
+    kpca : :class:`sklearn.decomposition.KernelPCA`
         The fitted model.
     """
 
@@ -459,7 +469,7 @@ def perform_mds(df: pd.DataFrame,
 
     fitted_model : :class:`sklearn.manifold.MDS`, optional
         An already fitted model onto which the data points
-        should be projected. 
+        should be projected.
 
     options : :class:`dict`, optional
         A dictionary containing the options used when performing
@@ -485,10 +495,10 @@ def perform_mds(df: pd.DataFrame,
 
     replace_nan : :obj:`int` or :obj:`float`, optional
         A value to replace NaNs with.
-    
+
     replace_inf : :obj:`int` or :obj:`float`, optional
         A value to replace positive infinities with.
-    
+
     replace_ninf : :obj:`int` or :obj:`float`, optional
         A value to replace negative infinities with.
 
@@ -520,7 +530,7 @@ def perform_mds(df: pd.DataFrame,
 
 
 def perform_tsne(df: pd.DataFrame,
-                      fitted_model: Optional[manifold.TSNE] = None,
+                 fitted_model: Optional[manifold.TSNE] = None,
                  options: Optional[dict[str, object]] = None,
                  input_columns: Optional[str | list[str]] = None,
                  keep_unused_columns: bool = True,
@@ -528,7 +538,7 @@ def perform_tsne(df: pd.DataFrame,
                  replace_nan: Optional[int | float] = None,
                  replace_inf: Optional[int | float] = None,
                  replace_ninf: Optional[int | float] = None) -> \
-                          tuple[pd.DataFrame, manifold.TSNE]:
+                    tuple[pd.DataFrame, manifold.TSNE]:
     """Perform a t-distributed stochastic neighbor embedding (t-SNE) on
     a set of data points.
 
@@ -543,7 +553,7 @@ def perform_tsne(df: pd.DataFrame,
 
     fitted_model : :class:`sklearn.manifold.TSNE`, optional
         An already fitted model onto which the data points
-        should be projected. 
+        should be projected.
 
     options : :class:`dict`, optional
         A dictionary containing the options used when performing
@@ -569,10 +579,10 @@ def perform_tsne(df: pd.DataFrame,
 
     replace_nan : :obj:`int` or :obj:`float`, optional
         A value to replace NaNs with.
-    
+
     replace_inf : :obj:`int` or :obj:`float`, optional
         A value to replace positive infinities with.
-    
+
     replace_ninf : :obj:`int` or :obj:`float`, optional
         A value to replace negative infinities with.
 
@@ -590,29 +600,29 @@ def perform_tsne(df: pd.DataFrame,
     """
 
     # Create a copy of the options.
-    options = dict(options)
+    options = dict(options) if options is not None else {}
 
     #-----------------------------------------------------------------#
 
     # If the perplexity is not defined and the number of samples is
-    # less than 30
+    # at most 30
     if "perplexity" not in options and len(df) <= 30:
 
-        # Set the new perplexity.
+        # Set the perplexity to one less than the number of samples.
         perplexity = float(len(df) - 1)
 
-        # Set it to one unit less than the number of samples.
+        # Add it to the options.
         options["perplexity"] = perplexity
 
         # Warn the user that the perplexity was set.
         warnstr = \
             "The TSNE 'perplexity' was not defined, and " \
-            "scikit-learn's default is 30.0, which is " \
+            "scikit-learn's default is 30.0, which is not " \
             "less than the number of samples in the input " \
             "data frame. For this reason, the 'perplexity' was " \
             f"set to {perplexity}."
         logger.warning(warnstr)
-    
+
     #-----------------------------------------------------------------#
 
     # Return the results of the dimensionality reduction.
@@ -653,14 +663,14 @@ def perform_umap(df: pd.DataFrame,
 
     fitted_model : :class:`umap.UMAP`, optional
         An already fitted model onto which the data points
-        should be projected. 
+        should be projected.
 
     options : :class:`dict`, optional
         A dictionary containing the options used when performing
         the analysis.
 
         The available options are those that can be used to initialize
-        a :class:`sklearn.manifold.MDS` instance.
+        a :class:`umap.UMAP` instance.
 
     input_columns : :class:`str` or :class:`list`, optional
         Either a list containing the names of the columns whose
@@ -679,10 +689,10 @@ def perform_umap(df: pd.DataFrame,
 
     replace_nan : :obj:`int` or :obj:`float`, optional
         A value to replace NaNs with.
-    
+
     replace_inf : :obj:`int` or :obj:`float`, optional
         A value to replace positive infinities with.
-    
+
     replace_ninf : :obj:`int` or :obj:`float`, optional
         A value to replace negative infinities with.
 
@@ -695,7 +705,7 @@ def perform_umap(df: pd.DataFrame,
         will contain the values of each data point's projection along
         the dimensions of the projection space.
 
-    mds : :class:`umap.UMAP`
+    umap : :class:`umap.UMAP`
         The fitted model.
     """
 

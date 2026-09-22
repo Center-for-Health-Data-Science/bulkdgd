@@ -5,7 +5,7 @@
 #
 #    Utilities to compute vectors of residuals.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -42,6 +42,9 @@ import numpy as np
 import pandas as pd
 from scipy.stats import nbinom, norm, poisson
 
+# Import from 'bulkdgd'.
+from . import _util
+
 
 #######################################################################
 
@@ -53,37 +56,57 @@ logger = log.getLogger(__name__)
 #######################################################################
 
 
-def _get_scaling_factors(obs, scaling_factor = "mean",
+def _get_scaling_factors(obs,
+                         scaling_factor = "mean",
                          config_model = None):
-    """The number each sample's predicted means have to be multiplied
-    by to become counts.
+    """Get the factors the samples' predicted means are multiplied by
+    to become counts.
 
-    The decoder writes its means SCALED, and what they are scaled by
-    is a property of the model, not of this function: a model trained
-    with 'scaling_factor: "median"' predicts means relative to the
-    median count of a sample, and multiplying those by the MEAN count
-    inflates every prediction. Counts are heavy-tailed, so the mean
-    runs well above the median and the inflation is large - every
-    observed count then falls low in its own predicted distribution
-    and the residuals come out systematically negative rather than
-    standard normal.
+    Parameters
+    ----------
+    obs : :class:`numpy.ndarray`
+        The observed counts, with samples as rows and genes as
+        columns.
 
-    Pass 'config_model' and the model's own scaling factor is used,
-    which is the only way to be sure the two agree.
+    scaling_factor : :class:`str`, {``"mean"``, ``"median"``}, \
+        ``"mean"``
+        The scaling factor. It must be the one the model was trained
+        with.
+
+    config_model : :class:`dict`, optional
+        The model's configuration. Its ``scaling_factor``, if set,
+        overrides ``scaling_factor``.
+
+    Returns
+    -------
+    factors : :class:`numpy.ndarray`
+        The scaling factor of each sample, as a column vector.
     """
 
+    # If the model's configuration was passed
     if config_model is not None:
 
+        # Use the model's scaling factor, if set.
         scaling_factor = \
             config_model.get("scaling_factor", scaling_factor) \
             if hasattr(config_model, "get") else scaling_factor
 
+    # If the scaling factor is the median
     if scaling_factor == "median":
-        return np.median(obs, axis = 1, keepdims = True)
 
+        # Return the median of each sample's counts.
+        return np.median(obs,
+                         axis = 1,
+                         keepdims = True)
+
+    # If the scaling factor is the mean
     if scaling_factor == "mean":
-        return obs.mean(axis = 1, keepdims = True)
 
+        # Return the mean of each sample's counts.
+        return obs.mean(axis = 1,
+                        keepdims = True)
+
+    # Raise an error.
     raise ValueError(
         f"Unrecognized scaling factor '{scaling_factor}' - it must "
         f"be 'mean' or 'median'.")
@@ -95,10 +118,8 @@ def get_residuals(obs_counts: pd.Series,
                   sample_name: Optional[str] = None,
                   scaling_factor: str = "mean",
                   config_model: Optional[dict] = None) -> pd.Series:
-    """Calculate the vector of residuals between the observed gene
-    expression (counts) and the predicted means of the negative
-    binomials modeling the expression of the different genes for a
-    single sample.
+    """Calculate the residuals of a sample's observed gene counts
+    under the distributions predicted for them.
 
     Parameters
     ----------
@@ -117,9 +138,7 @@ def get_residuals(obs_counts: pd.Series,
         Ensembl IDs or names of fields containing additional
         information about the sample.
 
-        If the genes' counts were modelled using negative binomial
-        distributions, the predicted means are scaled by the
-        corresponding distributions' r-values.
+        These are the scaled means the model outputs.
 
     r_values : :class:`pandas.Series`, optional
         The predicted r-values of the negative binomial distributions
@@ -139,86 +158,50 @@ def get_residuals(obs_counts: pd.Series,
 
         If not passed, the series will be unnamed.
 
+    scaling_factor : :class:`str`, {``"mean"``, ``"median"``}, \
+        ``"mean"``
+        The scaling factor. It must be the one the model was trained
+        with.
+
+    config_model : :class:`dict`, optional
+        The model's configuration. Its ``scaling_factor``, if set,
+        overrides ``scaling_factor``.
+
     Returns
     -------
     series_residuals : :class:`pandas.Series`
         A series containing the residuals for all genes.
     """
 
-    # Get the names of the cells containing gene expression data from
-    # the series containing the observed gene counts.
+    # Get the genes, checking that all inputs list them in the same
+    # order.
     genes_obs = \
-        [col for col in obs_counts.index if col.startswith("ENSG")]
-
-    #-----------------------------------------------------------------#
-
-    # Get the names of the cells containing gene expression data from
-    # the series containing the predicted means.
-    genes_pred = \
-        [col for col in pred_means.index if col.startswith("ENSG")]
-
-    #-----------------------------------------------------------------#
-
-    # If the lists do not contain the same genes
-    if set(genes_obs) != set(genes_pred):
-
-        # Raise an error.
-        errstr = \
-            "The set of genes in 'obs_counts' and 'pred_means', " \
-            "must be the same. It is assumed that the genes are " \
-            "specified using their Ensembl IDs."
-        raise ValueError(errstr)
+        _util.get_aligned_genes(obs_counts = obs_counts,
+                                pred_means = pred_means,
+                                r_values = r_values)
 
     #-----------------------------------------------------------------#
 
     # If the r-values were passed
     if r_values is not None:
 
-        # Get the names of the cells containing r-values from the
-        # series of r-values.
-        genes_r_values =  \
-            [col for col in r_values.index if col.startswith("ENSG")]
-
-        # If the lists do not contain the same genes
-        if set(genes_obs) != set(genes_pred) \
-        or set(genes_obs) != set(genes_r_values):
-
-            # Raise an error.
-            errstr = \
-                "The set of genes in 'obs_counts', 'pred_means', " \
-                "and 'r_values' must be the same. It is assumed " \
-                "that the genes are specified using their Ensembl IDs."
-            raise ValueError(errstr)
-
-        # Create a numpy array containing only those columns containing
-        # gene expression data for the predicted r-values - the 'loc'
-        # syntax should return the columns in the order specified by
-        # the selection.
-        r_values = pd.to_numeric(r_values.loc[genes_r_values]).values
+        # Get the genes' r-values, as an array.
+        r_values = pd.to_numeric(r_values.loc[genes_obs]).values
 
     #-----------------------------------------------------------------#
 
-    # Create a numpy array containing only those columns containing
-    # gene expression data for the observed gene counts - the 'loc'
-    # syntax should return the columns in the order specified by the
-    # selection.
+    # Get the genes' observed counts, as an array.
     obs_counts = pd.to_numeric(obs_counts.loc[genes_obs]).values
 
     #-----------------------------------------------------------------#
 
-    # Create a numpy array containing only those columns containing
-    # gene expression data for the predicted mean counts - the 'loc'
-    # syntax should return the columns in the order specified by the
-    # selection.
+    # Get the genes' predicted means, in the same order.
     pred_means = pd.to_numeric(pred_means.loc[genes_obs]).values
 
     #-----------------------------------------------------------------#
 
-    # Get the mean gene counts for the sample.
-    #
-    # The output is a single value.
-    # Get the scaling factor for the sample - the model's own, when
-    # 'config_model' says what it is.
+    # Get the sample's scaling factor (the model's own, if
+    # 'config_model' is passed).
     obs_counts_scale = \
         _get_scaling_factors(
             np.asarray(obs_counts, dtype = np.float64).reshape(1, -1),
@@ -227,9 +210,7 @@ def get_residuals(obs_counts: pd.Series,
 
     #-----------------------------------------------------------------#
 
-    # Rescale the predicted means by it.
-    #
-    # The output is a 1D tensor containing the rescaled means.
+    # Rescale the predicted means by the scaling factor.
     pred_means = pred_means * obs_counts_scale
 
     #-----------------------------------------------------------------#
@@ -250,54 +231,22 @@ def get_residuals(obs_counts: pd.Series,
             # Get the r-value for the current gene.
             r_value_gene_i = r_values[i]
 
-            # Calculate the probability of "failure" of the negative
-            # binomial from its mean 'm' and its r-value (the number of
-            # successes at which the experiment is stopped).
-            #
-            # The mean of a negative binomial, written in terms of the
-            # probability 'q' of a FAILURE, is
-            #
-            #     m = r * q / (1 - q)
-            #
-            # so that
-            #
-            #     m (1 - q) = r q
-            #     m - m q   = r q
-            #     m         = q (m + r)
-            #     q         = m / (m + r)
-            #
-            # which is what is calculated here.
-            #
-            # The derivation this comment used to give was of the
-            # probability of a SUCCESS, p = r / (m + r), which is not
-            # what the line below computes - it computes 1 - p. The
-            # arithmetic was right and the comment described a different
-            # quantity, so the value handed to SciPy was correct and the
-            # reason given for it was not.
+            # Get the probability 'q' of a failure from the mean 'm'
+            # and the r-value: m = r*q/(1-q), so q = m/(m+r).
             p_i = pred_mean_gene_i / \
                   (pred_mean_gene_i + r_value_gene_i)
 
             #---------------------------------------------------------#
 
-            # Get the value of the cumulative negative binomial
-            # distribution.
-            #
-            # SciPy's negative binomial counts the number of failures
-            # before 'n' successes, and its 'p' is the probability of a
-            # SUCCESS. Ours, above, is the probability of a failure, so
-            # SciPy is given 1 - p_i = r / (m + r), which returns the
-            # mean to 'm':
-            #
-            #     mean = n (1 - p) / p
-            #          = r * (m / (m + r)) / (r / (m + r))
-            #          = m
+            # Get the value of the negative binomial's CDF (SciPy's 'p'
+            # is the probability of a success, 1 - q).
             cdf_nb_value = \
                 nbinom.cdf(k = obs_count_gene_i,
                            n = r_value_gene_i,
                            p = 1 - p_i)
 
         #-------------------------------------------------------------#
-        
+
         # If Poisson distributions were used to model the genes' counts
         else:
 
@@ -307,11 +256,9 @@ def get_residuals(obs_counts: pd.Series,
                             mu = pred_mean_gene_i)
 
         #-------------------------------------------------------------#
-        
-        # Get the value of the inverse of the cumulative normal
-        # distribution (= the valued of the percentile function) at the
-        # point corresponding to the value of the neg. binom. CDF at
-        # the observed gene count value.
+
+        # Get the residual as the standard normal's quantile at the CDF
+        # value.
         residual_gene_i = norm.ppf(q = cdf_nb_value)
 
         #-------------------------------------------------------------#
@@ -350,22 +297,10 @@ def get_residuals_df(df_obs_counts: pd.DataFrame,
                      df_r_values: Optional[pd.DataFrame] = None,
                      clip: float = 0.0,
                      scaling_factor: str = "mean",
-                     config_model: Optional[dict] = None) -> pd.DataFrame:
-    """Calculate the residuals of many samples at once.
-
-    This is :func:`get_residuals`, which takes one sample and walks its
-    genes one at a time in Python. That is fine for a sample and slow for
-    a study: ten thousand samples of fifteen thousand genes is a hundred
-    and fifty million turns of that loop. The same arithmetic is done
-    here on the whole matrix, and gives the same numbers.
-
-    The residual of a gene is the standard normal deviate at the point
-    where the observed count falls in the distribution the model
-    predicted for it:
-
-    .. math::
-
-       r_{ij} = \\Phi^{-1}\\left( F(k_{ij}; \\mu_{ij}, r_{ij}) \\right)
+                     config_model: Optional[dict] = None) -> \
+                        pd.DataFrame:
+    """Calculate the residuals of many samples at once, as the
+    standard normal's quantile at each observed count's CDF value.
 
     Parameters
     ----------
@@ -373,53 +308,25 @@ def get_residuals_df(df_obs_counts: pd.DataFrame,
         The observed counts. Samples are rows and genes are columns.
 
     df_pred_means : :class:`pandas.DataFrame`
-        The predicted scaled means, as the model writes them. They are
-        rescaled here by the mean count of each sample, which is what
-        turns them into counts.
+        The predicted scaled means, as the model outputs them.
 
     df_r_values : :class:`pandas.DataFrame`, optional
         The predicted r-values, if the genes' counts were modelled with
-        negative binomial distributions. If they are not given, the
-        counts are taken to have been modelled with Poisson
-        distributions.
-
-    scaling_factor : :class:`str`, ``"mean"``
-        Whether the predicted means are scaled by the ``"mean"`` or
-        the ``"median"`` count of a sample.
-
-        This has to match what the MODEL was trained with. The default
-        is ``"mean"`` for backward compatibility only - it is the
-        wrong value for any model whose configuration says
-        ``scaling_factor: "median"``, and getting it wrong shifts every
-        residual in one direction rather than adding noise. On the base
-        model, which is a median model, using the mean puts the mean
-        residual at about -1.7 instead of 0.
-
-    config_model : :class:`dict`, optional
-        The model's configuration. When given, its ``scaling_factor``
-        is used and the argument above is ignored - which is the only
-        way to be certain the residuals and the model agree.
+        negative binomial distributions (Poisson otherwise).
 
     clip : :class:`float`, ``0.0``
-        How far from nought and one to hold the cumulative distribution
-        before the inverse normal is taken of it.
+        How far from 0 and 1 to clip the CDF values before taking the
+        inverse normal. With ``0.0``, CDF values of 0 or 1 give
+        infinite residuals; with ``1e-12``, residuals of about 7.
 
-        Nought, by default, so that this function gives back exactly
-        what :func:`get_residuals` gives back - the two agree to
-        5e-11, which is the arithmetic and nothing else.
+    scaling_factor : :class:`str`, {``"mean"``, ``"median"``}, \
+        ``"mean"``
+        The scaling factor. It must be the one the model was trained
+        with.
 
-        The inverse normal is infinite at nought and at one, though, and
-        a count far enough out in the tail of its own distribution will
-        put it there: a few dozen genes in every few thousand samples.
-        :func:`get_residuals` returns those infinities, and anything
-        that goes on to take a principal component of the residuals will
-        fail on them.
-
-        Passing ``1e-12`` holds the cumulative distribution just inside
-        its bounds, so that a gene the model finds impossible gets a
-        large residual (about 7) rather than an infinite one. It changes
-        nothing else: about one residual in two thousand, all of them in
-        the extreme tail.
+    config_model : :class:`dict`, optional
+        The model's configuration. Its ``scaling_factor``, if set,
+        overrides ``scaling_factor``.
 
     Returns
     -------
@@ -428,53 +335,68 @@ def get_residuals_df(df_obs_counts: pd.DataFrame,
         are in the inputs.
     """
 
-    # The genes the counts and the predictions have in common, in the
-    # order the counts have them.
-    genes = [gene for gene in df_obs_counts.columns
-             if gene in df_pred_means.columns]
+    # Get the genes, checking that all inputs list them in the same
+    # order.
+    genes = \
+        _util.get_aligned_genes(
+            obs_counts = df_obs_counts.columns.to_series(),
+            pred_means = df_pred_means.columns.to_series(),
+            r_values = None if df_r_values is None \
+                       else df_r_values.columns.to_series())
 
+    # Get the samples the counts and the predictions have in common.
     samples = df_obs_counts.index.intersection(df_pred_means.index)
 
+    # Get the observed counts.
     obs = df_obs_counts.loc[samples, genes].to_numpy(dtype = np.float64)
 
+    # Get the predicted means.
     means = df_pred_means.loc[samples, genes].to_numpy(
         dtype = np.float64)
 
     #-----------------------------------------------------------------#
 
-    # A predicted mean is not a count until it is rescaled by the
-    # scaling factor of the sample it was predicted for - and which
-    # factor that is belongs to the model, not to this function.
-    means = means * _get_scaling_factors(
-        obs, scaling_factor = scaling_factor,
-        config_model = config_model)
+    # Rescale the predicted means by each sample's scaling factor.
+    means = \
+        means * _get_scaling_factors(obs,
+                                     scaling_factor = scaling_factor,
+                                     config_model = config_model)
 
     #-----------------------------------------------------------------#
 
     # If the genes' counts were modelled with negative binomials
     if df_r_values is not None:
 
+        # Get the predicted r-values.
         r = df_r_values.loc[samples, genes].to_numpy(
             dtype = np.float64)
 
-        r = np.clip(r, 1e-8, None)
+        # Clip the r-values away from 0.
+        r = np.clip(r,
+                    1e-8,
+                    None)
 
-        # SciPy's negative binomial counts the failures, so its 'p' is
-        # our '1 - p'.
+        # Get the CDF values (SciPy's 'p' is the probability of a
+        # success).
         cdf = nbinom.cdf(k = obs,
                          n = r,
                          p = r / (r + means))
 
-    # Otherwise, they were modelled with Poissons.
+    # Otherwise
     else:
 
+        # Get the CDF values.
         cdf = poisson.cdf(k = obs,
                           mu = means)
 
     #-----------------------------------------------------------------#
 
-    cdf = np.clip(cdf, clip, 1.0 - clip)
+    # Clip the CDF values.
+    cdf = np.clip(cdf,
+                  clip,
+                  1.0 - clip)
 
+    # Return the residuals.
     return pd.DataFrame(norm.ppf(cdf),
                         index = samples,
                         columns = genes)
@@ -495,23 +417,28 @@ def get_significant_genes(
 
         The series' index contains the genes' Ensembl IDs, and its
         values are the residuals.
-    
-    res_pos_threshold : ``int`` or ``float``, ``1``
+
+    res_pos_threshold : :class:`int` or :class:`float`, ``1``
         The threshold above which a gene is considered significantly
         up-regulated.
-    
-    res_neg_threshold : ``int`` or ``float``, ``-1``
+
+    res_neg_threshold : :class:`int` or :class:`float`, ``-1``
         The threshold below which a gene is considered significantly
         down-regulated.
+
+    Returns
+    -------
+    series_significant_genes : :class:`pandas.Series`
+        The residuals of the significant genes.
     """
-    
+
     # Get the genes satisfying all the conditions.
     series_significant_genes = \
         series_residuals[(series_residuals >= res_pos_threshold) | \
                          (series_residuals <= res_neg_threshold)]
 
-    #------------------------------------------------------------------#
-    
+    #-----------------------------------------------------------------#
+
     # Return the series.
     return series_significant_genes
 
@@ -529,24 +456,31 @@ def get_genes_by_residual_threshold(
 
     Parameters
     ----------
-    df_res : ``pandas.DataFrame``
+    df_res : :class:`pandas.DataFrame`
         A data frame containing the residual vectors for a set of
         samples.
 
-    le_than : ``int`` or ``float``, ``-1``
-        Consider only genes whose residual value in all samples is
-        lower than or equal to the provided value.
+    le_than : :class:`int` or :class:`float`, ``-1``
+        The threshold at or below which a residual meets the first
+        condition.
 
-    ge_than : ``int`` or ``float``, ``1``
-        Consider only genes whose residual value in all samples is
-        greater than or equal to the provided value.
+    ge_than : :class:`int` or :class:`float`, ``1``
+        The threshold at or above which a residual meets the second
+        condition.
+
+    sort_genes : :class:`bool`, ``False``
+        Whether to sort the output data frames by the number of
+        samples.
+
+    ascending : :class:`bool`, ``False``
+        Whether to sort in ascending order.
 
     Returns
     -------
     df_samples_count_le : :class:`pandas.DataFrame`
         A data frame containing each gene with the count of samples
         where the gene's residual value is lower than or equal to
-        ``le_than``. 
+        ``le_than``.
 
         The data frame's rows are identified by each gene's ID (as
         provided in the input data frame) and the data frame includes
@@ -557,7 +491,7 @@ def get_genes_by_residual_threshold(
 
     df_genes_distribution_le : :class:`pandas.DataFrame`
         A data frame displaying the distribution of genes having a
-        residual value lower than or equal to ``le_than``  across
+        residual value lower than or equal to ``le_than`` across
         different sample counts.
 
         Each row represents the number of samples, and the columns are:
@@ -570,7 +504,7 @@ def get_genes_by_residual_threshold(
     df_samples_count_ge : :class:`pandas.DataFrame`
         A data frame containing each gene with the count of samples
         where the gene's residual value is greater than or equal to
-        ``ge_than``. 
+        ``ge_than``.
 
         The data frame's rows are identified by each gene's ID (as
         provided in the input data frame) and the data frame includes
@@ -581,15 +515,15 @@ def get_genes_by_residual_threshold(
 
     df_genes_distribution_ge : :class:`pandas.DataFrame`
         A data frame displaying the distribution of genes having a
-        residual value greater than or equal to ``le_than``  across
+        residual value greater than or equal to ``ge_than`` across
         different sample counts.
 
         Each row represents the number of samples, and the columns are:
-        
+
         - 'n_genes': the number of genes that meet the condition in
           exactly that many samples.
         - 'genes': a period-separated string listing the genes that
-          meet the condition in exactly that many samples..
+          meet the condition in exactly that many samples.
     """
 
     # Get the names of the cells containing residual values.
@@ -631,7 +565,7 @@ def get_genes_by_residual_threshold(
 
     #-----------------------------------------------------------------#
 
-    # If the genes must be sorted by the number of samples.
+    # If the genes must be sorted by the number of samples
     if sort_genes:
 
         # Sort the first data frame by the number of samples.
@@ -643,29 +577,24 @@ def get_genes_by_residual_threshold(
         # Sort the second data frame by the number of samples.
         df_samples_count_ge = \
             df_samples_count_ge.sort_values(\
-                    by = "n_samples",
-                    ascending = ascending)
+                by = "n_samples",
+                ascending = ascending)
 
     #-----------------------------------------------------------------#
-
-    # Create another data frame showing how many genes meet the
-    # condition in how many samples.
 
     # Get the total number of samples.
     n_all_samples = df_res_data.shape[0]
 
-    # Create an empty dictionary to store the data about how the genes
-    # are distributed according to in how many samples they meet the
-    # first condition.
+    # Create an empty dictionary to store how many (and which) genes
+    # meet the first condition in each number of samples.
     distribution_data_le = {"n_genes": [], "genes": []}
 
-    # Create an empty dictionary to store the data about how the genes
-    # are distributed according to in how many samples they meet the
-    # second condition.
+    # Create an empty dictionary to store how many (and which) genes
+    # meet the second condition in each number of samples.
     distribution_data_ge = {"n_genes": [], "genes": []}
 
     # For each possible number of samples in which the genes meet the
-    # condition.
+    # condition
     for i in range(n_all_samples + 1):
 
         # Find the genes that meet the first condition in the current
@@ -673,17 +602,17 @@ def get_genes_by_residual_threshold(
         genes_meeting_i_samples_le = \
             df_samples_count_le[\
                 df_samples_count_le["n_samples"] == i]["gene"]
-        
+
         # Find the genes that meet the second condition in the current
         # number of samples.
         genes_meeting_i_samples_ge = \
             df_samples_count_ge[\
                 df_samples_count_ge["n_samples"] == i]["gene"]
-        
+
         # Add the number of genes to the first dictionary.
         distribution_data_le["n_genes"].append(\
             len(genes_meeting_i_samples_le))
-        
+
         # Add the number of genes to the second dictionary.
         distribution_data_ge["n_genes"].append(\
             len(genes_meeting_i_samples_ge))
@@ -695,17 +624,17 @@ def get_genes_by_residual_threshold(
         # Add the list of genes to the second dictionary.
         distribution_data_ge["genes"].append(\
             ".".join(genes_meeting_i_samples_ge))
-    
+
     #-----------------------------------------------------------------#
 
     # Convert the first dictionary into a data frame.
     df_genes_distribution_le = \
-        pd.DataFrame(distribution_data_le, 
+        pd.DataFrame(distribution_data_le,
                      index = range(0, n_all_samples + 1))
 
     # Convert the second dictionary into a data frame.
     df_genes_distribution_ge = \
-        pd.DataFrame(distribution_data_ge, 
+        pd.DataFrame(distribution_data_ge,
                      index = range(0, n_all_samples + 1))
 
     #-----------------------------------------------------------------#
@@ -718,13 +647,13 @@ def get_genes_by_residual_threshold(
 
     #-----------------------------------------------------------------#
 
-    # If the genes must be sorted by the number of samples.
+    # If the genes must be sorted by the number of samples
     if sort_genes:
 
         # Sort the first data frame by the number of samples.
         df_genes_distribution_le = \
             df_genes_distribution_le.sort_index(ascending = ascending)
-        
+
         # Sort the second data frame by the number of samples.
         df_genes_distribution_ge = \
             df_genes_distribution_ge.sort_index(ascending = ascending)

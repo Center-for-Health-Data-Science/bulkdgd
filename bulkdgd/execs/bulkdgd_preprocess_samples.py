@@ -3,9 +3,9 @@
 
 #    bulkdgd_preprocess_samples.py
 #
-#    Pre-process new samples to use them with the BulkDGD
+#    Pre-process new samples to use them with the BulkDGD model.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -57,6 +57,13 @@ logger = log.getLogger(__name__)
 
 # Define a function to set up the parser.
 def set_parser() -> argparse.ArgumentParser:
+    """Set up the argument parser.
+
+    Returns
+    -------
+    parser : :class:`argparse.ArgumentParser`
+        The argument parser.
+    """
 
     # Create the argument parser.
     parser = \
@@ -98,7 +105,7 @@ def set_parser() -> argparse.ArgumentParser:
     # Add the argument to the group.
     input_group.add_argument("-ig", "--input-genes-list",
                              help = ig_help)
-    
+
     #-----------------------------------------------------------------#
 
     # Set the default value for the argument.
@@ -172,6 +179,13 @@ def set_parser() -> argparse.ArgumentParser:
 
 # Define the 'main' function.
 def main(args: argparse.Namespace) -> None:
+    """Pre-process the samples.
+
+    Parameters
+    ----------
+    args : :class:`argparse.Namespace`
+        The parsed arguments.
+    """
 
     # Get the argument corresponding to the working directory.
     wd = args.work_dir
@@ -272,6 +286,7 @@ def main(args: argparse.Namespace) -> None:
         # Try to write the list of excluded genes.
         try:
 
+            # Write the list.
             with open(output_genes_excluded, "w") as out:
                 out.write("\n".join(gene for gene in genes_excluded))
 
@@ -304,6 +319,7 @@ def main(args: argparse.Namespace) -> None:
         # Try to write the list of missing genes.
         try:
 
+            # Write the list.
             with open(output_genes_missing, "w") as out:
                 out.write("\n".join(gene for gene in genes_missing))
 
@@ -334,6 +350,7 @@ def main(args: argparse.Namespace) -> None:
 
 # Define the entry point for the standalone executable.
 def entry_point() -> None:
+    """Run the executable."""
 
     # Build the parser.
     parser = set_parser()
@@ -344,13 +361,16 @@ def entry_point() -> None:
     # Set up the logging.
     util.set_main_logging(args = args)
 
-    # Check if the execution should be parallelized.
-    if getattr(args, "parallelize", False):
+    # If the execution should be parallelized
+    if getattr(args,
+               "parallelize",
+               False):
 
         # Run with parallelization.
         util.run_with_parallelization(\
             executable = "bulkdgd_preprocess_samples",
-            args = args)
+            args = args,
+            parser = parser)
 
     # Otherwise
     else:

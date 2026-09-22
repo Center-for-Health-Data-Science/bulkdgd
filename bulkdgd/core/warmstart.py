@@ -24,39 +24,16 @@
 """A ridge predictor from counts to representations, used to seed the
 representation search.
 
-The search initialises one candidate in each component of the mixture
-and keeps whichever wins. Those starting points are not a prior over
-where the answer is - RESULTS Sec.36 found that 83.4% of winners end in
-a different component from the one they started in - so the seed
-instability is what that lottery looks like when it is run twice.
-
-A cheaper starting point is available for free. Sec.38.4 measured that
-a sample's representation is recoverable from its counts by RIDGE
-REGRESSION at `R^2 = 0.84`: the map is very nearly linear, not because
-the decoder is linear (it is not - a linear map reproduces only 54% of
-it) but because the inverse problem is massively overdetermined, with
-14,740 genes projecting down to 32 numbers.
-
-**What this is NOT.** It is not an encoder, and the DGD stays
-encoder-free by design: nothing here enters the generative model, the
-objective, or the training. It only chooses where the search starts.
-
-**And it does not replace the competition.** Sec.40.2 measured a ridge
-start against three mixture draws and found the ridge candidate wins
-only 46.5% of the time - in most samples a random draw finds a lower
-optimum. Using it ALONE costs 7% of the COSMIC enrichment. So it is
-used as ONE candidate among the usual ones, taking the slot of a single
-mixture draw out of `n_rep_per_comp * n_components`, which leaves every
-count in the scheme unchanged and can only improve the winner.
-
-The predictor is fitted on a model's OWN training representations,
-which are already on disk and are by construction the answers that
-model considers correct.
+The prediction is one extra starting candidate, taking the slot of one
+mixture draw; it does not enter the model, the objective, or training.
 """
 
 
+# Import from the standard library.
 import logging as log
+import os
 
+# Import from third-party libraries.
 import numpy as np
 import pandas as pd
 import torch
@@ -80,49 +57,89 @@ class RidgeWarmStart:
                  scale,
                  lam,
                  genes):
-        """The fitted state. Build with :meth:`fit` or
-        :meth:`from_file` rather than calling this directly.
+        """Initialize the fitted state (use :meth:`fit` or
+        :meth:`from_file` to build one).
 
-        Note that the KERNEL form of the ridge, which is what has to be
-        solved when there are more genes than samples, produces dual
-        coefficients that must be carried alongside the whole training
-        matrix to predict with. That matrix is 9,076 x 14,740 doubles -
-        a gigabyte - and would be loaded on every representation run.
-        It collapses once and for all into the primal weights
+        Parameters
+        ----------
+        weights : :class:`torch.Tensor`
+            The primal ridge weights, of shape (n_genes, n_dim).
 
-            W = X_train' alpha                (n_genes, n_dim)
+        mean : :class:`torch.Tensor`
+            The per-gene mean of the training features.
 
-        which is four megabytes and turns prediction into a single
-        matrix multiplication.
+        scale : :class:`torch.Tensor`
+            The per-gene standard deviation of the training features.
+
+        lam : :class:`float`
+            The ridge parameter.
+
+        genes : :class:`list`
+            The genes, in the order the weights expect them.
         """
 
+        # Set the weights.
         self.weights = weights
+
+        # Set the per-gene mean and scale.
         self.mean = mean
         self.scale = scale
+
+        # Set the ridge parameter.
         self.lam = lam
+
+        # Set the genes.
         self.genes = list(genes)
 
     #-----------------------------------------------------------------#
 
     @staticmethod
-    def _featurise(counts, mean = None, scale = None):
-        """Median-scale, log1p, and standardise per gene.
+    def _featurise(counts,
+                   mean = None,
+                   scale = None):
+        """Median-scale, log1p, and standardise the counts per gene.
 
-        The same scaling the model itself applies, so that the
-        predictor sees what the decoder is asked to reproduce.
+        Parameters
+        ----------
+        counts : :class:`numpy.ndarray` or :class:`torch.Tensor`
+            The counts (samples x genes).
+
+        mean : :class:`torch.Tensor`, optional
+            The per-gene mean to standardise with. If not given, it is
+            computed from ``counts``.
+
+        scale : :class:`torch.Tensor`, optional
+            The per-gene standard deviation to standardise with. If
+            not given, it is computed from ``counts``.
+
+        Returns
+        -------
+        x : :class:`torch.Tensor`
+            The standardised features.
+
+        mean : :class:`torch.Tensor`
+            The per-gene mean used.
+
+        scale : :class:`torch.Tensor`
+            The per-gene standard deviation used.
         """
 
+        # Convert the counts to a double-precision tensor.
         x = torch.as_tensor(counts, dtype = torch.float64)
 
+        # Divide each sample by its median count, then take log1p.
         scal = x.median(dim = 1, keepdim = True).values.clamp(min = 1.0)
         x = torch.log1p(x / scal)
 
+        # If no mean was given, compute it.
         if mean is None:
             mean = x.mean(0)
 
+        # If no scale was given, compute it.
         if scale is None:
             scale = x.std(0).clamp(min = 1.0e-6)
 
+        # Return the standardised features, the mean, and the scale.
         return (x - mean) / scale, mean, scale
 
     #-----------------------------------------------------------------#
@@ -135,83 +152,158 @@ class RidgeWarmStart:
             lambdas = (1.0e3, 1.0e4, 3.0e4),
             n_val = 500,
             seed = 0):
-        """Fit the predictor, choosing the ridge parameter on a
+        """Fit the predictor, choosing the ridge parameter on a random
         held-out split.
 
-        The split is RANDOM. The counts files are ordered by tissue, so
-        taking the last rows as validation holds out whole organs and
-        asks the ridge to extrapolate to tissues it has never seen -
-        which scores `R^2 = -2.3` and is not the question being asked.
+        Parameters
+        ----------
+        counts : :class:`numpy.ndarray`
+            The training counts (samples x genes).
+
+        representations : :class:`numpy.ndarray`
+            The training representations (samples x latent
+            dimensions).
+
+        genes : :class:`list`
+            The genes, in the order of the columns of ``counts``.
+
+        lambdas : :class:`tuple`, optional
+            The ridge parameters to try.
+
+        n_val : :class:`int`, optional
+            The number of held-out samples (at least 2, at most a
+            quarter of all samples).
+
+        seed : :class:`int`, optional
+            The seed for the random split.
+
+        Returns
+        -------
+        ws : :class:`RidgeWarmStart`
+            The fitted predictor.
         """
 
+        # Get the features and the targets.
         X, mean, scale = cls._featurise(counts)
         Y = torch.as_tensor(representations, dtype = torch.float64)
 
+        # Randomly permute the samples (the counts files are ordered
+        # by tissue).
         g = torch.Generator().manual_seed(seed)
         perm = torch.randperm(len(X), generator = g)
 
+        # Get the number of held-out samples.
         n_val = min(n_val, len(X) // 4)
+
+        # If fewer than two samples can be held out
+        if n_val < 2:
+
+            # Raise an error.
+            errstr = \
+                "The ridge warm start needs at least 2 held-out " \
+                "samples to choose the ridge parameter, so at least " \
+                "8 samples and an 'n_val' of at least 2. It got " \
+                f"{len(X)} sample(s), leaving {n_val} held out."
+            raise ValueError(errstr)
+
+        # Split the samples into validation and training sets.
         va, tr = perm[:n_val], perm[n_val:]
 
-        best_lam, best_r2, best_alpha = None, -np.inf, None
+        # Initialize the best ridge parameter and score.
+        best_lam, best_r2 = None, -np.inf
 
+        # For each ridge parameter
         for lam in lambdas:
 
-            # Solved in SAMPLE space: there are ~14,700 genes against
-            # ~9,000 samples, so the Gram matrix is the smaller one.
+            # Solve the ridge in sample space, where the Gram matrix
+            # is smaller than in gene space.
             G = X[tr] @ X[tr].T
             A = G + lam * torch.eye(len(tr), dtype = torch.float64)
             alpha = torch.linalg.solve(A, Y[tr])
 
+            # Predict the held-out representations.
             pred = (X[va] @ X[tr].T) @ alpha
 
+            # Get the R^2 on the held-out samples.
             ss_res = ((pred - Y[va]) ** 2).sum()
             ss_tot = ((Y[va] - Y[va].mean(0)) ** 2).sum()
             r2 = float(1.0 - ss_res / ss_tot)
 
+            # Inform the user about the score.
             logger.info(
                 f"The ridge warm start scored R^2 = {r2:.4f} on the "
                 f"held-out samples with lambda = {lam:g}.")
 
+            # If the score is the best so far, keep it.
             if r2 > best_r2:
-                best_lam, best_r2, best_alpha = lam, r2, alpha
+                best_lam, best_r2 = lam, r2
 
-        # Refit on everything with the chosen lambda, then collapse
-        # the dual solution into primal weights.
+        # Refit on all samples with the chosen lambda.
         G = X @ X.T
         A = G + best_lam * torch.eye(len(X), dtype = torch.float64)
         alpha = torch.linalg.solve(A, Y)
 
+        # Collapse the dual solution into primal weights.
         weights = X.T @ alpha
 
+        # Inform the user about the fit.
         logger.info(
             f"The ridge warm start was fitted with lambda = "
             f"{best_lam:g}, which explained {100*best_r2:.1f}% of the "
             f"variance of the held-out representations.")
 
-        return cls(weights = weights, mean = mean,
-                   scale = scale, lam = best_lam, genes = genes)
+        # Return the fitted predictor.
+        return cls(weights = weights,
+                   mean = mean,
+                   scale = scale,
+                   lam = best_lam,
+                   genes = genes)
 
     #-----------------------------------------------------------------#
 
     def predict(self,
                 counts,
                 device = None):
-        """The predicted representation of each row of ``counts``."""
+        """Predict the representation of each row of ``counts``.
 
+        Parameters
+        ----------
+        counts : :class:`numpy.ndarray` or :class:`torch.Tensor`
+            The counts (samples x genes), on the predictor's genes.
+
+        device : :class:`str` or :class:`torch.device`, optional
+            The device to move the predictions to.
+
+        Returns
+        -------
+        z : :class:`torch.Tensor`
+            The predicted representations.
+        """
+
+        # Get the features.
         X, _, _ = self._featurise(counts,
                                   mean = self.mean,
                                   scale = self.scale)
 
+        # Get the predicted representations.
         z = X @ self.weights
 
+        # Return them, on the requested device.
         return z.to(device) if device is not None else z
 
     #-----------------------------------------------------------------#
 
-    def save(self, path):
-        """Write the fitted state."""
+    def save(self,
+             path):
+        """Write the fitted state.
 
+        Parameters
+        ----------
+        path : :class:`str`
+            The output file.
+        """
+
+        # Save the fitted state.
         torch.save({"weights": self.weights.cpu(),
                     "mean": self.mean.cpu(),
                     "scale": self.scale.cpu(),
@@ -219,16 +311,37 @@ class RidgeWarmStart:
                     "genes": self.genes},
                    path)
 
+        # Inform the user that the predictor was saved.
         logger.info(f"The ridge warm start was saved in '{path}'.")
 
+    #-----------------------------------------------------------------#
+
     @classmethod
-    def from_file(cls, path):
-        """Load a fitted predictor."""
+    def from_file(cls,
+                  path):
+        """Load a fitted predictor.
 
-        d = torch.load(path, map_location = "cpu", weights_only = False)
+        Parameters
+        ----------
+        path : :class:`str`
+            The file written by :meth:`save`.
 
-        return cls(weights = d["weights"], mean = d["mean"],
-                   scale = d["scale"], lam = d["lam"],
+        Returns
+        -------
+        ws : :class:`RidgeWarmStart`
+            The fitted predictor.
+        """
+
+        # Load the fitted state.
+        d = torch.load(path,
+                       map_location = "cpu",
+                       weights_only = False)
+
+        # Return the predictor.
+        return cls(weights = d["weights"],
+                   mean = d["mean"],
+                   scale = d["scale"],
+                   lam = d["lam"],
                    genes = d["genes"])
 
 
@@ -245,7 +358,7 @@ def fit_from_model_dir(model_dir,
     ----------
     model_dir : :class:`str`
         A trained model's directory, holding
-        ``representations_train.csv``.
+        ``representations_train`` as Parquet or CSV.
 
     counts_file : :class:`str`
         The counts the model was trained on.
@@ -255,50 +368,63 @@ def fit_from_model_dir(model_dir,
 
     output_file : :class:`str`, optional
         Where to save the fitted predictor.
+
+    Returns
+    -------
+    ws : :class:`RidgeWarmStart`
+        The fitted predictor.
     """
 
-    import os
-
-    # WHICHEVER FORMAT IT IS IN. 'train.py' writes these as Parquet
-    # now; a tree built earlier holds the CSV. An exact hit wins, then
-    # Parquet, then text.
+    # Get the path's stem of the training representations.
     _stem = os.path.join(model_dir, "representations_train")
 
+    # Get the first existing file among the Parquet and CSV formats.
     _path = next((f"{_stem}{e}" for e in (".parquet", ".pq", ".csv")
                   if os.path.isfile(f"{_stem}{e}")), None)
 
+    # If no file was found, raise an error.
     if _path is None:
         raise FileNotFoundError(
             f"no 'representations_train.{{parquet,csv}}' in "
             f"'{model_dir}'.")
 
-    reps = (pd.read_parquet(_path) if _path.endswith((".parquet", ".pq"))
+    # Load the representations.
+    reps = (pd.read_parquet(_path)
+            if _path.endswith((".parquet", ".pq"))
             else pd.read_csv(_path, index_col = 0))
 
+    # Keep only the latent dimensions.
     reps = reps[[c for c in reps.columns
                  if c.startswith("latent_dim_")]]
 
+    # Load the counts.
     counts = pd.read_csv(counts_file, index_col = 0)
 
+    # Get the samples shared by the representations and the counts.
     common = reps.index.intersection(counts.index)
 
+    # If no sample is shared, raise an error.
     if len(common) == 0:
         raise ValueError(
             "No sample is shared between the model's training "
             "representations and the counts file, so the warm start "
             "cannot be fitted.")
 
+    # Inform the user about the samples used.
     logger.info(
         f"The ridge warm start will be fitted on {len(common)} "
         f"sample(s) shared between the model's training "
         f"representations and '{counts_file}'.")
 
+    # Fit the predictor.
     ws = RidgeWarmStart.fit(
         counts = counts.loc[common, genes].to_numpy(),
         representations = reps.loc[common].to_numpy(),
         genes = genes)
 
+    # If an output file was given, save the predictor.
     if output_file is not None:
         ws.save(output_file)
 
+    # Return the predictor.
     return ws

@@ -101,9 +101,6 @@ histogram:
 
   # Set whether to plot a density or a count. It is 'False' by
   # default.
-  # 
-  # Remember to set the label of the y-axis accordingly so that
-  # it represents the quantity displayed on the axis.
   #
   # Type: bool.
   density: True
@@ -416,11 +413,6 @@ yaxis:
   #
   # https://bulkdgd.readthedocs.io/en/latest/yaxis.html
   label:
-
-    # Set the label.
-    #
-    # Type: str.
-    ylabel: Density
 
     # Set the padding around the label.
     #

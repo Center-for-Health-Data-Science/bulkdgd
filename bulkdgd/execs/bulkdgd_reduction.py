@@ -5,7 +5,7 @@
 #
 #    Perform dimensionality reduction analyses.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -44,10 +44,8 @@ import sys
 import numpy as np
 import pandas as pd
 
-# Import from the package.
-from bulkdgd.ioutil.tableio import save_table
-
 # Import from 'bulkdgd'.
+from bulkdgd.ioutil.tableio import save_table
 from bulkdgd import defaults, ioutil, plotting
 from bulkdgd.analysis import reduction
 from . import util
@@ -64,31 +62,30 @@ logger = log.getLogger(__name__)
 
 
 # Set a mapping between the names of the dimensionality reduction
-# analyses used in the program and the names to display in the help
-# messages.
+# analyses and the names to display in the help messages.
 NAME2HELPNAME = {
-    
+
     # PCA
     "pca" : "PCA",
-    
+
     # KPCA
     "kpca" : "KPCA",
-    
+
     # MDS
     "mds" : "MDS",
-    
+
     # t-SNE
     "tsne" : "t-SNE",
-    
+
     # UMAP
-     "umap" : "UMAP",
+    "umap" : "UMAP",
 
-    }   
+    }
 
-# Set a mapping between the name each dimensionality reduction analysis
-# and the function used to perform it.
+# Set a mapping between the name of each dimensionality reduction
+# analysis and the function used to perform it.
 DIMREDNAME2DIMREDFUNC = {
-    
+
     # PCA
     "pca" : reduction.perform_pca,
 
@@ -100,10 +97,10 @@ DIMREDNAME2DIMREDFUNC = {
 
     # t-SNE
     "tsne" : reduction.perform_tsne,
-    
+
     # UMAP
     "umap" : reduction.perform_umap,
-    
+
     }
 
 
@@ -112,13 +109,18 @@ DIMREDNAME2DIMREDFUNC = {
 
 # Define a function to set up the parser.
 def set_parser(dim_red_name: str) -> argparse.ArgumentParser:
-    """Set up the argument parser for a standalone
-    dimensionality reduction executable.
+    """Set up the argument parser for a dimensionality reduction
+    executable.
 
     Parameters
     ----------
     dim_red_name : :class:`str`
         The name of the dimensionality reduction analysis.
+
+    Returns
+    -------
+    parser : :class:`argparse.ArgumentParser`
+        The argument parser.
     """
 
     # Set the name of the dimensionality reduction analysis
@@ -156,7 +158,7 @@ def set_parser(dim_red_name: str) -> argparse.ArgumentParser:
         parser.add_argument_group(title = "Plotting options")
 
     #-----------------------------------------------------------------#
-        
+
     # Set a help message.
     id_help = \
         "The input CSV file containing the data frame with the " \
@@ -195,16 +197,16 @@ def set_parser(dim_red_name: str) -> argparse.ArgumentParser:
                              help = ic_help)
 
     #-----------------------------------------------------------------#
-    
+
     # Set the default value for the argument.
     oa_default = f"{dim_red_name}.parquet"
 
     # Set a help message.
     oa_help = \
-        "The name of the output CSV file containing the results " \
-        f"of the {dim_red_help}. The default file name is " \
+        "The name of the output Parquet file containing the " \
+        f"results of the {dim_red_help}. The default file name is " \
         f"'{oa_default}'."
-    
+
     # Add the argument to the group.
     output_group.add_argument("-oa", "--output-analysis",
                               type = str,
@@ -263,7 +265,7 @@ def set_parser(dim_red_name: str) -> argparse.ArgumentParser:
         "extension, it is assumed to be the name of a configuration " \
         f"file in '{cd_dir}'. If not provided, the default " \
         f"configuration file ('{cd_default}') will be used."
-    
+
     # Add the argument to the group.
     config_group.add_argument("-cd", "--config-file-dim-red",
                               type = str,
@@ -337,7 +339,7 @@ def set_parser(dim_red_name: str) -> argparse.ArgumentParser:
     gr_help = \
         "A comma-separated list of groups whose data points " \
         "should be plotted. By default, all groups found in the " \
-        "'-gc' '--groups-column' column, if passed, will be " \
+        "'-gc', '--groups-column' column, if passed, will be " \
         "included in the plot. Data points not belonging to " \
         "these groups will not be included. However, you can " \
         "use the '-pg', '--plot-other-groups' option to plot " \
@@ -354,7 +356,7 @@ def set_parser(dim_red_name: str) -> argparse.ArgumentParser:
     # Set a help message.
     pg_help = \
         "Whether to plot data points from the groups not " \
-        "included in the '-gr', '--groups' list. The  " \
+        "included in the '-gr', '--groups' list. The " \
         "aesthetics to plot these data points should also be " \
         "defined in the configuration file for plotting."
 
@@ -382,6 +384,16 @@ def set_parser(dim_red_name: str) -> argparse.ArgumentParser:
 # Define the 'main' function.
 def main(args: argparse.Namespace,
          dim_red_name: str) -> None:
+    """Perform a dimensionality reduction analysis.
+
+    Parameters
+    ----------
+    args : :class:`argparse.Namespace`
+        The parsed arguments.
+
+    dim_red_name : :class:`str`
+        The name of the dimensionality reduction analysis.
+    """
 
     # Get the argument corresponding to the working directory.
     wd = args.work_dir
@@ -389,7 +401,7 @@ def main(args: argparse.Namespace,
     # Get the arguments corresponding to the input files.
     input_data = args.input_data
     input_model = args.input_model
-    
+
     # Get the argument corresponding to the input columns.
     input_columns = args.input_columns
 
@@ -496,10 +508,14 @@ def main(args: argparse.Namespace,
     # If an input fitted model was passed
     if input_model is not None:
 
-        # Try to load the input model
+        # Try to load the input model.
         try:
 
-            fitted_model = pk.load(open(input_model, "rb"))
+            # Open the file.
+            with open(input_model, "rb") as f:
+
+                # Load the fitted model.
+                fitted_model = pk.load(f)
 
         # If something went wrong
         except Exception as e:
@@ -533,11 +549,11 @@ def main(args: argparse.Namespace,
         # with the given value.
         df_data = df_data.replace(np.inf, fill_pos_inf)
 
-    # Inform the user about the replacement.
-    infostr = \
-        "All positive infinite values in the input data points " \
-        f"were replaced with {fill_pos_inf}."
-    logger.info(infostr)
+        # Inform the user about the replacement.
+        infostr = \
+            "All positive infinite values in the input data points " \
+            f"were replaced with {fill_pos_inf}."
+        logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
@@ -548,11 +564,11 @@ def main(args: argparse.Namespace,
         # with the given value.
         df_data = df_data.replace(-np.inf, fill_neg_inf)
 
-    # Inform the user about the replacement.
-    infostr = \
-        "All negative infinite values in the input data points " \
-        f"were replaced with {fill_neg_inf}."
-    logger.info(infostr)
+        # Inform the user about the replacement.
+        infostr = \
+            "All negative infinite values in the input data points " \
+            f"were replaced with {fill_neg_inf}."
+        logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
@@ -599,10 +615,11 @@ def main(args: argparse.Namespace,
     # Try to save the results of the dimensionality reduction.
     try:
 
-        save_table(df_dim_red, output_analysis,
-                          sep = ",",
-                          index = True,
-                          header = True)
+        save_table(df_dim_red,
+                   output_analysis,
+                   sep = ",",
+                   index = True,
+                   header = True)
 
     # If something went wrong
     except Exception as e:
@@ -626,7 +643,11 @@ def main(args: argparse.Namespace,
     # Try to save the fitted model.
     try:
 
-        pk.dump(dim_red, open(output_model, "wb"))
+        # Open the file.
+        with open(output_model, "wb") as f:
+
+            # Write the fitted model.
+            pk.dump(dim_red, f)
 
     # If something went wrong
     except Exception as e:
@@ -687,8 +708,7 @@ def main(args: argparse.Namespace,
 
 # Define a shared entry point helper.
 def _entry_point(dim_red_name: str) -> None:
-    """Shared entry point logic for standalone dimensionality
-    reduction executables.
+    """Run a dimensionality reduction executable.
 
     Parameters
     ----------
@@ -705,14 +725,17 @@ def _entry_point(dim_red_name: str) -> None:
     # Set up the logging.
     util.set_main_logging(args = args)
 
-    # Check if the execution should be parallelized.
-    if getattr(args, "parallelize", False):
+    # If the execution should be parallelized
+    if getattr(args,
+               "parallelize",
+               False):
 
         # Run with parallelization.
         util.run_with_parallelization(\
             executable = \
                 f"bulkdgd_reduction_{dim_red_name}",
-            args = args)
+            args = args,
+            parser = parser)
 
     # Otherwise
     else:
@@ -724,24 +747,39 @@ def _entry_point(dim_red_name: str) -> None:
 
 # Define the entry point for the PCA executable.
 def entry_point_pca() -> None:
+    """Run the PCA executable."""
+
+    # Run the executable.
     _entry_point("pca")
 
 
 # Define the entry point for the KPCA executable.
 def entry_point_kpca() -> None:
+    """Run the KPCA executable."""
+
+    # Run the executable.
     _entry_point("kpca")
 
 
 # Define the entry point for the MDS executable.
 def entry_point_mds() -> None:
+    """Run the MDS executable."""
+
+    # Run the executable.
     _entry_point("mds")
 
 
 # Define the entry point for the t-SNE executable.
 def entry_point_tsne() -> None:
+    """Run the t-SNE executable."""
+
+    # Run the executable.
     _entry_point("tsne")
 
 
 # Define the entry point for the UMAP executable.
 def entry_point_umap() -> None:
+    """Run the UMAP executable."""
+
+    # Run the executable.
     _entry_point("umap")

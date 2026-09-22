@@ -30,19 +30,8 @@
 
 # Set the module's description.
 __doc__ = \
-    """Read a model's per-sample differential expression whether it is
-    still loose on disk or already packed into the directory's
-    'dea.zip'.
-
-    An ensemble's differential expression is one file per sample per
-    model, so a fifteen-model ensemble over a few thousand samples is
-    tens of thousands of small files - enough to matter on a shared
-    file system with a file quota. Packing a finished directory into
-    one archive is therefore the recommended end state, and everything
-    that reads those files afterwards goes through here so it does not
-    have to know or care which of the two states a directory is in: if
-    a 'dea.zip' is present the sample is read from it, otherwise from
-    the loose file."""
+    "Utilities to read a model's per-sample differential expression, " \
+    "loose on disk or packed into the directory's 'dea.zip'."
 
 
 #######################################################################
@@ -63,26 +52,24 @@ from .tableio import is_parquet, resolve_name, READ_EXTENSIONS
 #######################################################################
 
 
-# The name of the archive a packed directory uses.
+# Set the name of a packed directory's archive.
 DEA_ZIP_NAME = "dea.zip"
 
-# The prefix the per-sample files are named with.
+# Set the prefix of the per-sample files.
 DEA_PREFIX = "dea_"
 
 
 #######################################################################
 
 
-# An open archive is kept per path so that reading many samples out of
-# the same archive - as the consensus does, once per sample per model -
-# parses its central directory once, and not once a sample.
+# Set the cache of open archives, by path (each archive is parsed
+# once, not once per sample).
 _ZIP_CACHE = {}
 
-# The member names of each open archive, so that asking whether a
-# sample is present does not go back to the archive.
+# Set the cache of each open archive's members' names.
 _NAMES_CACHE = {}
 
-# The process the caches were built in.
+# Set the process the caches were built in.
 _CACHE_PID = None
 
 
@@ -129,18 +116,14 @@ def _get_archive(zip_path: str) -> tuple[zipfile.ZipFile, set]:
         The names of the archive's members.
     """
 
-    # Get the process the caches were built in.
+    # Use the process the caches were built in.
     global _CACHE_PID
 
     # Get the current process.
     pid = os.getpid()
 
-    # The caches are dropped whenever the process changes, so that a
-    # worker started by 'multiprocessing' never reads through a file
-    # descriptor it inherited from its parent - a shared descriptor
-    # gives interleaved reads, and a 'BadZipFile' raised from a file
-    # that is perfectly fine. Each process opens, and reads through,
-    # its own handles.
+    # If the process changed (a worker must not read through file
+    # descriptors inherited from its parent)
     if _CACHE_PID != pid:
 
         # Empty the caches.
@@ -169,6 +152,32 @@ def _get_archive(zip_path: str) -> tuple[zipfile.ZipFile, set]:
 
     # Return the archive and its members' names.
     return archive, _NAMES_CACHE[zip_path]
+
+
+#---------------------------------------------------------------------#
+
+
+def forget_archive(zip_path: str) -> None:
+    """Close an archive cached for reading and drop it from the
+    cache, so the next read opens it again.
+
+    Parameters
+    ----------
+    zip_path : :class:`str`
+        The path to the archive.
+    """
+
+    # Take the archive out of the cache, if it is there.
+    archive = _ZIP_CACHE.pop(zip_path, None)
+
+    # Drop its members' names.
+    _NAMES_CACHE.pop(zip_path, None)
+
+    # If it was cached
+    if archive is not None:
+
+        # Close it.
+        archive.close()
 
 
 #---------------------------------------------------------------------#
@@ -209,14 +218,15 @@ def has_sample(dea_dir: str,
         # Get the archive's members' names.
         _, names = _get_archive(zip_path)
 
-        # Present in whichever format, since both are on disk.
+        # Return whether the sample is present, in either format.
         return resolve_name(f"{prefix}{sample}", names) is not None
 
     #-----------------------------------------------------------------#
 
-    # Otherwise, whether a loose file is there in either format.
+    # Get the files in the directory, if it exists.
     listing = os.listdir(dea_dir) if os.path.isdir(dea_dir) else []
 
+    # Return whether the sample is present, in either format.
     return resolve_name(f"{prefix}{sample}", listing) is not None
 
 
@@ -264,11 +274,7 @@ def read_dea(dea_dir: str,
         # Get the archive and its members' names.
         archive, names = _get_archive(zip_path)
 
-        # WHICHEVER FORMAT IS IN THERE. New runs write Parquet, and the
-        # archives already on disk hold text, so the member is looked up
-        # by its stem and taken in whatever form it was stored in. A
-        # reader that hardcoded one extension would be wrong for half
-        # the data the moment the writer changed.
+        # Get the sample's member, in whichever format it was stored.
         member = resolve_name(f"{prefix}{sample}", names)
 
         # If the sample is not in the archive
@@ -277,21 +283,22 @@ def read_dea(dea_dir: str,
             # Return nothing.
             return None
 
-        # Read the member straight out of the archive. It is read in
-        # full before being parsed because the handle the archive
-        # gives is not seekable, and the parser may need to seek.
+        # Open the member.
         with archive.open(member) as handle:
 
+            # Read it in full (the handle is not seekable).
             data = io.BytesIO(handle.read())
 
+            # Return the parsed data.
             return (pd.read_parquet(data) if is_parquet(member)
                     else pd.read_csv(data, **read_csv_kwargs))
 
     #-----------------------------------------------------------------#
 
-    # The same question, for a directory that has not been packed.
+    # Get the files in the directory, if it exists.
     listing = os.listdir(dea_dir) if os.path.isdir(dea_dir) else []
 
+    # Get the sample's file, in whichever format it was stored.
     member = resolve_name(f"{prefix}{sample}", listing)
 
     # If the file is not there
@@ -355,30 +362,30 @@ def list_samples(dea_dir: str,
 
     #-----------------------------------------------------------------#
 
-    # Return the part of each name between the prefix and the
-    # extension, sorted.
-    #
-    # THE EXTENSION IS STRIPPED BY LENGTH, NOT BY A CONSTANT. This took
-    # the name up to its last four characters, which is '.csv' and is
-    # not '.parquet': against a directory written by a current run it
-    # would have returned every sample name with 'rque' still attached,
-    # and every lookup keyed on those names would have missed. A
-    # directory holding both formats is also possible while a cohort is
-    # half regenerated, so the names are de-duplicated.
+    # Initialize the set of samples' names (a directory may hold both
+    # formats).
     out = set()
 
+    # For each name
     for name in names:
 
+        # If the name does not start with the prefix
         if not name.startswith(prefix):
 
+            # Skip it.
             continue
 
+        # For each supported extension
         for ext in READ_EXTENSIONS:
 
+            # If the name has the extension
             if name.endswith(ext):
 
+                # Add the part between the prefix and the extension.
                 out.add(name[len(prefix):-len(ext)])
 
+                # Stop looking.
                 break
 
+    # Return the samples' names, sorted.
     return sorted(out)

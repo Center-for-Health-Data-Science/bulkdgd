@@ -5,7 +5,7 @@
 #
 #    Private model-related utilities.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -44,10 +44,11 @@ from bulkdgd import _internals, defaults
 from . import _templates, dataclasses, latents
 
 
-######################### PRIVATE FUNCTIONS  ##########################
+########################## PRIVATE FUNCTIONS ##########################
 
 
-def _get_nested_value(obj: dict, path: str):
+def _get_nested_value(obj: dict,
+                      path: str):
     """Get a value from a nested dictionary using dot notation, e.g.
     "field.subfield.key".
 
@@ -62,7 +63,7 @@ def _get_nested_value(obj: dict, path: str):
 
     Returns
     -------
-    value : object or :obj:`None`
+    value : :class:`object` or :obj:`None`
         The value at the specified path, or :obj:`None` if the path is
         invalid or does not exist.
     """
@@ -72,13 +73,13 @@ def _get_nested_value(obj: dict, path: str):
 
         # Return None.
         return None
-    
+
     # Split the path into keys.
     keys = path.split(".")
 
     # Set the current level to the input object.
     current = obj
-    
+
     # For each key in the path
     for key in keys:
 
@@ -87,13 +88,13 @@ def _get_nested_value(obj: dict, path: str):
 
             # Move down to the next level.
             current = current[key]
-        
+
         # Otherwise
         else:
 
             # Return None.
             return None
-    
+
     # Return the value found at the end of the path.
     return current
 
@@ -120,7 +121,7 @@ def _check_config_recursive(
 
     parent_config : :class:`dict`, optional
         The root configuration dictionary, used to resolve switch
-        references. Defaults to `config` if not given.
+        references. Defaults to ``config`` if not given.
 
     path : :class:`str`, optional
         The current dot-notation path through the configuration
@@ -140,7 +141,7 @@ def _check_config_recursive(
         A list of validation warning messages regarding the
         configuration.
     """
-    
+
     # Initialize a list to store the errors.
     errors = []
 
@@ -148,22 +149,22 @@ def _check_config_recursive(
     warnings = []
 
     #-----------------------------------------------------------------#
-    
+
     # If there is no configuration
     if config is None:
 
         # Initialize an empty configuration.
         config = {}
 
-    # Otherwise
-    else:
+    # If this is the top-level call
+    elif parent_config is None:
 
         # Create a deep copy of the configuration to avoid mutating
         # the original during validation and default application.
         config = copy.deepcopy(config)
 
     #-----------------------------------------------------------------#
-    
+
     # If no parent config is provided
     if parent_config is None:
 
@@ -172,20 +173,20 @@ def _check_config_recursive(
         parent_config = config
 
     #-----------------------------------------------------------------#
-    
+
     # For each specification in the template
     for template_key, template_spec in template.items():
-        
+
         # Build the path for this key.
         current_path = \
             f"{path}.{template_key}" if path else template_key
-        
+
         #-------------------------------------------------------------#
-        
+
         # If we are at a 'switch' block
         if isinstance(template_spec, dict) and \
                 "switch" in template_spec:
-            
+
             # Get the configuration of the 'switch' block.
             switch_config = template_spec["switch"]
 
@@ -194,12 +195,9 @@ def _check_config_recursive(
 
             # Get the switch cases.
             cases = switch_config.get("cases", {})
-            
-            # Resolve the referenced option value. Support:
-            # - dotted absolute paths (e.g.
-            #   "dec_options.output_module_name")
-            # - names relative to the current path
-            # - fallback to top-level names
+
+            # Initialize the option's value (resolved from a dotted
+            # path, a relative name, or a top-level name).
             option_value = None
 
             #---------------------------------------------------------#
@@ -214,16 +212,16 @@ def _check_config_recursive(
 
             # Otherwise
             else:
-                
-                # Assume it it relative to the current path.
+
+                # Assume it is relative to the current path.
                 rel_path = \
                     f"{path}.{option_ref}" if path else option_ref
-                
+
                 # Take the option's value using the relative path.
                 option_value = \
                     _get_nested_value(parent_config,
                                       rel_path)
-                
+
                 # If the option's value is 'None'
                 if option_value is None:
 
@@ -235,17 +233,19 @@ def _check_config_recursive(
                             option_ref)
 
             #---------------------------------------------------------#
-            
-            # Take the corresponding case.
+
+            # If the option's value has a corresponding case
             if option_value in cases:
+
+                # Get the case's template.
                 case_template = cases[option_value]
-                    
-                # If the section does not exist in the configuraton
-                if template_key not in config:
+
+                # If the section is missing or empty
+                if config.get(template_key) is None:
 
                     # Initialize it.
                     config[template_key] = {}
-                
+
                 # Recursively validate this case's template.
                 config[template_key], case_errors, case_warnings = \
                     _check_config_recursive(
@@ -253,7 +253,7 @@ def _check_config_recursive(
                         case_template,
                         parent_config,
                         current_path)
-                
+
                 # Add the collected errors to the list of errors.
                 errors.extend(case_errors)
 
@@ -261,16 +261,15 @@ def _check_config_recursive(
                 warnings.extend(case_warnings)
 
         #-------------------------------------------------------------#
-        
-        # If we are at a nested 'switch' block
-        # (when the template_key itself is 'switch' and the value
-        # is a switch definition with 'option' and 'cases')
+
+        # If we are at a nested 'switch' block (the key itself is
+        # 'switch' and the value has 'option' and 'cases')
         elif isinstance(template_spec, dict) and \
                 template_key == "switch" and \
                 "option" in template_spec and \
                 "cases" in template_spec and \
                 "switch" not in template_spec:
-            
+
             # Get the switch configuration.
             switch_config = template_spec
 
@@ -279,12 +278,9 @@ def _check_config_recursive(
 
             # Get the switch cases.
             cases = switch_config.get("cases", {})
-            
-            # Resolve the referenced option value. Support:
-            # - dotted absolute paths (e.g.
-            #   "dec_options.output_module_name")
-            # - names relative to the current path
-            # - fallback to top-level names
+
+            # Initialize the option's value (resolved from a dotted
+            # path, a relative name, or a top-level name).
             option_value = None
 
             #---------------------------------------------------------#
@@ -299,16 +295,16 @@ def _check_config_recursive(
 
             # Otherwise
             else:
-                
+
                 # Assume it is relative to the current path.
                 rel_path = \
                     f"{path}.{option_ref}" if path else option_ref
-                
+
                 # Take the option's value using the relative path.
                 option_value = \
                     _get_nested_value(parent_config,
                                       rel_path)
-                
+
                 # If the option's value is 'None'
                 if option_value is None:
 
@@ -320,20 +316,19 @@ def _check_config_recursive(
                             option_ref)
 
             #---------------------------------------------------------#
-            
-            # Take the corresponding case.
+
+            # Get the case's template.
             case_template = cases[option_value]
-            
-            # Recursively validate this case's template.
-            # Note: for nested switches, we don't wrap in a new config
-            # key; we process the case directly into the current config.
+
+            # Recursively validate this case's template directly into
+            # the current configuration.
             config, case_errors, case_warnings = \
                 _check_config_recursive(
                     config,
                     case_template,
                     parent_config,
                     path)
-            
+
             # Add the collected errors to the list of errors.
             errors.extend(case_errors)
 
@@ -341,46 +336,46 @@ def _check_config_recursive(
             warnings.extend(case_warnings)
 
         #-------------------------------------------------------------#
-        
+
         # If it is a regular option specification
         elif isinstance(template_spec, dict) and \
             "type" in template_spec:
-            
+
             # If the option is provided in the configuration
             if template_key in config:
-                
+
                 # Validate the option's value.
                 error = \
                     _check_value(value = config[template_key],
                                  options = template_spec,
                                  option_name = template_key,
                                  field_name = current_path)
-                
+
                 # If there is an error
                 if error:
 
                     # Add it to the list of errors.
                     errors.append(error)
-            
+
             # Otherwise
             else:
-                
+
                 # If there is a default option in the template's
                 # specification
                 if "default" in template_spec:
-                    
+
                     # Get the default value.
                     default_value = template_spec["default"]
 
                     # Add it to the configuration.
                     config[template_key] = default_value
-                    
-                    # Generate a warning about using the default
+
+                    # Add a warning about using the default value.
                     warnings.append(
                         f"{current_path}: no '{template_key}' found. "
                         f"The default value '{default_value}' will be "
                         f"used.")
-                
+
                 # Otherwise
                 else:
 
@@ -390,24 +385,23 @@ def _check_config_recursive(
                         f"'{template_key}'.")
 
         #-------------------------------------------------------------#
-        
+
         # If we are at a nested section
         elif isinstance(template_spec, dict) and \
                 not ("switch" in template_spec or \
                      "type" in template_spec):
 
-            # If the section does not exist in the configuraton
-            if template_key not in config:
+            # If the section is optional and missing, leave it out.
+            if template_key not in config \
+                    and template_spec.get("__optional__"):
+                continue
 
-                # An absent optional section means "not requested",
-                # not "forgotten"; defaulting it in would turn it into
-                # a real (defaulted) section, changing the config.
-                if template_spec.get("__optional__"):
-                    continue
+            # If the section is missing or empty
+            if config.get(template_key) is None:
 
                 # Initialize it.
                 config[template_key] = {}
-            
+
             # Recursively validate this section's template.
             config[template_key], nested_errors, nested_warnings = \
                 _check_config_recursive(
@@ -415,7 +409,7 @@ def _check_config_recursive(
                     template_spec,
                     parent_config,
                     current_path)
-            
+
             # Add the collected errors to the list of errors.
             errors.extend(nested_errors)
 
@@ -423,7 +417,7 @@ def _check_config_recursive(
             warnings.extend(nested_warnings)
 
     #-----------------------------------------------------------------#
-    
+
     # Return the configuration with defaults applied, the errors,
     # and the warnings.
     return config, errors, warnings
@@ -433,28 +427,29 @@ def _check_value(value,
                  options,
                  option_name,
                  field_name):
-    """Validate a single configuration value against spec.
-    
+    """Validate a single configuration value against its
+    specification.
+
     Parameters
     ----------
-    value
+    value : :class:`object`
         The value to validate.
-    
+
     options : :class:`dict`
         The option specification containing ``type``,
         ``choices``, ``condition``, and ``message``.
-    
+
     option_name : :class:`str`
         The name of the option being validated.
-    
+
     field_name : :class:`str`
         The field path using dot notation (e.g.,
         "latent_options" or "latent_options.decoder_options").
         Used in error messages.
-    
+
     Returns
     -------
-    :class:`str`
+    error : :class:`str`
         An error message if validation fails, or an empty
         string if successful.
     """
@@ -491,7 +486,7 @@ def _check_value(value,
         # satisfy it
         if option_condition is not None \
             and not option_condition(value):
-            
+
             # Finalize the error string.
             err_str += option_message + "."
 
@@ -500,9 +495,8 @@ def _check_value(value,
     # If the field type is string
     elif str in option_type:
 
-        # If the value is not a string or, if there are supported
-        # choices for the field, the value is not one of the supported
-        # choices
+        # If the value is not a string or not one of the supported
+        # choices (if any)
         if not isinstance(value, str) or \
             (option_choices is not None \
                 and value not in option_choices):
@@ -518,7 +512,7 @@ def _check_value(value,
                 err_str += \
                     "must be a string and one of the supported " \
                     f"values: {choices_str}."
-            
+
             # Otherwise
             else:
 
@@ -554,14 +548,14 @@ def _check_value(value,
                 # Set a string for the supported choices.
                 choices_str = \
                     ", ".join([f"'{c}'" for c in option_choices])
-                
+
                 # Add the supported choices to the
                 # error string.
                 err_str += \
                     "must be a list of strings, each being one of " \
                     "the supported values: " \
                     f"{choices_str}."
-        
+
         # If there is a condition for the field
         elif option_condition is not None:
 
@@ -569,7 +563,7 @@ def _check_value(value,
             # satisfy the condition
             if not isinstance(value, list) or \
                 not option_condition(value):
-                
+
                 # Finalize the error string.
                 err_str += option_message + "."
 
@@ -578,7 +572,7 @@ def _check_value(value,
     # If the error string was updated
     if err_str != f"{field_name}: '{option_name}' ":
 
-        # Store the error.
+        # Return the error string.
         return err_str
 
     # Return an empty string.
@@ -611,7 +605,7 @@ def parse_config_model(config: dict[str, object],
 
     errors : :class:`list`
         A list of errors found in the configuration.
-    
+
     warnings : :class:`list`
         A list of warnings regarding the configuration.
     """
@@ -629,7 +623,7 @@ def parse_config_model(config: dict[str, object],
 
         # Set the head of the path to be the current working directory.
         path_head = os.getcwd()
-    
+
     # Otherwise
     else:
 
@@ -644,19 +638,17 @@ def parse_config_model(config: dict[str, object],
 
     #-----------------------------------------------------------------#
 
-    # Use the recursive validator to check
-    # and apply defaults to the configuration
-    # against the template.
+    # Check the configuration against the template and apply the
+    # defaults.
     config_validated, errors_validation, \
         warnings_validation = \
-            _check_config_recursive(config = config, 
+            _check_config_recursive(config = config,
                                     template = _templates.CONFIG_MODEL)
 
     # Add validation errors to the error list.
     errors.extend(errors_validation)
 
-    # Add validation warnings to the warning
-    # list.
+    # Add validation warnings to the warning list.
     warnings.extend(warnings_validation)
 
     #-----------------------------------------------------------------#
@@ -702,14 +694,14 @@ def parse_config_model(config: dict[str, object],
 
         # If the 'latent_pth_file' field is not a string
         if not isinstance(latent_pth_file, str):
-            
+
             # Store the error.
             errors.append(
                 "latent_options: 'latent_pth_file' must be a "
                 "string.")
 
         # If the default file should be used
-        if latent_pth_file == "default":
+        elif latent_pth_file == "default":
 
             # Get the path to the default file.
             config_validated["latent_options"]["latent_pth_file"] = \
@@ -743,17 +735,16 @@ def parse_config_model(config: dict[str, object],
             errors.append(
                 "decoder_options: 'decoder_pth_file' must be a "
                 "string.")
-        
+
         # If the default file should be used
-        if decoder_pth_file == "default":
+        elif decoder_pth_file == "default":
 
             # Get the path to the default file.
             default_decoder_pth_file = \
                 os.path.normpath(\
                     defaults.DATA_FILES_MODEL["dec"])
 
-            # If the file is not present locally (it is too large to
-            # be distributed with the package on PyPI), download it.
+            # If the file is not present locally, download it.
             if not os.path.isfile(default_decoder_pth_file):
 
                 # Download the decoder's weights.
@@ -774,8 +765,7 @@ def parse_config_model(config: dict[str, object],
 
     #-----------------------------------------------------------------#
 
-    # Return the updated configuration, the
-    # errors, and the warnings.
+    # Return the updated configuration, the errors, and the warnings.
     return config_validated, errors, warnings
 
 
@@ -792,7 +782,7 @@ def parse_config_train(
     ----------
     config : :class:`dict`
         The configuration.
-    
+
     config_model : :class:`dict`, optional
         The configuration of the model. This can be passed to check the
         consistency between the training configuration and the model
@@ -800,8 +790,14 @@ def parse_config_train(
 
     Returns
     -------
+    config : :class:`dict`
+        The validated configuration.
+
     errors : :class:`list`
         A list of errors found in the configuration.
+
+    warnings : :class:`list`
+        A list of warnings regarding the configuration.
     """
 
     # Initialize an empty list to store the errors.
@@ -817,7 +813,7 @@ def parse_config_train(
 
     #-----------------------------------------------------------------#
 
-    # Validate against template using recursive checker.
+    # Validate against the template.
     config_validated, err_val, warn_val = \
         _check_config_recursive(config = config,
                                 template = _templates.CONFIG_TRAIN)
@@ -906,10 +902,8 @@ def parse_config_rep(config: Optional[dict[str, object]]) -> \
 
     #-----------------------------------------------------------------#
 
-    # Validate the initialization contract separately: 'mode' controls
-    # which fields are required, and 'two_opt_multiseed' takes a list
-    # of seeds where 'two_opt' takes one, so checks live here to catch
-    # a malformed configuration before representations are computed.
+    # If the latent type is 'tgmm', check the initialization options
+    # (the required fields depend on 'mode' and 'scheme_type').
     if config_validated.get("latent_type") == "tgmm":
 
         # Get (or create) the scheme options section.
@@ -929,7 +923,7 @@ def parse_config_rep(config: Optional[dict[str, object]]) -> \
         # Otherwise
         else:
 
-            # Deep-copy it, since we will mutate it below.
+            # Create a deep copy of it.
             initialization = copy.deepcopy(initialization)
 
             # Define the options 'initialization' is allowed to have.
@@ -1163,7 +1157,7 @@ def get_time_dataframe(time_list: list[tuple[float, float]]) -> \
         A data frame containing data about the computing time.
     """
 
-    # Crate a data frame for the CPU/wall clock time.
+    # Create a data frame for the CPU/wall clock time.
     df_time = pd.DataFrame(time_list)
 
     # Get the platform on which we are running.
@@ -1225,7 +1219,7 @@ def get_final_data_frames_rep(
     genes_names : :class:`list`
         The genes' names.
 
-    pred_r_values : :class:`torch.Tensor` or :obj:`None`
+    pred_r_values : :class:`torch.Tensor` or :obj:`None`, optional
         The predicted r-values of the negative binomial distributions
         (samples x genes), or :obj:`None` for Poisson distributions.
 
@@ -1265,7 +1259,7 @@ def get_final_data_frames_rep(
 
     # If the predicted r-values were passed
     if pred_r_values is not None:
-        
+
         # Convert the tensor containing the predicted r-values into an
         # array.
         pred_r_values_array = pred_r_values.detach().cpu().numpy()
@@ -1336,20 +1330,22 @@ def get_final_data_frames_rep(
 def get_final_data_frames_train(
         reps: tuple[torch.Tensor, torch.Tensor],
         pred_means: tuple[torch.Tensor, torch.Tensor],
-        losses_list: list[float],
+        losses_list: list[list[float]],
         time_train: list[tuple[float, float]],
         samples_names_train: list[str],
         samples_names_test: list[str],
         df_other_data_train: pd.DataFrame,
         df_other_data_test: pd.DataFrame,
         genes_names: list[str],
-        pred_r_values: Optional[tuple[np.ndarray, np.ndarray]] = None,
-        metrics_rows_train: Optional[list[str]] = None,
-        metrics_rows_test: Optional[list[str]] = None) -> \
+        pred_r_values: Optional[
+            torch.Tensor | tuple[torch.Tensor, torch.Tensor]] = None,
+        metrics_rows_train: Optional[list[dict]] = None,
+        metrics_rows_test: Optional[list[dict]] = None) -> \
             tuple[tuple[pd.DataFrame, pd.DataFrame],
                   tuple[pd.DataFrame, pd.DataFrame],
-                  Optional[tuple[pd.DataFrame, pd.DataFrame]],
+                  Optional[tuple[pd.DataFrame, ...]],
                   pd.DataFrame,
+                  Optional[tuple[pd.DataFrame, pd.DataFrame]],
                   pd.DataFrame]:
     """Get the final data frames containing the representations, the
     decoder outputs, the training losses, and the training time.
@@ -1511,7 +1507,7 @@ def get_final_data_frames_train(
                 # Convert it into a two-dimensional array by repeating
                 # the r-values for as many samples we have.
                 pred_r_values_array = np.tile(pred_r_values_array,
-                                            (len(samples_names), 1))
+                                              (len(samples_names), 1))
 
             # Get a data frame containing the predicted r-values for
             # all samples.
@@ -1531,7 +1527,7 @@ def get_final_data_frames_train(
             dfs_pred_r_values = (df_pred_r_values,)
 
         #-------------------------------------------------------------#
-        
+
         # If there are different r-values for the different samples
         elif isinstance(pred_r_values, tuple):
 
@@ -1553,7 +1549,7 @@ def get_final_data_frames_train(
             # Set the names of the columns of the data frame to
             # be the names of the genes.
             df_pred_r_values_train.columns = genes_names
-            
+
             # Get a data frame containing the predicted r-values
             # for the test samples.
             df_pred_r_values_test = \
@@ -1592,14 +1588,14 @@ def get_final_data_frames_train(
     # clustering metrics to None.
     dfs_metrics = None
 
-    # Add per-epoch clustering metrics, if available.
+    # If per-epoch clustering metrics are available
     if metrics_rows_train and metrics_rows_test:
 
         # Build data frames from per-epoch metric rows.
         df_metrics_train = pd.DataFrame(metrics_rows_train)
         df_metrics_test = pd.DataFrame(metrics_rows_test)
 
-        # Proceed only if both include an epoch column.
+        # If both include an epoch column
         if "epoch" in df_metrics_train.columns \
             and "epoch" in df_metrics_test.columns:
 
@@ -1644,7 +1640,7 @@ def normalize_loss(loss: torch.Tensor,
 
     loss_norm_options : :class:`dict`
         A dictionary of options for the normalization method.
-    
+
     Returns
     -------
     loss_normalized: :class:`torch.Tensor`
@@ -1654,7 +1650,7 @@ def normalize_loss(loss: torch.Tensor,
     # If the normalization method is 'none'
     if loss_norm_type == "none":
 
-        # Simply return the loss.
+        # Return the loss.
         return loss
 
     # If the loss should be normalized by the total number of samples
@@ -1676,12 +1672,21 @@ def normalize_loss(loss: torch.Tensor,
     # If the loss should be normalized by the number of samples times
     # the latent dimension
     elif loss_norm_type == "n_samples * latent_dim":
-        
+
         # Return the loss normalized by the number of samples times the
         # latent dimension.
         return loss / \
             (loss_norm_options["n_samples"] *
              loss_norm_options["latent_dim"])
+
+    # Otherwise
+    else:
+
+        # Raise an error.
+        errstr = \
+            f"Unknown normalization type '{loss_norm_type}' for " \
+            f"the '{loss_type}' loss."
+        raise ValueError(errstr)
 
 
 def get_pathways_saliency_map(saliency_map: np.ndarray,
@@ -1689,16 +1694,16 @@ def get_pathways_saliency_map(saliency_map: np.ndarray,
                               genes_names: list[str]) -> pd.DataFrame:
     """Get the pathway saliency scores by aggregating the gene-level
     saliency scores for the genes in each pathway.
-    
+
     Parameters
     ----------
     saliency_map : :class:`numpy.ndarray`
         A 2D array containing the saliency scores for each gene.
-    
+
     pathways : :class:`dict`
         A dictionary where the keys are pathway names and the values
         are lists of gene IDs belonging to each pathway.
-    
+
     genes_names : :class:`list`
         A list containing the names/IDs of the genes corresponding
         to the rows of the saliency map.
@@ -1710,19 +1715,19 @@ def get_pathways_saliency_map(saliency_map: np.ndarray,
         are the saliency scores aggregated for each pathway.
     """
 
-    # Aggregate by pathway
+    # Initialize a dictionary for the pathway scores.
     pathway_scores = {}
-    
+
     # For each pathway
     for pathway_name, gene_ids in pathways.items():
-        
+
         # Get the indices of genes in this pathway in the saliency map.
         gene_indices = \
             [i for i, g in enumerate(genes_names) if g in gene_ids]
-        
+
         # Compute the mean saliency across the genes in the pathway.
         pathway_scores[pathway_name] = \
-            saliency_map[gene_indices].mean(dim=0)
+            saliency_map[gene_indices].mean(axis = 0)
 
     # Return a data frame with the pathway scores.
     return pd.DataFrame(pathway_scores).T
@@ -1731,8 +1736,9 @@ def get_pathways_saliency_map(saliency_map: np.ndarray,
 #---------------------------------------------------------------------#
 
 
-def _save_epoch_df(df, path, sep = ","):
-
+def _save_epoch_df(df,
+                   path,
+                   sep = ","):
     """Write a per-epoch table as Parquet or as text, depending on the
     path's extension.
 
@@ -1752,9 +1758,7 @@ def _save_epoch_df(df, path, sep = ","):
     # If the path calls for Parquet
     if str(path).lower().endswith((".parquet", ".pq")):
 
-        # Parquet preserves float64 exactly; text round-trips it with
-        # up to ~1e-12 error, which matters since these files are the
-        # record the run is reconstructed from.
+        # Write as Parquet, which preserves float64 values exactly.
         df.to_parquet(path,
                       engine = "pyarrow",
                       compression = "snappy",
@@ -1764,7 +1768,10 @@ def _save_epoch_df(df, path, sep = ","):
     else:
 
         # Write as delimited text.
-        df.to_csv(path, sep = sep, index = True, header = True)
+        df.to_csv(path,
+                  sep = sep,
+                  index = True,
+                  header = True)
 
 
 def save_rep_epoch(epoch: int,
@@ -1783,30 +1790,30 @@ def save_rep_epoch(epoch: int,
 
     prefix : :class:`str`
         The prefix to use for the output file name.
-    
+
     latent_dim : :class:`int`
         The dimensionality of the latent space.
-    
-    rep_layer : :class:`core.latent.RepresentationLayer`
+
+    rep_layer : :class:`core.latents.RepresentationLayer`
         The layer containing the representations.
-    
+
     samples_names : :class:`list`
         The names of the samples.
 
-    save_dir : :class:`str`
+    save_dir : :class:`str`, optional
         The directory where to save the representations.
     """
 
     # Set the names of the columns containing the representations.
     columns_names = \
         [f"latent_dim_{i}" for i in range(1, latent_dim + 1)]
-    
+
     #-----------------------------------------------------------------#
-    
+
     # Get the directory where to save the representations.
     save_dir = \
         save_dir if save_dir is not None else os.getcwd()
-    
+
     # Create the directory if it does not exist.
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
@@ -1820,13 +1827,14 @@ def save_rep_epoch(epoch: int,
     df_rep = pd.DataFrame(data = rep,
                           index = samples_names,
                           columns = columns_names)
-    
+
     # Set the path to the file where the representations will be saved.
     rep_out = os.path.join(save_dir, f"{prefix}_rep_{epoch}.parquet")
-    
+
     # Save the representations.
-    _save_epoch_df(df_rep, rep_out,
-                  sep = ",")
+    _save_epoch_df(df_rep,
+                   rep_out,
+                   sep = ",")
 
 
 def save_latent_probs_epoch(probs: torch.Tensor,
@@ -1845,13 +1853,13 @@ def save_latent_probs_epoch(probs: torch.Tensor,
 
     epoch : :class:`int`
         The epoch number.
-    
+
     prefix : :class:`str`
         The prefix to use for the output file name.
-    
+
     n_components : :class:`int`
         The number of components of the GMM.
-    
+
     samples_names : :class:`list`
         The names of the samples.
 
@@ -1860,7 +1868,8 @@ def save_latent_probs_epoch(probs: torch.Tensor,
     """
 
     # Set the names of the columns containing the components.
-    columns_names = [f"component_{i}" for i in range(1, n_components + 1)]
+    columns_names = \
+        [f"component_{i}" for i in range(1, n_components + 1)]
 
     #-----------------------------------------------------------------#
 
@@ -1887,8 +1896,9 @@ def save_latent_probs_epoch(probs: torch.Tensor,
         os.path.join(save_dir, f"{prefix}_latent_probs_{epoch}.parquet")
 
     # Save the probability densities for the samples.
-    _save_epoch_df(df_probs, probs_out,
-                    sep = ",")
+    _save_epoch_df(df_probs,
+                   probs_out,
+                   sep = ",")
 
 
 def save_latent_means_epoch(epoch: int,
@@ -1902,16 +1912,16 @@ def save_latent_means_epoch(epoch: int,
     ----------
     epoch : :class:`int`
         The epoch number.
-    
+
     means : :class:`numpy.ndarray`
         The means of the GMM.
-    
+
     latent_dim : :class:`int`
         The dimensionality of the latent space.
-    
+
     n_components : :class:`int`
         The number of components of the GMM.
-    
+
     save_dir : :class:`str`, optional
         The directory where to save the means.
     """
@@ -1923,7 +1933,7 @@ def save_latent_means_epoch(epoch: int,
     # Set the names of the columns.
     columns_names = \
         [f"latent_dim_{i}" for i in range(1, latent_dim + 1)]
-    
+
     #-----------------------------------------------------------------#
 
     # Get the directory where to save the means.
@@ -1943,9 +1953,10 @@ def save_latent_means_epoch(epoch: int,
     # Set the path to the file where the means will be saved.
     means_out = os.path.join(save_dir, f"latent_means_{epoch}.parquet")
 
-    # Save the means for the training samples.
-    _save_epoch_df(df_means, means_out,
-                    sep = ",")
+    # Save the means.
+    _save_epoch_df(df_means,
+                   means_out,
+                   sep = ",")
 
 
 def save_model_epoch(epoch: int,
@@ -1971,9 +1982,7 @@ def save_model_epoch(epoch: int,
         working directory is used.
     """
 
-    # Get the directory where to save the model. Saving at every
-    # epoch (rather than only at the end) lets a run be resumed if it
-    # is interrupted before training finishes.
+    # Get the directory where to save the model.
     save_dir = \
         save_dir if save_dir is not None else os.getcwd()
 
@@ -1983,8 +1992,7 @@ def save_model_epoch(epoch: int,
 
     #-----------------------------------------------------------------#
 
-    # Save the decoder's weights, under the same name the end of
-    # training uses, with the epoch appended.
+    # Save the decoder's weights.
     torch.save(decoder.state_dict(),
                os.path.join(save_dir, f"dec_{epoch}.pth"))
 
@@ -2005,20 +2013,20 @@ def save_genes_saliency_maps_epoch(
     ----------
     epoch : :class:`int`
         The epoch number.
-    
+
     saliency_map : :class:`numpy.ndarray`
         The saliency map.
-    
+
     prefix : :class:`str`
         The prefix to use for the output file name.
-    
+
     genes_names : :class:`list`
         The names of the genes.
 
     save_dir : :class:`str`, optional
         The directory where to save the saliency map.
     """
-    
+
     # Set the name of the rows.
     index_names = genes_names
 
@@ -2028,16 +2036,16 @@ def save_genes_saliency_maps_epoch(
          in range(1, saliency_map.shape[1] + 1)]
 
     #-----------------------------------------------------------------#
-    
+
     # Get the directory where to save the saliency map.
     save_dir = save_dir if save_dir is not None else os.getcwd()
-    
+
     # Create the directory if it does not exist.
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
     #-----------------------------------------------------------------#
-    
+
     # Create a data frame with the saliency map.
     df_saliency_map = \
         pd.DataFrame(data = saliency_map,
@@ -2049,8 +2057,9 @@ def save_genes_saliency_maps_epoch(
         os.path.join(save_dir, f"{prefix}_saliency_map_{epoch}.parquet")
 
     # Save the saliency map.
-    _save_epoch_df(df_saliency_map, saliency_map_out,
-                           sep = ",")
+    _save_epoch_df(df_saliency_map,
+                   saliency_map_out,
+                   sep = ",")
 
 
 def save_pathways_saliency_maps_epoch(
@@ -2065,20 +2074,20 @@ def save_pathways_saliency_maps_epoch(
     ----------
     epoch : :class:`int`
         The epoch number.
-    
+
     saliency_map : :class:`numpy.ndarray`
         The saliency map.
-    
+
     prefix : :class:`str`
         The prefix to use for the output file name.
-    
+
     pathways_names : :class:`list`
         The names of the pathways.
 
     save_dir : :class:`str`, optional
         The directory where to save the saliency map.
     """
-    
+
     # Set the name of the rows.
     index_names = pathways_names
 
@@ -2088,19 +2097,19 @@ def save_pathways_saliency_maps_epoch(
          in range(1, saliency_map.shape[1] + 1)]
 
     #-----------------------------------------------------------------#
-    
+
     # Get the directory where to save the saliency map.
     save_dir = save_dir if save_dir is not None else os.getcwd()
-    
+
     # Create the directory if it does not exist.
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
     #-----------------------------------------------------------------#
-    
+
     # Create a data frame with the saliency map.
     df_saliency_map = \
-        pd.DataFrame(data = saliency_map,
+        pd.DataFrame(data = np.asarray(saliency_map),
                      index = index_names,
                      columns = columns_names)
 
@@ -2109,23 +2118,23 @@ def save_pathways_saliency_maps_epoch(
         os.path.join(save_dir, f"{prefix}_saliency_map_{epoch}.parquet")
 
     # Save the saliency map.
-    _save_epoch_df(df_saliency_map, saliency_map_out,
-                           sep = ",")
+    _save_epoch_df(df_saliency_map,
+                   saliency_map_out,
+                   sep = ",")
 
 
 #######################################################################
 
 
 def load_shipped_model(seed = None):
-
     """Get the configuration of one member of the ensemble that ships
     with the package.
 
     Parameters
     ----------
-    seed : :class:`int`, optional
-        The seed identifying the ensemble member. If not provided,
-        the base member's seed is used.
+    seed : :class:`str`, optional
+        The seed identifying the ensemble member (e.g., ``"seed37"``).
+        If not provided, the base member's seed is used.
 
     Returns
     -------
@@ -2139,6 +2148,8 @@ def load_shipped_model(seed = None):
 
     # If the seed does not identify a shipped ensemble member
     if seed not in defaults.ENSEMBLE_SEEDS:
+
+        # Raise an error.
         errstr = \
             f"'{seed}' is not a member of the shipped ensemble. The " \
             f"members are: {', '.join(defaults.ENSEMBLE_SEEDS)}."
@@ -2153,27 +2164,22 @@ def load_shipped_model(seed = None):
 
     #-----------------------------------------------------------------#
 
-    # Resolve the paths explicitly here rather than leaving "default":
-    # that sentinel resolves through 'DATA_FILES_MODEL', which always
-    # names the base member, so a non-base seed would silently get the
-    # base model's files instead of its own.
+    # Set the mixture's path explicitly ("default" always resolves to
+    # the base member's files).
     config["latent_options"]["latent_pth_file"] = files["gmm"]
 
-    # The mixture ships with the package; the decoder does not, and is
-    # fetched on first use into the same per-seed directory.
+    # If the decoder's weights are missing, download them.
     if not os.path.isfile(files["dec"]):
         _internals.util.download_decoder_pth(dest_path = files["dec"],
                                              seed = seed)
 
-    # Point the configuration at the (now guaranteed present) decoder
-    # weights.
+    # Point the configuration at the decoder's weights.
     config["decoder_options"]["decoder_pth_file"] = files["dec"]
 
     #-----------------------------------------------------------------#
 
-    # Resolve this sentinel too: "default" is understood by the
-    # configuration loader, not by 'BulkDGD.__init__', which passes
-    # it straight to 'open'.
+    # Get the genes list's path ("default" is only understood by the
+    # configuration loader).
     genes = config.get("genes_txt_file", "default")
 
     # Substitute the shipped gene list's path for the sentinel.

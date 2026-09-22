@@ -30,20 +30,7 @@
 # Set the module's description.
 __doc__ = \
     """An ensemble of bulkDGD models differing only in the seed they
-    were trained with, and the tiered consensus drawn from them.
-
-    A single model's differentially expressed genes depend on the seed
-    it was trained with. Which genes are real is therefore not a
-    question a single model can answer - the answer is how many of
-    several identically trained models agree, and that is what an
-    ensemble is for. An ensemble here is a set of models differing
-    ONLY in their training seed: same architecture, same data, same
-    split, same training options. Models that differ in anything else
-    are not repeated draws of the same experiment, and counting their
-    agreement means nothing, so the class is built so that a
-    heterogeneous ensemble cannot be assembled by accident - there is
-    one model configuration, shared, and a per-model configuration
-    that carries only the seed and where that model's files live."""
+    were trained with, and the tiered consensus drawn from them."""
 
 
 #######################################################################
@@ -54,6 +41,7 @@ import copy
 import logging as log
 import multiprocessing as mp
 import os
+import shutil
 import time
 import traceback
 from typing import Optional
@@ -72,7 +60,7 @@ from bulkdgd import defaults
 from bulkdgd.analysis import dea as analysis_dea
 from bulkdgd.core.model import BulkDGD
 from bulkdgd.ioutil import deaio
-from bulkdgd.ioutil.tableio import save_table
+from bulkdgd.ioutil.tableio import load_table, save_table
 from bulkdgd.reproducibility import set_seeds
 
 
@@ -90,9 +78,6 @@ def _get_genes_called(item: tuple) -> tuple:
     """Get, for one sample, the genes each model of the ensemble calls
     for it.
 
-    This runs in a worker process, so everything it needs travels in
-    its argument.
-
     Parameters
     ----------
     item : :class:`tuple`
@@ -109,7 +94,7 @@ def _get_genes_called(item: tuple) -> tuple:
         of the models has no results for the sample.
     """
 
-    # Unpack the item.
+    # Unpack the item (a single tuple, for the worker pool).
     sample, group, dea_dirs, prefix, usecols, q_val, log2_fold_change \
         = item
 
@@ -121,8 +106,7 @@ def _get_genes_called(item: tuple) -> tuple:
     # For each model's results
     for dea_dir in dea_dirs:
 
-        # Read the sample's statistics, from the archive if the
-        # directory is packed and from the loose file otherwise.
+        # Read the sample's statistics, packed or loose.
         df_stats = deaio.read_dea(dea_dir,
                                    sample,
                                    prefix = prefix,
@@ -130,32 +114,21 @@ def _get_genes_called(item: tuple) -> tuple:
                                    header = 0,
                                    usecols = usecols)
 
-        # If the model has no results for the sample, the sample is
-        # dropped for the whole ensemble rather than scored against
-        # fewer models than the others - a gene's tier is how many
-        # models agree on it, and it is only comparable between genes
-        # if every gene was offered the same models.
+        # If the model has no results for the sample
         if df_stats is None:
 
-            # Return nothing.
+            # Return nothing, dropping the sample for every model.
             return None
 
-        # SELECT THE COLUMNS BY NAME.
-        #
-        # They used to be selected by position, through 'usecols', and
-        # then renamed positionally here. That silently stopped
-        # working when the results moved to Parquet: 'usecols' is a
-        # 'read_csv' keyword and a Parquet read ignores it, so the
-        # frame arrives with every column it has and this line tried
-        # to put two names on six of them. Every consensus over
-        # Parquet results - which is everything the package writes now
-        # - died with "Length mismatch". Asking for the two columns by
-        # name works whatever the file is.
+        # Get the required columns the statistics are missing, by name
+        # ('usecols' is ignored for Parquet files).
         missing = [c for c in ("q_value", "log2_fold_change")
                    if c not in df_stats.columns]
 
+        # If any column is missing
         if missing:
 
+            # Raise an error.
             errstr = \
                 f"The statistics for sample '{sample}' have no " \
                 f"{', '.join(repr(c) for c in missing)} column. The " \
@@ -163,6 +136,7 @@ def _get_genes_called(item: tuple) -> tuple:
                 f"{', '.join(repr(c) for c in df_stats.columns)}."
             raise KeyError(errstr)
 
+        # Keep only the required columns.
         df_stats = df_stats[["q_value", "log2_fold_change"]]
 
         # Get the genes the model calls for the sample.
@@ -207,25 +181,20 @@ class BulkDGDEnsemble:
     # The file storing the final Gaussian mixture model's parameters.
     GMM_FINAL_PTH_FILE = "gmm_final.pth"
 
-    # The file recording what a member was seeded with. A seed that is
-    # set and not recorded is a seed nobody has, and the ensemble's
-    # whole claim is that its members differ only in it.
+    # The file recording what a member was seeded with.
     SEEDS_FILE = "seeds.yaml"
 
     #-----------------------------------------------------------------#
 
     # The files a member's training writes beside its parameters.
     LOSS_FILE = "loss.csv"
-
     TIME_FILE = "time.csv"
 
     #-----------------------------------------------------------------#
 
     # The files a member's representations are written to.
     REP_FILE = "representations.csv"
-
     PRED_MEANS_FILE = "pred_means.csv"
-
     PRED_R_VALUES_FILE = "pred_r_values.csv"
 
     #-----------------------------------------------------------------#
@@ -235,16 +204,11 @@ class BulkDGDEnsemble:
 
     #-----------------------------------------------------------------#
 
-    # The default thresholds a gene must pass to be called for a
-    # sample, and the default share of a group's samples a model must
-    # call it in for the model to consider it. They are the values the
-    # bulkDGD paper's consensus was drawn with.
+    # The default thresholds for calling a gene in a sample, the
+    # default recurrence, and the default minimum tier.
     DEFAULT_Q_VAL = 0.05
-
     DEFAULT_LOG2_FOLD_CHANGE = 1.0
-
     DEFAULT_RECURRENCE = 0.20
-
     DEFAULT_MIN_TIER = 2
 
 
@@ -260,28 +224,23 @@ class BulkDGDEnsemble:
 
         Parameters
         ----------
-        config_model : :class:`dict`
-            The configuration of the model the ensemble is made of.
-
-            It is the configuration a single
-            :class:`bulkdgd.core.model.BulkDGD` takes, and it is
-            SHARED: every member of the ensemble is built from it, and
-            differs from the others only in the seed it is trained
-            with.
+        config_model : :class:`dict`, optional
+            The configuration of the model the ensemble is made of,
+            as a single :class:`bulkdgd.core.model.BulkDGD` takes it,
+            shared by every member.
 
             For the available options, refer to the
             :ref:`model_config_options` page.
 
-        config_ensemble : :class:`dict`
-            The configuration of the ensemble - which members it has,
-            and where each member's files live.
+            If neither ``config_model`` nor ``config_ensemble`` is
+            passed, the ensemble that ships with the package is used.
 
-            It is a dictionary mapping each member's name, which is
-            yours to choose, to a dictionary with these keys:
+        config_ensemble : :class:`dict`, optional
+            The configuration of the ensemble, mapping each member's
+            name to a dictionary with these keys:
 
             * ``"seed"`` (:class:`int`) - the seed the member is
-              trained with. It is what makes the member different from
-              the others, so no two members may share it.
+              trained with. No two members may share it.
 
             * ``"model_dir"`` (:class:`str`) - the directory where the
               member's trained parameters live.
@@ -293,22 +252,16 @@ class BulkDGDEnsemble:
             The device the members are placed on when they are built.
         """
 
-        # A BARE 'BulkDGDEnsemble()' IS THE SHIPPED ENSEMBLE.
-        #
-        # Its members differ only in their seed, so describing them by
-        # hand means writing the same architecture fifteen times and
-        # fifteen paths that have to agree with it. Given neither
-        # configuration, both are built from what the package ships.
-        #
-        # Members are still built one at a time, by 'get_model', so
-        # nothing is loaded until it is asked for: the decoders are
-        # 1.79 GiB each and fetched on first use.
+        # If neither configuration was passed
         if config_model is None and config_ensemble is None:
 
+            # Use the ones of the ensemble shipped with the package.
             config_model, config_ensemble = self.shipped_config()
 
+        # If only one configuration was passed
         elif config_model is None or config_ensemble is None:
 
+            # Raise an error.
             errstr = \
                 "'config_model' and 'config_ensemble' describe the " \
                 "ensemble together and must be given together. Give " \
@@ -318,10 +271,7 @@ class BulkDGDEnsemble:
 
         #-------------------------------------------------------------#
 
-        # Save the model's configuration. It is copied because it is
-        # the ensemble's defining property - a caller that edits the
-        # dictionary afterwards would otherwise be editing what the
-        # members already built were built from.
+        # Save a copy of the model's configuration.
         self._config_model = copy.deepcopy(config_model)
 
         #-------------------------------------------------------------#
@@ -346,62 +296,67 @@ class BulkDGDEnsemble:
 
         #-------------------------------------------------------------#
 
-        # The model's configuration is shared, so anything random in
-        # it is shared too. The mixture's own seed is the one such
-        # thing, and it is set apart from the seed that makes the
-        # members different: two members that agree on it have that
-        # much less to disagree about, and it is the disagreement that
-        # the consensus' tiers are drawn from.
+        # If the model's configuration sets the mixture's own seed,
+        # which every member would share
         if self._config_model.get(
                 "latent_options", {}).get("random_state") is not None:
 
+            # Warn the user.
             logger.warning(
                 "The model's configuration sets "
                 "'latent_options.random_state', which every member of "
                 "the ensemble is built with. The members will be less "
                 "different from each other than their seeds suggest. "
-                "Leave it unset unless you mean it.")
-
+                "When it is unset, each member's own seed also seeds "
+                "the mixture.")
 
 
     @staticmethod
     def shipped_config() -> tuple:
+        """Get the configuration of the ensemble that ships with the
+        package.
 
-        """The configuration of the ensemble that ships with the
-        package: the shared model configuration, and one entry per
-        member.
+        Returns
+        -------
+        config_model : :class:`dict`
+            The configuration of the model, shared by every member,
+            without the paths to the trained parameters.
 
-        The members differ in nothing but the seed, so the model
-        configuration is read once, from the base member, and every
-        entry points at its own directory of fitted parameters.
+        config_ensemble : :class:`dict`
+            The configuration of the ensemble, with one entry per
+            shipped member.
         """
 
+        # Import the loader of the shipped models.
         from bulkdgd.core import _util
 
-        # Read the shared architecture from the base member. The
-        # per-member paths are filled in by 'get_model', so the
-        # parameter files this returns are deliberately left out.
+        # Read the shared model configuration from the base member.
         config_model = _util.load_shipped_model(
             seed = defaults.BASE_SEED)
 
+        # For each section pointing at a file of trained parameters
         for key in ("latent_options", "decoder_options"):
+
+            # Copy the section.
             config_model[key] = dict(config_model[key])
 
+        # Drop the files of trained parameters, which 'get_model'
+        # sets for each member.
         config_model["latent_options"].pop("latent_pth_file", None)
         config_model["decoder_options"].pop("decoder_pth_file", None)
 
-        # Results land under the working directory: there is nowhere
-        # inside an installed package that a user's output belongs,
-        # and writing there would fail on a system-wide install.
+        # Put the results under the working directory.
         results_root = os.path.join(os.getcwd(),
                                     "bulkdgd_ensemble_results")
 
+        # Build one entry per shipped member.
         config_ensemble = {
             seed : {"seed" : int(seed.removeprefix("seed")),
                     "model_dir" : defaults.model_dir(seed),
                     "results_dir" : os.path.join(results_root, seed)}
             for seed in defaults.ENSEMBLE_SEEDS}
 
+        # Return the configurations.
         return config_model, config_ensemble
 
 
@@ -422,7 +377,7 @@ class BulkDGDEnsemble:
             The ensemble's configuration, checked.
         """
 
-        # If the configuration is empty.
+        # If the configuration is empty
         if not config_ensemble:
 
             # Raise an error.
@@ -475,10 +430,7 @@ class BulkDGDEnsemble:
                     f"The seed of the member '{name}' must be an "
                     "integer.")
 
-            # If the seed was already used by another member. Two
-            # members sharing a seed are the same model twice, and
-            # counting them twice would inflate the agreement the
-            # consensus reports.
+            # If the seed was already used by another member
             if seed in seeds_found:
 
                 # Raise an error.
@@ -494,8 +446,7 @@ class BulkDGDEnsemble:
 
         #-------------------------------------------------------------#
 
-        # Return a copy of the configuration, for the same reason the
-        # model's configuration is copied.
+        # Return a copy of the configuration.
         return copy.deepcopy(config_ensemble)
 
 
@@ -506,11 +457,8 @@ class BulkDGDEnsemble:
             config_ensemble: dict[str, dict[str, object]],
             device: str = "cpu") -> "BulkDGDEnsemble":
         """Build an ensemble from models that were already trained,
-        without training anything.
-
-        The models are not loaded - only checked, so that an ensemble
-        whose members are not all there fails now rather than in the
-        middle of the first analysis run with it.
+        checking that their trained parameters exist without loading
+        them.
 
         Parameters
         ----------
@@ -543,8 +491,16 @@ class BulkDGDEnsemble:
         # For each member of the ensemble
         for name, options in ensemble.config_ensemble.items():
 
+            # Get the files the member must have (a shipped member's
+            # decoder is downloaded when first used).
+            pth_files = \
+                (cls.GMM_PTH_FILE,) \
+                if os.path.basename(options["model_dir"]) \
+                    in defaults.ENSEMBLE_SEEDS \
+                else (cls.GMM_PTH_FILE, cls.DEC_PTH_FILE)
+
             # For each file storing the trained parameters
-            for pth_file in (cls.GMM_PTH_FILE, cls.DEC_PTH_FILE):
+            for pth_file in pth_files:
 
                 # Get the path to the file.
                 path = os.path.join(options["model_dir"], pth_file)
@@ -596,8 +552,14 @@ class BulkDGDEnsemble:
                      value) -> None:
         """Raise an exception if the user tries to modify the
         configuration of the model the ensemble is made of.
+
+        Parameters
+        ----------
+        value
+            The new value.
         """
 
+        # Raise an error.
         raise ValueError(
             "The configuration of the model the ensemble is made of "
             "cannot be changed after the ensemble is initialized.")
@@ -619,8 +581,14 @@ class BulkDGDEnsemble:
                         value) -> None:
         """Raise an exception if the user tries to modify the
         configuration of the ensemble.
+
+        Parameters
+        ----------
+        value
+            The new value.
         """
 
+        # Raise an error.
         raise ValueError(
             "The configuration of the ensemble cannot be changed "
             "after the ensemble is initialized. Pass a different "
@@ -680,9 +648,8 @@ class BulkDGDEnsemble:
             self,
             config_ensemble: dict[str, dict[str, object]] = None) -> \
                 dict[str, dict[str, object]]:
-        """Get the ensemble's configuration to be used for an
-        operation - the one passed, if any, and the ensemble's own
-        otherwise.
+        """Get the ensemble's configuration to be used: the one
+        passed, if any, or the ensemble's own.
 
         Parameters
         ----------
@@ -703,9 +670,7 @@ class BulkDGDEnsemble:
 
         #-------------------------------------------------------------#
 
-        # Otherwise, check the one passed. It is the ensemble's
-        # members that it points elsewhere, so it must describe the
-        # same members.
+        # Otherwise, check the one passed.
         config_ensemble = \
             self._check_config_ensemble(
                 config_ensemble = config_ensemble)
@@ -773,11 +738,6 @@ class BulkDGDEnsemble:
         """Get one member of the ensemble, with its trained parameters
         loaded.
 
-        The members are built one at a time, and only when they are
-        needed: a decoder is large, and an ensemble's worth of them at
-        once is more memory than the machine running the analysis is
-        likely to have.
-
         Parameters
         ----------
         name : :class:`str`
@@ -813,29 +773,28 @@ class BulkDGDEnsemble:
         # Get the member's options.
         options = config_ensemble[name]
 
-        # Get the model's configuration, and point it at the member's
-        # trained parameters.
+        # Get a copy of the model's configuration.
         config_model = copy.deepcopy(self._config_model)
 
+        # Point it at the member's trained latent space.
         config_model["latent_options"]["latent_pth_file"] = \
             os.path.join(options["model_dir"], self.GMM_PTH_FILE)
 
+        # Get the file of the member's trained decoder.
         decoder_pth_file = \
             os.path.join(options["model_dir"], self.DEC_PTH_FILE)
 
-        # THE DECODER IS FETCHED HERE, NOT SHIPPED. Each is 1.79 GiB,
-        # so they live on the release rather than in the package, and
-        # a member's is downloaded the first time that member is
-        # built. Only members the package ships can be fetched; for
-        # any other directory the missing file is the caller's to
-        # provide, and 'BulkDGD' will say so.
+        # If the decoder's file is missing and the member is one the
+        # package ships
         if not os.path.isfile(decoder_pth_file) \
                 and os.path.basename(options["model_dir"]) \
                     in defaults.ENSEMBLE_SEEDS:
 
+            # Download the decoder's file.
             bulkdgd._internals.util.download_decoder_pth(
                 dest_path = decoder_pth_file)
 
+        # Point the configuration at the member's trained decoder.
         config_model["decoder_options"]["decoder_pth_file"] = \
             decoder_pth_file
 
@@ -847,7 +806,8 @@ class BulkDGDEnsemble:
 
     def status(self,
                config_ensemble: dict[str, dict[str, object]] = None,
-               dea_dir: str = "dea") -> pd.DataFrame:
+               dea_dir: str = "dea",
+               prefix: str = deaio.DEA_PREFIX) -> pd.DataFrame:
         """Report what each member of the ensemble already has on
         disk.
 
@@ -862,12 +822,16 @@ class BulkDGDEnsemble:
             expression analysis' results. If it is a relative path, it
             is taken relative to the member's results' directory.
 
+        prefix : :class:`str`, ``"dea_"``
+            The prefix the per-sample files are named with.
+
         Returns
         -------
         df_status : :class:`pandas.DataFrame`
             A data frame with one row per member, reporting the seed
             the member is trained with, whether its trained parameters
-            are there, and how many samples it has results for.
+            are there, how many samples it has results for, and
+            whether the results are packed.
         """
 
         # Get the configuration to be used.
@@ -890,7 +854,16 @@ class BulkDGDEnsemble:
                                   dea_dir = dea_dir)
 
             # Get the samples the member has results for.
-            samples = deaio.list_samples(dea_dir_member)
+            samples = deaio.list_samples(dea_dir_member,
+                                         prefix = prefix)
+
+            # Get the files the member must have (only the latent
+            # space's for a shipped member).
+            pth_files = \
+                (self.GMM_PTH_FILE,) \
+                if os.path.basename(options["model_dir"]) \
+                    in defaults.ENSEMBLE_SEEDS \
+                else (self.GMM_PTH_FILE, self.DEC_PTH_FILE)
 
             #---------------------------------------------------------#
 
@@ -902,8 +875,7 @@ class BulkDGDEnsemble:
                     all(os.path.isfile(
                             os.path.join(options["model_dir"],
                                          pth_file))
-                        for pth_file in (self.GMM_PTH_FILE,
-                                         self.DEC_PTH_FILE)),
+                        for pth_file in pth_files),
                  "n_samples_dea" : len(samples),
                  "dea_packed" : \
                     os.path.isfile(
@@ -929,12 +901,9 @@ class BulkDGDEnsemble:
         # Get the model's configuration.
         config_model = copy.deepcopy(self._config_model)
 
-        # Drop the trained parameters, if the configuration points at
-        # any - a member that is about to be trained starts from a
-        # model that was not.
+        # Drop the files of trained parameters, if any.
         config_model.get("latent_options", {}).pop(
             "latent_pth_file", None)
-
         config_model.get("decoder_options", {}).pop(
             "decoder_pth_file", None)
 
@@ -969,23 +938,18 @@ class BulkDGDEnsemble:
 
         #-------------------------------------------------------------#
 
-        # Write the seeds down.
+        # Open the file.
         with open(seeds_file, "w") as f:
 
+            # Write the seeds, the versions, and the device.
             yaml.safe_dump(
                 {"seeds" : seeds,
                  "dtype" : self._config_model.get("dtype"),
-                 # Both versions are made strings rather than written
-                 # as they come: 'torch.__version__' is a
-                 # 'TorchVersion', which is a subclass of 'str' that
-                 # 'yaml.safe_dump' refuses to represent, and it
-                 # refuses by raising in the middle of a run that has
-                 # already trained its model.
+                 # Cast the versions to strings, since 'yaml.safe_dump'
+                 # cannot represent a 'TorchVersion'.
                  "bulkdgd_version" : str(bulkdgd.__version__),
                  "torch_version" : str(torch.__version__),
-                 # The Gaussian mixture model's own seed, which is
-                 # shared by every member because the model's
-                 # configuration is.
+                 # The mixture's own seed, shared by every member.
                  "latent_random_state" : \
                     self._config_model.get(
                         "latent_options", {}).get("random_state"),
@@ -1008,11 +972,8 @@ class BulkDGDEnsemble:
                      resume: bool,
                      return_data: bool) -> dict[str, dict]:
         """Run one stage over every member of the ensemble, one member
-        at a time.
-
-        A member that fails is recorded and the ones after it are run
-        anyway: fourteen good models are not worth throwing away
-        because the fifteenth could not be read.
+        at a time, recording the members that fail and running the
+        others anyway.
 
         Parameters
         ----------
@@ -1067,16 +1028,17 @@ class BulkDGDEnsemble:
             # If the member is already done
             if outputs_done is not None:
 
-                # Record it, and move on to the next member.
+                # Record it.
                 result["status"] = "skipped"
                 result["outputs"] = outputs_done
-
                 results[name] = result
 
+                # Inform the user that the member is skipped.
                 logger.info(
                     f"[{stage}] '{name}' is already done - skipping "
                     "it. Pass 'resume = False' to run it again.")
 
+                # Move on to the next member.
                 continue
 
             #---------------------------------------------------------#
@@ -1098,22 +1060,20 @@ class BulkDGDEnsemble:
                 result["status"] = "done"
                 result["outputs"] = outputs
 
-                # Keep the data, if they were asked for. They are left
-                # out by default because an ensemble's worth of
-                # predicted means is more memory than the machine
-                # drawing the consensus is likely to have - everything
-                # is on disk either way.
+                # If the data are to be kept
                 if return_data:
+
+                    # Keep them.
                     result["data"] = data
 
             # If anything went wrong
             except Exception:
 
-                # Record the failure, with what went wrong, and carry
-                # on with the other members.
+                # Record the failure, with its traceback.
                 result["status"] = "failed"
                 result["error"] = traceback.format_exc()
 
+                # Inform the user about the failure.
                 logger.error(
                     f"[{stage}] '{name}' failed:\n"
                     f"{result['error']}")
@@ -1131,10 +1091,8 @@ class BulkDGDEnsemble:
         # Get how many members ended in each state.
         n_done = sum(1 for r in results.values()
                      if r["status"] == "done")
-
         n_skipped = sum(1 for r in results.values()
                         if r["status"] == "skipped")
-
         n_failed = sum(1 for r in results.values()
                        if r["status"] == "failed")
 
@@ -1143,9 +1101,7 @@ class BulkDGDEnsemble:
             f"[{stage}] {n_done} members ran, {n_skipped} were "
             f"already done, and {n_failed} failed.")
 
-        # If any member failed, say so where it cannot be missed - a
-        # stage that is short of a member gives a consensus whose
-        # tiers are drawn from fewer models than the user thinks.
+        # If any member failed
         if n_failed:
 
             # Get the members that failed.
@@ -1153,6 +1109,7 @@ class BulkDGDEnsemble:
                 [name for name, result in results.items()
                  if result["status"] == "failed"]
 
+            # Warn the user.
             logger.warning(
                 f"[{stage}] These members failed: "
                 f"{', '.join(names_failed)}. Look at their 'error' "
@@ -1178,14 +1135,8 @@ class BulkDGDEnsemble:
               labels_test: object = None,
               resume: bool = True,
               return_data: bool = False) -> dict[str, dict]:
-        """Train every member of the ensemble.
-
-        Each member is seeded with its own seed BEFORE it is built,
-        because building a model is already random - the decoder's
-        weights are drawn, the mixture's components are placed, and
-        the representations are initialized - and seeding a model that
-        already exists seeds none of that. What each member was seeded
-        with is written beside it.
+        """Train every member of the ensemble, seeding each with its
+        own seed before it is built, and writing the seeds beside it.
 
         Parameters
         ----------
@@ -1199,9 +1150,9 @@ class BulkDGDEnsemble:
             The names of the samples to test on.
 
         config_train : :class:`dict`
-            The configuration for the training. It is the one a single
-            :class:`bulkdgd.core.model.BulkDGD` takes, and it is
-            shared: the members differ only in their seed.
+            The configuration for the training, as a single
+            :class:`bulkdgd.core.model.BulkDGD` takes it, shared by
+            every member.
 
         config_ensemble : :class:`dict`, optional
             The configuration to be used. If not passed, the
@@ -1239,7 +1190,7 @@ class BulkDGDEnsemble:
         Returns
         -------
         results : :class:`dict`
-            What happened to each member - whether it ran, was
+            What happened to each member: whether it ran, was
             skipped, or failed, what it wrote, and how long it took.
         """
 
@@ -1257,7 +1208,24 @@ class BulkDGDEnsemble:
         #-------------------------------------------------------------#
 
         # Define what it means for a member to be already trained.
-        def get_outputs_done(name, options):
+        def get_outputs_done(name,
+                             options):
+            """Get the files of a member's trained parameters, if they
+            are all there.
+
+            Parameters
+            ----------
+            name : :class:`str`
+                The member's name.
+
+            options : :class:`dict`
+                The member's options.
+
+            Returns
+            -------
+            paths : :class:`dict` or :obj:`None`
+                The files, or :obj:`None` if any is missing.
+            """
 
             # Get where the member's parameters would be.
             paths = \
@@ -1266,23 +1234,44 @@ class BulkDGDEnsemble:
                  "decoder" : os.path.join(options["model_dir"],
                                           dec_pth_file)}
 
-            # The member is done if they are all there.
+            # If they are all there
             if all(os.path.isfile(path) for path in paths.values()):
+
+                # Return them.
                 return paths
 
-            # Otherwise, it is not.
+            # Otherwise, return nothing.
             return None
 
         #-------------------------------------------------------------#
 
         # Define how a member is trained.
-        def run_member(name, options):
+        def run_member(name,
+                       options):
+            """Train a member.
+
+            Parameters
+            ----------
+            name : :class:`str`
+                The member's name.
+
+            options : :class:`dict`
+                The member's options.
+
+            Returns
+            -------
+            outputs : :class:`dict`
+                The files that were written.
+
+            data : :class:`tuple`
+                What the training returned.
+            """
 
             # Make the directory the member lives in.
             os.makedirs(options["model_dir"], exist_ok = True)
 
             # Seed everything with the member's seed, before the model
-            # is built.
+            # is built, since building it is random.
             seeds = \
                 set_seeds(
                     seed = options["seed"],
@@ -1330,10 +1319,8 @@ class BulkDGDEnsemble:
             # Record the parameters and the seeds among the outputs.
             outputs["gmm"] = os.path.join(options["model_dir"],
                                           gmm_pth_file)
-
             outputs["decoder"] = os.path.join(options["model_dir"],
                                               dec_pth_file)
-
             outputs["seeds"] = seeds_file
 
             #---------------------------------------------------------#
@@ -1382,13 +1369,28 @@ class BulkDGDEnsemble:
         #-------------------------------------------------------------#
 
         # Define how one data frame is written.
-        def write(df, name):
+        def write(df,
+                  name):
+            """Write a data frame into the member's directory, and
+            record the file.
+
+            Parameters
+            ----------
+            df : :class:`pandas.DataFrame`
+                The data frame.
+
+            name : :class:`str`
+                The name of the file.
+            """
 
             # Get the path to the file.
             path = os.path.join(model_dir, name)
 
             # Write the data frame.
-            save_table(df, path, sep = ",", index = True)
+            save_table(df,
+                       path,
+                       sep = ",",
+                       index = True)
 
             # Record the file.
             outputs[name.rsplit(".", 1)[0]] = path
@@ -1401,36 +1403,39 @@ class BulkDGDEnsemble:
 
         #-------------------------------------------------------------#
 
-        # Write the representations and the predicted means, which
-        # come as one data frame for the training samples and one for
-        # the test samples.
+        # For the representations and the predicted means
         for dfs, stem in ((dfs_rep, "representations"),
                           (dfs_pred_means, "pred_means")):
 
+            # Write the training and the test samples' data frames.
             write(dfs[0], f"{stem}_train.parquet")
             write(dfs[1], f"{stem}_test.parquet")
 
         #-------------------------------------------------------------#
 
-        # Write the predicted r-values, which are missing for a
-        # Poisson output module, one data frame for a per-gene
-        # dispersion, and one per split for a full dispersion.
+        # If there are predicted r-values (none for a Poisson output
+        # module)
         if dfs_pred_r_values is not None:
 
+            # If there is one data frame per split (full dispersion)
             if isinstance(dfs_pred_r_values, tuple):
 
+                # Write the training and the test samples' r-values.
                 write(dfs_pred_r_values[0], "pred_r_values_train.csv")
                 write(dfs_pred_r_values[1], "pred_r_values_test.csv")
 
+            # Otherwise (per-gene dispersion)
             else:
 
+                # Write the r-values.
                 write(dfs_pred_r_values, self.PRED_R_VALUES_FILE)
 
         #-------------------------------------------------------------#
 
-        # Write the metrics, if any were computed.
+        # If any metrics were computed
         if dfs_metrics is not None:
 
+            # Write them.
             write(dfs_metrics[0], "metrics_train.csv")
             write(dfs_metrics[1], "metrics_test.csv")
 
@@ -1458,14 +1463,13 @@ class BulkDGDEnsemble:
             The samples to find the representations for.
 
         config_rep : :class:`dict`
-            The configuration for the search. It is the one a single
-            :class:`bulkdgd.core.model.BulkDGD` takes.
+            The configuration for the search, as a single
+            :class:`bulkdgd.core.model.BulkDGD` takes it.
 
         config_ensemble : :class:`dict`, optional
             The configuration to be used. If not passed, the
-            ensemble's own is used. Pass a different one to run a
-            second cohort through the same members without their
-            results landing on top of the first cohort's.
+            ensemble's own is used. Pass a different one to write the
+            results elsewhere.
 
         get_saliency_map : :class:`bool`, ``False``
             Whether to compute the saliency maps.
@@ -1496,7 +1500,24 @@ class BulkDGDEnsemble:
 
         # Define what it means for a member to already have the
         # representations.
-        def get_outputs_done(name, options):
+        def get_outputs_done(name,
+                             options):
+            """Get the files of a member's representations and
+            predicted means, if they are all there.
+
+            Parameters
+            ----------
+            name : :class:`str`
+                The member's name.
+
+            options : :class:`dict`
+                The member's options.
+
+            Returns
+            -------
+            paths : :class:`dict` or :obj:`None`
+                The files, or :obj:`None` if any is missing.
+            """
 
             # Get where they would be.
             paths = \
@@ -1507,17 +1528,39 @@ class BulkDGDEnsemble:
                     os.path.join(options["results_dir"],
                                  self.PRED_MEANS_FILE)}
 
-            # The member is done if they are all there.
+            # If they are all there
             if all(os.path.isfile(path) for path in paths.values()):
+
+                # Return them.
                 return paths
 
-            # Otherwise, it is not.
+            # Otherwise, return nothing.
             return None
 
         #-------------------------------------------------------------#
 
         # Define how a member's representations are found.
-        def run_member(name, options):
+        def run_member(name,
+                       options):
+            """Find the representations of the samples with a member.
+
+            Parameters
+            ----------
+            name : :class:`str`
+                The member's name.
+
+            options : :class:`dict`
+                The member's options.
+
+            Returns
+            -------
+            outputs : :class:`dict`
+                The files that were written.
+
+            data : :class:`tuple`
+                The representations, the predicted means, the
+                predicted r-values, and the times.
+            """
 
             # Make the directory the results live in.
             os.makedirs(options["results_dir"], exist_ok = True)
@@ -1541,31 +1584,42 @@ class BulkDGDEnsemble:
             # Initialize an empty dictionary to store the files.
             outputs = {}
 
-            # Write the representations, the predicted means, and the
-            # times.
+            # For the representations, the predicted means, and the
+            # times
             for df, name_file, key in (
                     (df_rep, self.REP_FILE, "representations"),
                     (df_pred_means, self.PRED_MEANS_FILE,
                      "pred_means"),
                     (df_time, self.TIME_FILE, "time")):
 
+                # Get the path to the file.
                 path = os.path.join(options["results_dir"], name_file)
 
-                save_table(df, path, sep = ",", index = True)
+                # Write the data frame.
+                save_table(df,
+                           path,
+                           sep = ",",
+                           index = True)
 
+                # Record the file.
                 outputs[key] = path
 
             #---------------------------------------------------------#
 
-            # Write the predicted r-values, if the output module has
-            # any.
+            # If the output module has predicted r-values
             if df_pred_r_values is not None:
 
+                # Get the path to the file.
                 path = os.path.join(options["results_dir"],
                                     self.PRED_R_VALUES_FILE)
 
-                save_table(df_pred_r_values, path, sep = ",", index = True)
+                # Write the r-values.
+                save_table(df_pred_r_values,
+                           path,
+                           sep = ",",
+                           index = True)
 
+                # Record the file.
                 outputs["pred_r_values"] = path
 
             #---------------------------------------------------------#
@@ -1593,12 +1647,7 @@ class BulkDGDEnsemble:
             resume: bool = True,
             return_data: bool = False) -> dict[str, dict]:
         """Perform differential expression analysis with every member
-        of the ensemble.
-
-        The results are written one file per sample, which is what
-        makes the analysis resumable where it matters: a run that dies
-        halfway picks up at the first sample that has no file, and not
-        at the first member.
+        of the ensemble, writing one file per sample.
 
         Parameters
         ----------
@@ -1615,13 +1664,13 @@ class BulkDGDEnsemble:
               directory. It defaults to ``"dea"``.
 
             * ``"zip_results"`` (:class:`bool`, optional) - whether to
-              pack a member's results into one archive once they are
-              all there, and remove the loose files. It defaults to
-              :obj:`False`, and is worth turning on for an ensemble of
-              any size: one file per sample per model is tens of
-              thousands of small files. The archive is verified before
-              anything is removed, and everything that reads these
-              results afterwards reads it either way.
+              pack a member's results into one archive, verified
+              before the loose files are removed. It defaults to
+              :obj:`False`.
+
+            * ``"prefix"`` (:class:`str`, optional) - the prefix the
+              per-sample files are named with. It defaults to
+              ``"dea_"``.
 
             * ``"pred_means_file"``, ``"pred_r_values_file"``
               (:class:`str`, optional) - the files the predicted means
@@ -1629,7 +1678,8 @@ class BulkDGDEnsemble:
               directory.
 
             Every other key is passed on to
-            :func:`bulkdgd.analysis.dea.get_statistics`.
+            :func:`bulkdgd.analysis.dea.get_statistics`, with
+            ``"scaling_factor"`` defaulting to the model's.
 
         config_ensemble : :class:`dict`, optional
             The configuration to be used. If not passed, the
@@ -1640,8 +1690,7 @@ class BulkDGDEnsemble:
 
         return_data : :class:`bool`, ``False``
             Whether to keep each sample's statistics. They are written
-            to disk either way, and an ensemble's worth of them is a
-            great deal of memory.
+            to disk either way.
 
         Returns
         -------
@@ -1656,74 +1705,82 @@ class BulkDGDEnsemble:
 
         #-------------------------------------------------------------#
 
-        # Take the options that belong to the ensemble out of the
-        # configuration - what is left is what the statistics take.
+        # Copy the configuration, to take the ensemble's options out
+        # of it.
         config_dea = copy.deepcopy(config_dea)
 
+        # Get where the results go, whether to pack them, and the
+        # prefix the per-sample files are named with.
         dea_dir = config_dea.pop("dea_dir", "dea")
-
         zip_results = config_dea.pop("zip_results", False)
-
         prefix = config_dea.pop("prefix", deaio.DEA_PREFIX)
 
+        # Get the files the predicted means and r-values are read
+        # from.
         pred_means_file = \
             config_dea.pop("pred_means_file", self.PRED_MEANS_FILE)
-
         pred_r_values_file = \
             config_dea.pop("pred_r_values_file",
                            self.PRED_R_VALUES_FILE)
 
-        # The statistics are computed against a scaled predicted mean,
-        # and which scaling is a property of the model - a model
-        # trained on the median of a sample's counts and analyzed as
-        # if it were trained on the mean gives fold changes that are
-        # wrong rather than absent. The statistics cannot ask the
-        # model, but the ensemble has its configuration, so it is
-        # taken from there unless the caller says otherwise.
+        # Use the model's scaling factor, unless one was passed.
         config_dea.setdefault(
             "scaling_factor",
             self._config_model.get("scaling_factor", "mean"))
 
         #-------------------------------------------------------------#
 
-        # Define how a member's differential expression is computed.
-        # There is no check for a member being done as a whole: the
-        # samples are checked one by one inside, which is finer.
-        def run_member(name, options):
+        # Define how a member's differential expression is computed,
+        # resuming sample by sample.
+        def run_member(name,
+                       options):
+            """Perform differential expression analysis with a member.
+
+            Parameters
+            ----------
+            name : :class:`str`
+                The member's name.
+
+            options : :class:`dict`
+                The member's options.
+
+            Returns
+            -------
+            outputs : :class:`dict`
+                Where the results are, and how many samples were
+                written and skipped.
+
+            dfs_stats : :class:`dict`
+                Each sample's statistics, if they are to be kept.
+            """
 
             # Get where the member's results go, and make it.
             dea_dir_member = \
                 self._get_dea_dir(options = options,
                                   dea_dir = dea_dir)
-
             os.makedirs(dea_dir_member, exist_ok = True)
 
             #---------------------------------------------------------#
 
             # Get the member's predicted means.
             df_pred_means = \
-                pd.read_csv(os.path.join(options["results_dir"],
-                                         pred_means_file),
-                            index_col = 0)
+                load_table(os.path.join(options["results_dir"],
+                                        pred_means_file),
+                           index_col = 0)
 
             # Get the member's predicted r-values, if it has any.
             path_r_values = \
                 os.path.join(options["results_dir"],
                              pred_r_values_file)
-
             df_pred_r_values = \
-                pd.read_csv(path_r_values, index_col = 0) \
+                load_table(path_r_values, index_col = 0) \
                 if os.path.isfile(path_r_values) else None
 
-            # The genes are the ones the model predicts for.
+            # Get the genes the model predicts for.
             genes = list(df_pred_means.columns)
 
-            # Get the genes the samples have no counts for. They are
-            # checked here because the alternative is a sample-by-
-            # sample lookup failing with a list of fourteen thousand
-            # gene names and no hint of why - and the usual why is
-            # that the counts still carry the genes' versions
-            # ('ENSG00000000003.15') while the model's genes do not.
+            # Get the genes the samples have no counts for (often
+            # because the counts' gene names carry versions).
             genes_missing = \
                 [gene for gene in genes
                  if gene not in df_samples.columns]
@@ -1743,12 +1800,10 @@ class BulkDGDEnsemble:
 
             #---------------------------------------------------------#
 
-            # Initialize the statistics kept, and the number of
-            # samples written.
+            # Initialize the statistics kept, and the numbers of
+            # samples written and skipped.
             dfs_stats = {}
-
             n_written = 0
-
             n_skipped = 0
 
             #---------------------------------------------------------#
@@ -1756,14 +1811,14 @@ class BulkDGDEnsemble:
             # For each sample
             for sample in df_pred_means.index:
 
-                # If the sample already has results, leave it alone.
+                # If the sample already has results
                 if resume \
                 and deaio.has_sample(dea_dir_member,
                                      sample,
                                      prefix = prefix):
 
+                    # Count it as skipped, and move on.
                     n_skipped += 1
-
                     continue
 
                 #-----------------------------------------------------#
@@ -1771,12 +1826,9 @@ class BulkDGDEnsemble:
                 # Get the sample's observed counts and predicted
                 # means.
                 obs_counts = df_samples.loc[sample, genes]
-
                 pred_means = df_pred_means.loc[sample, genes]
 
-                # Get the sample's predicted r-values. They are one
-                # row per sample for a full dispersion, and a single
-                # row for a per-gene one.
+                # Get the sample's predicted r-values.
                 r_values = \
                     self._get_r_values(
                         df_pred_r_values = df_pred_r_values,
@@ -1794,27 +1846,31 @@ class BulkDGDEnsemble:
                         sample_name = sample,
                         **config_dea)
 
-                # Keep what the model predicted beside the statistics
-                # drawn from it, so that a sample's file says what it
-                # was computed from.
+                # Add the predicted means to the statistics.
                 df_stats["dgd_mean"] = pred_means
 
+                # If there are predicted r-values
                 if r_values is not None:
+
+                    # Add them to the statistics.
                     df_stats["dgd_r"] = r_values
 
                 #-----------------------------------------------------#
 
                 # Write the sample's statistics.
-                save_table(df_stats, 
-                    os.path.join(dea_dir_member,
-                                 f"{prefix}{sample}.parquet"),
-                    sep = ",",
-                    index = True)
+                save_table(df_stats,
+                           os.path.join(dea_dir_member,
+                                        f"{prefix}{sample}.parquet"),
+                           sep = ",",
+                           index = True)
 
+                # Count the sample as written.
                 n_written += 1
 
-                # Keep them, if they were asked for.
+                # If the statistics are to be kept
                 if return_data:
+
+                    # Keep them.
                     dfs_stats[sample] = df_stats
 
             #---------------------------------------------------------#
@@ -1831,9 +1887,10 @@ class BulkDGDEnsemble:
                        "n_samples_written" : n_written,
                        "n_samples_skipped" : n_skipped}
 
-            # Pack the results, if they are to be packed.
+            # If the results are to be packed
             if zip_results:
 
+                # Pack them.
                 outputs["dea_zip"] = \
                     self._zip_dea(dea_dir = dea_dir_member,
                                   prefix = prefix)
@@ -1845,11 +1902,36 @@ class BulkDGDEnsemble:
 
         #-------------------------------------------------------------#
 
+        # Define what it means for a member to be already done (never,
+        # the samples being resumed one by one).
+        def get_outputs_done(name,
+                             options):
+            """Get a member's outputs, if it is already done.
+
+            Parameters
+            ----------
+            name : :class:`str`
+                The member's name.
+
+            options : :class:`dict`
+                The member's options.
+
+            Returns
+            -------
+            paths : :obj:`None`
+                Always :obj:`None`.
+            """
+
+            # Return nothing.
+            return None
+
+        #-------------------------------------------------------------#
+
         # Analyze the samples with each member.
         return self._run_members(
                     config_ensemble = config_ensemble,
                     stage = "dea",
-                    get_outputs_done = lambda name, options: None,
+                    get_outputs_done = get_outputs_done,
                     run_member = run_member,
                     resume = resume,
                     return_data = return_data)
@@ -1870,7 +1952,7 @@ class BulkDGDEnsemble:
             The sample's name.
 
         genes : :class:`list`
-            The genes.
+            The genes whose r-values are returned.
 
         Returns
         -------
@@ -1878,30 +1960,32 @@ class BulkDGDEnsemble:
             The sample's predicted r-values.
         """
 
-        # If the output module has no r-values.
+        # If the output module has no r-values
         if df_pred_r_values is None:
 
-            # There are none.
+            # Return nothing.
             return None
 
         #-------------------------------------------------------------#
 
-        # If there is one row per sample - a full dispersion.
+        # If there is one row per sample (full dispersion)
         if sample in df_pred_r_values.index:
 
+            # Return the sample's row.
             return df_pred_r_values.loc[sample, genes]
 
         #-------------------------------------------------------------#
 
-        # If there is a single row for every sample - a per-gene
-        # dispersion.
+        # If there is a single row for every sample (per-gene
+        # dispersion)
         if len(df_pred_r_values) == 1:
 
+            # Return the single row.
             return df_pred_r_values.iloc[0][genes]
 
         #-------------------------------------------------------------#
 
-        # Otherwise, the r-values do not cover the sample.
+        # Otherwise, raise an error.
         raise KeyError(
             f"No predicted r-values were found for the sample "
             f"'{sample}'.")
@@ -1911,12 +1995,8 @@ class BulkDGDEnsemble:
                  dea_dir: str,
                  prefix: str = None) -> str:
         """Pack a member's differential expression into one archive,
-        and remove the loose files.
-
-        The archive is written, closed, and read back before anything
-        is removed: an archive that was interrupted while it was being
-        written is worse than the files it was meant to replace, since
-        it also stops everything downstream from reading them.
+        or add the files an existing one is missing, and remove the
+        loose files once the archive is verified.
 
         Parameters
         ----------
@@ -1937,19 +2017,7 @@ class BulkDGDEnsemble:
 
         # Get where the archive goes, and where it is built.
         zip_path = os.path.join(dea_dir, deaio.DEA_ZIP_NAME)
-
         zip_path_partial = f"{zip_path}.partial"
-
-        #-------------------------------------------------------------#
-
-        # If the results are already packed
-        if os.path.isfile(zip_path):
-
-            # Leave them alone.
-            logger.info(
-                f"The results in '{dea_dir}' are already packed.")
-
-            return zip_path
 
         #-------------------------------------------------------------#
 
@@ -1958,40 +2026,74 @@ class BulkDGDEnsemble:
                        if name.startswith(prefix)
                        and name.endswith(deaio.READ_EXTENSIONS))
 
-        # If there is nothing to pack
-        if not names:
+        # Get whether the results are already packed.
+        packed = os.path.isfile(zip_path)
 
-            # Raise an error, rather than leaving an empty archive
-            # where the results should be.
-            raise FileNotFoundError(
-                f"There are no results to pack in '{dea_dir}'.")
+        # If the results are already packed
+        if packed:
+
+            # Open the archive.
+            with zipfile.ZipFile(zip_path) as archive:
+
+                # Get the files already in it.
+                names_in_zip = set(archive.namelist())
+
+            # Keep only the files missing from it.
+            names = [name for name in names
+                     if name not in names_in_zip]
+
+            # If no file is missing from it
+            if not names:
+
+                # Inform the user.
+                logger.info(
+                    f"The results in '{dea_dir}' are already packed.")
+
+                # Return the archive.
+                return zip_path
+
+            # Start the new archive from a copy of the existing one.
+            shutil.copyfile(zip_path, zip_path_partial)
 
         #-------------------------------------------------------------#
 
-        # Build the archive under a name of its own, so that a run
-        # that dies while writing it does not leave something that
-        # looks like a finished archive.
+        # If there is nothing to pack
+        if not names:
+
+            # Raise an error.
+            errstr = f"There are no results to pack in '{dea_dir}'."
+            raise FileNotFoundError(errstr)
+
+        #-------------------------------------------------------------#
+
+        # Build the archive under a temporary name, adding to the copy
+        # if the results were already packed.
         with zipfile.ZipFile(zip_path_partial,
-                             "w",
+                             "a" if packed else "w",
                              compression = zipfile.ZIP_DEFLATED) \
                 as archive:
 
+            # For each file
             for name in names:
 
+                # Add it to the archive.
                 archive.write(os.path.join(dea_dir, name),
                               arcname = name)
 
         #-------------------------------------------------------------#
 
-        # Read the archive back, and check that every file made it in.
+        # Read the archive back.
         with zipfile.ZipFile(zip_path_partial) as archive:
 
+            # If the archive is corrupted
             if archive.testzip() is not None:
 
+                # Raise an error, leaving the loose files alone.
                 raise RuntimeError(
                     f"The archive built for '{dea_dir}' is corrupted. "
                     "The loose files were left alone.")
 
+            # Get the files in the archive.
             names_packed = set(archive.namelist())
 
         # Get the files that did not make it in.
@@ -2009,12 +2111,16 @@ class BulkDGDEnsemble:
 
         #-------------------------------------------------------------#
 
-        # Put the archive in place now that it is known to be good.
+        # Put the archive in place.
         os.replace(zip_path_partial, zip_path)
 
-        # Remove the loose files.
+        # Drop the archive's stale copy cached for reading, if any.
+        deaio.forget_archive(zip_path = zip_path)
+
+        # For each loose file
         for name in names:
 
+            # Remove it.
             os.remove(os.path.join(dea_dir, name))
 
         #-------------------------------------------------------------#
@@ -2039,9 +2145,6 @@ class BulkDGDEnsemble:
         """Compute the enrichment scores of the genes every member of
         the ensemble calls.
 
-        The results of the differential expression analysis are read
-        whether they are still loose on disk or already packed.
-
         Parameters
         ----------
         genes_sets : :class:`dict`
@@ -2052,8 +2155,8 @@ class BulkDGDEnsemble:
             the ensemble:
 
             * ``"dea_dir"`` (:class:`str`, optional) - where a
-              member's differential expression is read from. It
-              defaults to ``"dea"``.
+              member's differential expression is read from, packed
+              or loose. It defaults to ``"dea"``.
 
             * ``"gsea_dir"`` (:class:`str`, optional) - where a
               member's enrichment scores are written. It defaults to
@@ -2062,6 +2165,10 @@ class BulkDGDEnsemble:
             * ``"genes_all"`` (:class:`list`, optional) - the genes
               the analysis was run on. It defaults to the genes the
               differential expression covers.
+
+            * ``"prefix"`` (:class:`str`, optional) - the prefix the
+              per-sample files are named with. It defaults to
+              ``"dea_"``.
 
             Every other key is passed on to
             :func:`bulkdgd.analysis.dea.get_significant_genes`.
@@ -2091,41 +2198,77 @@ class BulkDGDEnsemble:
 
         #-------------------------------------------------------------#
 
-        # Take the options that belong to the ensemble out of the
-        # configuration - what is left is what the significant genes
-        # take.
+        # Copy the configuration, to take the ensemble's options out
+        # of it.
         config_gsea = copy.deepcopy(config_gsea)
 
+        # Get where the differential expression is read from, where
+        # the scores go, the genes, and the per-sample files' prefix.
         dea_dir = config_gsea.pop("dea_dir", "dea")
-
         gsea_dir = config_gsea.pop("gsea_dir", "gsea")
-
         genes_all = config_gsea.pop("genes_all", None)
-
         prefix = config_gsea.pop("prefix", deaio.DEA_PREFIX)
 
         #-------------------------------------------------------------#
 
         # Define what it means for a member to already have the
         # enrichment scores.
-        def get_outputs_done(name, options):
+        def get_outputs_done(name,
+                             options):
+            """Get the file of a member's enrichment scores, if it is
+            there.
+
+            Parameters
+            ----------
+            name : :class:`str`
+                The member's name.
+
+            options : :class:`dict`
+                The member's options.
+
+            Returns
+            -------
+            paths : :class:`dict` or :obj:`None`
+                The file, or :obj:`None` if it is missing.
+            """
 
             # Get where they would be.
             path = os.path.join(options["results_dir"],
                                 gsea_dir,
                                 self.E_SCORES_FILE)
 
-            # The member is done if they are there.
+            # If they are there
             if os.path.isfile(path):
+
+                # Return the file.
                 return {"e_scores" : path}
 
-            # Otherwise, it is not.
+            # Otherwise, return nothing.
             return None
 
         #-------------------------------------------------------------#
 
         # Define how a member's enrichment scores are computed.
-        def run_member(name, options):
+        def run_member(name,
+                       options):
+            """Compute the enrichment scores with a member.
+
+            Parameters
+            ----------
+            name : :class:`str`
+                The member's name.
+
+            options : :class:`dict`
+                The member's options.
+
+            Returns
+            -------
+            outputs : :class:`dict`
+                The file that was written.
+
+            df_e_scores_all : :class:`pandas.DataFrame`
+                Every sample's enrichment scores.
+            """
 
             # Get where the member's differential expression is.
             dea_dir_member = \
@@ -2136,7 +2279,6 @@ class BulkDGDEnsemble:
             gsea_dir_member = \
                 os.path.join(options["results_dir"], gsea_dir) \
                 if not os.path.isabs(gsea_dir) else gsea_dir
-
             os.makedirs(gsea_dir_member, exist_ok = True)
 
             #---------------------------------------------------------#
@@ -2158,7 +2300,7 @@ class BulkDGDEnsemble:
             # Initialize an empty list to store each sample's scores.
             dfs_e_scores = []
 
-            # Get the genes the analysis was run on, if they were not
+            # Get the genes the analysis was run on, if they were
             # given.
             genes_all_member = genes_all
 
@@ -2174,9 +2316,10 @@ class BulkDGDEnsemble:
                                    prefix = prefix,
                                    index_col = 0)
 
-                # The genes the analysis was run on are the ones it
-                # has statistics for.
+                # If the genes were not given
                 if genes_all_member is None:
+
+                    # Take the ones with statistics.
                     genes_all_member = df_stats.index.tolist()
 
                 #-----------------------------------------------------#
@@ -2194,10 +2337,12 @@ class BulkDGDEnsemble:
                         genes_sets = genes_sets,
                         genes_all = genes_all_member)
 
-                # Say which sample they are for - they are all written
-                # to one file.
-                df_e_scores.insert(0, "sample", sample)
+                # Add the sample's name to the scores.
+                df_e_scores.insert(0,
+                                   "sample",
+                                   sample)
 
+                # Add them to the list.
                 dfs_e_scores.append(df_e_scores)
 
             #---------------------------------------------------------#
@@ -2206,10 +2351,14 @@ class BulkDGDEnsemble:
             df_e_scores_all = \
                 pd.concat(dfs_e_scores, ignore_index = True)
 
-            # Write them.
+            # Get the path to the file.
             path = os.path.join(gsea_dir_member, self.E_SCORES_FILE)
 
-            save_table(df_e_scores_all, path, sep = ",", index = False)
+            # Write the scores.
+            save_table(df_e_scores_all,
+                       path,
+                       sep = ",",
+                       index = False)
 
             #---------------------------------------------------------#
 
@@ -2242,20 +2391,9 @@ class BulkDGDEnsemble:
             config_consensus: dict[str, object],
             config_ensemble: dict[str, dict[str, object]] = \
                 None) -> dict[str, pd.DataFrame]:
-        """Get the tiered list of genes the ensemble agrees on.
-
-        A model calls a gene for a sample when the gene's q-value and
-        log2-fold change pass the given thresholds. A model CONSIDERS
-        a gene for a group of samples when it calls it in at least a
-        given share of that group's samples. A gene's TIER is how many
-        of the ensemble's models consider it - the number of models
-        that agree on it - and the consensus recurrence reported for a
-        gene of tier K is the K-th largest of its per-model
-        recurrences, which is the level at which K models agree.
-
-        Samples that any one model has no results for are dropped for
-        the whole ensemble, so that every gene was offered the same
-        models and the tiers are comparable.
+        """Get the tiered list of genes the ensemble agrees on. A
+        gene's tier is the number of models calling it in at least a
+        given share (recurrence) of a group's samples.
 
         Parameters
         ----------
@@ -2270,9 +2408,7 @@ class BulkDGDEnsemble:
 
             * ``"group_column"`` (:class:`str`) - the metadata column
               the samples are grouped by, and within which a gene's
-              recurrence is computed. It is the cancer type for a
-              cohort of tumours, but it is whatever condition the
-              samples are grouped by for any other cohort.
+              recurrence is computed.
 
             * ``"group_name"`` (:class:`str`, optional) - the name the
               group is given in the output. It defaults to the name of
@@ -2280,9 +2416,7 @@ class BulkDGDEnsemble:
 
             * ``"filter_column"`` (:class:`str`, optional) - a
               metadata column the samples are filtered on before
-              anything else. For a cohort of tumours, this is how the
-              primary tumours are kept and the metastatic ones left
-              out.
+              anything else.
 
             * ``"filter_value"`` (optional) - the value the samples
               must have in ``"filter_column"`` to be kept.
@@ -2292,6 +2426,10 @@ class BulkDGDEnsemble:
               results. If it is a relative path, it is taken relative
               to the member's results' directory. It defaults to
               ``"dea"``.
+
+            * ``"prefix"`` (:class:`str`, optional) - the prefix the
+              per-sample files are named with. It defaults to
+              ``"dea_"``.
 
             * ``"q_val"`` (:class:`float`, optional) - the q-value
               below which a gene is called for a sample. It defaults
@@ -2307,15 +2445,14 @@ class BulkDGDEnsemble:
 
             * ``"min_tier"`` (:class:`int`, optional) - the tier below
               which a gene is left out of the output. It defaults to
-              ``2``, since a gene only one model considers is not
-              something the ensemble agrees on.
+              ``2``.
 
             * ``"genes_symbols"`` (:class:`dict`, optional) - the
               genes' symbols, mapped from the genes' names.
 
             * ``"n_processes"`` (:class:`int`, optional) - how many
-              processes to score the samples with. It defaults to the
-              number of available CPUs.
+              processes to score the samples with. It defaults to
+              :func:`os.cpu_count`.
 
         config_ensemble : :class:`dict`, optional
             The configuration to be used. If not passed, the
@@ -2326,7 +2463,8 @@ class BulkDGDEnsemble:
         dfs_consensus : :class:`dict`
             A dictionary mapping each group of samples to a data frame
             with one row per gene, reporting the gene's tier, its
-            consensus recurrence, and every per-model recurrence.
+            consensus recurrence (the tier-th largest per-model
+            recurrence), and every per-model recurrence, sorted.
         """
 
         # Get the configuration to be used.
@@ -2348,24 +2486,23 @@ class BulkDGDEnsemble:
         filter_column = config_consensus.get("filter_column")
         filter_value = config_consensus.get("filter_value")
 
-        # Get the directory containing the results.
+        # Get the directory containing the results, and the prefix the
+        # per-sample files are named with.
         dea_dir = config_consensus.get("dea_dir", "dea")
+        prefix = config_consensus.get("prefix", deaio.DEA_PREFIX)
 
         # Get the thresholds a gene must pass to be called.
         q_val = \
             config_consensus.get("q_val", self.DEFAULT_Q_VAL)
-
         log2_fold_change = \
             config_consensus.get("log2_fold_change",
                                  self.DEFAULT_LOG2_FOLD_CHANGE)
 
         # Get the share of a group's samples a model must call a gene
-        # in to consider it, and the tier below which a gene is left
-        # out.
+        # in to consider it, and the minimum tier.
         recurrence = \
             config_consensus.get("recurrence",
                                  self.DEFAULT_RECURRENCE)
-
         min_tier = \
             config_consensus.get("min_tier", self.DEFAULT_MIN_TIER)
 
@@ -2378,21 +2515,18 @@ class BulkDGDEnsemble:
 
         #-------------------------------------------------------------#
 
-        # Get the directories containing the members' results, in the
-        # order the members are given in - the per-model recurrences
-        # are reported in that order.
+        # Get the directories containing the members' results.
         dea_dirs = \
             [self._get_dea_dir(options = config_ensemble[name],
                                dea_dir = dea_dir)
              for name in self.names]
 
-        # Get the members whose results are missing entirely. A member
-        # with no results would drop every sample, and the consensus
-        # would silently come back empty.
+        # Get the members with no results at all.
         dirs_missing = \
             [f"'{name}' ({dea_dir_member})"
              for name, dea_dir_member in zip(self.names, dea_dirs)
-             if not deaio.list_samples(dea_dir_member)]
+             if not deaio.list_samples(dea_dir_member,
+                                       prefix = prefix)]
 
         # If any member's results are missing
         if dirs_missing:
@@ -2407,9 +2541,9 @@ class BulkDGDEnsemble:
 
         #-------------------------------------------------------------#
 
-        # Get the samples the first member has results for. Any sample
-        # the others are missing is dropped as it is scored.
-        samples = deaio.list_samples(dea_dirs[0])
+        # Get the samples the first member has results for.
+        samples = deaio.list_samples(dea_dirs[0],
+                                     prefix = prefix)
 
         # If the samples are to be filtered
         if filter_column is not None:
@@ -2426,10 +2560,8 @@ class BulkDGDEnsemble:
 
         #-------------------------------------------------------------#
 
-        # Get the group each sample belongs to. It is taken as a
-        # dictionary because a metadata table with a repeated sample
-        # would otherwise give a series where a single group is
-        # expected.
+        # Get the group each sample belongs to, as a dictionary (one
+        # group even for a repeated sample).
         groups = df_metadata[group_column].astype(str).to_dict()
 
         # Pair each sample with its group, leaving out the samples
@@ -2459,16 +2591,15 @@ class BulkDGDEnsemble:
 
         #-------------------------------------------------------------#
 
-        # Get the columns to read from the samples' statistics. They
-        # are selected by position because that is much cheaper than
-        # parsing the whole file, but the positions are found from the
-        # file's own header rather than assumed.
+        # Get the positions of the columns to read from the samples'
+        # statistics, from the first sample's header.
         usecols = self._get_usecols(dea_dir = dea_dirs[0],
-                                    sample = items_samples[0][0])
+                                    sample = items_samples[0][0],
+                                    prefix = prefix)
 
         # Build the items to be scored.
         items = \
-            [(sample, group, dea_dirs, deaio.DEA_PREFIX, usecols,
+            [(sample, group, dea_dirs, prefix, usecols,
               q_val, log2_fold_change)
              for sample, group in items_samples]
 
@@ -2497,9 +2628,10 @@ class BulkDGDEnsemble:
                                         items,
                                         chunksize = 8)):
 
-                # Every so often, report the progress.
+                # Every 500 samples
                 if i % 500 == 0:
 
+                    # Inform the user about the progress.
                     logger.info(
                         f"{i}/{len(items)} samples were scored.")
 
@@ -2508,7 +2640,6 @@ class BulkDGDEnsemble:
 
                     # Count it as dropped, and move on.
                     n_dropped += 1
-
                     continue
 
                 #-----------------------------------------------------#
@@ -2538,8 +2669,8 @@ class BulkDGDEnsemble:
         # If any sample was dropped
         if n_dropped:
 
-            # Inform the user, since the tiers were drawn from fewer
-            # samples than the user asked for.
+            # Warn the user that the tiers were drawn from fewer
+            # samples.
             logger.warning(
                 f"{n_dropped} samples were dropped because at least "
                 "one member had no results for them.")
@@ -2558,7 +2689,8 @@ class BulkDGDEnsemble:
 
     def _get_usecols(self,
                      dea_dir: str,
-                     sample: str) -> list:
+                     sample: str,
+                     prefix: str = deaio.DEA_PREFIX) -> list:
         """Get the positions of the columns to be read from a sample's
         statistics.
 
@@ -2570,6 +2702,9 @@ class BulkDGDEnsemble:
         sample : :class:`str`
             The sample whose statistics are inspected.
 
+        prefix : :class:`str`, ``"dea_"``
+            The prefix the per-sample files are named with.
+
         Returns
         -------
         usecols : :class:`list`
@@ -2580,6 +2715,7 @@ class BulkDGDEnsemble:
         # Read only the header of the sample's statistics.
         df_head = deaio.read_dea(dea_dir,
                                   sample,
+                                  prefix = prefix,
                                   index_col = 0,
                                   header = 0,
                                   nrows = 0)
@@ -2658,10 +2794,14 @@ class BulkDGDEnsemble:
         # For each group and the number of samples scored in it
         for group, n_samples_group in n_samples.items():
 
-            # Get every gene any model called in the group.
+            # Initialize the set of genes any model called in the
+            # group.
             genes = set()
 
+            # For each model's counts
             for counts_model in counts:
+
+                # Add the genes the model called in the group.
                 genes |= set(counts_model.get(group, {}).keys())
 
             #---------------------------------------------------------#
@@ -2680,7 +2820,8 @@ class BulkDGDEnsemble:
                             for counts_model in counts),
                            reverse = True)
 
-                # The gene's tier is how many models considered it.
+                # Get the gene's tier, the number of models that
+                # considered it.
                 tier = \
                     sum(1 for r in recurrences if r >= recurrence)
 
@@ -2692,9 +2833,8 @@ class BulkDGDEnsemble:
 
                 #-----------------------------------------------------#
 
-                # Add the gene to the list. The consensus recurrence
-                # is the recurrence of the last model that considered
-                # it - the level at which that many models agree.
+                # Add the gene to the list, with the recurrence at
+                # which 'tier' models agree as consensus recurrence.
                 rows.append(
                     {group_name : group,
                      "gene" : gene,

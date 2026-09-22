@@ -5,7 +5,7 @@
 #
 #    Utilities for the executables.
 #
-#    Copyright (C) 2025 Valentina Sora 
+#    Copyright (C) 2025 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -76,51 +76,34 @@ class LevelContentFilter(log.Filter):
 
         Parameters
         ----------
-        level : :class:`str` or :obj:`logging` level, \
-            :const:`logging.WARNING`
-            The level at which and below which messages should be
-            filtered out.
+        level : :class:`str`, ``"WARNING"``
+            The level at and below which records are filtered out.
 
         start : :class:`list`, optional
-            A list of strings. Log records starting with any of these
-            strings will be filtered out.
-
-            Note that the log record is stripped of any leading and
-            trailing blank spaces before checking whether it starts
-            with any of the provided strings.
+            The strings that filtered-out records start with, once
+            stripped of leading and trailing blank spaces.
 
         end : :class:`list`, optional
-            A list of strings. Log records ending with any of these
-            strings will be filtered out.
-
-            Note that the log record is stripped of any leading and
-            trailing blank spaces before checking whether it ends with
-            any of the provided strings.
+            The strings that filtered-out records end with, once
+            stripped of leading and trailing blank spaces.
 
         content : :class:`list`, optional
-            A list of strings. Log records containing any of these
-            strings will be filtered out.
+            The strings that filtered-out records contain.
         """
 
         # Call the parent class' initialization method.
         super().__init__()
 
-        # Save the level below which messages should be ignored.
+        # Save the level at and below which records are ignored.
         self.level = log._nameToLevel[level]
 
-        # Save the strings the log record needs to start with to be
-        # ignored - if the log record starts with any of the specified
-        # strings, it will be ignored.
+        # Save the strings marking ignored records by their start.
         self.start = start
 
-        # Save the strings the log record needs to end with to be
-        # ignored - if the log record ends with any of the specified
-        # strings, it will be ignored.
+        # Save the strings marking ignored records by their end.
         self.end = end
 
-        # Save the strings the log record needs to contain to be
-        # ignored - if the log record contains any of the specified
-        # strings, it will be ignored.
+        # Save the strings marking ignored records by their content.
         self.content = content
 
 
@@ -143,8 +126,8 @@ class LevelContentFilter(log.Filter):
         # level
         if record.levelno <= self.level:
 
-            # If we specified strings the record needs to start with
-            # to be ignored
+            # If there are strings marking ignored records by their
+            # start
             if self.start is not None:
 
                 # For each string
@@ -158,8 +141,7 @@ class LevelContentFilter(log.Filter):
 
             #---------------------------------------------------------#
 
-            # If we specified strings the record needs to end with to
-            # be ignored
+            # If there are strings marking ignored records by their end
             if self.end is not None:
 
                 # For each string
@@ -173,8 +155,8 @@ class LevelContentFilter(log.Filter):
 
             #---------------------------------------------------------#
 
-            # If we specified strings the record needs to contain to be
-            # ignored
+            # If there are strings marking ignored records by their
+            # content
             if self.content is not None:
 
                 # For each string
@@ -193,21 +175,11 @@ class LevelContentFilter(log.Filter):
 
 
 class CustomHelpFormatter(argparse.HelpFormatter):
-    
+
     """
     A custom :class:`argparse.HelpFormatter` class to format the
     help messages displayed for command-line utilities.
     """
-
-    def __init__(self,
-                 *args,
-                 **kwargs) -> None:
-        """Initialize a new instance of the class.
-        """
-
-        # Call the parent class' initialization method.
-        super().__init__(*args, **kwargs)
-
 
     def start_section(self,
                       heading: str) -> None:
@@ -265,31 +237,20 @@ def get_handlers(
         The level below which log messages will not be logged on the
         console.
 
-        By default, it takes the value of
-        :const:`bulkdgd.execs.defaults.LOG_LEVEL`.
-
     log_file_class : :class:`logging.FileHandler`, optional
-        A :class:`logging.FileHandler` class to construct the handler
-        that will log to a file.
-
-        If not provided, the log messages will not be written to any
-        file.
+        The class of the handler logging to a file. If not provided,
+        no log file is written.
 
     log_file_options : :class:`dict`, optional
-        A dictionary of options to set up the handler that will log to
-        a file.
-
-        It must be provided if ``log_file_class`` is provided.
+        The options to set up the handler logging to a file. It must
+        be provided if ``log_file_class`` is provided.
 
     log_file_level : :class:`str`, \
         :const:`bulkdgd.execs.defaults.LOG_LEVEL`
         The level below which log messages will not be logged to the
         file.
 
-        By default, it takes the value of
-        :const:`bulkdgd.execs.defaults.LOG_LEVEL`.
-
-    Results
+    Returns
     -------
     handlers : :class:`list`
         A list of handlers.
@@ -338,8 +299,8 @@ def get_handlers(
 
             # Raise an error.
             errstr = \
-                "'filename' must be present in teh dictionary of " \
-                f"'log_file_options. Error: {e}"
+                "'filename' must be present in the dictionary of " \
+                f"'log_file_options'. Error: {e}"
             raise KeyError(errstr)
 
         # If the file already exists
@@ -360,7 +321,7 @@ def get_handlers(
         handlers.append(handler)
 
     #-----------------------------------------------------------------#
-    
+
     # Return the list of handlers.
     return handlers
 
@@ -377,10 +338,7 @@ def get_dask_logging_config(
         Whether to log messages to the console.
 
     log_file : :class:`str`, optional
-        The name of the log file where to write the log messages.
-
-        If not provided, the log messages will not be written to
-        any file.
+        The log file. If not provided, no log file is written.
 
     log_level : :class:`str`, ``"ERROR"``
         The level below which log messages should be silenced.
@@ -391,44 +349,32 @@ def get_dask_logging_config(
         The logging configuration for Dask/distributed loggers.
     """
 
-    # Initialize the logging configuration - it follows the
-    # "configuration dictionary schema" provided in
-    # https://docs.python.org/3/library/logging.config.html
-    # #configuration-dictionary-schema.
+    # Initialize the logging configuration ('logging.config'
+    # dictionary schema).
     dask_logging_config = {\
-        
-        # Set the version of the logging configuration - so far,
-        # only version 1 is supported.
+
+        # Set the version of the schema.
         "version": 1,
-        
-        # Set the formatters for the log records - each key
-        # represents the name of a 'logging.Formatter' object and
-        # the dictionary associated with it contains the options to
-        # initialize it
+
+        # Set the formatters, keyed by name.
         "formatters" : {\
-            
+
             # Set a generic formatter.
             "generic_formatter" : \
                 defaults.CONFIG_FORMATTERS["generic_formatter"],
-        }, 
+        },
 
-        # Set the filters to be used for log records - each key
-        # represents the name of a 'logging.Filter' object and the
-        # dictionary associated with it contains the options to
-        # initialize it.
+        # Set the filters, keyed by name.
         "filters" : {\
-            
-            # Use the custom filter for the 'distributed.worker'
-            # logger.
+
+            # Set the custom filter for the Dask loggers.
             "distributed_filter" : \
                 defaults.CONFIG_FILTERS["distributed_filter"],
         },
-       
-        # The handlers to be used when logging - each key represents
-        # the name of a 'logging.Handler' object and the dictionary
-        # associated with it contains the options to initialize it.
+
+        # Set the handlers, keyed by name.
         "handlers": {
-            
+
             # Set a handler to log to a rotating file.
             "rotating_file_handler": \
                 {# Set the class of the handler to initialize.
@@ -437,7 +383,7 @@ def get_dask_logging_config(
                  "filename": log_file,
                  # Set the formatter for the log records.
                  "formatter" : "generic_formatter"},
-            
+
             # Set a handler to log to the console.
             "stream_handler": \
                 {# Set the class of the handler to initialize.
@@ -446,10 +392,7 @@ def get_dask_logging_config(
                  "formatter" : "generic_formatter"},
         },
 
-        # Set the loggers to configure - each key represents the name
-        # of a 'logging.Logger' object and the dictionary associated
-        # with it contains the options to configure it. The dictionary
-        # of loggers is empty because we are going to fill it later.
+        # Set the loggers, keyed by name (filled below).
         "loggers" : {},
     }
 
@@ -489,10 +432,10 @@ def get_dask_logging_config(
     #-----------------------------------------------------------------#
 
     # For each Dask logger
-    for logger in defaults.DASK_LOGGERS:
-  
+    for logger_name in defaults.DASK_LOGGERS:
+
         # Configure it.
-        dask_logging_config["loggers"][logger] = \
+        dask_logging_config["loggers"][logger_name] = \
             {"level" : log_level,
              "filters" : ["distributed_filter"],
              "handlers" : handlers}
@@ -593,33 +536,42 @@ def add_wd_and_logging_arguments(parser: argparse.ArgumentParser,
                            help = vv_help)
 
     #-----------------------------------------------------------------#
-    
-    # If the command is not 'bulkdgd_dea' or 'bulkdgd_get_recount3'
+
+    # If the command is not 'bulkdgd_dea', 'bulkdgd_get_recount3' or
+    # '_get_recount3_single_batch'
     if command_name not in \
-        ("bulkdgd_dea", "bulkdgd_get_recount3"):
+        ("bulkdgd_dea",
+         "bulkdgd_get_recount3",
+         "_get_recount3_single_batch"):
 
         # Add a group of arguments for the parallelization.
         parallel_group = \
             parser.add_argument_group(\
                 title = "Parallelization options")
 
-        # Add the argument for the parallelization.
+        # Set a help message.
         p_help = "Whether to run the command in parallel."
+
+        # Add the argument to the group.
         parallel_group.add_argument("-p", "--parallelize",
                                     action = "store_true",
                                     help = p_help)
-    
-        # Add the argument for the number of processes.
+
+        # Set the default value for the argument.
         n_default = 1
+
+        # Set a help message.
         n_help = \
             "The number of processes to start. The default number " \
             f"of processes started is {n_default}."
+
+        # Add the argument to the group.
         parallel_group.add_argument("-n", "--n-proc",
                                     type = int,
                                     default = n_default,
                                     help = n_help)
-    
-        # Add the argument for the names of the directories.
+
+        # Set a help message.
         ds_help = \
             "The directories containing the input/configuration " \
             "files. It can be either a list of names or paths, a " \
@@ -629,10 +581,17 @@ def add_wd_and_logging_arguments(parser: argparse.ArgumentParser,
             "assumed to be inside the working directory. If paths " \
             "are given, they are assumed to be relative to the " \
             "working directory."
+
+        # Add the argument to the group.
         parallel_group.add_argument("-ds", "--dirs",
                                     type = str,
                                     nargs = "+",
                                     help = ds_help)
+
+    #-----------------------------------------------------------------#
+
+    # Return the parser.
+    return parser
 
 
 def set_main_logging(args: argparse.Namespace,
@@ -645,8 +604,7 @@ def set_main_logging(args: argparse.Namespace,
         The parsed arguments.
 
     command_name : :class:`str`, optional
-        The name of the command. It is used to determine
-        whether Dask-specific logging should be set up.
+        The name of the command.
     """
 
     # Get the log file.
@@ -695,8 +653,8 @@ def set_main_logging(args: argparse.Namespace,
         log_file_class = log.FileHandler
 
     #-----------------------------------------------------------------#
-    
-    # Configure the logging (for non-Dask operations).
+
+    # Get the handlers for non-Dask logging.
     handlers = \
         get_handlers(\
             log_console = args.log_console,
@@ -718,7 +676,7 @@ def set_main_logging(args: argparse.Namespace,
 
 def process_arg_input_columns(val: Optional[str]) -> \
         Optional[str | list[str]]:
-    """Process the value passed to the '-ic', '--input-columns' 
+    """Process the value passed to the '-ic', '--input-columns'
     argument in the 'bulkdgd reduction' sub-commands.
 
     Parameters
@@ -733,7 +691,7 @@ def process_arg_input_columns(val: Optional[str]) -> \
     """
 
     # Process and return the value.
-    return val if (val is None or isinstance(val, str)) else \
+    return val if (val is None or "," not in val) else \
            [item.strip() for item in val.split(",")]
 
 
@@ -768,7 +726,7 @@ def process_arg_groups(val: Optional[str]) -> Optional[list[str]]:
 
     Returns
     -------
-    val : :class:`str` or :class:`list` or :obj:`None`
+    val : :class:`list` or :obj:`None`
         The processed value.
     """
 
@@ -793,10 +751,8 @@ def run_executable(
         A list of arguments to run the executable with.
 
     extra_return_values : :class:`list`, optional
-        A list of extra values to be returned by the function,
-        together with the ``subprocess.CompletedProcess`` instance
-        representing the completed process.
-    
+        The extra values to return after the completed process.
+
     shell : :class:`bool`, :obj:`False`
         Whether to run the executable in a shell.
 
@@ -805,8 +761,8 @@ def run_executable(
     completed_process : :class:`subprocess.CompletedProcess`
         The completed process.
 
-    Plus as many values as ``extra_return_values`` contains, if
-    ``extra_return_values`` was passed.
+    *extra_return_values
+        The values in ``extra_return_values``, if passed.
     """
 
     # If the user requested to run the executable in a shell
@@ -814,7 +770,7 @@ def run_executable(
 
         # Create the command line.
         line = f"{executable} {' '.join(arguments)}"
-    
+
     # Otherwise
     else:
 
@@ -829,46 +785,41 @@ def run_executable(
                        shell = shell)
 
     #-----------------------------------------------------------------#
-    
+
     # If the user did not pass any extra return values
     if extra_return_values is None:
 
-        # Return the completed process.
+        # Use an empty list.
         extra_return_values = []
-    
+
     #-----------------------------------------------------------------#
 
-    # Return the completed process and any other value that was
-    # passed.
+    # Return the completed process and the extra values.
     return (completed_process, *extra_return_values)
 
 
 def get_dirs(dir_names: list[str] | str,
              wd: str) -> list[str]:
-    """Get the full paths to a list of directories. 
+    """Get the full paths to a list of directories.
 
     Parameters
     ----------
     dir_names : :class:`list` or :class:`str`
-        The names of the directories. It can be either a list of
-        strings representing the names of the directories, or a
-        string representing a pattern to match the directories or a
-        plain text file containing the names of the directories.
-    
+        The names of the directories, a pattern matching them, or a
+        plain text file listing them.
+
     wd : :class:`str`
         The working directory.
-    
+
     Returns
     -------
     dirs : :class:`list`
         A list of the full paths to the directories.
-    
+
     Raises
     ------
     :class:`TypeError`
-        If the argument ``dir_names`` is not a list of strings, a
-        string representing a pattern to match the directories, or a
-        plain text file containing the names of the directories.
+        If ``dir_names`` is neither a list nor a string.
     """
 
     # If the user passed a list of directory names
@@ -878,7 +829,7 @@ def get_dirs(dir_names: list[str] | str,
         dirs = \
             [os.path.abspath(os.path.join(wd, dir_name)) \
              for dir_name in dir_names]
-    
+
     #-----------------------------------------------------------------#
 
     # If the user passed a pattern or the name of a file
@@ -890,18 +841,16 @@ def get_dirs(dir_names: list[str] | str,
             # Read the file.
             with open(dir_names, "r") as f:
 
-                # Make it so if the user passed the directories with
-                # relative paths, they will be interpreted correctly
-                # with respect to the working directory. Skip empty
-                # lines.
+                # Get the full paths to the listed directories,
+                # skipping empty lines.
                 dirs = \
                     [os.path.abspath(\
                         os.path.join(wd, dir_name.strip()))
                     for dir_name in f.readlines() \
-                    if not dir_name.strip()]
-        
+                    if dir_name.strip()]
+
         #-------------------------------------------------------------#
-        
+
         # Otherwise
         else:
 
@@ -921,9 +870,9 @@ def get_dirs(dir_names: list[str] | str,
             "match the directories, or a string representing a " \
             "file containing the names of the directories."
         raise TypeError(errstr)
-    
+
     #-----------------------------------------------------------------#
-    
+
     # Return the full paths to the directories.
     return dirs
 
@@ -937,24 +886,18 @@ def get_file_path(file_name: str,
     ----------
     file_name : :class:`str`
         The name of the file.
-    
+
     wd : :class:`str`
         The working directory.
-    
+
     main_wd : :class:`str`
         The main working directory.
-    
+
     Returns
     -------
     file_path : :class:`str` or :obj:`None`
         The full path to the file or :obj:`None` if ``file_name`` is
         not a file.
-    
-    Raises
-    ------
-    :class:`FileNotFoundError`
-        If the file does not exist in either the working directory or
-        the main working directory.
     """
 
     # Get the full path to the file in the working directory.
@@ -968,7 +911,7 @@ def get_file_path(file_name: str,
 
         # Return the full path to the file.
         return file_path
-    
+
     #-----------------------------------------------------------------#
 
     # If the file exists in the main working directory
@@ -976,30 +919,18 @@ def get_file_path(file_name: str,
 
         # Return the full path to the file.
         return file_path_main
-    
+
     #-----------------------------------------------------------------#
 
     # Otherwise
     else:
 
-        # If the file name is not a file
-        if not os.path.isfile(file_path) \
-            and not os.path.isfile(file_path_main):
-
-            # Return None.
-            return None
-
-        # Otherwise
-        else:
-
-            # Raise an error.
-            errstr = \
-                f"The file '{file_name}' does not exist in " \
-                f"either '{wd}' or '{main_wd}'."
-            raise FileNotFoundError(errstr)
+        # Return None.
+        return None
 
 
 def set_executable_args(args: argparse.Namespace,
+                        parser: argparse.ArgumentParser,
                         wd: str,
                         main_wd: str) -> list[str]:
     """Set the arguments for an executable.
@@ -1008,22 +939,29 @@ def set_executable_args(args: argparse.Namespace,
     ----------
     args : :class:`argparse.Namespace`
         The parsed arguments.
-    
+
+    parser : :class:`argparse.ArgumentParser`
+        The parser the arguments were parsed with.
+
     wd : :class:`str`
         The working directory.
-    
+
     main_wd : :class:`str`
         The main working directory.
 
     Returns
     -------
     arguments : :class:`list`
-        The arguments as a list that can be passed to 
-        :func:`subprocess.run`.
+        The arguments, as a list to pass to :func:`subprocess.run`.
     """
 
     # Get the arguments as a dictionary.
     kwargs = copy.deepcopy(vars(args))
+
+    # Get the arguments whose options take several words.
+    dests_nargs = \
+        {action.dest for action in parser._actions
+         if action.nargs not in (None, 0)}
 
     #-----------------------------------------------------------------#
 
@@ -1038,12 +976,14 @@ def set_executable_args(args: argparse.Namespace,
         # If the value is None
         if val is None:
 
-            # Pop it.
+            # Remove it.
             kwargs.pop(arg)
-        
-        # If the argument starts with 'input_' or 'config_'
-        elif arg.startswith("input_") \
-        or arg.startswith("config_"):
+
+        # If the argument starts with 'input_' or 'config_' and its
+        # value is a string
+        elif (arg.startswith("input_") \
+              or arg.startswith("config_")) \
+        and isinstance(val, str):
 
             # Get the full path to the file.
             file_path = \
@@ -1056,18 +996,18 @@ def set_executable_args(args: argparse.Namespace,
 
                 # Set the full path to the file.
                 kwargs[arg] = file_path
-        
+
         #-------------------------------------------------------------#
-        
+
         # If the argument starts with 'output_' or is 'log_file'
         elif arg.startswith("output_") \
         or arg == "log_file":
-            
+
             # Set the full path to the file.
             kwargs[arg] = os.path.abspath(os.path.join(wd, val))
-        
+
     #-----------------------------------------------------------------#
-    
+
     # Set the argument for the working directory.
     kwargs["work_dir"] = wd
 
@@ -1091,9 +1031,18 @@ def set_executable_args(args: argparse.Namespace,
         # If the value is a list
         if isinstance(val, list):
 
-            # Add each element of the list to the list of
-            # arguments.
-            arguments.extend(val)
+            # If the option takes several words
+            if arg in dests_nargs:
+
+                # Add each element of the list to the list of
+                # arguments.
+                arguments.extend([str(item) for item in val])
+
+            # Otherwise
+            else:
+
+                # Add the elements as one comma-separated value.
+                arguments.append(",".join([str(item) for item in val]))
 
         # If the value is a boolean
         elif isinstance(val, bool):
@@ -1101,9 +1050,9 @@ def set_executable_args(args: argparse.Namespace,
             # If the value is False
             if not val:
 
-                # Skip it.
+                # Remove the flag.
                 arguments.pop()
-        
+
         # Otherwise
         else:
 
@@ -1117,7 +1066,8 @@ def set_executable_args(args: argparse.Namespace,
 
 
 def run_with_parallelization(executable: str,
-                             args: argparse.Namespace) -> None:
+                             args: argparse.Namespace,
+                             parser: argparse.ArgumentParser) -> None:
     """Run an executable with parallelization using Dask.
 
     Parameters
@@ -1127,6 +1077,9 @@ def run_with_parallelization(executable: str,
 
     args : :class:`argparse.Namespace`
         The parsed arguments.
+
+    parser : :class:`argparse.ArgumentParser`
+        The parser the arguments were parsed with.
     """
 
     # Create a list to store the futures.
@@ -1135,21 +1088,23 @@ def run_with_parallelization(executable: str,
     #-----------------------------------------------------------------#
 
     # Get the 'work_dir' argument.
-    wd = getattr(args, "work_dir", None)
+    wd = getattr(args,
+                 "work_dir",
+                 None)
 
     # Get the 'n_proc' argument.
-    n_proc = getattr(args, "n_proc", None)
+    n_proc = getattr(args,
+                     "n_proc",
+                     None)
 
     #-----------------------------------------------------------------#
 
-    # Set the 'log_console' argument to False so that the
-    # logging messages generated by the command launched
-    # are not printed to the console.
+    # Keep the launched commands' log messages off the console.
     args.log_console = False
 
     #-----------------------------------------------------------------#
 
-    # Get the argument corresponding to the directories.
+    # Get the full paths to the directories.
     work_dirs = \
         get_dirs(dir_names = args.dirs,
                  wd = wd)
@@ -1186,11 +1141,11 @@ def run_with_parallelization(executable: str,
         # Set the arguments.
         arguments = \
             set_executable_args(args = args,
+                                parser = parser,
                                 wd = work_dir,
                                 main_wd = wd)
 
-        # Inform the user that we are submitting the
-        # calculation.
+        # Inform the user that the calculation is being submitted.
         infostr = \
             f"Submitting the calculation in " \
             f"'{work_dir}' directory. Command " \
@@ -1204,7 +1159,7 @@ def run_with_parallelization(executable: str,
                 executable = executable,
                 arguments = arguments,
                 extra_return_values = [work_dir]))
-    
+
     #-----------------------------------------------------------------#
 
     # Get the futures as they are completed.
@@ -1241,3 +1196,11 @@ def run_with_parallelization(executable: str,
             f"'{work_dir}' completed " \
             "successfully."
         logger.info(infostr)
+
+    #-----------------------------------------------------------------#
+
+    # Close the client.
+    client.close()
+
+    # Close the cluster.
+    cluster.close()

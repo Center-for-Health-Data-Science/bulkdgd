@@ -5,7 +5,7 @@
 #
 #    Private utilities for the analyses.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -36,9 +36,11 @@ __doc__ = "Private utilities for the analyses."
 
 # Import from the standard library.
 import logging as log
+from typing import Optional
 
 # Import from third-party packages.
 import numpy as np
+import pandas as pd
 from scipy.special import gammaln
 import torch
 
@@ -53,19 +55,96 @@ logger = log.getLogger(__name__)
 #######################################################################
 
 
-def log_prob_mass_nb(k: torch.Tensor,
-                     m: torch.Tensor,
-                     r: torch.Tensor) -> torch.Tensor:
+def get_aligned_genes(obs_counts: pd.Series,
+                      pred_means: pd.Series,
+                      r_values: Optional[pd.Series] = None) -> \
+                        list[str]:
+    """Get the genes of a sample, checking that the observed counts,
+    the predicted means, and the r-values list the same genes in the
+    same order.
+
+    Parameters
+    ----------
+    obs_counts : :class:`pandas.Series`
+        Observed gene counts, indexed by Ensembl ID or metadata field.
+
+    pred_means : :class:`pandas.Series`
+        Predicted means of the genes' count distributions.
+
+    r_values : :class:`pandas.Series`, optional
+        Predicted r-values of the negative binomial distributions.
+
+    Returns
+    -------
+    genes : :class:`list`
+        The genes' Ensembl IDs, in the order the inputs list them.
+    """
+
+    # Set the inputs to be checked.
+    inputs = {"obs_counts" : obs_counts,
+              "pred_means" : pred_means,
+              "r_values" : r_values}
+
+    # Get the genes listed in each input passed, in order.
+    genes = \
+        {name : [ix for ix in series.index if ix.startswith("ENSG")]
+         for name, series in inputs.items() if series is not None}
+
+    # Get the inputs whose genes differ from the observed counts'.
+    names_diff = \
+        [name for name in genes if genes[name] != genes["obs_counts"]]
+
+    # If any input differs
+    if names_diff:
+
+        # Raise an error.
+        names_str = " and ".join(f"'{name}'" for name in names_diff)
+        errstr = \
+            f"The genes in {names_str} differ from those in " \
+            "'obs_counts' or are in a different order. The genes " \
+            "must be the same, in the same order, in all inputs. " \
+            "It is assumed that the genes are specified using " \
+            "their Ensembl IDs."
+        raise ValueError(errstr)
+
+    # Return the genes.
+    return genes["obs_counts"]
+
+
+def log_prob_mass_nb(k: np.ndarray,
+                     m: np.ndarray,
+                     r: np.ndarray) -> np.ndarray:
     """Compute the natural logarithm of the probability mass for a set
     of negative binomial distributions.
 
-    Thr formula used to compute the logarithm of the probability mass
-    is:
+    Parameters
+    ----------
+    k : :class:`numpy.ndarray`
+        A one-dimensional array containing the "number of successes"
+        seen before stopping the trials, one per negative binomial.
+
+    m : :class:`numpy.ndarray`
+        A one-dimensional array containing the means of the negative
+        binomials.
+
+    r : :class:`numpy.ndarray`
+        A one-dimensional array containing the "number of failures"
+        after which the trials end, one per negative binomial.
+
+    Returns
+    -------
+    x : :class:`numpy.ndarray`
+        A one-dimensional array containing the log-probability mass of
+        each negative binomial.
+
+    Notes
+    -----
+    The log-probability mass is:
 
     .. math::
 
        logPDF_{NB(k,m,r)} &=
-       log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\ 
+       log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\
        &+ k \\cdot log(m \\cdot c + \\epsilon) +
        r \\cdot log(r \\cdot c)
 
@@ -73,168 +152,46 @@ def log_prob_mass_nb(k: torch.Tensor,
     overflow, and :math:`c` is equal to
     :math:`\\frac{1}{r+m+\\epsilon}`.
 
-    The derivation of this formula from the non-logarithmic formulation
-    of the probability mass function of the negative binomial
-    distribution can be found below.
-
-    Parameters
-    ----------
-    k : :class:`torch.Tensor`
-        A one-dimensional tensor containing he "number of successes"
-        seen before stopping the trials.
-
-        Each value in the tensor corresponds to the number of
-        successes in a different negative binomial.
-
-    m : :class:`torch.Tensor`
-        A one-dimensional tensor containing the means of the negative
-        binomials.
-
-        Each value in the tensor corresponds to the mean of a different
-        negative binomial.
-
-    r : :class:`torch.Tensor`
-        A one-dimensional tensor containing the "number of failures"
-        after which the trials end.
-
-        Each value in the tensor corresponds to the number of failures
-        in a different negative binomial.
-
-    Returns
-    -------
-    x : :class:`torch.Tensor`
-        A one-dimensional tensor containing the lhe log-probability
-        mass of each negative binomials.
-
-        Each value in the tensor corresponds to the log-probability
-        mass of a different negative binomial.
-
-    Notes
-    -----
-    Here, we show how we derived the formula for the logarithm of the
-    probability mass of the negative binomial distribution.
-
-    We start from the non-logarithmic version of the probability mass
-    for the negative binomial, which is:
+    It derives from the probability mass:
 
     .. math::
 
        PDF_{NB(k,m,r)} = \
        \\binom{k+r-1}{k} (1-p)^{k} p^{r}
 
-    However, since:
+    Where:
 
     * :math:`1-p` is equal to :math:`\\frac{m}{r+m}`
     * :math:`p` is equal to :math:`\\frac{r}{r+m}`
-    * :math:`k+r-1` can be rewritten in terms of the
-      gamma function as :math:`\\Gamma(k+r)`
-    * :math:`k` can also be rewritten as
-      :math:`\\Gamma(r) \\cdot k!`
+    * :math:`\\binom{k+r-1}{k}` is equal to
+      :math:`\\frac{\\Gamma(k+r)}{\\Gamma(r) \\cdot \\Gamma(k+1)}`
 
-    The formula becomes:
+    Therefore:
 
     .. math::
 
        PDF_{NB(k,m,r)} = \
-       \\binom{\\Gamma(k+r)}{\\Gamma(r) \\cdot k!}
+       \\frac{\\Gamma(k+r)}{\\Gamma(r) \\cdot \\Gamma(k+1)}
        \\left( \\frac{m}{r+m} \\right)^k
        \\left( \\frac{r}{r+m} \\right)^r
 
-    However, :math:`k!` can be also be rewritten as
-    :math:`\\Gamma(k+1)`, resulting in:
-
-    .. math::
-
-       PDF_{NB(k,m,r)} = \
-       \\binom{\\Gamma(k+r)}{\\Gamma(r) \\cdot 
-       \\Gamma(k+1)}
-       \\left( \\frac{m}{r+m} \\right)^k
-       \\left( \\frac{r}{r+m} \\right)^r
-
-    Then, we get the natural logarithm of both sides:
-    
-    .. math::
-
-       logPDF_{NB(k,m,r)} &= \
-       log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\
-       &+ k \\cdot log \\left( \\frac{m}{r+m} \\right) +
-       r \\cdot log \\left( \\frac{r}{r+m} \\right)
-    
-    Here, we are adding a small value :math:`\\epsilon` to prevent
-    underflow/overflow:
-
-    .. math::
-
-       logPDF_{NB(k,m,r)} &= \
-       log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\
-       &+ k \\cdot
-       log \\left( m \\cdot \\frac{1}{r+m+\\epsilon} 
-       + \\epsilon \\right) +
-       r \\cdot
-       log \\left( r \\cdot \\frac{1}{r+m+\\epsilon}
-       \\right)
-
-    Finally, we substitute :math:`\\frac{1}{r+m+\\epsilon}` with
-    :math:`c` and we obtain:
-
-    .. math::
-
-       logPDF_{NB(k,m,r)} &= \
-       log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\
-       &+ k \\cdot
-       log \\left( m \\cdot c + \\epsilon \\right) +
-       r \\cdot
-       log \\left( r \\cdot c \\right)
+    Taking the natural logarithm of both sides, adding
+    :math:`\\epsilon`, and substituting :math:`c` yields the formula
+    above.
     """
-    
+
     # Convert the "number of successes" to a double-precision
     # floating point number.
     k = k.astype(np.float64)
 
     # Set a small value used to prevent underflow and overflow.
     eps = 1.e-10
-    
+
     # Set a constant used later in the equation defining the log-
     # probability mass.
     c = 1.0 / (r + m + eps)
-    
+
     # Get the log-probability mass of the negative binomials.
-    #
-    # The non-log version would be:
-    #
-    # NB(k,m,r) = \
-    #   gamma(k+r) / (gamma(r) * k!) *
-    #   (m/(r+m))^k *
-    #   (r/(r+m))^r
-    #
-    # Since k! can be rewritten as 'gamma(k+1)':
-    #
-    # NB(k,m,r) = \
-    #   gamma(k+r) / (gamma(r) * gamma(k+1)) *
-    #   (m/(r+m))^k *
-    #   (r/(r+m))^r
-    #
-    # Getting the natural logarithm of both sides results in:
-    #
-    # log(NB(k,m,r)) = \
-    #   lgamma(k+r) - lgamma(r) - lgamma(k+1) +
-    #   k * log(m * 1/(r+m)) +
-    #   r * log(r * 1/(r+m))
-    #
-    # Here, we are adding the small 'eps' to prevent underflow/
-    # overflow:
-    #
-    # log(NB(k,m,r)) = \
-    #   lgamma(k+r) - lgamma(r) - lgamma(k+1) +
-    #   k * log(m * 1/(r+m+eps) + eps) +
-    #   r * log(r * 1/(r+m+eps))
-    #
-    # Substituting '1/(r+m+eps)' with 'c' yields:
-    #
-    # log(NB(k,m,r)) = \
-    #   lgamma(k+r) - lgamma(r) - lgamma(k+1) +
-    #   k * log(m * c + eps) +
-    #   r * log(r * c)
     x = \
         gammaln(k+r) - gammaln(r) - \
         gammaln(k+1) + k*np.log(m*c+eps) + \
@@ -244,13 +201,30 @@ def log_prob_mass_nb(k: torch.Tensor,
     return x
 
 
-def log_prob_mass_poisson(k: torch.Tensor,
-                          m: torch.Tensor) -> torch.Tensor:
+def log_prob_mass_poisson(k: np.ndarray,
+                          m: np.ndarray) -> np.ndarray:
     """Compute the natural logarithm of the probability mass for a
     set of Poisson distributions.
 
-    The formula used to compute the logarithm of the probability
-    mass is:
+    Parameters
+    ----------
+    k : :class:`numpy.ndarray`
+        A one-dimensional array containing the "number of successes"
+        seen before stopping the trials, one per Poisson distribution.
+
+    m : :class:`numpy.ndarray`
+        A one-dimensional array containing the means of the Poisson
+        distributions.
+
+    Returns
+    -------
+    x : :class:`numpy.ndarray`
+        A one-dimensional array containing the log-probability mass of
+        each Poisson distribution.
+
+    Notes
+    -----
+    The log-probability mass is:
 
     .. math::
 
@@ -260,83 +234,26 @@ def log_prob_mass_poisson(k: torch.Tensor,
     Where :math:`\\epsilon` is a small value to prevent underflow/
     overflow.
 
-    The derivation of this formula from the non-logarithmic
-    formulation of the probability mass function of the Poisson
-    distribution can be found below.
-
-    Parameters
-    ----------
-    k : ``torch.Tensor``
-        A one-dimensional tensor containing he "number of
-        successes" seen before stopping the trials.
-
-        Each value in the tensor corresponds to the number of
-        successes in a different Poisson distribution.
-
-    m : ``torch.Tensor``
-        A one-dimensional tensor containing the means of the
-        Poisson distributions.
-
-        Each value in the tensor corresponds to the mean of a
-        different Poisson distribution.
-
-    Returns
-    -------
-    x : :class:`torch.Tensor`
-        A one-dimensional tensor containing the lhe log-probability
-        mass of each Poisson distribution.
-
-        Each value in the tensor corresponds to the log-probability
-        mass of a different Poisson distribution.
-
-    Notes
-    -----
-    Here, we show how we derived the formula for the logarithm of
-    the probability mass of the Poisson distribution.
-
-    We start from the non-logarithmic version of the probability
-    mass for the Poisson distribution, which is:
+    It derives from the probability mass, where :math:`k!` is
+    rewritten as :math:`\\Gamma(k+1)`:
 
     .. math::
 
        PDF_{Poisson(k,m)} = \
-       \\frac{m^{k}e^{-m}}{k!}
-
-    However, since:
-
-    * :math:`k!` can be rewritten in terms of the
-      gamma function as :math:`\\Gamma(k+1)`
-
-    The formula becomes:
-
-    .. math::
-
-       PDF_{Poisson(k,m)} = \
+       \\frac{m^{k}e^{-m}}{k!} = \
        \\frac{m^{k}e^{-m}}{\\Gamma(k+1)}
 
-    Then, we get the natural logarithm of both sides:
-    
-    .. math::
-
-       logPDF_{Poisson(k,m)} &= \
-       k * log(m) - m - log\\Gamma(k+1)
-    
-    Finally, we add a small value :math:`\\epsilon` to prevent
-    underflow/overflow:
-
-    .. math::
-
-       logPDF_{Poisson(k,m)} &= \
-       k * log(m + \\epsilon) - m - log\\Gamma(k+1)
+    Taking the natural logarithm of both sides and adding
+    :math:`\\epsilon` yields the formula above.
     """
 
     # Convert the "number of successes" to a double-precision
     # floating point number.
     k = k.astype(np.float64)
-    
+
     # Set a small value used to prevent underflow and overflow.
     eps = 1.e-10
-    
+
     # Get the log-probability mass of the Poisson distributions.
     x = k * np.log(m + eps) - m - gammaln(k + 1)
 
@@ -370,16 +287,14 @@ def log_prob_mass_nb_torch(k: torch.Tensor,
         at the given points.
     """
 
-    # Set a small value used to prevent underflow and overflow. This
-    # matches the one used in the NumPy implementation.
+    # Set a small value used to prevent underflow and overflow.
     eps = 1.e-10
 
     # Set a constant used later in the equation defining the log-
     # probability mass.
     c = 1.0 / (r + m + eps)
 
-    # Get the log-probability mass of the negative binomials. This is
-    # the same formula used in 'log_prob_mass_nb'.
+    # Get the log-probability mass of the negative binomials.
     x = \
         torch.lgamma(k+r) - torch.lgamma(r) - \
         torch.lgamma(k+1) + k*torch.log(m*c+eps) + \
@@ -410,12 +325,10 @@ def log_prob_mass_poisson_torch(k: torch.Tensor,
         evaluated at the given points.
     """
 
-    # Set a small value used to prevent underflow and overflow. This
-    # matches the one used in the NumPy implementation.
+    # Set a small value used to prevent underflow and overflow.
     eps = 1.e-10
 
-    # Get the log-probability mass of the Poisson distributions. This
-    # is the same formula used in 'log_prob_mass_poisson'.
+    # Get the log-probability mass of the Poisson distributions.
     x = k * torch.log(m + eps) - m - torch.lgamma(k + 1)
 
     # Return the log-probability mass for the Poisson distributions.

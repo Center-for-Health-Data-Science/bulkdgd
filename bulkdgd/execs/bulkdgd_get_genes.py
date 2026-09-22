@@ -10,7 +10,7 @@
 #    adapted and converted into an executable for this package by
 #    Valentina Sora.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #                       Nafisa Barmakhshad
 #                       <nafisa.barmakhshad@gmail.com>
@@ -26,7 +26,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -49,6 +49,7 @@ import os
 import sys
 
 # Import from 'bulkdgd'.
+from bulkdgd.ioutil.tableio import save_table
 from bulkdgd import defaults, ioutil, genes
 from . import util
 
@@ -65,6 +66,13 @@ logger = log.getLogger(__name__)
 
 # Define a function to set up the parser.
 def set_parser() -> argparse.ArgumentParser:
+    """Set up the argument parser.
+
+    Returns
+    -------
+    parser : :class:`argparse.ArgumentParser`
+        The argument parser.
+    """
 
     # Create the argument parser.
     parser = \
@@ -153,6 +161,13 @@ def set_parser() -> argparse.ArgumentParser:
 
 # Define the 'main' function.
 def main(args: argparse.Namespace) -> None:
+    """Get the list of genes and their attributes.
+
+    Parameters
+    ----------
+    args : :class:`argparse.Namespace`
+        The parsed arguments.
+    """
 
     # Get the argument corresponding to the working directory.
     wd = args.work_dir
@@ -240,10 +255,11 @@ def main(args: argparse.Namespace) -> None:
     # Try to write out the data frame containing the genes' attributes.
     try:
 
-        save_table(genes_attributes, output_attributes,
-                                sep = ",",
-                                index = False,
-                                header = True)
+        save_table(genes_attributes,
+                   output_attributes,
+                   sep = ",",
+                   index = False,
+                   header = True)
 
     # If something went wrong
     except Exception as e:
@@ -264,9 +280,10 @@ def main(args: argparse.Namespace) -> None:
 
     #-----------------------------------------------------------------#
 
-    # Try to write out the plain txt file containing the genes' list.
+    # Try to write out the plain text file containing the genes' list.
     try:
 
+        # Write the list.
         with open(output_list, "w") as out:
             out.write("\n".join(genes_list))
 
@@ -291,6 +308,7 @@ def main(args: argparse.Namespace) -> None:
 
 # Define the entry point for the standalone executable.
 def entry_point() -> None:
+    """Run the executable."""
 
     # Build the parser.
     parser = set_parser()
@@ -301,13 +319,16 @@ def entry_point() -> None:
     # Set up the logging.
     util.set_main_logging(args = args)
 
-    # Check if the execution should be parallelized.
-    if getattr(args, "parallelize", False):
+    # If the execution should be parallelized
+    if getattr(args,
+               "parallelize",
+               False):
 
         # Run with parallelization.
         util.run_with_parallelization(\
             executable = "bulkdgd_get_genes",
-            args = args)
+            args = args,
+            parser = parser)
 
     # Otherwise
     else:

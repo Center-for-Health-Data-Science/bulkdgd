@@ -7,7 +7,7 @@
 #    samples to their "closest normal" sample found in latent space
 #    by the :class:`core.model.BulkDGD`.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -21,7 +21,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -48,8 +48,10 @@ import sys
 from distributed import LocalCluster, Client, as_completed
 import pandas as pd
 
-# Import from the package.
+# Import from 'bulkdgd'.
 from bulkdgd.ioutil.tableio import save_table
+
+# Import from third-party libraries.
 import torch
 
 # Import from 'bulkdgd'.
@@ -70,6 +72,13 @@ logger = log.getLogger(__name__)
 
 # Define a function to set up the parser.
 def set_parser() -> argparse.ArgumentParser:
+    """Set up the argument parser.
+
+    Returns
+    -------
+    parser : :class:`argparse.ArgumentParser`
+        The argument parser.
+    """
 
     # Create the argument parser.
     parser = \
@@ -144,11 +153,12 @@ def set_parser() -> argparse.ArgumentParser:
 
     # Set a help message.
     odp_help = \
-        "The prefix of the output CSV file(s) that will contain " \
-        "the results of the differential expression analysis. " \
-        "Since the analysis will be performed for each sample, " \
-        "one file per sample will be created. The files' names " \
-        "will have the form {output_csv_prefix}{sample_name}.csv. " \
+        "The prefix of the output Parquet file(s) that will " \
+        "contain the results of the differential expression " \
+        "analysis. Since the analysis will be performed for each " \
+        "sample, one file per sample will be created. The files' " \
+        "names will have the form " \
+        "{output_dea_prefix}{sample_name}.parquet. " \
         f"The default prefix is '{odp_default}'."
 
     # Add the argument to the group.
@@ -156,7 +166,7 @@ def set_parser() -> argparse.ArgumentParser:
                               type = str,
                               default = odp_default,
                               help = odp_help)
-    
+
     #-----------------------------------------------------------------#
 
     # Set the default value for the argument.
@@ -164,17 +174,18 @@ def set_parser() -> argparse.ArgumentParser:
 
     # Set a help message.
     ogp_help = \
-        "The prefix of the output CSV file(s) that will contain " \
-        "the results of the gene set enrichment analysis. By " \
-        "default, the analysis will be performed for each sample " \
-        "and one per sample will be created. The files' names will " \
-        "have the form {output_csv_prefix}{sample_name}.csv. The " \
+        "The prefix of the output Parquet file(s) that will " \
+        "contain the results of the gene set enrichment analysis. " \
+        "By default, the analysis will be performed for each " \
+        "sample and one file per sample will be created. The " \
+        "files' names will have the form " \
+        "{output_gsea_prefix}{sample_name}.parquet. The " \
         f"default prefix is '{ogp_default}'. If the '-mg', " \
         "'--merge-gsea' option is passed, this option is " \
         "interpreted as the name of the output file where the " \
         "merged results will be written (stripped of any trailing " \
         "underscores or dots)."
-    
+
     # Add the argument to the group.
     output_group.add_argument("-ogp", "--output-gsea-prefix",
                               type = str,
@@ -188,7 +199,7 @@ def set_parser() -> argparse.ArgumentParser:
         "Whether the results of the gene set enrichment analysis " \
         "will be merged into a single file. By default, the " \
         "results for each sample are written in separate files."
-    
+
     # Add the argument to the group.
     output_group.add_argument("-mg", "--merge-gsea",
                               action = "store_true",
@@ -204,7 +215,7 @@ def set_parser() -> argparse.ArgumentParser:
         "The resolution at which to sum over the probability " \
         "mass function to compute the p-values. The higher the " \
         "resolution, the more accurate the calculation. " \
-        f"The default is {pr_default}."
+        f"The default is {int(pr_default)}."
 
     # Add the argument to the group.
     dea_group.add_argument("-pr", "--p-values-resolution",
@@ -221,12 +232,12 @@ def set_parser() -> argparse.ArgumentParser:
     p_val_threshold = \
         "The threshold used to select the significant genes " \
         f"based on the p-values. The default is {pt_default}."
-    
+
     # Add the argument to the group.
     dea_group.add_argument("-pt", "--p-values-threshold",
-                            type = float,
-                            default = pt_default,
-                            help = p_val_threshold)
+                           type = float,
+                           default = pt_default,
+                           help = p_val_threshold)
 
     #-----------------------------------------------------------------#
 
@@ -272,13 +283,13 @@ def set_parser() -> argparse.ArgumentParser:
     qt_help = \
         "The threshold used to select the significant genes " \
         f"based on the q-values. The default is {qt_default}."
-    
+
     # Add the argument to the group.
     dea_group.add_argument("-qt", "--q-values-threshold",
-                            type = float,
-                            default = qt_default,
-                            help = qt_help)
-    
+                           type = float,
+                           default = qt_default,
+                           help = qt_help)
+
     #-----------------------------------------------------------------#
 
     # Set the default value for the argument.
@@ -288,12 +299,12 @@ def set_parser() -> argparse.ArgumentParser:
     fct_help = \
         "The threshold used to select the significant genes " \
         f"based on the log2-fold changes. The default is {fct}."
-    
+
     # Add the argument to the group.
     dea_group.add_argument("-fct", "--log2-fold-change-threshold",
-                            type = float,
-                            default = fct,
-                            help = fct_help)
+                           type = float,
+                           default = fct,
+                           help = fct_help)
 
     #-----------------------------------------------------------------#
 
@@ -301,15 +312,15 @@ def set_parser() -> argparse.ArgumentParser:
     gsf_help = \
         "A list of plain text files containing the gene sets " \
         "to be used in the analysis. The files must contain " \
-        "one gene symbol per line. The gene sets will be used " \
+        "one Ensembl gene ID per line. The gene sets will be used " \
         "to perform the gene set enrichment analysis."
-    
+
     # Add the argument to the group.
     dea_group.add_argument("-gsf", "--genes-sets-files",
-                            type = str,
-                            nargs = "+",
-                            default = None,
-                            help = gsf_help)
+                           type = str,
+                           nargs = "+",
+                           default = None,
+                           help = gsf_help)
 
     #-----------------------------------------------------------------#
 
@@ -332,9 +343,7 @@ def set_parser() -> argparse.ArgumentParser:
     # Set a help message.
     dev_help = \
         "The device to use. If not provided, the GPU will be used " \
-        "if it is available. Otherwise, the CPU will be used. The " \
-        "genes are independent of each other, so calculating the " \
-        "p-values on a GPU is considerably faster."
+        "if it is available. Otherwise, the CPU will be used."
 
     # Add the argument to the group.
     run_group.add_argument("-dev", "--device",
@@ -351,14 +360,10 @@ def set_parser() -> argparse.ArgumentParser:
     pm_help = \
         "How to calculate the p-values. The two methods give the " \
         "same p-values. 'batched' calculates them for all the genes " \
-        "at once - this is what lets them be calculated on a GPU, " \
-        "and, on a CPU, 'torch' spreads the calculation over the " \
-        "cores by itself, so use it with '-n 1'. 'per-gene' " \
-        "calculates them one gene at a time, and is parallelized " \
-        "over the samples with the '-n', '--n-proc' option, which " \
-        "is the way to use a machine with many cores. Do not " \
-        "combine 'batched' with '-n' greater than 1: the processes " \
-        "would each try to use every core, and fight over them. " \
+        "at once. 'per-gene' calculates them one gene at a time, " \
+        "and is parallelized over the samples with the '-n', " \
+        "'--n-proc' option. Do not combine 'batched' with '-n' " \
+        "greater than 1. " \
         f"The default, '{pm_default}', uses 'batched' on a GPU and " \
         "on a CPU with one process, and 'per-gene' on a CPU with " \
         "more than one process."
@@ -388,6 +393,13 @@ def set_parser() -> argparse.ArgumentParser:
 
 # Define the 'main' function.
 def main(args: argparse.Namespace) -> None:
+    """Perform the differential expression analysis.
+
+    Parameters
+    ----------
+    args : :class:`argparse.Namespace`
+        The parsed arguments.
+    """
 
     # Get the argument corresponding to the working directory.
     wd = args.work_dir
@@ -444,36 +456,24 @@ def main(args: argparse.Namespace) -> None:
     # automatically
     if p_values_method == "auto":
 
-        # On a GPU, calculating the p-values for all the genes at once
-        # is the whole point - it is what lets the GPU be used.
+        # If the p-values are calculated on a GPU
         if torch.device(device).type != "cpu":
 
             # Calculate the p-values for all the genes at once.
             p_values_method = "batched"
 
-        # On a CPU, in a single process, calculate them for all the
-        # genes at once, too.
-        #
-        # 'torch' parallelizes the calculation over the CPU's cores by
-        # itself, so a single process already uses the whole machine -
-        # and it does so better than one process per sample does. On a
-        # 56-core node, 16 samples take 25.7s this way, against 30.0s
-        # with 28 processes going gene by gene.
+        # If they are calculated on a CPU in a single process ('torch'
+        # uses all the cores for a batched calculation)
         elif n_proc == 1:
 
             # Calculate the p-values for all the genes at once.
             p_values_method = "batched"
 
-        # On a CPU, over several processes, go gene by gene.
-        #
-        # Each process would otherwise start a batched calculation of
-        # its own, and each of those would try to use every core on the
-        # machine. The processes would then fight over the cores, and
-        # the whole thing would get *slower* - 16 samples over 7
-        # processes take 72.4s batched, against 43.8s gene by gene.
+        # Otherwise (batched calculations in several processes would
+        # compete for the same cores)
         else:
 
-            # Go gene by gene.
+            # Calculate the p-values gene by gene.
             p_values_method = "per-gene"
 
     # Inform the user about the method that will be used.
@@ -486,8 +486,7 @@ def main(args: argparse.Namespace) -> None:
     # process was requested
     if torch.device(device).type != "cpu" and n_proc > 1:
 
-        # Warn the user - the processes would all queue up on the same
-        # GPU, and each of them would keep its own context on it.
+        # Warn the user.
         warnstr = \
             f"The p-values will be calculated on the '{device}' " \
             f"device, but {n_proc} processes were requested. The " \
@@ -502,19 +501,13 @@ def main(args: argparse.Namespace) -> None:
     and p_values_method == "batched" \
     and n_proc > 1:
 
-        # Warn the user - this is the one combination that is slower
-        # than either of its halves.
+        # Warn the user.
         warnstr = \
             "The p-values will be calculated with the 'batched' " \
-            f"method on a CPU, over {n_proc} processes. 'torch' " \
-            "already parallelizes the batched calculation over the " \
-            "CPU's cores, so each of the processes will try to use " \
-            "every core on the machine, and they will fight over " \
-            "them. This is expected to be slower than either using " \
-            "one process ('-n 1'), which lets 'torch' use the cores " \
-            "by itself, or calculating the p-values gene by gene " \
-            "('-pm per-gene'), which parallelizes over the samples. " \
-            "Each process also holds a batch of its own in memory."
+            f"method on a CPU, over {n_proc} processes. This is " \
+            "expected to be slower than using one process ('-n 1') " \
+            "or calculating the p-values gene by gene " \
+            "('-pm per-gene')."
         logger.warning(warnstr)
 
     #-----------------------------------------------------------------#
@@ -530,7 +523,7 @@ def main(args: argparse.Namespace) -> None:
                 keep_samples_names = True,
                 split = False)
 
-        # Get the sample's names.
+        # Get the samples' names.
         obs_counts_names = obs_counts.index.tolist()
 
     # If something went wrong
@@ -630,15 +623,13 @@ def main(args: argparse.Namespace) -> None:
     # If a list of files containing genes sets was passed
     if genes_sets_files is not None:
 
-        # Set the list of all genes to all columns containing genes'
-        # counts in the observed gene counts data frame.
+        # Get all the genes from the columns of the observed counts.
         genes_all = \
             [c for c in obs_counts.columns.tolist() \
             if c.startswith("ENSG")]
 
-        # Initialize the dictionary of genes sets, keyed by the
-        # name of the gene set (the name of the file it was loaded
-        # from, without the extension).
+        # Initialize the gene sets, keyed by their files' names
+        # without the extension.
         genes_sets = {}
 
         # For each file
@@ -712,18 +703,13 @@ def main(args: argparse.Namespace) -> None:
     # If only one process was requested
     if n_proc == 1:
 
-        # Analyze the samples in the current process.
-        #
-        # A cluster of one worker would gain nothing, and would cost a
-        # second Python process, which would have to import the
-        # third-party libraries again and - if the analysis runs on a
-        # GPU - set up its own GPU context. Both are slower than the
-        # analysis itself.
+        # Analyze the samples in the current process (a one-worker
+        # cluster would only add start-up costs).
         results = \
             (dea.get_statistics(**dea_options) \
              for dea_options in samples_options)
 
-        # No cluster was created.
+        # Set no cluster and client.
         cluster, client = None, None
 
     # Otherwise
@@ -774,23 +760,26 @@ def main(args: argparse.Namespace) -> None:
 
         # If the r-values were passed
         if r_values is not None:
-            
-            # Add a column containing the r-values
+
+            # Add a column containing the r-values.
             df_stats["dgd_r"] = r_values.loc[sample_name,:]
-        
+
         #-------------------------------------------------------------#
 
         # Set the path to the output file.
         output_path = \
-            os.path.join(wd, f"{output_dea_prefix}{sample_name}.parquet")
+            os.path.join(\
+                wd,
+                f"{output_dea_prefix}{sample_name}.parquet")
 
         # Try to write the data frame in the output file.
         try:
 
-            save_table(df_stats, output_path,
-                            sep = ",",
-                            index = True,
-                            header = True)
+            save_table(df_stats,
+                       output_path,
+                       sep = ",",
+                       index = True,
+                       header = True)
 
         # If something went wrong
         except Exception as e:
@@ -809,7 +798,7 @@ def main(args: argparse.Namespace) -> None:
             f"successfully written in '{output_path}'."
         logger.info(infostr)
 
-        #-----------------------------------------------------------------#
+        #-------------------------------------------------------------#
 
         # If gene sets were passed
         if genes_sets is not None:
@@ -820,11 +809,11 @@ def main(args: argparse.Namespace) -> None:
                 # Get the significant genes.
                 df_significant_genes = \
                     dea.get_significant_genes(\
-                            df_stats = df_stats,
-                            p_val = p_values_threshold,
-                            q_val = q_values_threshold,
-                            log2_fold_change = log2_fold_change_threshold)
-        
+                        df_stats = df_stats,
+                        p_val = p_values_threshold,
+                        q_val = q_values_threshold,
+                        log2_fold_change = log2_fold_change_threshold)
+
             # If something went wrong
             except Exception as e:
 
@@ -835,7 +824,7 @@ def main(args: argparse.Namespace) -> None:
                     f"'{sample_name}'. Error: {e}"
                 logger.exception(errstr)
                 sys.exit(errstr)
-            
+
             # Inform the user that the significant genes were
             # successfully obtained.
             infostr = \
@@ -854,43 +843,45 @@ def main(args: argparse.Namespace) -> None:
                         df_significant_genes = df_significant_genes,
                         genes_sets = genes_sets,
                         genes_all = genes_all)
-        
+
             # If something went wrong
             except Exception as e:
 
                 # Warn the user and exit.
                 errstr = \
                     "It was not possible to perform the gene set " \
-                    f"enrichment analysis for sample '{sample_name}'. " \
-                    f"Error: {e}"
+                    f"enrichment analysis for sample " \
+                    f"'{sample_name}'. Error: {e}"
                 logger.exception(errstr)
                 sys.exit(errstr)
-        
+
             # Inform the user that the gene set enrichment analysis
             # was successfully performed.
             infostr = \
                 "The gene set enrichment analysis was successfully " \
-                f"performed for sample '{sample_name}."
+                f"performed for sample '{sample_name}'."
             logger.info(infostr)
 
-            #-------------------------------------------------------------#
+            #---------------------------------------------------------#
 
-            # If the results of the analysis should be written to separate
-            # files
+            # If the results of the analysis should be written to
+            # separate files
             if not merge_gsea:
 
                 # Set the path to the output file.
                 output_path = \
-                    os.path.join(wd,
-                                 f"{output_gsea_prefix}{sample_name}.parquet")
+                    os.path.join(\
+                        wd,
+                        f"{output_gsea_prefix}{sample_name}.parquet")
 
                 # Try to write the data frame in the output file.
                 try:
 
-                    save_table(df_gsea_result, output_path,
-                                         sep = ",",
-                                         index = True,
-                                         header = True)
+                    save_table(df_gsea_result,
+                               output_path,
+                               sep = ",",
+                               index = True,
+                               header = True)
 
                 # If something went wrong
                 except Exception as e:
@@ -899,23 +890,26 @@ def main(args: argparse.Namespace) -> None:
                     errstr = \
                         "It was not possible to write the gene set " \
                         f"enrichment analysis results for sample " \
-                        f"'{sample_name}' in '{output_path}'. Error: {e}"
+                        f"'{sample_name}' in '{output_path}'. " \
+                        f"Error: {e}"
                     logger.exception(errstr)
                     sys.exit(errstr)
 
-                # Inform the user that the file was successfully written.
+                # Inform the user that the file was successfully
+                # written.
                 infostr = \
                     f"The gene set enrichment analysis results for " \
-                    f"sample '{sample_name}' were successfully written " \
-                    f"in '{output_path}'."
+                    f"sample '{sample_name}' were successfully " \
+                    f"written in '{output_path}'."
                 logger.info(infostr)
-        
+
             # Otherwise
             else:
 
-                # Add a column identifying the sample the results belong
-                # to.
-                df_gsea_result.insert(0, "sample", sample_name)
+                # Add a column with the sample the results belong to.
+                df_gsea_result.insert(0,
+                                      "sample",
+                                      sample_name)
 
                 # Add the results to the list.
                 gsea_results.append(df_gsea_result)
@@ -939,7 +933,8 @@ def main(args: argparse.Namespace) -> None:
         output_gsea_name = output_gsea_prefix.rstrip("_").rstrip(".")
 
         # Set the path to the output file.
-        output_gsea_file = os.path.join(wd, f"{output_gsea_name}.parquet")
+        output_gsea_file = \
+            os.path.join(wd, f"{output_gsea_name}.parquet")
 
         # Try to write the data frame in the output file.
         try:
@@ -957,7 +952,7 @@ def main(args: argparse.Namespace) -> None:
             # Warn the user and exit.
             errstr = \
                 "It was not possible to write the merged gene set " \
-                "enrichment analysis results in  " \
+                "enrichment analysis results in " \
                 f"'{output_gsea_file}'. Error: {e}"
             logger.exception(errstr)
             sys.exit(errstr)
@@ -974,6 +969,7 @@ def main(args: argparse.Namespace) -> None:
 
 # Define the entry point for the standalone executable.
 def entry_point() -> None:
+    """Run the executable."""
 
     # Build the parser.
     parser = set_parser()

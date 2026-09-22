@@ -6,7 +6,7 @@
 #    Utilities to interact with the Recount3 platform and manipulate
 #    the data retrieved from it.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -20,7 +20,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -46,6 +46,8 @@ import pandas as pd
 
 # Import from the package.
 from ..ioutil.tableio import save_table
+
+# Import from third-party libraries.
 import requests as rq
 
 # Import from 'bulkdgd'.
@@ -63,8 +65,8 @@ logger = log.getLogger(__name__)
 
 
 def load_samples_batches(samples_file: str) -> pd.DataFrame:
-    """Load a data frame with information about the batches of samples
-    to be downloaded from Recount3 from a CSV file.
+    """Load information about the batches of samples to download from
+    Recount3 from a CSV file.
 
     Parameters
     ----------
@@ -74,21 +76,20 @@ def load_samples_batches(samples_file: str) -> pd.DataFrame:
 
         * ``"recount3_project_name"``, containing the name of the
           project the samples belong to.
-        
+
         * ``"recount3_samples_category"``, containing the name of the
           category the samples belong to (it is a tissue type for
           GTEx data, a cancer type for TCGA data, and a project code
-          for SRA data)
+          for SRA data).
+
+        It may also have the ``"query_string"``,
+        ``"metadata_to_keep"`` and ``"metadata_to_drop"`` columns.
 
     Returns
     -------
     df : :class:`pandas.DataFrame`
         A data frame containing the information parsed from the
         file.
-
-    Notes
-    -----
-
     """
 
     # Set the columns taken into consideration in the data frame.
@@ -124,17 +125,16 @@ def load_samples_batches(samples_file: str) -> pd.DataFrame:
 
     #-----------------------------------------------------------------#
 
-    # If there are extra columns
-    if set(df.columns) != set(supported_columns):
+    # Get the extra columns.
+    extra_columns = set(df.columns) - set(supported_columns)
 
-        # Get the extra columns.
-        extra_columns = set(df.columns) - set(supported_columns)
+    # If there are extra columns
+    if extra_columns:
 
         # Drop the extra columns.
-        df = df.drop(extra_columns)
+        df = df.drop(columns = list(extra_columns))
 
-        # Get the string representing the extra columns (for logging
-        # purposes).
+        # Get the string representing the extra columns.
         extra_columns_str = \
             ", ".join([f"'{col}'" for col in extra_columns])
 
@@ -179,7 +179,7 @@ def get_gene_sums(project_name: str,
         file will be saved, if ``save_gene_sums`` is :obj:`True`.
 
         If not specified, it will be the current working directory.
-    
+
     gencode_release : :class:`int`, :obj:`29`
         The Gencode release according to which the RNA-seq data
         were annotated.
@@ -190,7 +190,7 @@ def get_gene_sums(project_name: str,
         A data frame containing the RNA-seq counts for the samples
         associated with the given category.
     """
-        
+
     # If the given Gencode release is not supported in Recount3
     if gencode_release not in defaults.RECOUNT3_GENCODE_RELEASES:
 
@@ -200,7 +200,7 @@ def get_gene_sums(project_name: str,
             "Recount3. Supported releases are: " \
             f"{', '.join(
                 map(str, defaults.RECOUNT3_GENCODE_RELEASES))}."
-        raise Exception(errstr)
+        raise ValueError(errstr)
 
     #-----------------------------------------------------------------#
 
@@ -217,10 +217,10 @@ def get_gene_sums(project_name: str,
 
         # The working directory will be the current working directory.
         wd = os.getcwd()
-    
+
     # Otherwise
     else:
-        
+
         # Create it if it does not exist.
         os.makedirs(wd,
                     exist_ok = True)
@@ -254,7 +254,7 @@ def get_gene_sums(project_name: str,
         return df_gene_sums
 
     #-----------------------------------------------------------------#
-    
+
     # Otherwise
     else:
 
@@ -278,7 +278,7 @@ def get_gene_sums(project_name: str,
 
         # If the user wants to save the original file
         if save_gene_sums:
-            
+
             # Get the response.
             gene_sums = rq.get(gene_sums_url)
 
@@ -318,11 +318,11 @@ def get_qc(project_name: str,
     samples_category : :class:`str`
         The category of samples requested.
 
-    save_qcs : :class:`bool`, :obj:`True`
+    save_qc : :class:`bool`, :obj:`True`
         If :obj:`True`, save the original QC metadata file in the
         working directory.
 
-        The file name will be 
+        The file name will be
         ``"{project_name}_{samples_category}_qc.gz"``.
 
     wd : :class:`str`, optional
@@ -353,7 +353,7 @@ def get_qc(project_name: str,
 
     # Otherwise
     else:
-        
+
         # Create it if it does not exist.
         os.makedirs(wd,
                     exist_ok = True)
@@ -373,9 +373,8 @@ def get_qc(project_name: str,
             f"'{f_qc_name}' already exists in '{wd}'. " \
             "The QC metadata will be read from this file."
         logger.info(infostr)
-        
-        # Read the file content into a data frame and transpose it so
-        # that the samples represent the rows.
+
+        # Read the file content into a data frame.
         df_qc = pd.read_csv(f_qc_path,
                             sep = "\t",
                             compression = "gzip",
@@ -384,7 +383,7 @@ def get_qc(project_name: str,
 
         # Return the data frame.
         return df_qc
-    
+
     #-----------------------------------------------------------------#
 
     # Otherwise
@@ -484,7 +483,7 @@ def get_metadata(project_name: str,
 
     # Otherwise
     else:
-        
+
         # Create it if it does not exist.
         os.makedirs(wd,
                     exist_ok = True)
@@ -504,7 +503,7 @@ def get_metadata(project_name: str,
             f"'{f_metadata_name}' already exists in '{wd}'. " \
             "The metadata will be read from this file."
         logger.info(infostr)
-        
+
         # Read the file content into a data frame.
         df_metadata = pd.read_csv(f_metadata_path,
                                   sep = "\t",
@@ -513,7 +512,7 @@ def get_metadata(project_name: str,
                                   low_memory = False,
                                   dtype = str,
                                   keep_default_na = False)
-        
+
         # Return the data frame.
         return df_metadata
 
@@ -530,7 +529,7 @@ def get_metadata(project_name: str,
                 samples_category,
                 f"{project_name.lower()}.{project_name.lower()}",
                 samples_category)
-            
+
         # Log the URL.
         logger.info(f"Retrieving metadata from: {metadata_url}.")
 
@@ -544,7 +543,7 @@ def get_metadata(project_name: str,
                                   low_memory = False,
                                   dtype = str,
                                   keep_default_na = False)
-        
+
     #-----------------------------------------------------------------#
 
     # Add the column containing the project's name.
@@ -568,7 +567,7 @@ def get_metadata(project_name: str,
         # If the column exists in the data frame containing the
         # metadata
         if column_attrs in df_metadata.columns:
-            
+
             # Inform the user that attributes were found.
             infostr = \
                 f"{entity.capitalize()}s' attributes were found in " \
@@ -580,6 +579,21 @@ def get_metadata(project_name: str,
             # Define a function to parse the attributes' column
             # in the metadata.
             def parse_attributes(attr_str: str) -> dict[str, str]:
+                """Parse a string of attributes.
+
+                Parameters
+                ----------
+                attr_str : :class:`str`
+                    The attributes, as ``"name;;value"`` items
+                    separated by ``"|"``.
+
+                Returns
+                -------
+                attrs : :class:`dict`
+                    The attributes' names mapped to their values.
+                """
+
+                # Return the attributes.
                 return dict((item.split(";;")[0].replace(" ", "_"), \
                              item.split(";;")[1]) for item \
                              in str(attr_str).split("|") \
@@ -626,7 +640,7 @@ def get_metadata(project_name: str,
             # the metadata.
             df_metadata = df_metadata.drop(labels = [column_attrs],
                                            axis = 1)
-            
+
             # Convert all metadata columns to string type, to avoid
             # issues with missing values.
             df_metadata = df_metadata.astype(str)
@@ -636,19 +650,20 @@ def get_metadata(project_name: str,
     # If the user wants to save the metadata
     if save_metadata:
 
-        # If the file already exists in the working directory.
+        # If the file already exists in the working directory
         if os.path.exists(f_metadata_path):
 
-            # Warn the user that the file will be overwritten.
+            # Inform the user that the file will be overwritten.
             infostr = \
                 f"The metadata file '{f_metadata_name}' will " \
                 f"be overwritten in '{wd}'."
             logger.info(infostr)
 
         # Write the data frame to the output file.
-        save_table(df_metadata, f_metadata_path,
-                           sep = "\t",
-                           compression = "gzip")
+        save_table(df_metadata,
+                   f_metadata_path,
+                   sep = "\t",
+                   compression = "gzip")
 
         # Inform the user that the file was written.
         infostr = \
@@ -658,7 +673,7 @@ def get_metadata(project_name: str,
         logger.info(infostr)
 
     #-----------------------------------------------------------------#
-        
+
     # Return the data frame containing the updated metadata.
     return df_metadata
 
@@ -666,29 +681,26 @@ def get_metadata(project_name: str,
 def get_read_counts(df_raw_counts: pd.DataFrame,
                     avg_mapped_read_length: pd.Series,
                     do_round: bool = True) -> pd.DataFrame:
-    """Compute read counts from Recount3's raw counts when SAMPLES
-    are ROWS and GENES are COLUMNS.
-
-    Each row (sample) is divided by its corresponding average mapped
-    read length.
+    """Compute read counts from Recount3's raw counts by dividing each
+    sample's counts by its average mapped read length.
 
     Parameters
     ----------
     df_raw_counts : :class:`pandas.DataFrame`
         A data frame of raw counts, with samples as rows and genes
         as columns. Row indices are sample IDs.
-    
+
     avg_mapped_read_length : :class:`pandas.Series`
         Per-sample average mapped read length,
         indexed by sample IDs (matches ``df_raw_counts.index``).
-    
+
     do_round : :class:`bool`, :obj:`True`
         If :obj:`True`, round to 0 decimals (banker's rounding,
         like R).
 
     Returns
     -------
-    :class:`pandas.DataFrame`
+    df_read_counts : :class:`pandas.DataFrame`
         A data frame containing the read counts, with the
         same shape/index/columns as ``df_raw_counts``.
     """
@@ -717,5 +729,5 @@ def get_read_counts(df_raw_counts: pd.DataFrame,
         # Round to 0 decimals (banker's rounding, like R).
         df_read_counts = df_read_counts.round(0)
 
-    # Return the output DataFrame.
+    # Return the read counts.
     return df_read_counts

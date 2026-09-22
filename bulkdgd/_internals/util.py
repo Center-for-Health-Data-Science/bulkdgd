@@ -5,7 +5,7 @@
 #
 #    Miscellanea utilities.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -69,14 +69,14 @@ def uniquify_file_path(file_path: str) -> str:
     unique_file_path : :class:`str`
         A unique file path generated from the original file path.
     """
-    
+
     # Get the file's name and extension.
     file_name, file_ext = os.path.splitext(file_path)
 
     # Set the counter to 1.
     counter = 1
 
-    # If the file already exists
+    # While the file already exists
     while os.path.exists(file_path):
 
         # Set the path to the new unique file.
@@ -104,12 +104,15 @@ def load_list(list_file: str) -> list[str]:
         The list of entities.
     """
 
-    # Return the list of entities from the file (exclude blank
-    # and comment lines).
-    return \
-        [line.rstrip("\n") for line in open(list_file, "r") \
-         if (not line.startswith("#") \
-             and not re.match(r"^\s*$", line))]
+    # Open the file.
+    with open(list_file, "r") as f:
+
+        # Return the list of entities from the file (exclude blank
+        # and comment lines).
+        return \
+            [line.rstrip("\n") for line in f \
+             if (not line.startswith("#") \
+                 and not re.match(r"^\s*$", line))]
 
 
 def recursive_map_dict(d: dict[str, object],
@@ -118,10 +121,8 @@ def recursive_map_dict(d: dict[str, object],
                         Optional[list[str] | set[str] | \
                                  tuple[str, ...]] = None) -> \
                         dict[str, object]:
-    """Recursively traverse a (possibly nested) dictionary mapping a
-    function to the dictionary's leaf values (the function substitutes
-    the values with the return value of the function applied to those
-    values).
+    """Recursively traverse a (possibly nested) dictionary and replace
+    the selected values with the output of a function applied to them.
 
     Parameters
     ----------
@@ -133,15 +134,10 @@ def recursive_map_dict(d: dict[str, object],
         dictionary and returning a single value.
 
     keys : :class:`list` or :class:`set` or :class:`tuple`, optional
-        A list of specific keys on whose items the mapping should be
-        performed.
+        The keys whose values the function is applied to.
 
-        This means that all values associated with keys different
-        from those in the list will not be affected.
+        If :const:`None`, all keys are considered.
 
-        If :const:`None`, all keys and associated values will be
-        considered.
-    
     Returns
     -------
     new_d : :class:`dict`
@@ -152,13 +148,24 @@ def recursive_map_dict(d: dict[str, object],
     def recurse(d,
                 func,
                 keys):
+        """Apply the function to the selected values in place.
+
+        Parameters
+        ----------
+        d : :class:`dict`
+            The current dictionary.
+
+        func : any callable
+            The function to apply.
+
+        keys : :class:`list` or :class:`set` or :class:`tuple`
+            The selected keys (all keys if empty or :const:`None`).
+        """
 
         # If the current object is a dictionary
         if isinstance(d, dict):
-            
-            # Get the keys of the items on which the mapping will be
-            # performed. If no keys are passed, all keys in the
-            # dictionary will be considered.
+
+            # Get the selected keys (all keys if none are passed).
             sel_keys = keys if keys else d.keys()
 
             # For each key, value pair in the dictionary
@@ -173,7 +180,7 @@ def recursive_map_dict(d: dict[str, object],
                         # Substitute the value with the return value
                         # of 'func' applied to it.
                         d[k] = func(**v)
-                    
+
                     # Otherwise
                     else:
 
@@ -205,7 +212,7 @@ def recursive_add(d: dict[str, object],
                   d2: dict[str, object],
                   keys: list[str] | set[str] | tuple[str, ...]) -> \
                     dict[str, object]:
-    """Recursively add all elements from a (possibly nested) dictionary 
+    """Recursively add all elements from a (possibly nested) dictionary
     to another (possibly nested) dictionary in specific places.
 
     Parameters
@@ -232,16 +239,29 @@ def recursive_add(d: dict[str, object],
     def recurse(d,
                 d2,
                 keys):
+        """Add the elements of ``d2`` to ``d`` in place.
 
-        # If first dictionary is in fact a dictionary
+        Parameters
+        ----------
+        d : :class:`dict`
+            The current dictionary.
+
+        d2 : :class:`dict`
+            The dictionary whose elements are added.
+
+        keys : :class:`list` or :class:`set` or :class:`tuple`
+            The keys where the elements are added.
+        """
+
+        # If the first object is a dictionary
         if isinstance(d, dict):
 
             # For each key in the first dictionary
             for key in d:
-                
+
                 # If the key is among the selected keys
                 if key in keys:
-                    
+
                     # If the associated value is a dictionary and the
                     # second dictionary is in fact a dictionary
                     if isinstance(d[key], dict) \
@@ -251,17 +271,15 @@ def recursive_add(d: dict[str, object],
                         # dictionary
                         for k, v in d2.items():
 
-                            # If the key is not among the keys in the
-                            # value associated with 'key' in the
-                            # fist dictionary
+                            # If the key is not in the value
+                            # associated with 'key'
                             if k not in d[key]:
 
                                 # Add the key and associated value to
                                 # the first dictionary.
                                 d[key][k] = v
-                    
 
-                # If the value associated with they key is a dictionary
+                # If the value associated with the key is a dictionary
                 if isinstance(d[key], dict):
 
                     # Recurse through the dictionary.
@@ -290,8 +308,8 @@ def recursive_add(d: dict[str, object],
 def recursive_add_items(d: dict[str, object],
                         paths2values: dict[tuple[str, ...], object]) \
                             -> dict[str, object]:
-    """Recursively add a new value to the key at the end of a
-    each "key path" in a (possibly nested) dictionary.
+    """Recursively add a new value to the key at the end of each
+    "key path" in a (possibly nested) dictionary.
 
     Parameters
     ----------
@@ -299,10 +317,8 @@ def recursive_add_items(d: dict[str, object],
         The input dictionary.
 
     paths2values : :class:`dict`
-        A dictionary mapping "key paths" to values. Each "key path" is
-        a tuple of keys leading to the key to which the value should be
-        added. The value associated with each "key path" is the value
-        to be added to the key at the end of the "key path".
+        A dictionary mapping "key paths" (tuples of keys) to the
+        values to add at their ends.
 
     Returns
     -------
@@ -314,11 +330,24 @@ def recursive_add_items(d: dict[str, object],
     def recurse(d,
                 key_path,
                 value):
+        """Add the value at the end of the key path in place.
+
+        Parameters
+        ----------
+        d : :class:`dict`
+            The current dictionary.
+
+        key_path : :class:`tuple`
+            The remaining keys of the path.
+
+        value : any object
+            The value to add.
+        """
 
         # If the key path is empty
         if not key_path:
-            
-            # Return
+
+            # Return.
             return
 
         # Get the first key in the path.
@@ -326,7 +355,7 @@ def recursive_add_items(d: dict[str, object],
 
         # If the key is the last key in the path
         if len(key_path) == 1:
-            
+
             # If the key is not in the dictionary
             if key not in d:
 
@@ -335,21 +364,21 @@ def recursive_add_items(d: dict[str, object],
 
         # Otherwise
         else:
-            
+
             # If the key is not in the dictionary
             if key not in d:
-                
-                # Create a new dictionary if the key does not exist
+
+                # Add it with an empty dictionary.
                 d[key] = {}
-            
+
             # If the value associated with the key is not a dictionary
             elif not isinstance(d[key], dict):
-                
-                # Raise an error
+
+                # Raise an error.
                 errstr = \
                     "It was not possible to traverse into key " \
                     f"'{key}' because the associated value is not " \
-                    " a dictionary."
+                    "a dictionary."
                 raise ValueError(errstr)
 
             # Recurse into the next level.
@@ -364,7 +393,7 @@ def recursive_add_items(d: dict[str, object],
 
     #-----------------------------------------------------------------#
 
-    # For each key path and associated value in the input dictionary
+    # For each key path and associated value
     for key_path, value in paths2values.items():
 
         # Recurse through the copy of the dictionary.
@@ -381,8 +410,8 @@ def recursive_add_items(d: dict[str, object],
 def recursive_get(d: dict[str, object],
                   key_path: tuple[str, ...] | list[str] | set[str]) \
                     -> object:
-    """Recursively get an item from a (possibly nested) dictionary 
-    given the item's ``key path``.
+    """Recursively get an item from a (possibly nested) dictionary
+    given the item's "key path".
 
     Parameters
     ----------
@@ -401,13 +430,28 @@ def recursive_get(d: dict[str, object],
     # Define the recursion.
     def recurse(d,
                 key_path):
+        """Get the item at the end of the key path.
 
-        # If the key  path is empty
+        Parameters
+        ----------
+        d : :class:`dict`
+            The current dictionary.
+
+        key_path : :class:`tuple` or :class:`list`
+            The remaining keys of the path.
+
+        Returns
+        -------
+        item : any object
+            The item, or :const:`None` if it is not found.
+        """
+
+        # If the key path is empty
         if not key_path:
 
-            # Return None
+            # Return None.
             return None
-        
+
         # Get the first key in the path.
         key = key_path[0]
 
@@ -429,7 +473,7 @@ def recursive_get(d: dict[str, object],
                 return recurse(d = d[key],
                                key_path = key_path[1:])
 
-        # If the key is not found, return None.
+        # Return None if the key is not found.
         return None
 
     #-----------------------------------------------------------------#
@@ -457,6 +501,21 @@ def recursive_merge_dicts(*dicts: dict[str, object]) -> \
     # Define a recursive function to merge two dictionaries at a time.
     def merge_two_dicts(d1,
                         d2):
+        """Merge the second dictionary into the first one.
+
+        Parameters
+        ----------
+        d1 : :class:`dict`
+            The first dictionary.
+
+        d2 : :class:`dict`
+            The second dictionary.
+
+        Returns
+        -------
+        d1 : :class:`dict`
+            The updated first dictionary.
+        """
 
         # For each key, value pair in the second dictionary
         for k, v in d2.items():
@@ -472,10 +531,8 @@ def recursive_merge_dicts(*dicts: dict[str, object]) -> \
             # Otherwise
             else:
 
-                # The value associated to the key in the first
-                # dictionary will be the value associated to the key
-                # in the second dictionary.
-                d1[k] = v
+                # Take a copy of the value from the second dictionary.
+                d1[k] = copy.deepcopy(v)
 
         # Return the updated first dictionary.
         return d1
@@ -532,23 +589,18 @@ def kwargs_to_dict(kwargs: dict[str, object]) -> dict[str, object]:
 
             # If the part is not in the dictionary, add it.
             d_init = d_init.setdefault(part, {})
-        
+
         # Add the value to the dictionary.
         d_init[parts[-1]] = value
-    
+
     # Return the dictionary.
     return d
 
 
 def download_decoder_pth(dest_path: str,
                          seed: Optional[str] = None) -> None:
-    """Download one trained decoder's parameters (``dec.pth``) from
-    the GitHub release matching the installed ``bulkdgd`` version, and
-    save them at ``dest_path``.
-
-    The file is too large to be distributed together with the
-    package on PyPI, so it is fetched on demand the first time it is
-    needed.
+    """Download a trained decoder's parameters (``dec.pth``) from the
+    GitHub release matching the installed ``bulkdgd`` version.
 
     Parameters
     ----------
@@ -556,32 +608,25 @@ def download_decoder_pth(dest_path: str,
         The path where the downloaded file should be saved.
 
     seed : :class:`str`, optional
-        Which member of the ensemble to fetch, as ``"seed37"``. If not
-        given, it is taken from the name of the directory
-        ``dest_path`` sits in, which is where every member's
-        parameters live; that keeps the file downloaded and the file
-        looked for from ever disagreeing.
+        The member of the ensemble to fetch (e.g., ``"seed37"``). If
+        not given, it is the name of the directory containing
+        ``dest_path``.
     """
 
-    # Import here to avoid a circular import at module load time
-    # ('bulkdgd' imports 'defaults', and '_internals' is imported
-    # from modules that are themselves imported after 'bulkdgd' has
-    # been fully initialized, but importing at the top of this
-    # module would run before that is guaranteed).
+    # Import here to avoid a circular import.
     import bulkdgd
     from bulkdgd import defaults
 
-    # THE SEED COMES FROM THE DESTINATION unless the caller names one.
-    #
-    # Every member's parameters live in a directory named for its
-    # seed, so the destination already says which member is wanted.
-    # Deriving it here means a caller cannot ask for one member's file
-    # and be handed another's, which would be silent: the decoders
-    # have identical shapes and differ only in their values.
+    # If no seed was passed
     if seed is None:
+
+        # Get it from the destination directory's name.
         seed = os.path.basename(os.path.dirname(dest_path))
 
+    # If the seed is not a member of the ensemble
     if seed not in defaults.ENSEMBLE_SEEDS:
+
+        # Raise an error.
         errstr = \
             f"'{seed}' is not a member of the shipped ensemble. The " \
             f"members are: {', '.join(defaults.ENSEMBLE_SEEDS)}."
@@ -605,7 +650,8 @@ def download_decoder_pth(dest_path: str,
     #-----------------------------------------------------------------#
 
     # Make sure the destination directory exists.
-    os.makedirs(os.path.dirname(dest_path), exist_ok = True)
+    os.makedirs(os.path.dirname(dest_path),
+                exist_ok = True)
 
     #-----------------------------------------------------------------#
 
@@ -613,28 +659,32 @@ def download_decoder_pth(dest_path: str,
     try:
 
         # Open a streaming connection to the file.
-        with rq.get(url, stream = True, timeout = 60) as response:
+        with rq.get(url,
+                    stream = True,
+                    timeout = 60) as response:
 
             # Raise an exception if the download failed.
             response.raise_for_status()
 
-            # Download the file to a temporary location first, so
-            # that an interrupted download never leaves a corrupt
-            # file at 'dest_path'.
+            # Create a temporary file (so an interrupted download leaves
+            # no corrupt file at 'dest_path').
             fd, temp_path = \
                 tempfile.mkstemp(\
                     dir = os.path.dirname(dest_path),
                     prefix = ".dec.pth.",
                     suffix = ".part")
 
+            # Try to write the file.
             try:
 
+                # Open the temporary file.
                 with os.fdopen(fd, "wb") as f:
 
-                    # Write the file in chunks.
+                    # For each chunk of the file
                     for chunk in \
                         response.iter_content(chunk_size = 8388608):
 
+                        # Write it.
                         f.write(chunk)
 
                 # Atomically move the temporary file to its final
@@ -644,9 +694,10 @@ def download_decoder_pth(dest_path: str,
             # If anything went wrong while writing the file
             except Exception:
 
-                # Remove the temporary file, if it still exists.
+                # If the temporary file still exists
                 if os.path.exists(temp_path):
 
+                    # Remove it.
                     os.remove(temp_path)
 
                 # Re-raise the exception.
@@ -655,14 +706,14 @@ def download_decoder_pth(dest_path: str,
     # If something went wrong with the download
     except Exception as e:
 
-        # Warn the user and raise an exception.
+        # Raise an error.
         errstr = \
             "It was not possible to download the trained decoder's " \
             f"parameters from '{url}'. If you are on a machine " \
             "without internet access, download the file manually " \
             "from the same URL on another machine and place it at " \
             f"'{dest_path}'. Error: {e}"
-        raise Exception(errstr)
+        raise OSError(errstr)
 
     #-----------------------------------------------------------------#
 

@@ -5,7 +5,7 @@
 #
 #    Templates for the different configurations.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or
@@ -19,7 +19,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -57,15 +57,15 @@ CONFIG_PLOT_TEMPLATE = {
     "general_fontproperties" : _defaults.FONT_PROPERTIES_OPTIONS,
 
     # Set the palette to be used throughout the plot (if the plot
-    # has multiple panels.
+    # has multiple panels).
     "general_palette" : \
-        
+
        {# Set the supported data types.
         "dtypes" : (str, list),
         # Set a help string.
         "help" : \
             "The palette to use for all panels for the plot. It can " \
-            "be either the name of a colormap, or a list of named " 
+            "be either the name of a colormap, or a list of named "
             "colors/RGB tuples. More details about how colors can " \
             "be specified can be found at: " \
             f"{_defaults.LINKS['colors']}.",
@@ -93,11 +93,6 @@ CONFIG_PLOT_TEMPLATE = {
     #-----------------------------------------------------------------#
 
     # Set the options for the colors used across the sub-plots.
-    #
-    # 'get_colors' reads this section. It was absent from the template,
-    # so a configuration carrying it was pruned before the plotting saw
-    # it - silently, since the pruning only warns and the warnings were
-    # discarded. There was no way to set a figure's colors at all.
     "colors" : _defaults.COLORS_OPTIONS,
 
     #-----------------------------------------------------------------#
@@ -134,7 +129,7 @@ CONFIG_PLOT_TEMPLATE = {
     "xaxis" : _defaults.X_AXIS_OPTIONS,
 
     #-----------------------------------------------------------------#
-    
+
     # Set the options for the y-axis.
     "yaxis" : _defaults.Y_AXIS_OPTIONS,
 

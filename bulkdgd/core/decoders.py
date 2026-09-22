@@ -8,11 +8,11 @@
 #
 #    The code was originally developed by Viktoria Schuster,
 #    Inigo Prada Luengo, and Anders Krogh.
-#    
+#
 #    Valentina Sora modified and complemented it for the purposes
 #    of this package.
 #
-#    Copyright (C) 2026 Valentina Sora 
+#    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
 #                       Viktoria Schuster
 #                       <viktoria.schuster@sund.ku.dk>
@@ -32,7 +32,7 @@
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public
-#    License along with this program. 
+#    License along with this program.
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -86,23 +86,23 @@ def reshape_scaling_factors(x: torch.Tensor,
     x : :class:`torch.Tensor`
         The reshaped tensor.
     """
-    
-    # Get the dimensionality of the input tensor
+
+    # Get the dimensionality of the input tensor.
     start_dim = len(x.shape)
 
     # For each extra dimension that the output tensor needs to
     # have with respect to the input tensor
     for i in range(out_dim - start_dim):
 
-        # Add a singleton dimension
+        # Add a singleton dimension.
         x = x.unsqueeze(1)
-    
-    # Return the reshaped tensor
+
+    # Return the reshaped tensor.
     return x
 
 
 class Decoder(nn.Module):
-    
+
     """
     Class implementing the decoder.
     """
@@ -124,7 +124,7 @@ class Decoder(nn.Module):
 
     def __init__(self,
                  n_units_input_layer: int,
-                 n_units_hidden_layers: int,
+                 n_units_hidden_layers: list[int],
                  activations: object,
                  output_module_name: str,
                  output_module_options: dict[str, object],
@@ -178,7 +178,7 @@ class Decoder(nn.Module):
                 n_units_last_hidden = n_units_hidden_layers[-1],
                 output_module_name = output_module_name,
                 output_module_options = output_module_options)
-        
+
         #-------------------------------------------------------------#
 
         # Set the dropout.
@@ -192,7 +192,7 @@ class Decoder(nn.Module):
 
     def _get_layers(self,
                     n_units_input_layer: int,
-                    n_units_hidden_layers: int,
+                    n_units_hidden_layers: list[int],
                     activations: list[str]) -> torch.nn.ModuleList:
         """Get the decoder's layers.
 
@@ -243,7 +243,7 @@ class Decoder(nn.Module):
 
             # If we are at the first module
             if n_module == 0:
-                
+
                 # The number of input units will be the number of
                 # units in the input layer.
                 n_units_in = n_units_input_layer
@@ -257,8 +257,8 @@ class Decoder(nn.Module):
 
             #---------------------------------------------------------#
 
-            # The number of output units will be the ones in the
-            # first hidden layer.
+            # The number of output units will be the number of units
+            # in the current hidden layer.
             n_units_out = n_units_hidden_layers[n_module]
 
             #---------------------------------------------------------#
@@ -295,7 +295,7 @@ class Decoder(nn.Module):
                 # Raise an error.
                 errstr = \
                     "Unsupported activation function " \
-                    f"'{activation}' provided. Supported " \
+                    f"'{activation_name}' provided. Supported " \
                     "activation functions are: " \
                     f"{supported_activations}."
                 raise ValueError(errstr)
@@ -320,9 +320,8 @@ class Decoder(nn.Module):
 
             #---------------------------------------------------------#
 
-            # Set the previous number of units (used in the next
-            # step of the loop) as the number of units in the
-            # current hidden layer.
+            # Set the previous number of units (used in the next step)
+            # to the number of units in the current hidden layer.
             prev_n_units = n_units_hidden_layers[n_module]
 
         #-------------------------------------------------------------#
@@ -370,9 +369,8 @@ class Decoder(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # If the output module is 'nb_full_dispersion' (matched via
-        # the registry so a future subclass would work too, though
-        # none is currently registered)
+        # If the output module is 'nb_full_dispersion' (or a
+        # registered subclass of it)
         elif output_module_name in outputmodules.OUTPUT_MODULES \
                 and issubclass(
                     outputmodules.OUTPUT_MODULES[output_module_name],
@@ -404,7 +402,7 @@ class Decoder(nn.Module):
             errstr = \
                 "An invalid name for the output module was passed: " \
                 f"'{output_module_name}'. Available output modules " \
-                f"are: '{output_modules}'."
+                f"are: {output_modules}."
             raise ValueError(errstr)
 
         #-------------------------------------------------------------#
@@ -458,12 +456,12 @@ class Decoder(nn.Module):
 
         # For each layer of the neural network
         for i in range(len(self.main)):
-            
+
             # Pass through the layer and find the intermediate (or
             # final) representations.
             z = self.main[i](z)
 
-            # Apply the dropout.
+            # If the layer is an activation, apply the dropout.
             if i % 2 != 0:
                 z = self.dropout(z)
 
