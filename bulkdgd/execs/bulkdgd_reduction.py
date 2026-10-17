@@ -186,9 +186,8 @@ def set_parser(dim_red_name: str) -> argparse.ArgumentParser:
 
     # Set the help message.
     ic_help = \
-        "A comma-separated list of columns or a string representing " \
-        "a pattern matching the columns of interest. These will be " \
-        "the columns considered when performing the " \
+        "A comma-separated list of columns, or a pattern matching " \
+        "them, to consider when performing the " \
         f"{dim_red_help}. By default, all columns are considered."
 
     # Add the argument to the group.
@@ -239,9 +238,9 @@ def set_parser(dim_red_name: str) -> argparse.ArgumentParser:
     op_help = \
         "The name of the output file containing the plot " \
         f"displaying the results of the {dim_red_help}. The " \
-        f"default file name is '{op_default}'. The file format and, " \
-        "therefore, extension are inferred from the 'output' " \
-        "section of the configuration file for plotting."
+        f"default file name is '{op_default}'. The extension is " \
+        "the format set in the 'output' section of the " \
+        "configuration file for plotting."
 
     # Add the argument to the group.
     output_group.add_argument("-op", "--output-plot",
@@ -263,8 +262,7 @@ def set_parser(dim_red_name: str) -> argparse.ArgumentParser:
         "The YAML configuration file specifying the options " \
         f"for the {dim_red_help}. If it is a name without an " \
         "extension, it is assumed to be the name of a configuration " \
-        f"file in '{cd_dir}'. If not provided, the default " \
-        f"configuration file ('{cd_default}') will be used."
+        f"file in '{cd_dir}'. The default is '{cd_default}'."
 
     # Add the argument to the group.
     config_group.add_argument("-cd", "--config-file-dim-red",
@@ -286,8 +284,7 @@ def set_parser(dim_red_name: str) -> argparse.ArgumentParser:
         "The YAML configuration file specifying the plot's " \
         "aesthetics and output format. If it is a name without an " \
         "extension, it is assumed to be the name of a configuration " \
-        f"file in '{cp_dir}'. If not provided, the " \
-        f"default configuration file ('{cp_default}') will be used."
+        f"file in '{cp_dir}'. The default is '{cp_default}'."
 
     # Add the argument to the group.
     config_group.add_argument("-cp", "--config-file-plot",
@@ -325,8 +322,7 @@ def set_parser(dim_red_name: str) -> argparse.ArgumentParser:
     gc_help = \
         "The name/index of the column in the input data frame " \
         "containing the groups by which the data points will be " \
-        "colored in the output plot. By default, the program " \
-        "assumes that no such column is present."
+        "colored in the output plot. By default, there is none."
 
     # Add the argument to the group.
     plot_group.add_argument("-gc", "--groups-column",
@@ -339,12 +335,8 @@ def set_parser(dim_red_name: str) -> argparse.ArgumentParser:
     gr_help = \
         "A comma-separated list of groups whose data points " \
         "should be plotted. By default, all groups found in the " \
-        "'-gc', '--groups-column' column, if passed, will be " \
-        "included in the plot. Data points not belonging to " \
-        "these groups will not be included. However, you can " \
-        "use the '-pg', '--plot-other-groups' option to plot " \
-        "them using different aesthetics compared to the groups " \
-        "of interest."
+        "'-gc', '--groups-column' column are plotted. Use " \
+        "'-pg', '--plot-other-groups' to plot the other data points."
 
     # Add the argument to the group.
     plot_group.add_argument("-gr", "--groups",
@@ -356,9 +348,8 @@ def set_parser(dim_red_name: str) -> argparse.ArgumentParser:
     # Set a help message.
     pg_help = \
         "Whether to plot data points from the groups not " \
-        "included in the '-gr', '--groups' list. The " \
-        "aesthetics to plot these data points should also be " \
-        "defined in the configuration file for plotting."
+        "included in the '-gr', '--groups' list, with the " \
+        "aesthetics set in the configuration file for plotting."
 
     # Add the argument to the group.
     plot_group.add_argument("-pg", "--plot-other-groups",

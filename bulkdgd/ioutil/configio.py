@@ -255,8 +255,7 @@ def load_config_train(config_file: Optional[str]) -> dict[str, object]:
     config_file : :class:`str`, optional
         The YAML configuration file. If no file is provided, the
         default configuration file "training.yaml" in the directory
-        storing configuration files for the training (the one the
-        published ensemble was trained with) will be used.
+        storing configuration files for the training will be used.
 
     Returns
     -------

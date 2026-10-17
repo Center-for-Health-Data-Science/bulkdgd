@@ -1,27 +1,6 @@
 # Configuration file specifying the options to train the model.
 #
-# THIS IS THE CONFIGURATION THE PUBLISHED ENSEMBLE WAS TRAINED WITH.
-# Every one of the fifteen members was trained from this file, byte for
-# byte - the members differ in their seed and in nothing else - so it
-# is the configuration to start from when training a new model, and it
-# is the one loaded when none is given.
-#
-# The values below are the ones the ensemble was trained with, and are
-# not rounded, retuned or otherwise "cleaned up" on the way into the
-# package: a default that does not reproduce the published model is
-# worse than no default, because it fails silently and only in the
-# results.
-#
-# This configuration uses the 'tgmm' latent space implementation, which
-# is the one the shipped model has. 'training_legacy.yaml' is kept for
-# the 'lgmm' latent space, and 'training_tgmm.yaml' for the earlier
-# 'tgmm' settings; neither trains the published model.
-#
-# NOTE that this file does NOT set 'continue_training'. That keyword
-# tells 'BulkDGD.train' that a model built from fitted parameters is
-# being fine-tuned on purpose rather than by accident, and this
-# configuration is for training a NEW model, which is the case where
-# the guard should stay up.
+# This configuration uses the 'tgmm' latent space implementation.
 
 
 #######################################################################
@@ -40,15 +19,7 @@ n_epochs: 200
 #
 # Type: str.
 #
-# Options:
-# - 'lgmm' for the legacy Gaussian mixture model implementation.
-# - 'tgmm' for the new Gaussian mixture model implementation.
-#
-# It must match the 'latent_type' of the model's own configuration -
-# training checks the two against each other and refuses to run if
-# they disagree, because the options below are read according to this
-# one and would otherwise be applied to a latent space that does not
-# take them.
+# Options: 'lgmm', 'tgmm'.
 latent_type: tgmm
 
 
@@ -59,14 +30,7 @@ latent_type: tgmm
 #
 # Type: str.
 #
-# Options:
-# - 'sum' computes the sum of the loss over the batch.
-# - 'mean' computes the mean of the loss over the batch.
-#
-# 'sum' is what is backpropagated. It is not the same choice as how the
-# loss is REPORTED, below: the reported loss is normalized by the
-# number of samples, so what is written to file is already per-sample
-# and comparable across splits of different sizes.
+# Options: 'sum', 'mean'.
 loss_reduction_type: sum
 
 
@@ -103,10 +67,6 @@ data_loader_options:
     # Set whether to reshuffle the data during every training epoch.
     #
     # Type: bool.
-    #
-    # Nothing is learned from the test samples, so there is nothing for
-    # shuffling them to help with, and their order is one fewer thing
-    # that differs between two runs.
     shuffle: False
 
 
@@ -122,12 +82,6 @@ reporting_options:
     # Set the metrics to calculate for the latent space.
     #
     # Type: list of str.
-    #
-    # The first four are unsupervised and are always available. The
-    # last two compare the mixture's components against the ground
-    # truth labels, so they need labels to be passed to 'train'; if
-    # none are, they are dropped with a warning and the rest are still
-    # calculated.
     latent:
       - bic
       - silhouette_score
@@ -147,12 +101,7 @@ reporting_options:
       # Set the method used to normalize the loss when reporting it
       # per epoch.
       #
-      # Type: str.
-      #
-      # Options:
-      # - 'none' means that the loss will not be normalized.
-      # - 'n_samples' means that the loss will be normalized by the
-      #   number of samples.
+      # Type: str. Options: 'none', 'n_samples'.
       norm_type: n_samples
 
     #-----------------------------------------------------------------#
@@ -163,12 +112,7 @@ reporting_options:
       # Set the method used to normalize the loss when reporting it
       # per epoch.
       #
-      # Type: str.
-      #
-      # Options:
-      # - 'none' means that the loss will not be normalized.
-      # - 'n_samples' means that the loss will be normalized by the
-      #   number of samples.
+      # Type: str. Options: 'none', 'n_samples'.
       norm_type: n_samples
 
     #-----------------------------------------------------------------#
@@ -179,29 +123,12 @@ reporting_options:
       # Set the method used to normalize the loss when reporting it
       # per epoch.
       #
-      # Type: str.
-      #
-      # Options:
-      # - 'none' means that the loss will not be normalized.
-      # - 'n_samples' means that the loss will be normalized by the
-      #   number of samples.
-      #
-      # The training and test splits do not have the same number of
-      # samples, so an unnormalized total loss cannot be compared
-      # between them, which is the comparison the loss is written out
-      # for.
+      # Type: str. Options: 'none', 'n_samples'.
       norm_type: n_samples
 
   #-------------------------------------------------------------------#
 
   # Set the options for the optional outputs during training.
-  #
-  # THE DIRECTORIES ARE RELATIVE TO THE WORKING DIRECTORY. The
-  # ensemble was trained by a driver script that placed all four of
-  # them under an 'epochs/' directory of its own making; the package
-  # itself does not add that prefix, so a run started from this file
-  # writes them beside the model's other outputs. Give them a prefix
-  # here if they should be gathered somewhere.
   optional_outputs:
 
     # Set the options for the model to save at each epoch.
@@ -210,11 +137,6 @@ reporting_options:
       # Set whether to save the model at each epoch.
       #
       # Type: bool.
-      #
-      # Off. A checkpoint per epoch of a model this size is nearly two
-      # gigabytes each, and the run it would let one resume from takes
-      # a few hours. Turn it on for a run that cannot afford to be
-      # restarted.
       enabled: False
 
       # Set the stride for saving the model at each epoch.
@@ -235,11 +157,6 @@ reporting_options:
       # Set whether to save the representations at each epoch.
       #
       # Type: bool.
-      #
-      # On. The representations are what the model is for, and their
-      # trajectory over the epochs is the only record of how the latent
-      # space settled - it cannot be recovered afterwards from the
-      # trained model, which only knows where it ended up.
       enabled: True
 
       # Set the stride for saving the representations at each epoch.
@@ -284,11 +201,6 @@ reporting_options:
       # Set whether to save the latent means at each epoch.
       #
       # Type: bool.
-      #
-      # On, together with the probabilities above: the two of them are
-      # what says which components were alive at a given epoch and
-      # where they sat, which is how a collapsed component is told from
-      # a component that merely lost weight.
       enabled: True
 
       # Set the stride for saving the latent means at each epoch.
@@ -326,11 +238,6 @@ latent_training_options:
     # be fitted. The GMM will be fitted at this epoch.
     #
     # Type: int.
-    #
-    # Not the first epoch: the representations start where they were
-    # initialized and a mixture fitted to them then describes the
-    # initialization rather than the data. Twenty-five epochs in, the
-    # decoder has moved them somewhere worth fitting.
     first_epoch: 25
 
     # Set whether a final refitting of the Gaussian mixture model will
@@ -351,16 +258,14 @@ latent_training_options:
     # Type: int.
     max_iter_first_epoch: 1000
 
-    # Set the maximum number of EM iterations to perform at a
-    # full-refit epoch that is not the first epoch (i.e., epochs that
-    # are multiples of 'refit_interval').
+    # Set the maximum number of EM iterations at a full-refit epoch
+    # (a multiple of 'refit_interval').
     #
     # Type: int.
     max_iter_full_refit: 100
 
-    # Set the maximum number of EM iterations to perform at a
-    # "warm"-refit epoch (i.e., at epochs later than the first epoch
-    # that are not full-refit epochs).
+    # Set the maximum number of EM iterations at a warm-refit epoch
+    # (a later epoch that is not a full-refit epoch).
     #
     # Type: int.
     max_iter_warm_refit: 100
@@ -377,16 +282,7 @@ latent_training_options:
   #
   # Type: str or null.
   #
-  # Options:
-  # - 'weight_threshold' removes the components whose weight has
-  #   fallen below a threshold.
-  # - null keeps every component.
-  #
-  # Null here, and deliberately. The published model was trained with
-  # forty-eight components and keeps all forty-eight: a component that
-  # has lost its weight has not necessarily lost it for good, and
-  # removing it renumbers the rest, which breaks every mapping from a
-  # component to a tissue established on an earlier epoch.
+  # Options: 'weight_threshold', null.
   components_removal_type: null
 
 
@@ -409,23 +305,11 @@ decoder_training_options:
     # Set the learning rate.
     #
     # Type: float.
-    #
-    # It is the peak of the one-cycle schedule below rather than the
-    # rate actually used: the schedule starts at 'max_lr' / 'div_factor'
-    # and ends at 'max_lr' / 'final_div_factor'.
     lr: 0.01
 
     # Set the weight decay.
     #
     # Type: float.
-    #
-    # The decoder is the only part of the model that is regularized
-    # this way, and it is the part with the parameters - one weight per
-    # latent dimension per gene. The representations below are given no
-    # weight decay at all, because shrinking a representation towards
-    # the origin is shrinking it towards the middle of the latent
-    # space, which is a statement about the sample and not about
-    # overfitting.
     weight_decay: 0.1
 
     # Set the betas.
@@ -439,12 +323,6 @@ decoder_training_options:
   # takes its step.
   #
   # Type: float or null.
-  #
-  # This value is large enough never to bind on this model - it is the
-  # clipping being instrumented rather than applied, so that a run
-  # which does start producing enormous gradients is caught by a
-  # finite bound instead of taking the step. Set it to null to remove
-  # the clipping entirely.
   grad_clipping_max_norm: 100000000.0
 
   #-------------------------------------------------------------------#
@@ -479,9 +357,7 @@ decoder_training_options:
     #
     # Type: str.
     #
-    # Options:
-    # - 'cos' for cosine annealing.
-    # - 'linear' for linear annealing.
+    # Options: 'cos', 'linear'.
     anneal_strategy: "cos"
 
     # Set whether the momentum is cycled inversely to learning rate
@@ -526,19 +402,7 @@ representations_training_options:
   # Set the type of noise to add to the representations during
   # training.
   #
-  # Type: str.
-  #
-  # Options:
-  # - 'none' means that no noise will be added.
-  # - 'gaussian' means that Gaussian noise will be added.
-  #
-  # The representations are free parameters, one per training sample,
-  # and nothing stops a decoder from memorizing a representation that
-  # only that one sample can reach. Perturbing them while they are
-  # learned forces the decoder to produce the sample from a
-  # NEIGHBOURHOOD of the representation rather than from a point, which
-  # is the property the search for a new sample's representation later
-  # relies on.
+  # Type: str. Options: 'none', 'gaussian'.
   train_noise_type: gaussian
 
   # Set the options for the noise to add to the representations during
@@ -558,22 +422,12 @@ representations_training_options:
     # Set the ending noise multiplier (at the final epoch).
     #
     # Type: float.
-    #
-    # The scale is cosine-annealed from 'start' to 'end' across the
-    # whole run, so the last epochs are all but unperturbed and the
-    # representations training ends on are the ones the model keeps.
     end: 0.01
 
     # Set the probability defining the hypersphere the noise is
     # normalized against.
     #
     # Type: float.
-    #
-    # The noise is divided by the radius of the hypersphere holding
-    # this much of the mass, so that a scale means the same thing
-    # whatever the dimensionality of the latent space - without it, the
-    # same number would be a different perturbation in a 64-dimensional
-    # space than in a 32-dimensional one.
     within_radius_prob: 0.95
 
     # Set the final multiplier on the noise.
@@ -601,9 +455,6 @@ representations_training_options:
     # Set the weight decay.
     #
     # Type: float.
-    #
-    # Zero. See the decoder's weight decay above for why the
-    # representations do not get one.
     weight_decay: 0.0
 
     # Set the betas.
@@ -626,12 +477,6 @@ representations_training_options:
   # Type: str or null.
   #
   # Options: 'one_cycle', 'cosine', null.
-  #
-  # The representations are scheduled on epochs and the decoder on
-  # batches, but the two schedules are given the same shape on purpose:
-  # a decoder annealing towards its final weights while the
-  # representations it is fitted against are still moving at their
-  # starting rate is a decoder fitted to a moving target.
   lr_scheduler_type: one_cycle
 
   # Set the options for the learning rate scheduler.
@@ -657,9 +502,7 @@ representations_training_options:
     #
     # Type: str.
     #
-    # Options:
-    # - 'cos' for cosine annealing.
-    # - 'linear' for linear annealing.
+    # Options: 'cos', 'linear'.
     anneal_strategy: "cos"
 
     # Set whether the momentum is cycled inversely to learning rate
@@ -701,16 +544,7 @@ representations_training_options:
 #
 # Type: str or null.
 #
-# Options:
-# - 'loss' stops training when the test loss has not improved for
-#   'patience' consecutive epochs, and restores the best state.
-# - null runs every epoch asked for.
-#
-# Null. The number of epochs is fixed at two hundred and every member
-# of the ensemble runs all of them, so that the members differ in their
-# seed and not also in how long they were trained - an ensemble whose
-# members stopped at different epochs is not an ensemble of the same
-# configuration.
+# Options: 'loss', null.
 early_stopping_type: null
 
 # Set the options for early stopping.
@@ -720,38 +554,19 @@ early_stopping_options:
   # stopping.
   #
   # Type: int.
-  #
-  # Read only when 'early_stopping_type' is not null. It is kept here
-  # so that turning early stopping on is a one-line change.
   patience: 10
 
 
 #######################################################################
 
 
-# Set the options for fitting the Gaussian mixture model that is
-# fitted to the representations AFTER training.
-#
-# This section is read only if the model's own configuration has a
-# 'gmm_final' section; a model without one ignores it. The mixture it
-# produces is a SEPARATE file from the trained prior, which is what
-# finding a representation for a new sample goes through and which is
-# not replaced.
+# Set the options for the Gaussian mixture model fitted after
+# training. Read only if the model has a 'gmm_final' section.
 gmm_final_training_options:
 
   # Set what the fit is allowed to move.
   #
   # Type: str.
   #
-  # Options:
-  # - 'covariance_only' freezes the means and the weights where
-  #   training left them and refits only the covariance, in one
-  #   closed-form M-step. Nothing iterates, so no component can drift
-  #   onto a different part of the latent space, and every mapping from
-  #   a component to a tissue established on the trained mixture stays
-  #   valid.
-  # - 'full_em' re-estimates the means and the weights as well. It fits
-  #   the representations better and it is a different set of
-  #   components: anything that labelled the old ones does not carry
-  #   over.
+  # Options: 'covariance_only', 'full_em'.
   fit: covariance_only

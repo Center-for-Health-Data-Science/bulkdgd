@@ -170,7 +170,7 @@ class LevelContentFilter(log.Filter):
 
         #-------------------------------------------------------------#
 
-        # If we reached this point, log the record.
+        # Otherwise, log the record.
         return True
 
 
@@ -191,19 +191,19 @@ class CustomHelpFormatter(argparse.HelpFormatter):
             The section's heading.
         """
 
-        # If we are at the section for positional arguments
+        # If the section is for positional arguments
         if heading == "positional arguments":
 
             # Change the heading.
             heading = "Positional arguments"
 
-        # If we are at the section for optional arguments
+        # If the section is for optional arguments
         elif heading == "optional arguments":
 
             # Change the heading.
             heading = "Optional arguments"
 
-        # If we are at the section for generic options
+        # If the section is for generic options
         elif heading == "options":
 
             # Change the heading.
@@ -574,13 +574,9 @@ def add_wd_and_logging_arguments(parser: argparse.ArgumentParser,
         # Set a help message.
         ds_help = \
             "The directories containing the input/configuration " \
-            "files. It can be either a list of names or paths, a " \
-            "pattern that the names or paths match, or a plain " \
-            "text file containing the names of or the paths to the " \
-            "directories. If names are given, the directories are " \
-            "assumed to be inside the working directory. If paths " \
-            "are given, they are assumed to be relative to the " \
-            "working directory."
+            "files: a list of names or paths, a pattern they match, " \
+            "or a plain text file listing them. Names and paths are " \
+            "relative to the working directory."
 
         # Add the argument to the group.
         parallel_group.add_argument("-ds", "--dirs",
@@ -865,10 +861,9 @@ def get_dirs(dir_names: list[str] | str,
 
         # Raise an error.
         errstr = \
-            "The argument 'dir_names' must be either a list of " \
-            "directory names, a string representing a pattern to " \
-            "match the directories, or a string representing a " \
-            "file containing the names of the directories."
+            "The argument 'dir_names' must be a list of directory " \
+            "names, a pattern matching the directories, or a file " \
+            "listing them."
         raise TypeError(errstr)
 
     #-----------------------------------------------------------------#

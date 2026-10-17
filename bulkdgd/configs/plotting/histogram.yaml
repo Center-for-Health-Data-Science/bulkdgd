@@ -14,8 +14,6 @@
 
 # Set the options for the output file.
 #
-# All the available options to set up the output file can be found at:
-#
 # https://bulkdgd.readthedocs.io/en/latest/outputs.html
 output:
   
@@ -24,8 +22,7 @@ output:
   # Type: int.
   dpi: 900
   
-  # Set whether the figure's background is transparent. It is 'False'
-  # by default.
+  # Set whether the figure's background is transparent.
   #
   # Type: bool.
   transparent: True
@@ -43,8 +40,6 @@ output:
 
 # Set the general font properties.
 #
-# All the available options for the properties can be found at:
-#
 # https://bulkdgd.readthedocs.io/en/latest/text_elements.html
 general_fontproperties:
 
@@ -52,8 +47,7 @@ general_fontproperties:
   #
   # Type: str.
   #
-  # Notes: if !!null, the default font used by Matplotlib will be
-  # used.
+  # Notes: if !!null, Matplotlib's default font is used.
   fname: !!null
 
 
@@ -64,9 +58,6 @@ general_fontproperties:
 figure:
 
   # Set the options to adjust the sub-plots.
-  #
-  # All the available options to adjust the sub-plots can be found
-  # at:
   #
   # https://bulkdgd.readthedocs.io/en/latest/figures.html
   subplots:
@@ -89,8 +80,6 @@ figure:
 
 # Set the options for the histogram.
 #
-# All the available options to set up the histogram can be found at:
-#
 # https://bulkdgd.readthedocs.io/en/latest/histograms.html
 histogram:
 
@@ -99,8 +88,7 @@ histogram:
   # Type: int.
   num_bins: 100
 
-  # Set whether to plot a density or a count. It is 'False' by
-  # default.
+  # Set whether to plot a density or a count.
   #
   # Type: bool.
   density: True
@@ -115,12 +103,8 @@ histogram:
 #######################################################################
 
 
-# Set the options for the color bar.
-#
-# This section can be safely removed from the configuration if you
-# do not want to color the bins according to their height.
-#
-# All the available options to set up the colorbar can be found at:
+# Set the options for the color bar. Without this section, the bins
+# are not colored by their height.
 #
 # https://bulkdgd.readthedocs.io/en/latest/histograms.html
 colorbar:
@@ -130,7 +114,7 @@ colorbar:
   #
   # Type: str.
   #
-  # Options: all the available options can be found at
+  # Options:
   # https://matplotlib.org/stable/users/explain/colors/colormaps.html
   cmap: summer_r
 
@@ -138,26 +122,19 @@ colorbar:
 
   # Set the options for the color bar.
   #
-  # All the available options to set up the color bar can be found
-  # at:
-  #
   # https://bulkdgd.readthedocs.io/en/latest/histograms.html
   options:
 
-    # Extend the color bar for out-of-range values. 'neither' means
-    # no extensions, 'both' means both ends are extended, and 'min'
-    # and 'max' mean that only the lower or upper end of the color
-    # bar is extended. If '!!null', no extension is applied.
+    # Extend the color bar for out-of-range values.
     #
     # Type: str.
+    #
+    # Options: 'neither', 'both', 'min', 'max' or !!null.
     extend: both
 
   #-------------------------------------------------------------------#
 
   # Set the options for the color bar's axis' label.
-  #
-  # All the available options to set up the color bar's axis' label
-  # can be found at:
   #
   # https://bulkdgd.readthedocs.io/en/latest/histograms.html
   label:
@@ -178,9 +155,6 @@ colorbar:
   #-------------------------------------------------------------------#
 
   # Set the axis' ticks' labels.
-  #
-  # All the available options to set up the color bar's axis' ticks'
-  # labels can be found at:
   #
   # https://bulkdgd.readthedocs.io/en/latest/histograms.html
   ticklabels:
@@ -203,10 +177,7 @@ colorbar:
 
   #-------------------------------------------------------------------#
 
-  # Set the options for the interval represented on the color bar's
-  # axis.
-  #
-  # All the available options to set up the interval can be found at:
+  # Set the options for the interval on the color bar's axis.
   #
   # https://bulkdgd.readthedocs.io/en/latest/histograms.html
   interval:
@@ -215,48 +186,30 @@ colorbar:
     #
     # Type: str.
     #
-    # Options:
-    # - 'discrete' for a discrete interval.
-    # - 'continuous' for a continuous interval.  
+    # Options: 'discrete' or 'continuous'.
     type: continuous
 
-    # Set whether to round all ticks' positions to the nearest
-    # 'round_to_nearest' number. For instance, setting it to 1 would
-    # round to the nearest integer, while setting it to 0.5 would
-    # round to the nearest half an integer.
-    #
-    # If the interval is 'discrete', it is set to 1 by default.
-    # If the interval is 'continuous', it is set to 0.5 by default.
+    # Set the multiple to round the ticks' positions to.
     #
     # Type: int or float.
     # round_to_nearest: !!null
 
-    # Set the highest value displayed on the axis. It is
-    # automatically inferred from the plot if not passed (and
-    # appropriately rounded if the 'round_to_nearest' option is
-    # passed.
+    # Set the highest value displayed on the axis.
     #
     # Type: int or float.
     top: 1.0
 
-    # Set the lowest value displayed on the axis. It is
-    # automatically inferred from the plot if not passed (and
-    # appropriately rounded if the 'round_to_nearest' option is
-    # passed).
+    # Set the lowest value displayed on the axis.
     #
     # Type: int or float.
     # bottom: !!null
 
-    # Set the number of steps (ticks) displayed on the axis. This
-    # number includes the most extreme ticks. It is set to 10 by
-    # default.
+    # Set the number of steps (ticks) on the axis, extremes included.
     #
     # Type: int.
     # steps: !!null
 
-    # Set the spacing between the ticks on the axis. If not passed,
-    # it is automatically computed from the 'top', 'bottom', and
-    # 'steps' values.
+    # Set the spacing between the ticks on the axis.
     #
     # Type: int or float.
     spacing: 0.1
@@ -266,9 +219,6 @@ colorbar:
 
 
 # Set the options for the plot's title.
-#
-# All the available options to set up the plot's title can be found
-# at:
 #
 # https://bulkdgd.readthedocs.io/en/latest/titles.html
 title:
@@ -295,9 +245,6 @@ xaxis:
   
   # Set the options for the axis' label.
   #
-  # All the available options to set up the axis' label can be found
-  # at:
-  #
   # https://bulkdgd.readthedocs.io/en/latest/xaxis.html
   label:
 
@@ -317,9 +264,6 @@ xaxis:
   #-------------------------------------------------------------------#
   
   # Set the axis' ticks' labels.
-  #
-  # All the available options to set up the axis' ticks' labels can
-  # be found at:
   #
   # https://bulkdgd.readthedocs.io/en/latest/xaxis.html
   ticklabels:
@@ -344,8 +288,6 @@ xaxis:
 
   # Set the options for the interval represented on the axis.
   #
-  # All the available options to set up the interval can be found at:
-  #
   # https://bulkdgd.readthedocs.io/en/latest/xaxis.html
   interval:
 
@@ -353,48 +295,30 @@ xaxis:
     #
     # Type: str.
     #
-    # Options:
-    # - 'discrete' for a discrete interval.
-    # - 'continuous' for a continuous interval.
+    # Options: 'discrete' or 'continuous'.
     type: continuous
 
-    # Set whether to round all ticks' positions to the nearest
-    # 'round_to_nearest' number. For instance, setting it to 1 would
-    # round to the nearest integer, while setting it to 0.5 would
-    # round to the nearest half an integer.
-    #
-    # If the interval is 'discrete', it is set to 1 by default.
-    # If the interval is 'continuous', it is set to 0.5 by default.
+    # Set the multiple to round the ticks' positions to.
     #
     # Type: int or float.
     # round_to_nearest: !!null
 
-    # Set the highest value displayed on the axis. It is
-    # automatically inferred from the plot if not passed (and
-    # appropriately rounded if the 'round_to_nearest' option is
-    # passed.
+    # Set the highest value displayed on the axis.
     #
     # Type: int or float.
     top: 10
 
-    # Set the lowest value displayed on the axis. It is
-    # automatically inferred from the plot if not passed (and
-    # appropriately rounded if the 'round_to_nearest' option is
-    # passed).
+    # Set the lowest value displayed on the axis.
     #
     # Type: int or float.
     bottom: -10
 
-    # Set the number of steps (ticks) displayed on the axis. This
-    # number includes the most extreme ticks. It is set to 10 by
-    # default.
+    # Set the number of steps (ticks) on the axis, extremes included.
     #
     # Type: int.
     # steps: !!null
 
-    # Set the spacing between the ticks on the axis. If not passed,
-    # it is automatically computed from the 'top', 'bottom', and
-    # 'steps' values.
+    # Set the spacing between the ticks on the axis.
     #
     # Type: int or float.
     spacing: 2
@@ -407,9 +331,6 @@ xaxis:
 yaxis:
   
   # Set the options for the axis' label.
-  #
-  # All the available options to set up the axis' label can be found
-  # at:
   #
   # https://bulkdgd.readthedocs.io/en/latest/yaxis.html
   label:
@@ -430,9 +351,6 @@ yaxis:
   #-------------------------------------------------------------------#
 
   # Set the axis' ticks' labels.
-  #
-  # All the available options to set up the axis' ticks' labels can
-  # be found at:
   #
   # https://bulkdgd.readthedocs.io/en/latest/yaxis.html
   ticklabels:
@@ -457,8 +375,6 @@ yaxis:
 
   # Set the options for the interval represented on the axis.
   #
-  # All the available options to set up the interval can be found at:
-  #
   # https://bulkdgd.readthedocs.io/en/latest/yaxis.html
   interval:
 
@@ -466,48 +382,30 @@ yaxis:
     #
     # Type: str.
     #
-    # Options:
-    # - 'discrete' for a discrete interval.
-    # - 'continuous' for a continuous interval.
+    # Options: 'discrete' or 'continuous'.
     type: continuous
 
-    # Set whether to round all ticks' positions to the nearest
-    # 'round_to_nearest' number. For instance, setting it to 1 would
-    # round to the nearest integer, while setting it to 0.5 would
-    # round to the nearest half an integer.
-    #
-    # If the interval is 'discrete', it is set to 1 by default.
-    # If the interval is 'continuous', it is set to 0.5 by default.
+    # Set the multiple to round the ticks' positions to.
     #
     # Type: int or float.
     # round_to_nearest: !!null
 
-    # Set the highest value displayed on the axis. It is
-    # automatically inferred from the plot if not passed (and
-    # appropriately rounded if the 'round_to_nearest' option is
-    # passed.
+    # Set the highest value displayed on the axis.
     #
     # Type: int or float.
     top: 1.0
 
-    # Set the lowest value displayed on the axis. It is
-    # automatically inferred from the plot if not passed (and
-    # appropriately rounded if the 'round_to_nearest' option is
-    # passed).
+    # Set the lowest value displayed on the axis.
     #
     # Type: int or float.
     bottom: 0.0
 
-    # Set the number of steps (ticks) displayed on the axis. This
-    # number includes the most extreme ticks. It is set to 10 by
-    # default.
+    # Set the number of steps (ticks) on the axis, extremes included.
     #
     # Type: int.
     # steps: !!null
 
-    # Set the spacing between the ticks on the axis. If not passed,
-    # it is automatically computed from the 'top', 'bottom', and
-    # 'steps' values.
+    # Set the spacing between the ticks on the axis.
     #
     # Type: int or float.
     spacing: 0.1
@@ -517,9 +415,6 @@ yaxis:
 
 
 # The options for drawing a vertical line on the plot.
-#
-# All the available options for setting up the vertical line can be
-# found at:
 #
 # https://bulkdgd.readthedocs.io/en/latest/histograms.html
 vline:
@@ -533,43 +428,26 @@ vline:
     #
     # Type: str or tuple.
     #
-    # Options:
-    # - '-' or 'solid' for a solid line.
-    # - '--' or 'dashed' for a dashed line.
-    # - '-.' or 'dashdot' for a dash-dot line.
-    # - ':' or 'dotted' for a dotted line.
-    # - a tuple containing as the first element the offset to draw a
-    #   dashed line ('float') and as the second element a tuple with
-    #   a sequence of floats of even length describing the length of
-    #   dashes and spaces in ink points ('float', 'float'). For
-    #   instance, '(4, 1, 2, 1)' represents a sequence of 4-point
-    #    and 2-point dashes separated by 1-point spaces.
+    # Options: '-', '--', '-.', ':' or an (offset, dashes) tuple.
     linestyle: --
 
     # Set how to draw the end caps if the lines are dashed.
     #
     # Type: str.
     #
-    # Options:
-    # - 'butt' for a flat cap.
-    # - 'round' for a rounded cap.
-    # - 'projecting' for a projecting cap.
+    # Options: 'butt', 'round' or 'projecting'.
     dash_capstyle: round
 
     # Set how to join line segments if the lines are dashed.
     #
     # Type: str.
     #
-    # Options:
-    # - 'miter' for a sharp corner.
-    # - 'round' for a rounded corner.
-    # - 'bevel' for a flat beveled corner.
+    # Options: 'miter', 'round' or 'bevel'.
     dash_joinstyle: round
 
     # Set the color of the line.
     #
     # Type: str or float.
     #
-    # Options: all the available options can be found at
-    # https://bulkdgd.readthedocs.io/en/latest/colors.html
+    # Options: https://bulkdgd.readthedocs.io/en/latest/colors.html
     color: "#333333"

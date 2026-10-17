@@ -137,11 +137,9 @@ def set_parser() -> argparse.ArgumentParser:
 
     # Set a help message.
     ilt_help = \
-        """The input CSV file containing the labels for the
-        training samples. The file should have two columns, one with
-        the names/indexes/IDs of the samples and one with the
-        corresponding labels. The file should not have a header. This
-        argument is needed only if supervised clustering metrics are
+        """The input CSV file, without a header, with the
+        names/indexes/IDs of the training samples and their labels in
+        two columns. Needed only if supervised clustering metrics are
         computed during training."""
 
     # Add the argument to the group.
@@ -153,11 +151,9 @@ def set_parser() -> argparse.ArgumentParser:
 
     # Set a help message.
     ile_help = \
-        """The input CSV file containing the labels for the
-        test samples. The file should have two columns, one with
-        the names/indexes/IDs of the samples and one with the
-        corresponding labels. The file should not have a header. This
-        argument is needed only if supervised clustering metrics are
+        """The input CSV file, without a header, with the
+        names/indexes/IDs of the test samples and their labels in two
+        columns. Needed only if supervised clustering metrics are
         computed during training."""
 
     # Add the argument to the group.
@@ -245,8 +241,8 @@ def set_parser() -> argparse.ArgumentParser:
     ogmmf_help = \
         f"""The output .pth file where the parameters of the Gaussian
         mixture model fitted to the representations after training will
-        be saved. It is only written if the model's configuration has a
-        'gmm_final' section. By default, the file will be named
+        be saved, if the model's configuration has a 'gmm_final'
+        section. By default, the file will be named
         '{ogmmf_default}'."""
 
     # Add the argument to the group.
@@ -332,10 +328,8 @@ def set_parser() -> argparse.ArgumentParser:
     opv_help = \
         f"""The output CSV file containing the data frame
         with the r-value for each gene. The default file name is
-        '{opv_default}'. If the model's output module returns
-        r-values per gene and per sample, the '-opvt',
-        '--output-pred-rvalues-train' and '-opve',
-        '--output-pred-rvalues-test' options should be used instead."""
+        '{opv_default}'. For r-values per gene and per sample, the
+        '-opvt' and '-opve' options are used instead."""
 
     # Add the argument to the group.
     output_group.add_argument("-opv", "--output-pred-rvalues",
@@ -352,9 +346,8 @@ def set_parser() -> argparse.ArgumentParser:
     opvt_help = \
         f"""The output CSV file containing the data frame
         with the r-value for each gene in each training sample. The
-        default file name is '{opvt_default}'. This option will be
-        used only if the model's output module returns r-values per
-        gene and per sample."""
+        default file name is '{opvt_default}'. Used only if the
+        output module returns r-values per gene and per sample."""
 
     # Add the argument to the group.
     output_group.add_argument("-opvt", "--output-pred-rvalues-train",
@@ -371,9 +364,8 @@ def set_parser() -> argparse.ArgumentParser:
     opve_help = \
         f"""The output CSV file containing the data frame
         with the r-value for each gene in each test sample. The
-        default file name is '{opve_default}'. This option will be
-        used only if the model's output module returns r-values per
-        gene and per sample."""
+        default file name is '{opve_default}'. Used only if the
+        output module returns r-values per gene and per sample."""
 
     # Add the argument to the group.
     output_group.add_argument("-opve", "--output-pred-rvalues-test",
@@ -408,10 +400,8 @@ def set_parser() -> argparse.ArgumentParser:
         f"""The output CSV file containing the data frame with the
         per-epoch values of the GMM clustering metrics computed during
         training for the training samples. The default file name is
-        '{omt_default}'. This file will be written only if at least one
-        clustering metric is computed during training (they are
-        specified in the '-ict', '--input-config-file-train'
-        configuration file)."""
+        '{omt_default}'. Written only if the '-ict',
+        '--input-config-file-train' file sets clustering metrics."""
 
     # Add the argument to the group.
     output_group.add_argument("-omt", "--output-metrics-train",
@@ -429,10 +419,8 @@ def set_parser() -> argparse.ArgumentParser:
         f"""The output CSV file containing the data frame with the
         per-epoch values of the GMM clustering metrics computed during
         training for the test samples. The default file name is
-        '{ome_test_default}'. This file will be written only if at
-        least one clustering metric is computed during training (they
-        are specified in the '-ict', '--input-config-file-train'
-        configuration file)."""
+        '{ome_test_default}'. Written only if the '-ict',
+        '--input-config-file-train' file sets clustering metrics."""
 
     # Add the argument to the group.
     output_group.add_argument("-ome", "--output-metrics-test",

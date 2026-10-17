@@ -60,7 +60,7 @@ logger = log.getLogger(__name__)
 def set_seeds(seed: int,
               deterministic: bool = False) -> dict:
     """Seed every generator the package draws from. Call it before
-    building the model, whose initialization is already random.
+    building the model.
 
     Parameters
     ----------
@@ -82,12 +82,10 @@ def set_seeds(seed: int,
     # Seed the standard library's generator.
     random.seed(seed)
 
-    # Seed numpy's global generator (used by scikit-learn when
-    # 'random_state' is None).
+    # Seed numpy's global generator.
     np.random.seed(seed)
 
-    # Seed torch's global generator (decoder's weights, representations,
-    # noise and data loader's shuffling).
+    # Seed torch's global generator.
     torch.manual_seed(seed)
 
     # If a GPU is available
@@ -109,7 +107,7 @@ def set_seeds(seed: int,
 
     #-----------------------------------------------------------------#
 
-    # If deterministic algorithms were asked for.
+    # If deterministic algorithms were asked for
     if deterministic:
 
         # Use torch's deterministic algorithms.
@@ -143,8 +141,7 @@ def set_seeds(seed: int,
 
 
 def get_seeds_state() -> dict:
-    """Get a number summarizing the state of each generator (not the
-    full state, but enough to tell runs apart).
+    """Get a number summarizing the state of each generator.
 
     Returns
     -------

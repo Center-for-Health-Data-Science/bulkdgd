@@ -149,10 +149,8 @@ def set_parser() -> argparse.ArgumentParser:
     # Set a help message.
     ogm_help = \
         "The name of the output plain text file containing the list " \
-        "of genes for which no expression data are found in the " \
-        "input data frame. A default count of 0 is assigned to " \
-        "these genes in the output data frame containing the " \
-        "preprocessed samples. The default file name is " \
+        "of genes with no expression data in the input data frame " \
+        "(assigned a count of 0). The default file name is " \
         f"'{ogm_default}'."
 
     # Add the argument to the group.

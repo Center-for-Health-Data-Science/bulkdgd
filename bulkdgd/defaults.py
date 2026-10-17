@@ -248,7 +248,7 @@ CONFIG_FILES_PLOT = {
 
 
 # Set the seeds the ensemble's members were trained with, in the order
-# the ensemble reports them (the members differ only in the seed).
+# the ensemble reports them.
 ENSEMBLE_SEEDS = ("seed37", "seed41", "seed43", "seed47", "seed53",
                   "seed59", "seed61", "seed67", "seed71", "seed73",
                   "seed79", "seed83", "seed89", "seed97", "seed101")
@@ -257,7 +257,7 @@ ENSEMBLE_SEEDS = ("seed37", "seed41", "seed43", "seed47", "seed53",
 #---------------------------------------------------------------------#
 
 
-# Set the member loaded by default (the one reported in the paper).
+# Set the member loaded by default.
 BASE_SEED = "seed37"
 
 

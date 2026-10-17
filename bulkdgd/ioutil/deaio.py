@@ -62,8 +62,7 @@ DEA_PREFIX = "dea_"
 #######################################################################
 
 
-# Set the cache of open archives, by path (each archive is parsed
-# once, not once per sample).
+# Set the cache of open archives, by path.
 _ZIP_CACHE = {}
 
 # Set the cache of each open archive's members' names.
@@ -130,7 +129,7 @@ def _get_archive(zip_path: str) -> tuple[zipfile.ZipFile, set]:
         _ZIP_CACHE.clear()
         _NAMES_CACHE.clear()
 
-        # Record the process the caches now belong to.
+        # Record the process the caches belong to.
         _CACHE_PID = pid
 
     #-----------------------------------------------------------------#

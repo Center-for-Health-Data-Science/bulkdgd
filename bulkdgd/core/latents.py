@@ -678,9 +678,8 @@ class GaussianMixtureModelLegacy(nn.Module):
         # Raise an error.
         errstr = \
             "The value of 'dim' is set at initialization and cannot " \
-            "be changed. If you want to change the dimensionality " \
-            "of the Gaussian mixture model, initialize a new " \
-            f"instance of '{self.__class__.__name__}'."
+            "be changed. Initialize a new instance of " \
+            f"'{self.__class__.__name__}' instead."
         raise ValueError(errstr)
 
 
@@ -710,10 +709,8 @@ class GaussianMixtureModelLegacy(nn.Module):
         # Raise an error.
         errstr = \
             "The value of 'n_components' is set at initialization " \
-            "and cannot be changed. If you want to change the " \
-            "number of components of the Gaussian mixture model, " \
-            "initialize a new instance " \
-            f"of '{self.__class__.__name__}'."
+            "and cannot be changed. Initialize a new instance of " \
+            f"'{self.__class__.__name__}' instead."
         raise ValueError(errstr)
 
 
@@ -743,10 +740,8 @@ class GaussianMixtureModelLegacy(nn.Module):
         # Raise an error.
         errstr = \
             "The value of 'covariance_type' is set at initialization " \
-            "and cannot be changed. If you want to change the type " \
-            "of covariance matrix used for the Gaussian mixture " \
-            "model, initialize a new instance of " \
-            f"'{self.__class__.__name__}'."
+            "and cannot be changed. Initialize a new instance of " \
+            f"'{self.__class__.__name__}' instead."
         raise ValueError(errstr)
 
 
@@ -778,11 +773,9 @@ class GaussianMixtureModelLegacy(nn.Module):
         # Raise an error.
         errstr = \
             "The value of 'means_prior' is set at initialization " \
-            "and cannot be changed. If you want to change the prior " \
-            "over the means of the components of the Gaussian " \
-            "model, initialize a new instance of " \
-            f"'{self.__class__.__name__}' and change the " \
-            "'means_prior_name' and/or the 'means_prior_options'."
+            "and cannot be changed. Initialize a new instance of " \
+            f"'{self.__class__.__name__}' with a new " \
+            "'means_prior_name' and/or 'means_prior_options'."
         raise ValueError(errstr)
 
 
@@ -811,11 +804,9 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         # Raise an error.
         errstr = \
-            "The value of 'means' is set at initialization and " \
-            "cannot be changed. The means of the components of the " \
-            "Gaussian mixture model are initialized according to " \
-            "the specified prior (defined by 'means_prior_name' " \
-            "and 'means_prior_options')."
+            "The value of 'means' is set at initialization from the " \
+            "prior ('means_prior_name' and 'means_prior_options') " \
+            "and cannot be changed."
         raise ValueError(errstr)
 
 
@@ -847,11 +838,9 @@ class GaussianMixtureModelLegacy(nn.Module):
         # Raise an error.
         errstr = \
             "The value of 'weights_prior' is set at initialization " \
-            "and cannot be changed. If you want to change the prior " \
-            "over the weights of the components of the Gaussian " \
-            "mixture model, initialize a new instance of " \
-            f"'{self.__class__.__name__}' and change the " \
-            "'weights_prior_name' and/or the 'weights_prior_options'."
+            "and cannot be changed. Initialize a new instance of " \
+            f"'{self.__class__.__name__}' with a new " \
+            "'weights_prior_name' and/or 'weights_prior_options'."
         raise ValueError(errstr)
 
 
@@ -880,11 +869,9 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         # Raise an error.
         errstr = \
-            "The value of 'weights' is set at initialization and " \
-            "cannot be changed. The weights of the components of " \
-            "the Gaussian mixture model are initialized according " \
-            "to the specified prior (defined by " \
-            "'weights_prior_name' and 'weights_prior_options')."
+            "The value of 'weights' is set at initialization from " \
+            "the prior ('weights_prior_name' and " \
+            "'weights_prior_options') and cannot be changed."
         raise ValueError(errstr)
 
 
@@ -916,11 +903,9 @@ class GaussianMixtureModelLegacy(nn.Module):
         # Raise an error.
         errstr = \
             "The value of 'log_var_prior' is set at initialization " \
-            "and cannot be changed. If you want to change the prior " \
-            "over the log-variance of the components of the " \
-            "Gaussian mixture model, initialize a new instance of " \
-            f"'{self.__class__.__name__}' and change the " \
-            "'log_var_prior_name' and/or the 'log_var_prior_options'."
+            "and cannot be changed. Initialize a new instance of " \
+            f"'{self.__class__.__name__}' with a new " \
+            "'log_var_prior_name' and/or 'log_var_prior_options'."
         raise ValueError(errstr)
 
 
@@ -950,11 +935,9 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         # Raise an error.
         errstr = \
-            "The value of 'log_var' is set at initialization and " \
-            "cannot be changed. The log-variance of the components " \
-            "of the Gaussian mixture model is initialized according " \
-            "to the specified prior (defined by " \
-            "'log_var_prior_name' and 'log_var_prior_options')."
+            "The value of 'log_var' is set at initialization from " \
+            "the prior ('log_var_prior_name' and " \
+            "'log_var_prior_options') and cannot be changed."
         raise ValueError(errstr)
 
 
@@ -1254,7 +1237,7 @@ class GaussianMixtureModelLegacy(nn.Module):
                             dim = -1)
 
         # Add the log-probability of the priors, divided by the batch
-        # size so that summing over the batch adds it once.
+        # size.
         y = y + self.get_prior_log_prob() / x.shape[0]
 
         # Return the negative log-probability density.
@@ -2128,8 +2111,7 @@ class RepresentationLayer(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Set the device before creating the representations, since
-        # the samplers read it.
+        # Set the device the representations are created on.
         self._device = torch.device(device) \
             if device is not None else torch.device("cpu")
 
@@ -2218,10 +2200,8 @@ class RepresentationLayer(nn.Module):
 
                 # Raise an error.
                 errstr = \
-                    f"Unsupported distribution '{dist}'. The only " \
-                    "distributions from which it is possible to " \
-                    "sample the representations are: " \
-                    f"{available_dists_str}."
+                    f"Unsupported distribution '{dist}'. Supported " \
+                    f"distributions are: {available_dists_str}."
                 raise ValueError(errstr)
 
         #-------------------------------------------------------------#
@@ -2598,8 +2578,7 @@ class RepresentationLayer(nn.Module):
                                          keepdim = True)
         unit_directions = normal_samples / normal_samples_norm
 
-        # Get random radii as u^(1/dim), with u uniform in (0, 1), so
-        # that the points are uniform in the ball.
+        # Get random radii as u^(1/dim), with u uniform in (0, 1).
         u = torch.rand(n_rep,
                        1,
                        device = self.device)
@@ -2912,9 +2891,8 @@ class RepresentationLayer(nn.Module):
         # Raise an error.
         errstr = \
             "The value of 'n_rep' is set at initialization and " \
-            "cannot be changed. If you want to change the number " \
-            "of representations in the layer, initialize a new " \
-            f"instance of '{self.__class__.__name__}'."
+            "cannot be changed. Initialize a new instance of " \
+            f"'{self.__class__.__name__}' instead."
         raise ValueError(errstr)
 
 
@@ -2941,9 +2919,8 @@ class RepresentationLayer(nn.Module):
         # Raise an error.
         errstr = \
             "The value of 'dim' is set at initialization and cannot " \
-            "be changed. If you want to change the dimensionality " \
-            "of the representations stored in the layer, initialize " \
-            f"a new instance of '{self.__class__.__name__}'."
+            "be changed. Initialize a new instance of " \
+            f"'{self.__class__.__name__}' instead."
         raise ValueError(errstr)
 
 
@@ -2972,9 +2949,8 @@ class RepresentationLayer(nn.Module):
         # Raise an error.
         errstr = \
             "The value of 'options' is set at initialization and " \
-            "cannot be changed. If you want to change the options " \
-            "used to generate the representations, initialize a " \
-            f"new instance of '{self.__class__.__name__}'."
+            "cannot be changed. Initialize a new instance of " \
+            f"'{self.__class__.__name__}' instead."
         raise ValueError(errstr)
 
 
@@ -3001,9 +2977,8 @@ class RepresentationLayer(nn.Module):
         # Raise an error.
         errstr = \
             "The value of 'z' is set at initialization and cannot " \
-            "be changed. If you want to change the values of the " \
-            "representations stored in the layer, initialize a new " \
-            f"instance of '{self.__class__.__name__}'."
+            "be changed. Initialize a new instance of " \
+            f"'{self.__class__.__name__}' instead."
         raise ValueError(errstr)
 
 

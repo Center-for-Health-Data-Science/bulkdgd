@@ -617,10 +617,9 @@ def perform_tsne(df: pd.DataFrame,
         # Warn the user that the perplexity was set.
         warnstr = \
             "The TSNE 'perplexity' was not defined, and " \
-            "scikit-learn's default is 30.0, which is not " \
-            "less than the number of samples in the input " \
-            "data frame. For this reason, the 'perplexity' was " \
-            f"set to {perplexity}."
+            "scikit-learn's default (30.0) is not less than the " \
+            "number of samples in the input data frame. The " \
+            f"'perplexity' was set to {perplexity}."
         logger.warning(warnstr)
 
     #-----------------------------------------------------------------#

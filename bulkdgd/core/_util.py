@@ -159,8 +159,7 @@ def _check_config_recursive(
     # If this is the top-level call
     elif parent_config is None:
 
-        # Create a deep copy of the configuration to avoid mutating
-        # the original during validation and default application.
+        # Create a deep copy of the configuration.
         config = copy.deepcopy(config)
 
     #-----------------------------------------------------------------#
@@ -183,7 +182,7 @@ def _check_config_recursive(
 
         #-------------------------------------------------------------#
 
-        # If we are at a 'switch' block
+        # If it is a 'switch' block
         if isinstance(template_spec, dict) and \
                 "switch" in template_spec:
 
@@ -262,7 +261,7 @@ def _check_config_recursive(
 
         #-------------------------------------------------------------#
 
-        # If we are at a nested 'switch' block (the key itself is
+        # If it is a nested 'switch' block (the key itself is
         # 'switch' and the value has 'option' and 'cases')
         elif isinstance(template_spec, dict) and \
                 template_key == "switch" and \
@@ -386,7 +385,7 @@ def _check_config_recursive(
 
         #-------------------------------------------------------------#
 
-        # If we are at a nested section
+        # If it is a nested section
         elif isinstance(template_spec, dict) and \
                 not ("switch" in template_spec or \
                      "type" in template_spec):
@@ -970,8 +969,7 @@ def parse_config_rep(config: Optional[dict[str, object]]) -> \
                     "be one of: legacy_indexed, legacy_positional, "
                     "sample_keyed.")
 
-            # Get the scheme type, which decides whether one seed or a
-            # list of seeds is expected.
+            # Get the scheme type.
             scheme_type = config_validated.get("scheme_type")
 
             # If the scheme uses multiple seeds
@@ -1160,7 +1158,7 @@ def get_time_dataframe(time_list: list[tuple[float, float]]) -> \
     # Create a data frame for the CPU/wall clock time.
     df_time = pd.DataFrame(time_list)
 
-    # Get the platform on which we are running.
+    # Get the platform.
     curr_platform = platform.platform()
 
     # Get the name of the processor.
@@ -1269,7 +1267,7 @@ def get_final_data_frames_rep(
         if len(pred_r_values_array.shape) == 1:
 
             # Convert it into a two-dimensional array by repeating the
-            # r-values for as many samples we have.
+            # r-values for each sample.
             pred_r_values_array = np.tile(pred_r_values_array,
                                           (len(samples_names), 1))
 
@@ -1505,7 +1503,7 @@ def get_final_data_frames_train(
             if len(pred_r_values_array.shape) == 1:
 
                 # Convert it into a two-dimensional array by repeating
-                # the r-values for as many samples we have.
+                # the r-values for each sample.
                 pred_r_values_array = np.tile(pred_r_values_array,
                                               (len(samples_names), 1))
 
@@ -1758,7 +1756,7 @@ def _save_epoch_df(df,
     # If the path calls for Parquet
     if str(path).lower().endswith((".parquet", ".pq")):
 
-        # Write as Parquet, which preserves float64 values exactly.
+        # Write as Parquet.
         df.to_parquet(path,
                       engine = "pyarrow",
                       compression = "snappy",

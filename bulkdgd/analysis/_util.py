@@ -103,10 +103,8 @@ def get_aligned_genes(obs_counts: pd.Series,
         names_str = " and ".join(f"'{name}'" for name in names_diff)
         errstr = \
             f"The genes in {names_str} differ from those in " \
-            "'obs_counts' or are in a different order. The genes " \
-            "must be the same, in the same order, in all inputs. " \
-            "It is assumed that the genes are specified using " \
-            "their Ensembl IDs."
+            "'obs_counts' or are in a different order. All inputs " \
+            "must list the same Ensembl IDs, in the same order."
         raise ValueError(errstr)
 
     # Return the genes.

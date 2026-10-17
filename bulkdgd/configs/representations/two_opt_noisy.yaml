@@ -1,33 +1,5 @@
 # Configuration file specifying the options to get the representations
 # with two rounds of optimization, perturbing them as training does.
-#
-# THIS IS 'two_opt.yaml' PLUS THE NOISE, AND NOTHING ELSE. The seed,
-# the epoch counts, the optimizers, the batch size and the loss options
-# are the default's, so a difference between a run of this file and a
-# run of the default is the perturbation and cannot be anything else.
-#
-# The noise options are the shipped model's OWN training options,
-# copied from 'configs/training/training.yaml' under
-# 'representations_training_options' without changing a number: scale
-# 0.1, annealed from 1.0 to 0.01, normalized against the 95%
-# hypersphere, gain 4.0. The point of the variant is to find a
-# representation the way the TRAINING representations were found, so
-# the perturbation has to be that one and not a plausible-looking
-# substitute.
-#
-# IT IS NOT THE DEFAULT, AND SHOULD NOT BE. The decoder is fixed when
-# representations are found, and a representation is an inference about
-# a sample rather than a parameter being learned, so the search that
-# produced the published results was run unperturbed. This file is for
-# asking what the noise does - whether a representation found under the
-# training perturbation differs from one found without it, and by how
-# much - not for producing results to compare against the paper's.
-#
-# The noise is applied to BOTH rounds. Training perturbs its
-# representations for the whole of training rather than for part of it,
-# and each round anneals over its OWN epochs, so by the last epoch of
-# the second round the scale is down to 0.01 * 0.1 * 4.0 and the
-# representation that comes back is very nearly unperturbed.
 
 
 #######################################################################
@@ -37,11 +9,7 @@
 #
 # Type: str.
 #
-# Options:
-# - 'two_opt' for the optimization scheme with two rounds of
-#   optimization.
-# - 'two_opt_multiseed' for the same scheme run once per seed, keeping
-#   every seed's representation instead of one.
+# Options: 'two_opt', 'two_opt_multiseed'.
 scheme_type: two_opt
 
 
@@ -52,9 +20,7 @@ scheme_type: two_opt
 #
 # Type: str.
 #
-# Options:
-# - 'lgmm' for the legacy Gaussian mixture model implementation.
-# - 'tgmm' for the new Gaussian mixture model implementation.
+# Options: 'lgmm', 'tgmm'.
 latent_type: tgmm
 
 
@@ -83,10 +49,6 @@ data_loader_options:
   # Whether to shuffle the samples.
   #
   # Type: bool.
-  #
-  # Leave this false, as in the default. The comparison this file
-  # exists to make is against a run of the default, and an ordering
-  # difference would be a second thing that differed.
   shuffle: False
 
 
@@ -129,10 +91,6 @@ reporting_options:
     total:
 
       # Type: str. Options: 'none', 'n_samples'.
-      #
-      # NOTE that the loss reported for a perturbed run is the loss OF
-      # the perturbed representation, so it is not directly comparable
-      # with the default's: it is measured at a point the noise moved.
       norm_type: n_samples
 
 
@@ -150,16 +108,11 @@ scheme_options:
 
   #-------------------------------------------------------------------#
 
-  # Set how much of a sample the model is allowed to give up on, and
-  # the r-value of the outlier component that lets it.
+  # Set how much of a sample the model may give up on, and the
+  # outlier r-value. Uncomment for a non-healthy cohort.
   #
   # Type: float in [0, 1), and a positive float.
-  #
-  # Off here, as in the default, so that this file differs from the
-  # default in the noise alone. Uncomment for a tumour or a disease
-  # cohort - and if the comparison being made is against a contaminated
-  # run of the default, uncomment it there too.
-  #
+
   #contamination: 0.001
   #contamination_r: 0.05
 
@@ -182,20 +135,10 @@ scheme_options:
     # Match the default's deterministic per-sample initialization.
     mode: sample_keyed
 
-    # The seed of the draw that places the candidates.
+    # The seed of the draw that places the candidates. It does not
+    # seed the noise.
     #
     # Type: int.
-    #
-    # The default's seed and mode. The candidates therefore start in
-    # exactly the same places they start in a run of the default, which
-    # is what makes the two runs comparable at all - the noise is then
-    # the only source of difference between them, rather than one of
-    # two.
-    #
-    # It does NOT seed the noise itself, which is drawn from the global
-    # generator as the optimization runs; seed that through
-    # 'bulkdgd.reproducibility' if two noisy runs have to agree with
-    # each other.
     seed: 7
 
   #-------------------------------------------------------------------#
@@ -232,33 +175,17 @@ scheme_options:
       # last epoch.
       #
       # Type: float.
-      #
-      # The annealing is cosine and is over THIS round's epochs, not
-      # over both rounds: the first round explores from many candidates
-      # and the second refines the one that won, so a schedule shared
-      # across the two would still be injecting the first round's noise
-      # into the second.
       end: 0.01
 
       # Set the probability defining the hypersphere the noise is
       # normalized against.
       #
       # Type: float.
-      #
-      # The noise is divided by the radius of the hypersphere holding
-      # this much of the mass, so that a scale means the same thing
-      # whatever the dimensionality of the latent space.
       within_radius_prob: 0.95
 
       # Set the final multiplier on the noise.
       #
       # Type: float.
-      #
-      # Four, which is what the shipped model was trained with. It is
-      # not a free parameter here: a different gain perturbs the search
-      # by a different amount than training perturbed the
-      # representations this model was fitted against, which is the one
-      # thing this file is trying to reproduce.
       gain: 4.0
 
     # Set the name of the optimizer to be used.
@@ -266,10 +193,6 @@ scheme_options:
     # Type: str.
     #
     # Options: 'adam', 'adamw', 'lbfgs'.
-    #
-    # NOTE the flat layout: the scheme reads 'optimizer_type' and
-    # 'optimizer_options' directly under the round, NOT nested inside
-    # an 'optimizer' block.
     optimizer_type: adamw
 
     # Set the options for the optimizer.
@@ -298,14 +221,9 @@ scheme_options:
     # they are being optimized.
     #
     # Type: str. Options: 'gaussian', 'none'.
-    #
-    # The same options as the first round, and set separately because
-    # they are read separately. Set 'noise_type: none' here to perturb
-    # only the exploration and leave the refinement clean.
     noise_type: gaussian
 
-    # Set the options for that noise. See 'optimization_1' above for
-    # what each of them means.
+    # Set the options for that noise.
     noise_options:
 
       # Type: float.
@@ -328,8 +246,6 @@ scheme_options:
     # Type: str.
     #
     # Options: 'adam', 'adamw', 'lbfgs'.
-    #
-    # NOTE the flat layout, as in the first round.
     optimizer_type: adamw
 
     # Set the options for the optimizer.

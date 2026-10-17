@@ -330,9 +330,9 @@ def recurse_config_plot(
                                     warn_msg = \
                                         f"Option '{opt}' conflicts " \
                                         "with option(s) " \
-                                        f"{conflicts_str}, and has " \
-                                        "lower priority. Therefore, " \
-                                        "it will be ignored."
+                                        f"{conflicts_str} and has " \
+                                        "lower priority. It will be " \
+                                        "ignored."
                                     warnings.append(warn_msg)
 
                     # Get the font properties.
@@ -614,9 +614,8 @@ def get_formatted_ticklabels(
         The format string.
 
     max_length : :class:`int`, ``20``
-        The maximum length of a tick's label. If a label exceeds this
-        length, it will be split into pieces of at most this length.
-        The pieces will be separated by newline characters.
+        The maximum length of a tick's label. Longer labels are split
+        into lines of at most this length.
 
     Returns
     -------
@@ -656,8 +655,8 @@ def get_formatted_ticklabels(
 
         #-------------------------------------------------------------#
 
-        # If the label now ends with a dot or a comma (it was an
-        # integer, e.g., 1.0 or 3,00)
+        # If the label ends with a dot or a comma (an integer, e.g.,
+        # 1.0 or 3,00)
         if fmt_ticklabel.endswith(".") or fmt_ticklabel.endswith(","):
 
             # Remove the dot/comma.
@@ -701,7 +700,7 @@ def find_rectangular_grid(n: int) -> tuple[int, int]:
         The number of columns in the squarest grid.
     """
 
-    # If we have only one item
+    # If there is only one item
     if n == 1:
 
         # The grid will have one row and one column.
@@ -709,7 +708,7 @@ def find_rectangular_grid(n: int) -> tuple[int, int]:
 
     #-----------------------------------------------------------------#
 
-    # If we have two items
+    # If there are two items
     elif n == 2:
 
         # The grid will have one row and two columns.
@@ -818,9 +817,8 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
 
         # Inform the user about the rounding value.
         debugstr = \
-            "Since 'round_to_nearest' is not defined and 'type' " \
-            f"is '{int_type}', the rounding will be set to the " \
-            f"nearest {rtn}."
+            "'round_to_nearest' is not set and 'type' is " \
+            f"'{int_type}': rounding to the nearest {rtn}."
         logger.debug(debugstr)
 
     # Otherwise
@@ -845,9 +843,8 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
 
             # Inform the user about the top value.
             debugstr = \
-                "Since 'top' is not defined and 'type' is " \
-                f"'{int_type}', 'top' will be the maximum of all " \
-                f"values found, ({top})."
+                f"'top' is not set and 'type' is '{int_type}': " \
+                f"'top' will be the maximum of all values ({top})."
             logger.debug(debugstr)
 
         # If the interval is continuous
@@ -858,10 +855,9 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
 
             # Inform the user about the top value.
             debugstr = \
-                "Since 'top' is not defined and 'type' is " \
-                f"'{int_type}', 'top' will be the maximum of all " \
-                f"values found, rounded up to the nearest {rtn} " \
-                f"({top})."
+                f"'top' is not set and 'type' is '{int_type}': " \
+                "'top' will be the maximum of all values, rounded " \
+                f"up to the nearest {rtn} ({top})."
             logger.debug(debugstr)
 
     # Otherwise
@@ -885,9 +881,9 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
 
             # Inform the user about the bottom value.
             debugstr = \
-                f"Since 'bottom' is not defined and 'type' is " \
-                f"'{int_type}', 'bottom' will be the minimum of all " \
-                f"values found ({bottom})."
+                f"'bottom' is not set and 'type' is '{int_type}': " \
+                f"'bottom' will be the minimum of all values " \
+                f"({bottom})."
             logger.debug(debugstr)
 
         # If the interval is continuous
@@ -898,10 +894,9 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
 
             # Inform the user about the bottom value.
             debugstr = \
-                "Since 'bottom' is not defined and 'type' is " \
-                f"'{int_type}', 'bottom' will be the minimum of all " \
-                f"values found, rounded down to the nearest {rtn} " \
-                f"({bottom})."
+                f"'bottom' is not set and 'type' is '{int_type}': " \
+                "'bottom' will be the minimum of all values, " \
+                f"rounded down to the nearest {rtn} ({bottom})."
             logger.debug(debugstr)
 
     # Otherwise
@@ -930,9 +925,7 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
         steps = 10
 
         # Inform the user about the steps.
-        debugstr = \
-            "Since the number of steps in the interval is not " \
-            "defined, 'steps' will be '10'."
+        debugstr = "'steps' is not set: 'steps' will be '10'."
         logger.debug(debugstr)
 
     # Otherwise
@@ -961,11 +954,9 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
 
             # Inform the user about the spacing.
             debugstr = \
-                "Since the spacing between the ticks is not " \
-                "defined, 'spacing' will be the value " \
-                "guaranteeing an equipartition of the interval " \
-                f"between {bottom} and {top} in {steps} " \
-                "number of steps, rounded up to the nearest 1 " \
+                "'spacing' is not set: 'spacing' will split the " \
+                f"interval between {bottom} and {top} into {steps} " \
+                "steps, rounded up to the nearest 1 " \
                 f"({spacing})."
             logger.debug(debugstr)
 
@@ -983,11 +974,9 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
 
             # Inform the user about the spacing.
             debugstr = \
-                "Since the spacing between the ticks is not " \
-                "defined, 'spacing' will be the value " \
-                "guaranteeing an equipartition of the interval " \
-                f"between {bottom} and {top} in {steps} " \
-                f"number of steps ({spacing})."
+                "'spacing' is not set: 'spacing' will split the " \
+                f"interval between {bottom} and {top} into {steps} " \
+                f"steps ({spacing})."
             logger.debug(debugstr)
 
     #-----------------------------------------------------------------#
@@ -1009,9 +998,8 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
 
         # Inform the user about the change in the interval.
         debugstr = \
-            "Since the user requested a ticks' interval centered " \
-            f"in zero, the interval will be between {top} " \
-            f"and {bottom} with {steps} number of steps: " \
+            "The ticks' interval is centered in zero. It will be " \
+            f"between {top} and {bottom} with {steps} steps: " \
             f"{', '.join([str(i) for i in interval.tolist()])}."
         logger.debug(debugstr)
 
@@ -1434,18 +1422,16 @@ def set_axis(sub_plot: matplotlib.axes.Axes,
         specified in the configuration.
 
     ticks : :class:`list`, optional
-        A list of ticks' positions. If it is not passed, the ticks
-        will be those already present on the axis (automatically
-        determined by matplotlib when generating the plot).
+        A list of ticks' positions. If not passed, the ticks already
+        on the axis are used.
 
     tick_labels : :class:`list`, optional
         A list of ticks' labels. If not passed, the ticks' labels
         will represent the ticks' positions.
 
     abs_values : :class:`bool`, optional
-        Whether the ticks' positions should be absolute values. If
-        ``True``, the ticks' positions will be the absolute values of
-        the original positions.
+        Whether the ticks' labels are the absolute values of the
+        ticks' positions.
 
     categorical : :class:`bool`, :obj:`False`
         Whether the axis is categorical.
@@ -1652,17 +1638,12 @@ def set_cbar_axis(cbar: matplotlib.colorbar.Colorbar,
         label specified in the configuration.
 
     ticks : :class:`list`, optional
-        A list of ticks' positions.
-
-        If it is not passed, the ticks will be those already present
-        on the colorbar's axis (automatically determined by Matplotlib
-        when generating the plot).
+        A list of ticks' positions. If not passed, the ticks already
+        on the colorbar's axis are used.
 
     tick_labels : :class:`list`, optional
-        A list of ticks' labels.
-
-        If not passed, the ticks' labels will represent the ticks'
-        positions.
+        A list of ticks' labels. If not passed, the ticks' labels
+        will represent the ticks' positions.
 
     Returns
     -------
@@ -2091,7 +2072,7 @@ def generate_plots(dfs: list[pd.DataFrame],
     # For each chunk and associated output number
     for num_output, dfs_chunk in enumerate(dfs_chunks):
 
-        # If we need to plot a single scatter plot
+        # If the plot is a scatter plot
         if plot_type == "scatterplot":
 
             # Get the colors for the plot.
@@ -2110,7 +2091,7 @@ def generate_plots(dfs: list[pd.DataFrame],
 
         #-------------------------------------------------------------#
 
-        # If we need to plot single histograms
+        # If the plots are single histograms
         elif plot_type == "histogram":
 
             # Generate the histograms.
@@ -2122,7 +2103,7 @@ def generate_plots(dfs: list[pd.DataFrame],
 
         #-------------------------------------------------------------#
 
-        # If we need to plot dual or overlapping histograms
+        # If the plots are dual or overlapping histograms
         elif plot_type in ("histogram_bihist", "histogram_overlap"):
 
             # Generate the histograms.
@@ -2137,7 +2118,7 @@ def generate_plots(dfs: list[pd.DataFrame],
 
         #-------------------------------------------------------------#
 
-        # If we need to plot a box plot or violin plot
+        # If the plot is a box plot or violin plot
         elif plot_type in ("boxplot", "violinplot"):
 
             # If there is a second set of data frames

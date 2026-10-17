@@ -153,12 +153,9 @@ def set_parser() -> argparse.ArgumentParser:
 
     # Set a help message.
     odp_help = \
-        "The prefix of the output Parquet file(s) that will " \
-        "contain the results of the differential expression " \
-        "analysis. Since the analysis will be performed for each " \
-        "sample, one file per sample will be created. The files' " \
-        "names will have the form " \
-        "{output_dea_prefix}{sample_name}.parquet. " \
+        "The prefix of the output Parquet files with the results " \
+        "of the differential expression analysis, one per sample, " \
+        "named {output_dea_prefix}{sample_name}.parquet. " \
         f"The default prefix is '{odp_default}'."
 
     # Add the argument to the group.
@@ -174,17 +171,12 @@ def set_parser() -> argparse.ArgumentParser:
 
     # Set a help message.
     ogp_help = \
-        "The prefix of the output Parquet file(s) that will " \
-        "contain the results of the gene set enrichment analysis. " \
-        "By default, the analysis will be performed for each " \
-        "sample and one file per sample will be created. The " \
-        "files' names will have the form " \
-        "{output_gsea_prefix}{sample_name}.parquet. The " \
-        f"default prefix is '{ogp_default}'. If the '-mg', " \
-        "'--merge-gsea' option is passed, this option is " \
-        "interpreted as the name of the output file where the " \
-        "merged results will be written (stripped of any trailing " \
-        "underscores or dots)."
+        "The prefix of the output Parquet files with the results " \
+        "of the gene set enrichment analysis, one per sample, " \
+        "named {output_gsea_prefix}{sample_name}.parquet. The " \
+        f"default prefix is '{ogp_default}'. With '-mg', " \
+        "'--merge-gsea', it is the name of the merged output file " \
+        "(stripped of trailing underscores or dots)."
 
     # Add the argument to the group.
     output_group.add_argument("-ogp", "--output-gsea-prefix",
@@ -196,9 +188,8 @@ def set_parser() -> argparse.ArgumentParser:
 
     # Set a help message.
     mg_help = \
-        "Whether the results of the gene set enrichment analysis " \
-        "will be merged into a single file. By default, the " \
-        "results for each sample are written in separate files."
+        "Merge the results of the gene set enrichment analysis " \
+        "into a single file instead of one file per sample."
 
     # Add the argument to the group.
     output_group.add_argument("-mg", "--merge-gsea",
@@ -213,9 +204,8 @@ def set_parser() -> argparse.ArgumentParser:
     # Set a help message.
     pr_help = \
         "The resolution at which to sum over the probability " \
-        "mass function to compute the p-values. The higher the " \
-        "resolution, the more accurate the calculation. " \
-        f"The default is {int(pr_default)}."
+        "mass function to compute the p-values (higher is more " \
+        f"accurate). The default is {int(pr_default)}."
 
     # Add the argument to the group.
     dea_group.add_argument("-pr", "--p-values-resolution",
@@ -264,9 +254,8 @@ def set_parser() -> argparse.ArgumentParser:
     qm_help = \
         "The method used to calculate the q-values (i.e., to " \
         f"adjust the p-values). The default is '{qm_default}'. " \
-        "The available methods can be found in the documentation " \
-        "of 'statsmodels.stats.multitest.multipletests', " \
-        "which is used to perform the calculation."
+        "The available methods are those of " \
+        "'statsmodels.stats.multitest.multipletests'."
 
     # Add the argument to the group.
     dea_group.add_argument("-qm", "--q-values-method",
@@ -310,10 +299,8 @@ def set_parser() -> argparse.ArgumentParser:
 
     # Set a help message.
     gsf_help = \
-        "A list of plain text files containing the gene sets " \
-        "to be used in the analysis. The files must contain " \
-        "one Ensembl gene ID per line. The gene sets will be used " \
-        "to perform the gene set enrichment analysis."
+        "The plain text files containing the gene sets for the " \
+        "gene set enrichment analysis, one Ensembl gene ID per line."
 
     # Add the argument to the group.
     dea_group.add_argument("-gsf", "--genes-sets-files",
@@ -342,8 +329,8 @@ def set_parser() -> argparse.ArgumentParser:
 
     # Set a help message.
     dev_help = \
-        "The device to use. If not provided, the GPU will be used " \
-        "if it is available. Otherwise, the CPU will be used."
+        "The device to use. The default is the GPU, if available, " \
+        "or the CPU."
 
     # Add the argument to the group.
     run_group.add_argument("-dev", "--device",
@@ -358,15 +345,11 @@ def set_parser() -> argparse.ArgumentParser:
 
     # Set a help message.
     pm_help = \
-        "How to calculate the p-values. The two methods give the " \
-        "same p-values. 'batched' calculates them for all the genes " \
-        "at once. 'per-gene' calculates them one gene at a time, " \
-        "and is parallelized over the samples with the '-n', " \
-        "'--n-proc' option. Do not combine 'batched' with '-n' " \
-        "greater than 1. " \
-        f"The default, '{pm_default}', uses 'batched' on a GPU and " \
-        "on a CPU with one process, and 'per-gene' on a CPU with " \
-        "more than one process."
+        "How to calculate the p-values: 'batched' (all the genes " \
+        "at once) or 'per-gene' (one gene at a time, parallelized " \
+        "over the samples with '-n', '--n-proc'). " \
+        f"The default, '{pm_default}', uses 'per-gene' on a CPU " \
+        "with more than one process and 'batched' otherwise."
 
     # Add the argument to the group.
     run_group.add_argument("-pm", "--p-values-method",
@@ -462,15 +445,13 @@ def main(args: argparse.Namespace) -> None:
             # Calculate the p-values for all the genes at once.
             p_values_method = "batched"
 
-        # If they are calculated on a CPU in a single process ('torch'
-        # uses all the cores for a batched calculation)
+        # If they are calculated on a CPU in a single process
         elif n_proc == 1:
 
             # Calculate the p-values for all the genes at once.
             p_values_method = "batched"
 
-        # Otherwise (batched calculations in several processes would
-        # compete for the same cores)
+        # Otherwise
         else:
 
             # Calculate the p-values gene by gene.
@@ -490,9 +471,7 @@ def main(args: argparse.Namespace) -> None:
         warnstr = \
             f"The p-values will be calculated on the '{device}' " \
             f"device, but {n_proc} processes were requested. The " \
-            "processes will share the same GPU, so using more than " \
-            "one process is not expected to speed up the " \
-            "calculation. Consider using '-n 1'."
+            "processes will share the same GPU. Consider using '-n 1'."
         logger.warning(warnstr)
 
     # If the p-values will be calculated for all the genes at once on a
@@ -504,10 +483,8 @@ def main(args: argparse.Namespace) -> None:
         # Warn the user.
         warnstr = \
             "The p-values will be calculated with the 'batched' " \
-            f"method on a CPU, over {n_proc} processes. This is " \
-            "expected to be slower than using one process ('-n 1') " \
-            "or calculating the p-values gene by gene " \
-            "('-pm per-gene')."
+            f"method on a CPU, over {n_proc} processes. Consider " \
+            "using '-n 1' or '-pm per-gene', which are faster."
         logger.warning(warnstr)
 
     #-----------------------------------------------------------------#
@@ -703,8 +680,7 @@ def main(args: argparse.Namespace) -> None:
     # If only one process was requested
     if n_proc == 1:
 
-        # Analyze the samples in the current process (a one-worker
-        # cluster would only add start-up costs).
+        # Analyze the samples in the current process.
         results = \
             (dea.get_statistics(**dea_options) \
              for dea_options in samples_options)

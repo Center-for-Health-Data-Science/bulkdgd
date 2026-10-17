@@ -89,23 +89,18 @@ def load_samples(csv_file: str,
         to be in the first column of the input data frame.
 
     split : :class:`bool`, :class:`False`
-        Whether to split the input data frame into two data frames,
-        one with only the columns containing the gene expression
-        data and the other containing only the columns with
-        additional information about the samples, if any were found.
+        Whether to split the input data frame into one data frame
+        with the gene expression data and one with the additional
+        information about the samples, if any.
 
     Returns
     -------
     df_data : :class:`pandas.DataFrame`
-        A data frame containing the gene expression data.
+        A data frame containing the gene expression data, with the
+        samples as rows and the genes as columns.
 
-        Here, the rows represent the samples and the columns represent
-        the genes. Therefore, each cell contains the expression of a
-        gene in a specific sample.
-
-        If ``split`` is :class:`False`, this data frame will contain
-        also the columns containing additional information about the
-        samples, if any were found.
+        If ``split`` is :class:`False`, it also contains the columns
+        with additional information about the samples, if any.
 
     df_other_data : :class:`pandas.DataFrame`
         A data frame containing the additional information about the
@@ -127,9 +122,9 @@ def load_samples(csv_file: str,
 
         # Inform the user that the original IDs will be used.
         infostr = \
-            "Since 'keep_samples_names = True', the samples will be " \
-            "identified using the values contained in the first " \
-            "column of the data frame."
+            "With 'keep_samples_names = True', the samples will be " \
+            "identified by the values in the first column of the " \
+            "data frame."
         logger.info(infostr)
 
     # Otherwise
@@ -144,9 +139,8 @@ def load_samples(csv_file: str,
 
         # Inform the user that numeric indexes will be used.
         infostr = \
-            "Since 'keep_samples_names = False', the samples will " \
-            "be identified using unique integer indexes starting " \
-            "from 0."
+            "With 'keep_samples_names = False', the samples will " \
+            "be identified by integer indexes starting from 0."
         logger.info(infostr)
 
         # Set the indexes to numeric indexes.
@@ -358,7 +352,7 @@ def preprocess_samples(df_samples: pd.DataFrame,
     #-----------------------------------------------------------------#
 
     # Inform the user of the check for duplicated samples.
-    infostr = "Now looking for duplicated samples..."
+    infostr = "Looking for duplicated samples..."
     logger.info(infostr)
 
     # Get duplicated samples, if any.
@@ -370,10 +364,8 @@ def preprocess_samples(df_samples: pd.DataFrame,
         # Warn the user that the duplicates will be removed.
         warnstr = \
             f"{duplicated_samples.values.sum()} duplicated " \
-            "sample(s) was (were) found in the data frame. " \
-            "Duplicates will be removed from the data frame, and " \
-            "only the first instance of each duplicated sample " \
-            "will be kept."
+            "sample(s) was (were) found in the data frame. Only the " \
+            "first instance of each will be kept."
         logger.warning(warnstr)
 
         # Remove the duplicated samples.
@@ -390,7 +382,7 @@ def preprocess_samples(df_samples: pd.DataFrame,
 
     # Inform the user of the check for missing values.
     infostr = \
-        "Now looking for missing values in the columns containing " \
+        "Looking for missing values in the columns containing " \
         "gene expression data..."
     logger.info(infostr)
 
@@ -425,7 +417,7 @@ def preprocess_samples(df_samples: pd.DataFrame,
     #-----------------------------------------------------------------#
 
     # Inform the user of the check for duplicated genes.
-    infostr = "Now looking for duplicated genes..."
+    infostr = "Looking for duplicated genes..."
     logger.info(infostr)
 
     # If there are duplicate genes
@@ -440,9 +432,8 @@ def preprocess_samples(df_samples: pd.DataFrame,
         # duplicated genes.
         errstr = \
             "Duplicated genes were found in the input data " \
-            "frame. The duplicated genes are: " \
-            f"{', '.join(duplicated_genes)}. No duplicated genes " \
-            "can be present in the input data frame."
+            f"frame: {', '.join(duplicated_genes)}. Remove them " \
+            "from the input data frame."
         raise ValueError(errstr)
 
     # Inform the user that no duplicated genes were found.
@@ -462,20 +453,15 @@ def preprocess_samples(df_samples: pd.DataFrame,
 
     # Inform the user that the genes' columns will be rearranged.
     infostr = \
-        "In the data frame containing the pre-processed samples, " \
-        "the columns containing gene expression data will be " \
-        "ordered according to the list of genes included in " \
-        f"the DGD model (taken from '{genes_txt_file}')."
+        "The columns containing gene expression data will be " \
+        "ordered as the genes included in the DGD model (from " \
+        f"'{genes_txt_file}')."
     logger.info(infostr)
 
     # Inform the user that the other columns will be rearranged.
     infostr = \
-        "In the data frame containing the pre-processed samples, " \
-        "the columns found in the input data frame which did not " \
-        "contain gene expression data, if any were present, " \
-        "will be appended as the last columns of the data frame " \
-        "and appear in the same order as they did in the input " \
-        "data frame."
+        "The other columns of the input data frame, if any, will " \
+        "be appended after the gene columns, in their original order."
     logger.info(infostr)
 
     # Keep only the model's genes, in the model's order, with a count

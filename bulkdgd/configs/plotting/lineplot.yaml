@@ -9,8 +9,6 @@
 
 # Set the options for the output file.
 #
-# All the available options to set up the output file can be found at:
-#
 # https://bulkdgd.readthedocs.io/en/latest/outputs.html
 output:
   
@@ -19,8 +17,7 @@ output:
   # Type: int.
   dpi: 900
   
-  # Set whether the figure's background is transparent. It is 'False'
-  # by default.
+  # Set whether the figure's background is transparent.
   #
   # Type: bool.
   transparent: True
@@ -38,8 +35,6 @@ output:
 
 # Set the general font properties.
 #
-# All the available options for the properties can be found at:
-#
 # https://bulkdgd.readthedocs.io/en/latest/text_elements.html
 general_fontproperties:
 
@@ -47,8 +42,7 @@ general_fontproperties:
   #
   # Type: str.
   #
-  # Notes: if !!null, the default font used by Matplotlib will be
-  # used.
+  # Notes: if !!null, Matplotlib's default font is used.
   fname: !!null
 
 
@@ -57,8 +51,6 @@ general_fontproperties:
 
 # Set the options for the line plot.
 #
-# All the available options to set up the line plot can be found at:
-#
 # https://seaborn.pydata.org/generated/seaborn.lineplot.html
 lineplot:
 
@@ -66,18 +58,13 @@ lineplot:
   #
   # Type: str.
   #
-  # Options: all the available options can be found at
-  # https://seaborn.pydata.org/generated/seaborn.lineplot.html
-  #
-  # Default: 'husl'.
+  # Options: https://seaborn.pydata.org/generated/seaborn.lineplot.html
   palette: husl
 
 #######################################################################
 
 
 # Set the options for the legend.
-#
-# All the available options to set up the legend can be found at:
 #
 # https://bulkdgd.readthedocs.io/en/latest/scatterplots.html
 legend:
@@ -91,20 +78,15 @@ legend:
   #
   # Type: str.
   #
-  # Options:
-  # - 'center' for center alignment.
-  # - 'left' for left alignment.
-  # - 'right' for right alignment.
+  # Options: 'center', 'left' or 'right'.
   alignment: left
 
-  # Set the absolute position of the legend (1.0, 1.0 roughly means
-  # "center right").
+  # Set the absolute position of the legend.
   #
   # Type: list of float.
   bbox_to_anchor: [1.3, 0.9]
 
-  # Set the number of columns in the legend. By default, this is set
-  # to 1.
+  # Set the number of columns in the legend.
   #
   # Type: int.
   ncols: 2
@@ -131,9 +113,6 @@ legend:
 
 # Set the options for the plot's title.
 #
-# All the available options to set up the plot's title can be found
-# at:
-#
 # https://bulkdgd.readthedocs.io/en/latest/titles.html
 title:
 
@@ -154,9 +133,6 @@ xaxis:
   
   # Set the options for the axis' label.
   #
-  # All the available options to set up the axis' label can be found
-  # at:
-  #
   # https://bulkdgd.readthedocs.io/en/latest/xaxis.html
   label:
 
@@ -176,9 +152,6 @@ xaxis:
   #-------------------------------------------------------------------#
   
   # Set the axis' ticks' labels.
-  #
-  # All the available options to set up the axis' ticks' labels can
-  # be found at:
   #
   # https://bulkdgd.readthedocs.io/en/latest/xaxis.html
   ticklabels:
@@ -203,9 +176,7 @@ xaxis:
     #
     # Type: str.
     #
-    # Options:
-    # - 'discrete' for a discrete interval.
-    # - 'continuous' for a continuous interval.
+    # Options: 'discrete' or 'continuous'.
     type: discrete
 
 
@@ -217,9 +188,6 @@ yaxis:
   
   # Set the options for the axis' label.
   #
-  # All the available options to set up the axis' label can be found
-  # at:
-  #
   # https://bulkdgd.readthedocs.io/en/latest/yaxis.html
   label:
 
@@ -239,9 +207,6 @@ yaxis:
   #-------------------------------------------------------------------#
   
   # Set the axis' ticks' labels.
-  #
-  # All the available options to set up the axis' ticks' labels can
-  # be found at:
   #
   # https://bulkdgd.readthedocs.io/en/latest/yaxis.html
   ticklabels:
@@ -266,7 +231,5 @@ yaxis:
     #
     # Type: str.
     #
-    # Options:
-    # - 'discrete' for a discrete interval.
-    # - 'continuous' for a continuous interval.
+    # Options: 'discrete' or 'continuous'.
     type: discrete

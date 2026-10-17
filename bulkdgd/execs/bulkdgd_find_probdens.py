@@ -114,10 +114,9 @@ def set_parser() -> argparse.ArgumentParser:
     # Set a help message.
     opr_help = \
         "The name of the output CSV file containing, for each " \
-        "representation, its probability density for each of the " \
-        "Gaussian mixture model's components, the maximum " \
-        "probability density found, and the component the maximum " \
-        "probability density comes from. The default file " \
+        "representation, its probability density for each " \
+        "component of the Gaussian mixture model, the maximum " \
+        "density and its component. The default file " \
         f"name is '{opr_default}'."
 
     # Add the argument to the group.

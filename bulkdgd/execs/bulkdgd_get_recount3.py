@@ -105,10 +105,9 @@ def set_parser() -> argparse.ArgumentParser:
 
     # Set a help message.
     sg_help = \
-        """Save the original GZ file containing the RNA-seq data for
-        the samples. For each batch of samples, the corresponding file
-        will be saved in the working directory and named
-        '{recount3_project_name}_""" \
+        "Save the original GZ file with the RNA-seq data for each " \
+        "batch of samples in the working directory, as " \
+        "'{recount3_project_name}_" \
         "{recount3_samples_category}_gene_sums.gz'."
 
     # Add the argument to the group.
@@ -120,10 +119,9 @@ def set_parser() -> argparse.ArgumentParser:
 
     # Set the help message.
     sq_help = \
-        """Save the original GZ file containing the quality control
-        metrics for the samples. For each batch of samples, the
-        corresponding file will be saved in the working directory and
-        named '{recount3_project_name}_""" \
+        "Save the original GZ file with the quality control metrics " \
+        "for each batch of samples in the working directory, as " \
+        "'{recount3_project_name}_" \
         "{recount3_samples_category}_qc.gz'."
 
     # Add the argument to the group.
@@ -135,10 +133,9 @@ def set_parser() -> argparse.ArgumentParser:
 
     # Set a help message.
     sm_help = \
-        """Save the original GZ file containing the metadata for the
-        samples. For each batch of samples, the corresponding file will
-        be saved in the working directory and named
-        '{recount3_project_name}_""" \
+        "Save the original GZ file with the metadata for each batch " \
+        "of samples in the working directory, as " \
+        "'{recount3_project_name}_" \
         "{recount3_samples_category}_metadata.gz'."
 
     # Add the argument to the group.

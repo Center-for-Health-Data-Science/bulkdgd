@@ -266,8 +266,7 @@ class GeneExpressionDataset(object):
 
         #-------------------------------------------------------------#
 
-        # If any sample's scaling factor is zero (which would make all
-        # its predicted means zero)
+        # If any sample's scaling factor is zero
         if (mean_exp == 0).any():
 
             # Get how many samples are affected.
@@ -276,8 +275,7 @@ class GeneExpressionDataset(object):
             # Raise an error.
             raise ValueError(
                 f"The '{self._scaling_factor}' scaling factor is zero "
-                f"for {n_zero} of the {mean_exp.shape[0]} samples, "
-                "which would make every predicted mean for them zero.")
+                f"for {n_zero} of the {mean_exp.shape[0]} samples.")
 
         #-------------------------------------------------------------#
 

@@ -169,7 +169,7 @@ def _yield_p_values(obs_counts: np.ndarray,
             r_value_gene_i = r_values[i]
 
             # Get the probability 'q' of a failure from the mean 'm'
-            # and the r-value: m = r*q/(1-q), so q = m/(m+r).
+            # and the r-value: q = m/(m+r).
             p_i = pred_mean_gene_i / \
                   (pred_mean_gene_i + r_value_gene_i)
 
@@ -214,8 +214,7 @@ def _yield_p_values(obs_counts: np.ndarray,
         # distribution's mass.
         tail = float(ppf_dist.ppf(**ppf_options))
 
-        # If the tail is not finite (a vanishingly small r-value makes
-        # 'nbinom.ppf' return NaN)
+        # If the tail is not finite
         if not np.isfinite(tail):
 
             # Set it to 0.
@@ -384,8 +383,7 @@ def _get_tails(pred_means: np.ndarray,
         tails = poisson.ppf(q = 0.99999,
                             mu = pred_means)
 
-    # Set the tails that are not finite to 0 (a vanishingly small
-    # r-value makes 'nbinom.ppf' return NaN).
+    # Set the tails that are not finite to 0.
     tails = np.where(np.isfinite(tails),
                      tails,
                      0.0)
@@ -437,7 +435,7 @@ def _resolve_p_values_method(method: str,
     #-----------------------------------------------------------------#
 
     # If the points at which the log-probability mass function was
-    # evaluated are requested (only the per-gene method yields them)
+    # evaluated are requested
     if return_pmf_values:
 
         # If the batched method was explicitly requested
@@ -578,8 +576,7 @@ def _compute_p_values(obs_counts: np.ndarray,
 
     #-----------------------------------------------------------------#
 
-    # Sort the genes by their number of points (so genes in the same
-    # chunk need little padding).
+    # Sort the genes by their number of points.
     order = np.argsort(n_points, kind = "stable")
 
     # Create an empty tensor to store the p-values.
@@ -629,7 +626,7 @@ def _compute_p_values(obs_counts: np.ndarray,
         idx = order[start : start + chunk_size]
 
         # Get the number of points needed by the longest-tailed gene
-        # of the chunk (the genes are sorted, so it is the last one).
+        # of the chunk (the last one).
         n_points_chunk = int(n_points[idx[-1]])
 
         # Get the indices of the genes in the chunk, on the device.
@@ -664,7 +661,7 @@ def _compute_p_values(obs_counts: np.ndarray,
         else:
 
             # Truncate the tails (the points are built as in
-            # 'numpy.linspace', to match it bit-for-bit).
+            # 'numpy.linspace').
             tails_trunc = torch.trunc(tails_chunk)
 
             # Get the points at which to evaluate the function.
@@ -739,7 +736,7 @@ def _compute_p_values(obs_counts: np.ndarray,
         #-------------------------------------------------------------#
 
         # Set the log-probability mass at the padded points to negative
-        # infinity, so that they carry no probability mass.
+        # infinity.
         pmf = torch.where(mask,
                           pmf,
                           torch.tensor(-float("inf"),
@@ -757,7 +754,7 @@ def _compute_p_values(obs_counts: np.ndarray,
                         torch.zeros_like(prob_mass)).sum(dim = 1)
 
         # Get the total mass of the "discretized" probability mass
-        # function computed above.
+        # function.
         norm_const = prob_mass.sum(dim = 1)
 
         # Get the p-values of the genes in the chunk (NaN for genes
@@ -872,7 +869,7 @@ def _compute_p_values_equal_tail(obs_counts: np.ndarray,
     # Double the smaller tail.
     p_values = 2.0 * np.minimum(lower, upper)
 
-    # Return the p-values, clipped to 1 (the doubling can exceed it).
+    # Return the p-values, clipped to 1.
     return np.clip(p_values,
                    0.0,
                    1.0)
@@ -920,8 +917,7 @@ def _compute_p_values_symmetric_error(
 
     #-----------------------------------------------------------------#
 
-    # Propagate the variance onto the log scale (delta method), which
-    # has no probability mass fixed at zero.
+    # Propagate the variance onto the log scale (delta method).
     log_variance = variance / (pred_means ** 2)
 
     # Get the z-score of the observed count's own log-distance from
@@ -1008,9 +1004,8 @@ def get_p_values(obs_counts: pd.Series,
         How the two tails are combined into one p-value:
         ``"equal_tail"`` doubles the smaller tail, ``"symmetric_error"``
         tests the log-transformed counts against a symmetric error
-        model instead of the negative binomial's own zero-bounded
-        tail, and ``"density"`` sums every outcome no more likely than
-        the observed one.
+        model, and ``"density"`` sums every outcome no more likely
+        than the observed one.
 
     mid_p : :class:`bool`, ``True``
         Whether to apply the mid-p correction under the
@@ -1147,8 +1142,7 @@ def get_p_values(obs_counts: pd.Series,
         # If no cap on the memory used was passed
         if max_elements is None:
 
-            # Set the default cap for the device (smaller on a CPU,
-            # whose RAM several processes may share).
+            # Set the default cap for the device (smaller on a CPU).
             max_elements = \
                 2**26 if torch.device(device).type != "cpu" else 2**22
 
@@ -1381,8 +1375,7 @@ def get_log2_fold_changes(obs_counts: pd.Series,
 
     #-----------------------------------------------------------------#
 
-    # Get the log2-fold change of each gene (the pseudocount avoids
-    # dividing by zero).
+    # Get the log2-fold change of each gene.
     log2_fold_changes = \
         np.log2((obs_counts + pseudocount) / \
                 (pred_means + pseudocount))

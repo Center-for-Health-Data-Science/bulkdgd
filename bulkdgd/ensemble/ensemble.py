@@ -49,8 +49,6 @@ import zipfile
 
 # Import from third-party libraries.
 import pandas as pd
-
-# Import from the package.
 import torch
 import yaml
 
@@ -94,7 +92,7 @@ def _get_genes_called(item: tuple) -> tuple:
         of the models has no results for the sample.
     """
 
-    # Unpack the item (a single tuple, for the worker pool).
+    # Unpack the item.
     sample, group, dea_dirs, prefix, usecols, q_val, log2_fold_change \
         = item
 
@@ -263,10 +261,9 @@ class BulkDGDEnsemble:
 
             # Raise an error.
             errstr = \
-                "'config_model' and 'config_ensemble' describe the " \
-                "ensemble together and must be given together. Give " \
-                "neither to use the ensemble that ships with the " \
-                "package."
+                "'config_model' and 'config_ensemble' must be given " \
+                "together. Give neither to use the ensemble that " \
+                "ships with the package."
             raise ValueError(errstr)
 
         #-------------------------------------------------------------#
@@ -296,8 +293,7 @@ class BulkDGDEnsemble:
 
         #-------------------------------------------------------------#
 
-        # If the model's configuration sets the mixture's own seed,
-        # which every member would share
+        # If the model's configuration sets the mixture's own seed
         if self._config_model.get(
                 "latent_options", {}).get("random_state") is not None:
 
@@ -305,10 +301,8 @@ class BulkDGDEnsemble:
             logger.warning(
                 "The model's configuration sets "
                 "'latent_options.random_state', which every member of "
-                "the ensemble is built with. The members will be less "
-                "different from each other than their seeds suggest. "
-                "When it is unset, each member's own seed also seeds "
-                "the mixture.")
+                "the ensemble shares. Unset it to seed each member's "
+                "mixture with the member's own seed.")
 
 
     @staticmethod
@@ -436,10 +430,8 @@ class BulkDGDEnsemble:
                 # Raise an error.
                 raise ValueError(
                     f"The members '{seeds_found[seed]}' and "
-                    f"'{name}' have the same seed ({seed}). The "
-                    "members of an ensemble differ in the seed they "
-                    "are trained with, so each seed may appear only "
-                    "once.")
+                    f"'{name}' have the same seed ({seed}). Each seed "
+                    "may appear only once.")
 
             # Record which member had the seed.
             seeds_found[seed] = name
@@ -592,8 +584,7 @@ class BulkDGDEnsemble:
         raise ValueError(
             "The configuration of the ensemble cannot be changed "
             "after the ensemble is initialized. Pass a different "
-            "configuration to the method you are calling to write "
-            "its results elsewhere.")
+            "configuration to the method you are calling instead.")
 
 
     #-----------------------------------------------------------------#
@@ -684,9 +675,7 @@ class BulkDGDEnsemble:
                 "members than the ensemble's own "
                 f"({', '.join(sorted(config_ensemble.keys()))} "
                 f"against {', '.join(sorted(self.names))}). It may "
-                "point the ensemble's members at different "
-                "directories, but it may not change which members "
-                "there are.")
+                "change the members' directories, not the members.")
 
         #-------------------------------------------------------------#
 
@@ -945,8 +934,7 @@ class BulkDGDEnsemble:
             yaml.safe_dump(
                 {"seeds" : seeds,
                  "dtype" : self._config_model.get("dtype"),
-                 # Cast the versions to strings, since 'yaml.safe_dump'
-                 # cannot represent a 'TorchVersion'.
+                 # Set the versions, as strings for 'yaml.safe_dump'.
                  "bulkdgd_version" : str(bulkdgd.__version__),
                  "torch_version" : str(torch.__version__),
                  # The mixture's own seed, shared by every member.
@@ -1271,7 +1259,7 @@ class BulkDGDEnsemble:
             os.makedirs(options["model_dir"], exist_ok = True)
 
             # Seed everything with the member's seed, before the model
-            # is built, since building it is random.
+            # is built.
             seeds = \
                 set_seeds(
                     seed = options["seed"],
@@ -1779,8 +1767,7 @@ class BulkDGDEnsemble:
             # Get the genes the model predicts for.
             genes = list(df_pred_means.columns)
 
-            # Get the genes the samples have no counts for (often
-            # because the counts' gene names carry versions).
+            # Get the genes the samples have no counts for.
             genes_missing = \
                 [gene for gene in genes
                  if gene not in df_samples.columns]
@@ -1902,8 +1889,7 @@ class BulkDGDEnsemble:
 
         #-------------------------------------------------------------#
 
-        # Define what it means for a member to be already done (never,
-        # the samples being resumed one by one).
+        # Define what it means for a member to be already done (never).
         def get_outputs_done(name,
                              options):
             """Get a member's outputs, if it is already done.
@@ -2534,10 +2520,8 @@ class BulkDGDEnsemble:
             # Raise an error.
             raise FileNotFoundError(
                 "These members have no differential expression "
-                f"analysis' results: {'; '.join(dirs_missing)}. A "
-                "gene's tier is how many of the ensemble's models "
-                "agree on it, so it can only be computed with every "
-                "member's results.")
+                f"analysis' results: {'; '.join(dirs_missing)}. The "
+                "consensus needs the results of every member.")
 
         #-------------------------------------------------------------#
 

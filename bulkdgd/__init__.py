@@ -29,8 +29,7 @@ import importlib.metadata as _importlib_metadata
 # Import everything from the 'defaults' module.
 from .defaults import *
 
-# Import the functions to seed the generators (called before a model
-# is built).
+# Import the functions to seed the generators.
 from .reproducibility import set_seeds, get_seeds_state
 
 

@@ -241,8 +241,8 @@ def get_gene_sums(project_name: str,
             "The RNA-seq data will be read from this file."
         logger.info(infostr)
 
-        # Read the file content into a data frame and transpose it so
-        # that the samples represent the rows.
+        # Read the file content into a data frame, with the samples as
+        # rows.
         df_gene_sums = pd.read_csv(f_gene_sums_path,
                                    sep = "\t",
                                    skiprows = 2,
@@ -461,11 +461,9 @@ def get_metadata(project_name: str,
 
     Notes
     -----
-    The ``"recount3_project_name"`` and the
-    ``"recount3_samples_category"`` columns are automatically added to
-    the metadata returned by the function and contain the
-    ``project_name`` and ``samples_category`` of the samples,
-    respectively.
+    The returned metadata also have the ``"recount3_project_name"``
+    and ``"recount3_samples_category"`` columns, containing
+    ``project_name`` and ``samples_category``.
     """
 
     # Set the name of the file that will contain the metadata.

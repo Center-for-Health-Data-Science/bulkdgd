@@ -945,8 +945,8 @@ class OutputModuleNB(OutputModuleBase):
                 r = torch.clamp(r,
                                 min = switch))
 
-        # Return the log-probability mass, from the expansion above
-        # the switch.
+        # Return the log-probability mass for the negative binomial
+        # distributions, from the expansion above the switch.
         return torch.where(large,
                            x_large,
                            x)
@@ -1004,8 +1004,7 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
                          activation = activation,
                          eps = eps)
 
-        # Initialize the value of the log of r. Real-valued positive
-        # parameters are usually used as their log equivalent.
+        # Initialize the value of the log of r.
         self._log_r = \
             self._get_log_r(r_init = r_init,
                             output_dim = output_dim)
@@ -1616,8 +1615,7 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
                 [math.log1p(-contamination) - nll,
                  math.log(contamination) - nll_outlier])
 
-        # Return -log[(1-eps) * NB(r) + eps * NB(r_outlier)], using
-        # 'logsumexp' to survive underflow in the first component.
+        # Return -log[(1-eps) * NB(r) + eps * NB(r_outlier)].
         return - torch.logsumexp(log_weights, dim = 0)
 
 

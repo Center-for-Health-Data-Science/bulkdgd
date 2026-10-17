@@ -12,11 +12,5 @@ n_components: 2
 #
 # Type: str.
 #
-# Options:
-# - 'linear'
-# - 'poly'
-# - 'rbf’
-# - 'sigmoid’
-# - ‘cosine’
-# - ‘precomputed’
+# Options: 'linear', 'poly', 'rbf', 'sigmoid', 'cosine', 'precomputed'.
 kernel: rbf

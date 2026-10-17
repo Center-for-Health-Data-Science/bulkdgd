@@ -94,12 +94,8 @@ def main() -> None:
 
     # Set a help message.
     is_help = \
-        "The category of samples for which RNA-seq data will be " \
-        "retrieved. For GTEx data, this is the name of the tissue " \
-        "the samples belong to. " \
-        "For TCGA data, this is the type of cancer the samples are " \
-        "associated with. " \
-        "For SRA data, this is the code associated with the project."
+        "The category of samples to retrieve: the tissue for GTEx, " \
+        "the cancer type for TCGA or the project code for SRA."
 
     # Add the argument to the group.
     input_group.add_argument("-is", "--input-samples-category",
@@ -113,8 +109,7 @@ def main() -> None:
 
     # Set a help message.
     os_help = \
-        "The name of the output CSV file containing the data frame " \
-        "with the RNA-seq data for the samples. The file will be " \
+        "The output CSV file with the RNA-seq data for the samples, " \
         "written in the working directory. The default file name is " \
         f"'{os_default}'."
 
@@ -126,10 +121,9 @@ def main() -> None:
 
     # Set a help message.
     sg_help = \
-        """Save the original GZ file containing the RNA-seq data for
-        the samples. The file will be saved in the working directory
-        and named '{input_project_name}_""" \
-        "{input_samples_category}_gene_sums.gz'."
+        "Save the original GZ file with the RNA-seq data for the " \
+        "samples in the working directory, as " \
+        "'{input_project_name}_{input_samples_category}_gene_sums.gz'."
 
     # Add the argument to the group.
     output_group.add_argument("-sg", "--save-gene-sums",
@@ -140,10 +134,9 @@ def main() -> None:
 
     # Set the help message.
     sq_help = \
-        """Save the original GZ file containing the quality control
-        metrics for the samples. The file will be saved in the working
-        directory and named '{input_project_name}_""" \
-        "{input_samples_category}_qc.gz'."
+        "Save the original GZ file with the quality control metrics " \
+        "for the samples in the working directory, as " \
+        "'{input_project_name}_{input_samples_category}_qc.gz'."
 
     # Add the argument to the group.
     output_group.add_argument("-sq", "--save-qc",
@@ -154,10 +147,9 @@ def main() -> None:
 
     # Set a help message.
     sm_help = \
-        """Save the original GZ file containing the metadata for the
-        samples. The file will be saved in the working directory and
-        named '{input_project_name}_""" \
-        "{input_samples_category}_metadata.gz'."
+        "Save the original GZ file with the metadata for the samples " \
+        "in the working directory, as " \
+        "'{input_project_name}_{input_samples_category}_metadata.gz'."
 
     # Add the argument to the group.
     output_group.add_argument("-sm", "--save-metadata",

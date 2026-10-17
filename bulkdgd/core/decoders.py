@@ -241,7 +241,7 @@ class Decoder(nn.Module):
         # For each linear module
         for n_module in range(n_modules):
 
-            # If we are at the first module
+            # If it is the first module
             if n_module == 0:
 
                 # The number of input units will be the number of

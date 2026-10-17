@@ -125,39 +125,20 @@ def get_residuals(obs_counts: pd.Series,
     Parameters
     ----------
     obs_counts : :class:`pandas.Series`
-        The observed gene counts in a single sample.
-
-        This is a series whose index contains either the genes'
-        Ensembl IDs or names of fields containing additional
-        information about the sample.
+        Observed gene counts in a single sample, indexed by Ensembl ID
+        or metadata field.
 
     pred_means : :class:`pandas.Series`
-        The predicted means of the distributions modelling
-        the genes' counts in a single sample.
-
-        This is a series whose index contains either the genes'
-        Ensembl IDs or names of fields containing additional
-        information about the sample.
-
-        These are the scaled means the model outputs.
+        Predicted scaled means of the genes' count distributions, as
+        the model outputs them, indexed like ``obs_counts``.
 
     r_values : :class:`pandas.Series`, optional
-        The predicted r-values of the negative binomial distributions
-        modelling the genes' counts in a single sample, if the genes'
-        counts were modelled using negative binomial distributions.
-
-        This is a series whose index contains either the genes'
-        Ensembl IDs or names of fields containing additional
-        information about the sample.
-
-        If ``r_values`` is not provided, it is assumed that the genes'
-        counts were modelled using Poisson distributions.
+        Predicted r-values of the negative binomial distributions;
+        if omitted, the counts are taken to be Poisson-distributed.
 
     sample_name : :class:`str`, optional
-        The name of the sample under consideration. It is used as
-        name for the :class:`pandas.Series` returned.
-
-        If not passed, the series will be unnamed.
+        The name of the sample, used as the name of the series
+        returned. If not passed, the series is unnamed.
 
     scaling_factor : :class:`str`, {``"mean"``, ``"median"``}, \
         ``"mean"``
@@ -233,7 +214,7 @@ def get_residuals(obs_counts: pd.Series,
             r_value_gene_i = r_values[i]
 
             # Get the probability 'q' of a failure from the mean 'm'
-            # and the r-value: m = r*q/(1-q), so q = m/(m+r).
+            # and the r-value: q = m/(m+r).
             p_i = pred_mean_gene_i / \
                   (pred_mean_gene_i + r_value_gene_i)
 
@@ -327,7 +308,7 @@ def get_residuals_df(df_obs_counts: pd.DataFrame,
     clip : :class:`float`, ``0.0``
         How far from 0 and 1 to clip the CDF values before taking the
         inverse normal. With ``0.0``, CDF values of 0 or 1 give
-        infinite residuals; with ``1e-12``, residuals of about 7.
+        infinite residuals.
 
     scaling_factor : :class:`str`, {``"mean"``, ``"median"``}, \
         ``"mean"``

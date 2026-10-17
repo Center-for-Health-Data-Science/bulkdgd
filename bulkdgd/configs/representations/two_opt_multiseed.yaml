@@ -9,42 +9,18 @@
 #
 # Type: str.
 #
-# Options:
-# - 'two_opt' for the optimization scheme with two rounds of
-#   optimization.
-# - 'two_opt_multiseed' for the same scheme run once per seed, keeping
-#   every seed's representation instead of one.
-#
-# WHAT THE SEED DOES, AND WHY RUNNING SEVERAL IS WORTH THE TIME. The
-# seed places the candidate representations drawn from the components
-# of the Gaussian mixture model, and nothing else: the two descents and
-# the selection between them are deterministic once the candidates are
-# fixed. Two seeds therefore end at two different local optima, and the
-# genes called from them differ by roughly a fifth. Neither run can say
-# which of the two is right, but the calls the seeds AGREE on are
-# measurably better than the calls only one of them makes, so the
-# agreement is worth producing deliberately.
-#
-# The outputs differ from 'two_opt': one representation per sample PER
-# SEED, and a table of losses that 'two_opt' has no counterpart for.
+# Options: 'two_opt', 'two_opt_multiseed'.
 scheme_type: two_opt_multiseed
 
 
 #######################################################################
 
 
-# Set the type of latent space.
+# Set the type of latent space. Only 'tgmm' uses the seeds.
 #
 # Type: str.
 #
-# Options:
-# - 'lgmm' for the legacy Gaussian mixture model implementation.
-# - 'tgmm' for the new Gaussian mixture model implementation.
-#
-# The seeded initialization exists only for 'tgmm'. The legacy
-# implementation places its candidates by a deterministic rule that
-# takes no seed, so every seed would return the same representation and
-# the agreement between them would measure nothing.
+# Options: 'lgmm', 'tgmm'.
 latent_type: tgmm
 
 
@@ -73,12 +49,6 @@ data_loader_options:
   # Whether to shuffle the samples.
   #
   # Type: bool.
-  #
-  # Leave this false. The losses are written one row per sample and
-  # are placed by the samples' indices, so shuffling does not corrupt
-  # them, but the seeds are compared to each other and to standalone
-  # runs, and there is no reason to introduce an ordering difference
-  # into a comparison whose whole point is that nothing else differs.
   shuffle: false
 
 
@@ -97,12 +67,7 @@ reporting_options:
       # Set the method used to normalize the loss when reporting it
       # per epoch.
       #
-      # Type: str.
-      #
-      # Options:
-      # - 'none' means that the loss will not be normalized.
-      # - 'n_samples' means that the loss will be normalized by the
-      #   number of samples.
+      # Type: str. Options: 'none', 'n_samples'.
       norm_type: n_samples
 
     #-----------------------------------------------------------------#
@@ -129,16 +94,9 @@ reporting_options:
 scheme_options:
 
   # Set how the loss is reduced over the candidates when it is
-  # backpropagated.
+  # backpropagated. Keep 'sum' for this scheme.
   #
   # Type: str. Options: 'mean', 'sum'.
-  #
-  # LEAVE THIS AS 'sum' FOR THIS SCHEME. Under 'sum' the gradient of a
-  # candidate is its own and does not depend on how many candidates
-  # share the tensor, which is what makes a seed's run here identical
-  # to the same seed run on its own. Under 'mean' every gradient is
-  # divided by the number of candidates, and the comparison this scheme
-  # exists to make would no longer be against anything.
   loss_reduction_type: sum
 
   #-------------------------------------------------------------------#
@@ -146,25 +104,14 @@ scheme_options:
   # Set how the candidate representations are placed.
   initialization:
 
-    # Every seed is independently keyed by sample ID. Reordering,
-    # subsetting or rechunking the input therefore cannot change a
-    # sample's candidates for any seed.
+    # Key every seed's draws by sample ID, independently of input
+    # ordering, subsetting and chunking.
     mode: sample_keyed
 
-    # The seeds to run, one representation per sample coming back from
-    # each.
+    # The distinct seeds to run, one representation per sample coming
+    # back from each.
     #
     # Type: list of int.
-    #
-    # They must be distinct: two runs from one seed give the same
-    # representation, and their agreement measures nothing. The scheme
-    # refuses a repeated seed rather than reporting a perfect agreement
-    # that is an artefact of the configuration.
-    #
-    # Each seed is run at the same tensor shape a standalone run uses,
-    # in sequence, so that reproducing a standalone run is a property
-    # of the arithmetic and not a hope about which kernel the linear
-    # algebra library picks for a larger multiply.
     seeds: [7, 13, 42]
 
   #-------------------------------------------------------------------#
@@ -178,12 +125,6 @@ scheme_options:
     epochs: 10
 
     # Set the optimizer.
-    #
-    # NOTE the flat layout. '_get_representations_two_opt' reads
-    # 'optimizer_type' and 'optimizer_options' directly under the
-    # round, not nested inside an 'optimizer' block. The shipped
-    # 'two_opt.yaml' nests them, which is why loading it warns that
-    # 'optimizer_type' was not found and falls back to the default.
     #
     # Type: str. Options: 'adam', 'adamw'.
     optimizer_type: adamw
@@ -213,12 +154,6 @@ scheme_options:
     epochs: 50
 
     # Set the optimizer.
-    #
-    # NOTE the flat layout. '_get_representations_two_opt' reads
-    # 'optimizer_type' and 'optimizer_options' directly under the
-    # round, not nested inside an 'optimizer' block. The shipped
-    # 'two_opt.yaml' nests them, which is why loading it warns that
-    # 'optimizer_type' was not found and falls back to the default.
     #
     # Type: str. Options: 'adam', 'adamw'.
     optimizer_type: adamw

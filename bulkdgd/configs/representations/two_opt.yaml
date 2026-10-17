@@ -1,15 +1,5 @@
 # Configuration file specifying the options to get the representations
 # with two rounds of optimization.
-#
-# The optimization scheme and numerical options below are those used
-# for the published results. New runs use sample-keyed initialization
-# so that a sample is invariant to its row, neighbours and chunk. A
-# historical run must say 'mode: legacy_positional' explicitly; the
-# paper's archived run configurations do so.
-#
-# 'two_opt_noisy.yaml' is this file plus the perturbation training
-# applies to its own representations. It is a variant and not the
-# default: see that file for why.
 
 
 #######################################################################
@@ -19,16 +9,7 @@
 #
 # Type: str.
 #
-# Options:
-# - 'two_opt' for the optimization scheme with two rounds of
-#   optimization.
-# - 'two_opt_multiseed' for the same scheme run once per seed, keeping
-#   every seed's representation instead of one.
-#
-# 'two_opt' draws candidate representations from every component of the
-# mixture, optimizes all of them, keeps the best one per sample, and
-# optimizes those further. A 'one_opt' scheme, with a single round of
-# optimization and no selection step between rounds, was retired.
+# Options: 'two_opt', 'two_opt_multiseed'.
 scheme_type: two_opt
 
 
@@ -39,13 +20,7 @@ scheme_type: two_opt
 #
 # Type: str.
 #
-# Options:
-# - 'lgmm' for the legacy Gaussian mixture model implementation.
-# - 'tgmm' for the new Gaussian mixture model implementation.
-#
-# It must be the latent space the model actually has. The shipped
-# model's is 'tgmm'; 'lgmm' is kept for models trained before it
-# existed.
+# Options: 'lgmm', 'tgmm'.
 latent_type: tgmm
 
 
@@ -56,10 +31,6 @@ latent_type: tgmm
 # of the Gaussian mixture model.
 #
 # Type: int.
-#
-# One per component is already one candidate per component, and the
-# first round optimizes all of them before any is discarded, so this
-# multiplies the cost of that round directly.
 n_rep_per_comp: 1
 
 
@@ -73,23 +44,11 @@ data_loader_options:
   # Set how many samples per batch to load.
   #
   # Type: int.
-  #
-  # A batch here is not a batch of samples but a batch of samples TIMES
-  # candidates: with one candidate per component and a mixture of a few
-  # dozen components, sixteen samples are already several hundred
-  # representations being optimized at once. That is what the batch
-  # size has to be read against, and it is why it is so much smaller
-  # than a training batch.
   batch_size: 16
 
   # Whether to shuffle the samples.
   #
   # Type: bool.
-  #
-  # Leave this false. Nothing is learned across batches here - the
-  # decoder is fixed and every sample's representation is optimized
-  # independently - so shuffling buys nothing, and it is one fewer
-  # thing that differs between two runs that are meant to be compared.
   shuffle: False
 
 
@@ -115,22 +74,12 @@ reporting_options:
       # Set the method used to normalize the loss when reporting it
       # per epoch.
       #
-      # Type: str.
-      #
-      # Options:
-      # - 'none' means that the loss will not be normalized.
-      # - 'n_samples' means that the loss will be normalized by the
-      #   number of samples.
+      # Type: str. Options: 'none', 'n_samples'.
       norm_type: n_samples
 
       # Set the weight of the latent loss when reporting it.
       #
       # Type: float.
-      #
-      # This is the REPORTING weight. The weight the optimization
-      # actually uses is 'latent_loss_calculation.lambda' under
-      # 'scheme_options' below; the two are kept equal so that the loss
-      # written out is the loss that was descended.
       lambda: 1.0
 
     #-----------------------------------------------------------------#
@@ -141,12 +90,7 @@ reporting_options:
       # Set the method used to normalize the loss when reporting it
       # per epoch.
       #
-      # Type: str.
-      #
-      # Options:
-      # - 'none' means that the loss will not be normalized.
-      # - 'n_samples' means that the loss will be normalized by the
-      #   number of samples.
+      # Type: str. Options: 'none', 'n_samples'.
       norm_type: n_samples
 
     #-----------------------------------------------------------------#
@@ -157,17 +101,7 @@ reporting_options:
       # Set the method used to normalize the loss when reporting it
       # per epoch.
       #
-      # Type: str.
-      #
-      # Options:
-      # - 'none' means that the loss will not be normalized.
-      # - 'n_samples' means that the loss will be normalized by the
-      #   number of samples.
-      #
-      # Cohorts differ in size by orders of magnitude here - a few
-      # dozen samples for one disease, thousands for TCGA - so an
-      # unnormalized total says more about the cohort's size than about
-      # how well the model reached it.
+      # Type: str. Options: 'none', 'n_samples'.
       norm_type: n_samples
 
 
@@ -181,37 +115,15 @@ scheme_options:
   # backpropagated.
   #
   # Type: str. Options: 'mean', 'sum'.
-  #
-  # Under 'sum' the gradient of a candidate is its own and does not
-  # depend on how many candidates share the tensor, so a sample's
-  # representation does not depend on how many components the mixture
-  # happens to have. Under 'mean' every gradient is divided by that
-  # count instead.
   loss_reduction_type: sum
 
   #-------------------------------------------------------------------#
 
-  # Set how much of a sample the model is allowed to give up on, and
-  # the r-value of the outlier component that lets it.
+  # Set how much of a sample the model may give up on, and the
+  # outlier r-value. Uncomment for a non-healthy cohort.
   #
   # Type: float in [0, 1), and a positive float.
-  #
-  # Zero - the plain negative binomial, which is what training uses -
-  # unless set. A small value mixes in a heavy-tailed component, which
-  # bounds what a gene the model cannot reach may do to the
-  # representation.
-  #
-  # THIS IS THE ONE OPTION THAT CHANGED BETWEEN COHORTS. Healthy tissue
-  # was represented with the plain negative binomial, as here: the
-  # model was trained on healthy tissue and there is nothing it should
-  # be excused from reaching. Tumours and disease cohorts were
-  # represented with the contamination uncommented below, because there
-  # the genes the model cannot reach ARE the signal, and letting them
-  # drag the representation towards whatever component tolerates them
-  # loses exactly what the sample was being asked about.
-  #
-  # Uncomment for a non-healthy cohort.
-  #
+
   #contamination: 0.001
   #contamination_r: 0.05
 
@@ -224,13 +136,6 @@ scheme_options:
     # loss.
     #
     # Type: float.
-    #
-    # One, which is the weight training itself used. The latent loss is
-    # what keeps a representation somewhere the mixture considers
-    # plausible; weighting it differently here than in training would
-    # place a new sample's representation under a different prior than
-    # the training samples' were placed under, and the two sets would
-    # no longer be comparable.
     lambda: 1.0
 
   #-------------------------------------------------------------------#
@@ -238,26 +143,13 @@ scheme_options:
   # Set how the candidate representations are placed.
   initialization:
 
-    # Derive a separate random stream from the seed and sample ID.
-    # This is the default for new configurations and makes the result
-    # independent of input ordering, subsetting and chunking.
+    # Derive a separate random stream from the seed and sample ID,
+    # independently of input ordering, subsetting and chunking.
     mode: sample_keyed
 
     # The seed of the draw that places the candidates.
     #
     # Type: int.
-    #
-    # WITHOUT A SEED THE SEARCH IS NOT REPRODUCIBLE. Each candidate is
-    # drawn from its component's Gaussian, and in a latent space of
-    # this many dimensions that does not put it near the component's
-    # mean - it lands on a shell about 'sqrt(latent_dim)' standard
-    # deviations out. Two unseeded runs on the same samples with the
-    # same model therefore start from different points and do not end
-    # at the same representations.
-    #
-    # Nothing distinguishes seven from any other seed; it is fixed so
-    # that two runs meant to differ in one thing differ in that one
-    # thing.
     seed: 7
 
   #-------------------------------------------------------------------#
@@ -268,22 +160,10 @@ scheme_options:
     # Set the number of epochs the optimization should be run for.
     #
     # Type: int.
-    #
-    # This round optimizes every candidate of every sample, and its
-    # only job is to make the selection between them meaningful: a
-    # candidate that is behind because it started further away has to
-    # be given enough steps to catch up, or the selection picks the
-    # luckiest initialization rather than the best component.
     epochs: 300
 
-    # Set the type of noise to inject into the representations while
-    # they are being optimized, and the options for that noise.
-    #
-    # OFF, and that is the published setting. The decoder is fixed when
-    # representations are found and a representation is an inference
-    # about a sample, so the search is run without perturbation. See
-    # 'two_opt_noisy.yaml' for the variant that turns it on, and for
-    # what it is for.
+    # Set the type of noise to inject into the representations, and
+    # its options. Off here; 'two_opt_noisy.yaml' turns it on.
     #
     # Type: str. Options: 'gaussian', 'none'.
     #noise_type: gaussian
@@ -295,8 +175,7 @@ scheme_options:
     #  start: 1.0
     #  end: 0.01
     #  # The probability defining the hypersphere the noise is
-    #  # normalized against, so that a scale means the same thing
-    #  # whatever the dimensionality of the latent space.
+    #  # normalized against.
     #  within_radius_prob: 0.95
     #  # A final multiplier on the noise.
     #  gain: 4.0
@@ -305,15 +184,7 @@ scheme_options:
     #
     # Type: str.
     #
-    # Options:
-    # - 'adam' for the Adam optimizer.
-    # - 'adamw' for the AdamW optimizer.
-    # - 'lbfgs' for the L-BFGS optimizer.
-    #
-    # NOTE the flat layout: the scheme reads 'optimizer_type' and
-    # 'optimizer_options' directly under the round, NOT nested inside
-    # an 'optimizer' block. A configuration that nests them loads with
-    # a warning and then silently runs the template's defaults.
+    # Options: 'adam', 'adamw', 'lbfgs'.
     optimizer_type: adamw
 
     # Set the options for the optimizer.
@@ -327,10 +198,6 @@ scheme_options:
       # Set the weight decay.
       #
       # Type: float.
-      #
-      # Zero. Decaying a representation shrinks it towards the origin
-      # of the latent space, which is a statement about where the
-      # sample belongs and not a regularizer.
       weight_decay: 0.0
 
       # Set the betas.
@@ -346,18 +213,10 @@ scheme_options:
     # Set the number of epochs the optimization should be run for.
     #
     # Type: int.
-    #
-    # Longer than the first round, because this is the round whose
-    # answer is kept. The first only has to rank the candidates; this
-    # one has to converge the winner, and it is optimizing one
-    # representation per sample instead of one per component per
-    # sample, so the extra epochs cost a fraction of what they would
-    # have cost above.
     epochs: 500
 
-    # Set the noise for this round, independently of the first. See
-    # 'optimization_1' above for what the options mean, and
-    # 'two_opt_noisy.yaml' for the variant that enables them. Off here.
+    # Set the noise for this round (options as in 'optimization_1').
+    # Off here; 'two_opt_noisy.yaml' turns it on.
     #
     # Type: str. Options: 'gaussian', 'none'.
     #noise_type: gaussian
@@ -372,12 +231,7 @@ scheme_options:
     #
     # Type: str.
     #
-    # Options:
-    # - 'adam' for the Adam optimizer.
-    # - 'adamw' for the AdamW optimizer.
-    # - 'lbfgs' for the L-BFGS optimizer.
-    #
-    # NOTE the flat layout, as in the first round.
+    # Options: 'adam', 'adamw', 'lbfgs'.
     optimizer_type: adamw
 
     # Set the options for the optimizer.
@@ -386,11 +240,6 @@ scheme_options:
       # Set the learning rate.
       #
       # Type: float.
-      #
-      # The same rate as the first round, and not a smaller one: the
-      # candidate that won was selected on its loss after three hundred
-      # epochs at this rate, so dropping the rate here would refine it
-      # under different conditions than it was chosen under.
       lr: 0.01
 
       # Set the weight decay.

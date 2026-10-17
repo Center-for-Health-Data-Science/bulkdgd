@@ -74,11 +74,9 @@ def load_representations(
         The column separator in the input CSV file.
 
     split : :class:`bool`, ``False``
-        Whether to split the input data frame into two data frames,
-        one with only the columns with the representations' values
-        along the latent space's dimensions, and the other containing
-        only the columns with additional information about the
-        representations, if any were found.
+        Whether to split the input data frame into one data frame
+        with the representations' values along the latent space's
+        dimensions and one with the additional information, if any.
 
     Returns
     -------
@@ -86,21 +84,12 @@ def load_representations(
         A data frame containing the representations' values along the
         latent space's dimensions.
 
-        Here, each row contains a representation and the columns
-        contain the representation's values along the latent space's
-        dimensions.
-
-        If ``split`` is ``False``, this data frame will also contain
-        the columns with additional information about the
-        representations, if any were found.
+        If ``split`` is ``False``, it also contains the columns with
+        additional information, if any.
 
     df_other_data : :class:`pandas.DataFrame`
         A data frame containing the additional information about
         the representations found in the input data frame.
-
-        Here, each row contains a representation and the columns
-        contain additional information about the representation
-        provided in the input data frame.
 
         If ``split`` is ``False``, only ``df_data`` is returned.
     """
@@ -152,10 +141,8 @@ def load_representations(
             # Inform the user of the other columns found.
             infostr = \
                 f"{len(other_columns)} column(s) containing " \
-                "additional information (not values of the " \
-                "representations along the latent space's " \
-                "dimensions) was (were) found in the input data " \
-                f"frame: {', '.join(other_columns)}."
+                "additional information was (were) found in the " \
+                f"input data frame: {', '.join(other_columns)}."
             logger.info(infostr)
 
         # Return a data frame with the representations' values and

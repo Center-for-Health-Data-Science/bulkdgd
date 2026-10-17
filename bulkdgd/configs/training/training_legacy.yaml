@@ -19,9 +19,7 @@ n_epochs: 200
 #
 # Type: str.
 #
-# Options:
-# - 'lgmm' for the legacy Gaussian mixture model implementation.
-# - 'tgmm' for the new Gaussian mixture model implementation.
+# Options: 'lgmm', 'tgmm'.
 latent_type: lgmm
 
 
@@ -32,9 +30,7 @@ latent_type: lgmm
 #
 # Type: str.
 #
-# Options:
-# - 'sum' computes the sum of the loss over the batch.
-# - 'mean' computes the mean of the loss over the batch.
+# Options: 'sum', 'mean'.
 loss_reduction_type: sum
 
 
@@ -87,12 +83,7 @@ reporting_options:
       # Set the method used to normalize the loss when reporting it
       # per epoch.
       #
-      # Type: str.
-      #
-      # Options:
-      # - 'none' means that the loss will not be normalized.
-      # - 'n_samples' means that the loss will be normalized by the
-      #   number of samples.
+      # Type: str. Options: 'none', 'n_samples'.
       norm_type: n_samples
 
     #-----------------------------------------------------------------#
@@ -103,12 +94,7 @@ reporting_options:
       # Set the method used to normalize the loss when reporting it
       # per epoch.
       #
-      # Type: str.
-      #
-      # Options:
-      # - 'none' means that the loss will not be normalized.
-      # - 'n_samples' means that the loss will be normalized by the
-      #   number of samples.
+      # Type: str. Options: 'none', 'n_samples'.
       norm_type: n_samples
 
     #-----------------------------------------------------------------#
@@ -119,12 +105,7 @@ reporting_options:
       # Set the method used to normalize the loss when reporting it
       # per epoch.
       #
-      # Type: str.
-      #
-      # Options:
-      # - 'none' means that the loss will not be normalized.
-      # - 'n_samples' means that the loss will be normalized by the
-      #   number of samples.
+      # Type: str. Options: 'none', 'n_samples'.
       norm_type: n_samples
 
 

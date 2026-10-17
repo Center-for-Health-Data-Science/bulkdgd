@@ -108,7 +108,7 @@ def clip_grads(optimizer: torch.optim.Optimizer,
 
     #-----------------------------------------------------------------#
 
-    # Zero out non-finite gradients, since clipping turns them into NaN.
+    # Zero out the non-finite gradients.
     for p in params:
 
         # If the parameter's gradient is not entirely finite
@@ -116,8 +116,7 @@ def clip_grads(optimizer: torch.optim.Optimizer,
 
             # Warn the user.
             logger.warning(\
-                "A non-finite gradient was produced and has been "
-                "zeroed. The step it came from is effectively skipped.")
+                "A non-finite gradient was found and zeroed.")
 
             # Zero the gradient.
             p.grad = torch.zeros_like(p.grad)
@@ -257,9 +256,8 @@ class BulkDGD(nn.Module):
 
             # Raise an error.
             errstr = \
-                "'seed' selects which shipped model to load and so " \
-                "cannot be combined with an explicit architecture. " \
-                "Pass either 'seed', or 'latent_dim', " \
+                "'seed' cannot be combined with an explicit " \
+                "architecture. Pass either 'seed', or 'latent_dim', " \
                 "'latent_options' and 'decoder_options'."
             raise ValueError(errstr)
 
@@ -282,9 +280,8 @@ class BulkDGD(nn.Module):
             # Raise an error.
             errstr = \
                 "'latent_dim', 'latent_options' and " \
-                "'decoder_options' describe the architecture and " \
-                "must be given together. Give none of them to load " \
-                "the trained model that ships with the package."
+                "'decoder_options' must be given together. Give none " \
+                "of them to load the shipped model."
             raise ValueError(errstr)
 
         #-------------------------------------------------------------#
@@ -334,8 +331,7 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Build the model in its own precision (casting it afterwards
-        # would keep the already-rounded values).
+        # Build the model in its own precision.
         with self._default_dtype(dtype):
 
             # Get the latent space.
@@ -776,8 +772,8 @@ class BulkDGD(nn.Module):
         # Raise an error.
         errstr = \
             "The value of 'genes' is set at initialization and " \
-            "cannot be changed. If you want to change the genes, " \
-            "initialize a new instance of " \
+            "cannot be changed. To change the genes, initialize a " \
+            "new instance of " \
             f"'{self.__class__.__name__}'."
         raise ValueError(errstr)
 
@@ -805,8 +801,8 @@ class BulkDGD(nn.Module):
         # Raise an error.
         err_msg = \
             "The value of 'latent' is set at initialization and " \
-            "cannot be changed. If you want to change the " \
-            "latent space, initialize a new instance of " \
+            "cannot be changed. To change the latent space, " \
+            "initialize a new instance of " \
             f"'{self.__class__.__name__}'."
         raise ValueError(err_msg)
 
@@ -872,8 +868,8 @@ class BulkDGD(nn.Module):
         # Raise an error.
         err_msg = \
             "The value of 'decoder' is set at initialization and " \
-            "cannot be changed. If you want to change the decoder, " \
-            "initialize a new instance of " \
+            "cannot be changed. To change the decoder, initialize a " \
+            "new instance of " \
             f"'{self.__class__.__name__}'."
         raise ValueError(err_msg)
 
@@ -1320,8 +1316,7 @@ class BulkDGD(nn.Module):
             noise_end = float(noise_options["end"])
             noise_gain = float(noise_options["gain"])
 
-            # Get the radius holding the given fraction of the mass,
-            # making the noise's size independent of the dimensionality.
+            # Get the radius holding the given fraction of the mass.
             noise_radius = \
                 float(chi2.ppf(
                     float(noise_options["within_radius_prob"]),
@@ -1375,8 +1370,7 @@ class BulkDGD(nn.Module):
             time_tot_bw_wall = 0.0
             rep_avg_loss_epoch = 0.0
 
-            # Define the epoch's loss computation as a closure (L-BFGS
-            # evaluates it several times per step).
+            # Define the epoch's loss computation as a closure.
             def closure():
                 """Compute the epoch's loss and its gradients.
 
@@ -1766,7 +1760,7 @@ class BulkDGD(nn.Module):
 
             #---------------------------------------------------------#
 
-            # If we reached the last epoch
+            # If it is the last epoch
             if epoch == epochs:
 
                 # Get the optimized representations.
@@ -2370,8 +2364,7 @@ class BulkDGD(nn.Module):
                 payload = \
                     f"{int(seed)}\0{sample_id}".encode("utf-8")
 
-                # Hash the payload into a fixed-size digest (Python's
-                # 'hash' is randomized between processes).
+                # Hash the payload into a fixed-size digest.
                 digest = hashlib.blake2b(
                     payload,
                     digest_size = 8,
@@ -2646,8 +2639,8 @@ class BulkDGD(nn.Module):
                         "Legacy positions must be in [0, "
                         f"{original_n_samples - 1}]; got {invalid}.")
 
-                # Cache one draw per chunk length (the seed is reset
-                # for each chunk, so equal lengths give equal draws).
+                # Cache one draw per chunk length (equal lengths give
+                # equal draws).
                 chunks_by_length = {}
 
                 # For each non-keyed sample
@@ -3290,8 +3283,7 @@ class BulkDGD(nn.Module):
         # Get the total number of samples.
         n_samples = len(dataset.samples)
 
-        # For each seed (run separately to reproduce a single-seed
-        # run)
+        # For each seed
         for seed in seeds:
 
             # Copy the configuration.
@@ -3799,8 +3791,7 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # If the best selection value is NaN or None, meaning that
-        # all candidates were invalid or no valid candidate was found
+        # If the best selection value is NaN or None
         if best_selection_value is None \
                 or np.isnan(best_selection_value):
 
@@ -3906,7 +3897,7 @@ class BulkDGD(nn.Module):
         # If all components are above threshold
         if keep_ixs.numel() == n_components_before:
 
-            # Return False, because no removal is needed.
+            # Return that no components were removed.
             return False
 
         #-------------------------------------------------------------#
@@ -3923,7 +3914,7 @@ class BulkDGD(nn.Module):
         # If the effective number of components did not change
         if n_components_after == n_components_before:
 
-            # Return False, because no removal is needed.
+            # Return that no components were removed.
             return False
 
         #-------------------------------------------------------------#
@@ -4945,8 +4936,7 @@ class BulkDGD(nn.Module):
             if test_noise_seed is None:
                 test_noise_seed = torch.initial_seed()
 
-            # Create the noise's own generator, so that the test noise
-            # leaves the training's random numbers unchanged.
+            # Create the test noise's own generator.
             test_noise_generator = \
                 torch.Generator(device = self.device)
             test_noise_generator.manual_seed(int(test_noise_seed))
@@ -4973,8 +4963,7 @@ class BulkDGD(nn.Module):
             if test_noise_seed is None:
                 test_noise_seed = torch.initial_seed()
 
-            # Create the noise's own generator, so that the test noise
-            # leaves the training's random numbers unchanged.
+            # Create the test noise's own generator.
             test_noise_generator = \
                 torch.Generator(device = self.device)
             test_noise_generator.manual_seed(int(test_noise_seed))
@@ -5075,9 +5064,8 @@ class BulkDGD(nn.Module):
                     # Raise an error.
                     errstr = \
                         "'model_selection_options' must be a " \
-                        "mapping, with a 'metric' and, optionally, " \
-                        "a 'step' - for instance " \
-                        "'{'metric' : 'bic', 'step' : 4}'. It is a " \
+                        "mapping with a 'metric' and, optionally, " \
+                        "a 'step', not a " \
                 f"'{type(latent_model_selection_options).__name__}'."
                     raise TypeError(errstr)
 
@@ -5275,7 +5263,7 @@ class BulkDGD(nn.Module):
 
                 #-----------------------------------------------------#
 
-                # If we are at the first epoch
+                # If it is the first epoch
                 if epoch == 1:
 
                     # Disable gradient computation.
@@ -5291,8 +5279,7 @@ class BulkDGD(nn.Module):
 
                 #-----------------------------------------------------#
 
-                # If we are at or after the first epoch where the GMM
-                # should be fitted
+                # If the GMM should be fitted at this epoch
                 elif epoch >= latent_first_epoch:
 
                     # Disable gradient computation.
@@ -5304,15 +5291,15 @@ class BulkDGD(nn.Module):
                             (latent_refit_interval \
                                 and epoch % latent_refit_interval == 0)
 
-                        # If we are at the first epoch where the GMM
-                        # should be fitted
+                        # If it is the first epoch where the GMM should
+                        # be fitted
                         if epoch == latent_first_epoch:
 
                             # Use the configured number of iterations
                             # for the first epoch.
                             max_iter = latent_max_iter_first_epoch
 
-                        # If we are at a full refit epoch
+                        # If it is a full refit epoch
                         elif is_full_refit_epoch:
 
                             # Use the configured number of iterations
@@ -5382,8 +5369,8 @@ class BulkDGD(nn.Module):
 
                     #-------------------------------------------------#
 
-                    # If early stopping is enabled and we are at the
-                    # first epoch after which the GMM is fitted
+                    # If early stopping is enabled and this is the first
+                    # epoch after which the GMM is fitted
                     if early_stopping_type == "loss" \
                         and epoch == latent_first_epoch:
 
@@ -5643,8 +5630,7 @@ class BulkDGD(nn.Module):
                 elif isinstance(self.latent,
                                 latents.GaussianMixtureModelTGMM):
 
-                    # If we are at any epoch after the
-                    # Gaussian mixture model was fitted
+                    # If the Gaussian mixture model has been fitted
                     if epoch >= latent_first_epoch:
 
                         # If the loss reduction type is 'sum'
@@ -5744,8 +5730,7 @@ class BulkDGD(nn.Module):
                 elif isinstance(self.latent,
                                 latents.GaussianMixtureModelTGMM):
 
-                    # If we are at any epoch after the Gaussian mixture
-                    # model was fitted
+                    # If the Gaussian mixture model has been fitted
                     if epoch >= latent_first_epoch:
 
                         # Get the overall loss (reconstruction loss plus
@@ -5874,8 +5859,7 @@ class BulkDGD(nn.Module):
                 elif isinstance(self.latent,
                                 latents.GaussianMixtureModelTGMM):
 
-                    # If we are at any epoch after the Gaussian mixture
-                    # model was fitted
+                    # If the Gaussian mixture model has been fitted
                     if epoch >= latent_first_epoch:
 
                         # Update the losses list.
@@ -6023,9 +6007,8 @@ class BulkDGD(nn.Module):
                                 rep_group["lr"] / \
                                     (v_hat.sqrt() + rep_group["eps"])
 
-                            # Draw the noise from its own generator,
-                            # with a variance of twice the step size
-                            # times the temperature.
+                            # Draw the noise, with a variance of twice
+                            # the step size times the temperature.
                             test_noise = \
                                 torch.randn(z.shape,
                                             generator = \
@@ -6067,8 +6050,7 @@ class BulkDGD(nn.Module):
                 elif isinstance(self.latent,
                                 latents.GaussianMixtureModelTGMM):
 
-                    # If we are at any epoch after the Gaussian mixture
-                    # model was fitted
+                    # If the Gaussian mixture model has been fitted
                     if epoch >= latent_first_epoch:
 
                         # If the loss reduction type is 'sum'
@@ -6168,8 +6150,7 @@ class BulkDGD(nn.Module):
                 elif isinstance(self.latent,
                                 latents.GaussianMixtureModelTGMM):
 
-                    # If we are at any epoch after the Gaussian mixture
-                    # model was fitted
+                    # If the Gaussian mixture model has been fitted
                     if epoch >= latent_first_epoch:
 
                         # Get the overall loss (reconstruction loss plus
@@ -6253,8 +6234,7 @@ class BulkDGD(nn.Module):
                 elif isinstance(self.latent,
                                 latents.GaussianMixtureModelTGMM):
 
-                    # If we are at any epoch after the Gaussian mixture
-                    # model was fitted
+                    # If the Gaussian mixture model has been fitted
                     if epoch >= latent_first_epoch:
 
                         # Update the losses list.
@@ -7035,8 +7015,7 @@ class BulkDGD(nn.Module):
         # Get whether to pad the samples out to whole batches.
         use_padding = config_rep.get("use_batch_size_padding", True)
 
-        # Get how many samples are missing from the last batch (GPU
-        # results depend on the batch shape).
+        # Get how many samples are missing from the last batch.
         n_padding = \
             -len(df_samples) % batch_size \
             if use_padding and batch_size else 0
@@ -7305,19 +7284,16 @@ class BulkDGD(nn.Module):
             The representations found from the measured genes.
         """
 
-        # If the model is median-scaled and was given a panel (whose
-        # median, unlike a random subset's, is biased)
+        # If the model is median-scaled and was given a panel
         if self._scaling_factor == "median" \
            and genes_measured is not None:
 
             # Raise an error.
             raise NotImplementedError(
-                "Imputation from a fixed panel of measured genes is "
-                "only implemented for a model whose scaling factor is "
-                "the mean, and this one's is the "
-                f"'{self._scaling_factor}'. Mask genes at random - "
-                "pass the unmeasured counts as NaN and leave "
-                "'genes_measured' unset - or use a mean-scaled model.")
+                "Imputation from a panel of measured genes needs a "
+                "mean-scaled model, and this one's scaling factor is "
+                f"the '{self._scaling_factor}'. Pass the unmeasured "
+                "counts as NaN and leave 'genes_measured' unset.")
 
         #-------------------------------------------------------------#
 
@@ -7345,8 +7321,7 @@ class BulkDGD(nn.Module):
 
             # Raise an error.
             raise ValueError(
-                "At least one sample has no measured gene at all. "
-                "There is nothing to find a representation from.")
+                "At least one sample has no measured gene.")
 
         # Get the number of measured genes per sample.
         n_measured = measured.sum(axis = 1)
@@ -7359,8 +7334,7 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Fill the unmeasured genes with zeros (masked out of the loss,
-        # while NaNs would still turn the loss into NaN).
+        # Fill the unmeasured genes with zeros (masked out of the loss).
         df_filled = df.fillna(0.0)
 
         # Build the genes mask tensor.
@@ -7570,8 +7544,7 @@ class BulkDGD(nn.Module):
             sub_df = \
                 df_prob_rep.loc[df_prob_rep[MAX_PROB_COMP_COL] == comp]
 
-            # Get the sample with maximum probability for the
-            # component ('idxmax()' does not preserve the values).
+            # Get the sample with maximum probability for the component.
             max_for_comp = \
                 sub_df.loc[sub_df[MAX_PROB_COL] == \
                            sub_df[MAX_PROB_COL].max()].copy()
@@ -8553,13 +8526,9 @@ class BulkDGD(nn.Module):
 
             # Raise an error.
             errstr = \
-                "This model was built from trained parameters, and " \
-                "training it would move it away from them. To " \
-                "continue training it, set 'continue_training: " \
-                "true' at the top level of the training " \
-                "configuration. To train a new model instead, build " \
-                "one from an architecture rather than from a " \
-                "checkpoint."
+                "This model was built from trained parameters. To " \
+                "train it further, set 'continue_training: true' at " \
+                "the top level of the training configuration."
             raise RuntimeError(errstr)
 
         #-------------------------------------------------------------#
@@ -8622,8 +8591,7 @@ class BulkDGD(nn.Module):
                 The representation layer.
             """
 
-            # Get the model's precision (the samplers would otherwise
-            # use torch's default data type).
+            # Get the model's precision.
             dtype = self._DTYPES_TORCH[self._dtype]
 
             # If no distribution was given

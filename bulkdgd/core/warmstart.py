@@ -21,11 +21,9 @@
 #    License along with this program. If not, see
 #    <http://www.gnu.org/licenses/>.
 
-"""A ridge predictor from counts to representations, used to seed the
-representation search.
-
-The prediction is one extra starting candidate, taking the slot of one
-mixture draw; it does not enter the model, the objective, or training.
+"""A ridge predictor from counts to representations, giving the
+representation search one extra starting candidate (in the slot of one
+mixture draw). It does not enter the model, the objective, or training.
 """
 
 
@@ -200,9 +198,8 @@ class RidgeWarmStart:
 
             # Raise an error.
             errstr = \
-                "The ridge warm start needs at least 2 held-out " \
-                "samples to choose the ridge parameter, so at least " \
-                "8 samples and an 'n_val' of at least 2. It got " \
+                "The ridge warm start needs at least 8 samples and " \
+                "an 'n_val' of at least 2, but got " \
                 f"{len(X)} sample(s), leaving {n_val} held out."
             raise ValueError(errstr)
 
@@ -215,8 +212,7 @@ class RidgeWarmStart:
         # For each ridge parameter
         for lam in lambdas:
 
-            # Solve the ridge in sample space, where the Gram matrix
-            # is smaller than in gene space.
+            # Solve the ridge in sample space.
             G = X[tr] @ X[tr].T
             A = G + lam * torch.eye(len(tr), dtype = torch.float64)
             alpha = torch.linalg.solve(A, Y[tr])
@@ -407,8 +403,7 @@ def fit_from_model_dir(model_dir,
     if len(common) == 0:
         raise ValueError(
             "No sample is shared between the model's training "
-            "representations and the counts file, so the warm start "
-            "cannot be fitted.")
+            "representations and the counts file.")
 
     # Inform the user about the samples used.
     logger.info(

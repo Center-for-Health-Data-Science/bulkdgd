@@ -377,8 +377,7 @@ def recursive_add_items(d: dict[str, object],
                 # Raise an error.
                 errstr = \
                     "It was not possible to traverse into key " \
-                    f"'{key}' because the associated value is not " \
-                    "a dictionary."
+                    f"'{key}', whose value is not a dictionary."
                 raise ValueError(errstr)
 
             # Recurse into the next level.
@@ -642,9 +641,8 @@ def download_decoder_pth(dest_path: str,
     # Inform the user that the download is about to start.
     infostr = \
         f"The trained decoder's parameters for '{seed}' were not " \
-        f"found locally and will now be downloaded from '{url}'. " \
-        "This is a one-off download (file size: about 1.8 GiB) - " \
-        "subsequent runs will reuse the downloaded file."
+        f"found locally and will be downloaded from '{url}' " \
+        "(about 1.8 GiB)."
     logger.info(infostr)
 
     #-----------------------------------------------------------------#
@@ -666,8 +664,7 @@ def download_decoder_pth(dest_path: str,
             # Raise an exception if the download failed.
             response.raise_for_status()
 
-            # Create a temporary file (so an interrupted download leaves
-            # no corrupt file at 'dest_path').
+            # Create a temporary file for the download.
             fd, temp_path = \
                 tempfile.mkstemp(\
                     dir = os.path.dirname(dest_path),
@@ -709,10 +706,8 @@ def download_decoder_pth(dest_path: str,
         # Raise an error.
         errstr = \
             "It was not possible to download the trained decoder's " \
-            f"parameters from '{url}'. If you are on a machine " \
-            "without internet access, download the file manually " \
-            "from the same URL on another machine and place it at " \
-            f"'{dest_path}'. Error: {e}"
+            f"parameters from '{url}'. Download the file manually " \
+            f"and place it at '{dest_path}'. Error: {e}"
         raise OSError(errstr)
 
     #-----------------------------------------------------------------#

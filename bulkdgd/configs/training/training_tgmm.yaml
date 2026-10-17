@@ -1,8 +1,5 @@
 # Configuration file specifying the options to train the model.
 #
-# This configuration uses AdamW optimizers and includes support for
-# latent noise injection, clustering metrics, and early stopping.
-#
 # This configuration uses the 'tgmm' latent space implementation.
 
 
@@ -22,9 +19,7 @@ n_epochs: 200
 #
 # Type: str.
 #
-# Options:
-# - 'lgmm' for the legacy Gaussian mixture model implementation.
-# - 'tgmm' for the new Gaussian mixture model implementation.
+# Options: 'lgmm', 'tgmm'.
 latent_type: tgmm
 
 
@@ -35,9 +30,7 @@ latent_type: tgmm
 #
 # Type: str.
 #
-# Options:
-# - 'sum' computes the sum of the loss over the batch.
-# - 'mean' computes the mean of the loss over the batch.
+# Options: 'sum', 'mean'.
 loss_reduction_type: sum
 
 
@@ -90,12 +83,7 @@ reporting_options:
       # Set the method used to normalize the loss when reporting it
       # per epoch.
       #
-      # Type: str.
-      #
-      # Options:
-      # - 'none' means that the loss will not be normalized.
-      # - 'n_samples' means that the loss will be normalized by the
-      #   number of samples.
+      # Type: str. Options: 'none', 'n_samples'.
       norm_type: n_samples
 
     #-----------------------------------------------------------------#
@@ -106,12 +94,7 @@ reporting_options:
       # Set the method used to normalize the loss when reporting it
       # per epoch.
       #
-      # Type: str.
-      #
-      # Options:
-      # - 'none' means that the loss will not be normalized.
-      # - 'n_samples' means that the loss will be normalized by the
-      #   number of samples.
+      # Type: str. Options: 'none', 'n_samples'.
       norm_type: n_samples
 
     #-----------------------------------------------------------------#
@@ -122,12 +105,7 @@ reporting_options:
       # Set the method used to normalize the loss when reporting it
       # per epoch.
       #
-      # Type: str.
-      #
-      # Options:
-      # - 'none' means that the loss will not be normalized.
-      # - 'n_samples' means that the loss will be normalized by the
-      #   number of samples.
+      # Type: str. Options: 'none', 'n_samples'.
       norm_type: n_samples
 
   #-------------------------------------------------------------------#
@@ -288,16 +266,14 @@ latent_training_options:
     # Type: int.
     max_iter_first_epoch: 1000
 
-    # Set the maximum number of EM iterations to perform at a
-    # full-refit epoch that is not the first epoch (i.e., epochs that
-    # are multiples of 'refit_interval').
+    # Set the maximum number of EM iterations at a full-refit epoch
+    # (a multiple of 'refit_interval').
     #
     # Type: int.
     max_iter_full_refit: 100
 
-    # Set the maximum number of EM iterations to perform at a
-    # "warm"-refit epoch (i.e., at epochs later than the first epoch
-    # that are not full-refit epochs).
+    # Set the maximum number of EM iterations at a warm-refit epoch
+    # (a later epoch that is not a full-refit epoch).
     #
     # Type: int.
     max_iter_warm_refit: 100
@@ -317,8 +293,7 @@ latent_training_options:
   components_removal_options:
 
     # Set the threshold for removing components from the GMM during
-    # training. If the weight of a component in the GMM is less than
-    # this threshold, it will be removed.
+    # training: a component with a lower weight is removed.
     #
     # Type: float.
     threshold: 0.00000001
@@ -379,9 +354,7 @@ decoder_training_options:
     #
     # Type: str.
     #
-    # Options:
-    # - 'cos' for cosine annealing.
-    # - 'linear' for linear annealing.
+    # Options: 'cos', 'linear'.
     anneal_strategy: "cos"
 
     # Set whether the momentum is cycled inversely to learning rate
@@ -426,11 +399,7 @@ representations_training_options:
   # Set the type of noise to add to the representations during
   # training.
   #
-  # Type: str.
-  #
-  # Options:
-  # - 'none' means that no noise will be added.
-  # - 'gaussian' means that Gaussian noise will be added.
+  # Type: str. Options: 'none', 'gaussian'.
   train_noise_type: gaussian
 
   # Set the options for the noise to add to the representations during
@@ -503,9 +472,7 @@ representations_training_options:
     #
     # Type: str.
     #
-    # Options:
-    # - 'cos' for cosine annealing.
-    # - 'linear' for linear annealing.
+    # Options: 'cos', 'linear'.
     anneal_strategy: "cos"
 
     # Set whether the momentum is cycled inversely to learning rate
@@ -543,11 +510,8 @@ representations_training_options:
 #######################################################################
 
 
-# Set the options for early stopping.
-#
-# Early stopping monitors the test loss and stops training when
-# the test loss has not improved for 'patience' consecutive epochs.
-# The best model state is restored after stopping.
+# Set the type of early stopping: 'loss' stops training when the
+# test loss stops improving and restores the best model state.
 early_stopping_type: loss
 
 # Set the options for early stopping.
