@@ -365,8 +365,8 @@ latent_training_options:
     # Type: int.
     max_iter_warm_refit: 100
 
-    # Get the maximum number of EM iterations to perform at a refit
-    # epoch (if 'final_refit' is True).
+    # Set the maximum number of EM iterations at a refit epoch (if
+    # 'refit_final' is True).
     #
     # Type: int.
     max_iter_final_refit: 1000

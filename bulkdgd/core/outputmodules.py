@@ -51,6 +51,7 @@ __doc__ = \
 # Import from the standard library.
 import logging as log
 import math
+from typing import Optional
 
 # Import from third-party libraries.
 import torch
@@ -64,6 +65,80 @@ import torch.nn.functional as F
 
 # Get the module's logger.
 logger = log.getLogger(__name__)
+
+
+#######################################################################
+
+
+# Set the r-value above which the negative binomial's log-probability
+# mass comes from an expansion instead of the closed form.
+NB_R_SWITCH = 1.0e6
+
+# Set the r-value above which the expansion replaces the closed form
+# with an eps.
+NB_R_SWITCH_EPS = 1.0e15
+
+# Set the range of the r-values, keeping the gradients finite.
+NB_R_MIN = 1.0e-100
+NB_R_MAX = 1.0e150
+
+# Set the offset added to the means, keeping their logarithm finite.
+MEAN_OFFSET = 1.0e-30
+
+# Set the value of m / (r + m) below which, for r-values above the
+# switch, the tail probabilities come from the Poisson limit.
+NB_POISSON_Q = 1.0e-8
+
+
+#######################################################################
+
+
+def log_prob_mass_nb_large_r(k: torch.Tensor,
+                             m: torch.Tensor,
+                             r: torch.Tensor) -> torch.Tensor:
+    """Compute the natural logarithm of the probability mass for a set
+    of negative binomial distributions with large r-values.
+
+    Parameters
+    ----------
+    k : :class:`torch.Tensor`
+        The "number of successes" seen before stopping the trials.
+
+    m : :class:`torch.Tensor`
+        The means of the negative binomials.
+
+    r : :class:`torch.Tensor`
+        The r-values of the negative binomials, between
+        ``NB_R_SWITCH`` and ``NB_R_MAX``.
+
+    Returns
+    -------
+    x : :class:`torch.Tensor`
+        The log-probability mass of the negative binomials.
+
+    Notes
+    -----
+    Stirling's series for :math:`\\log \\Gamma(k+r) - \\log \\Gamma(r)`
+    gives
+
+    .. math::
+
+       \\log P(k \\mid m, r) &=
+       k \\left[ \\log(1 + k/r) - \\log(1 + m/r) \\right]
+       + (r - 1/2) \\log(1 + k/r) - k \\\\
+       &+ \\frac{1}{12(k+r)} - \\frac{1}{12r}
+       - \\log \\Gamma(k+1) + k \\log m - r \\log(1 + m/r)
+    """
+
+    # Get log(1 + k/r) and log(1 + m/r).
+    log1p_k = torch.log1p(k / r)
+    log1p_m = torch.log1p(m / r)
+
+    # Return the log-probability mass.
+    return \
+        k * (log1p_k - log1p_m) + (r - 0.5) * log1p_k - k + \
+        1.0 / (12.0 * (k + r)) - 1.0 / (12.0 * r) - \
+        torch.lgamma(k + 1) + k * torch.log(m) - r * log1p_m
 
 
 #######################################################################
@@ -89,7 +164,8 @@ class OutputModuleBase(nn.Module):
     def __init__(self,
                  input_dim: int,
                  output_dim: int,
-                 activation: str = "softplus") -> None:
+                 activation: str = "softplus",
+                 eps: Optional[float] = None) -> None:
         """Initialize an instance of the class.
 
         Parameters
@@ -108,10 +184,17 @@ class OutputModuleBase(nn.Module):
 
             * ``"sigmoid"``: the sigmoid activation function.
             * ``"softplus"``: the softplus activation function.
+
+        eps : :class:`float`, optional
+            The small value the log-probability mass adds inside its
+            logarithms. If not passed, the exact form is used.
         """
 
         # Initialize the instance.
         super().__init__()
+
+        # Set the small value of the log-probability mass.
+        self._eps = eps
 
         # Set the dimensionality of the input.
         self._input_dim = input_dim
@@ -218,6 +301,14 @@ class OutputModuleBase(nn.Module):
         """
 
         return self._activation
+
+
+    @property
+    def eps(self):
+        """The small value of the log-probability mass, if any.
+        """
+
+        return self._eps
 
 
     @activation.setter
@@ -333,7 +424,8 @@ class OutputModulePoisson(OutputModuleBase):
     def __init__(self,
                  input_dim: int,
                  output_dim: int,
-                 activation: str = "softplus") -> None:
+                 activation: str = "softplus",
+                 eps: Optional[float] = None) -> None:
         """Initialize an instance of the class.
 
         Parameters
@@ -352,12 +444,17 @@ class OutputModulePoisson(OutputModuleBase):
 
             * ``"sigmoid"``: the sigmoid activation function.
             * ``"softplus"``: the softplus activation function.
+
+        eps : :class:`float`, optional
+            The small value the log-probability mass adds inside its
+            logarithms. If not passed, the exact form is used.
         """
 
         # Initialize the instance.
         super().__init__(input_dim = input_dim,
                          output_dim = output_dim,
-                         activation = activation)
+                         activation = activation,
+                         eps = eps)
 
         # Set the layer that will contain the means of the Poisson
         # distributions.
@@ -371,7 +468,8 @@ class OutputModulePoisson(OutputModuleBase):
 
     @staticmethod
     def log_prob_mass(k: torch.Tensor,
-                      m: torch.Tensor) -> torch.Tensor:
+                      m: torch.Tensor,
+                      eps: Optional[float] = None) -> torch.Tensor:
         """Compute the natural logarithm of the probability mass for a
         set of Poisson distributions.
 
@@ -402,6 +500,10 @@ class OutputModulePoisson(OutputModuleBase):
             Each value in the tensor corresponds to the mean of a
             different Poisson distribution.
 
+        eps : :class:`float`, optional
+            The value of :math:`\\epsilon`. If not passed, it is
+            ``MEAN_OFFSET``.
+
         Returns
         -------
         x : :class:`torch.Tensor`
@@ -423,15 +525,13 @@ class OutputModulePoisson(OutputModuleBase):
         with a small :math:`\\epsilon` preventing underflow.
         """
 
-        # Convert the "number of successes" to a double-precision
-        # floating point number.
+        # Convert the counts and the means to double precision.
         k = k.double()
-
-        # Set a small value used to prevent underflow and overflow.
-        eps = 1.e-10
+        m = m.double()
 
         # Get the log-probability mass of the Poisson distributions.
-        x = k * torch.log(m + eps) - m - torch.lgamma(k + 1)
+        x = k * torch.log(m + (MEAN_OFFSET if eps is None else eps)) - \
+            m - torch.lgamma(k + 1)
 
         # Return the log-probability mass for the Poisson
         # distributions.
@@ -530,7 +630,8 @@ class OutputModulePoisson(OutputModuleBase):
         # Return the log-probability mass for the Poisson
         # distributions.
         return self.__class__.log_prob_mass(k = obs_counts,
-                                            m = m)
+                                            m = m,
+                                            eps = self.eps)
 
 
     def loss(self,
@@ -606,7 +707,8 @@ class OutputModulePoisson(OutputModuleBase):
                 m = self.__class__.rescale(
                         means = pred_means,
                         scaling_factors = scaling_factors),
-                r = torch.exp(log_r_outlier.double()))
+                r = torch.exp(log_r_outlier.double()),
+                eps = self.eps)
 
         #-------------------------------------------------------------#
 
@@ -680,7 +782,8 @@ class OutputModuleNB(OutputModuleBase):
     def __init__(self,
                  input_dim: int,
                  output_dim: int,
-                 activation: str = "softplus") -> None:
+                 activation: str = "softplus",
+                 eps: Optional[float] = None) -> None:
         """Initialize an instance of the class.
 
         Parameters
@@ -699,12 +802,17 @@ class OutputModuleNB(OutputModuleBase):
 
             * ``"sigmoid"``: the sigmoid activation function.
             * ``"softplus"``: the softplus activation function.
+
+        eps : :class:`float`, optional
+            The small value the log-probability mass adds inside its
+            logarithms. If not passed, the exact form is used.
         """
 
         # Initialize the instance.
         super().__init__(input_dim = input_dim,
                          output_dim = output_dim,
-                         activation = activation)
+                         activation = activation,
+                         eps = eps)
 
 
     ######################### STATIC METHODS ##########################
@@ -713,7 +821,8 @@ class OutputModuleNB(OutputModuleBase):
     @staticmethod
     def log_prob_mass(k: torch.Tensor,
                       m: torch.Tensor,
-                      r: torch.Tensor) -> torch.Tensor:
+                      r: torch.Tensor,
+                      eps: Optional[float] = None) -> torch.Tensor:
         """Compute the natural logarithm of the probability mass for a
         set of negative binomial distributions.
 
@@ -724,12 +833,11 @@ class OutputModuleNB(OutputModuleBase):
 
            logPDF_{NB(k,m,r)} &=
            log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\
-           &+ k \\cdot log(m \\cdot c + \\epsilon) +
-           r \\cdot log(r \\cdot c)
+           &+ k \\cdot log(\\frac{m}{r+m}) +
+           r \\cdot log(\\frac{r}{r+m})
 
-        Where :math:`\\epsilon` is a small value to prevent underflow/
-        overflow, and :math:`c` is equal to
-        :math:`\\frac{1}{r+m+\\epsilon}`.
+        Where :math:`m` is offset by a small value to prevent underflow.
+        Above ``NB_R_SWITCH``, :func:`log_prob_mass_nb_large_r` is used.
 
         Parameters
         ----------
@@ -754,6 +862,13 @@ class OutputModuleNB(OutputModuleBase):
             Each value in the tensor corresponds to the number of
             failures in a different negative binomial.
 
+        eps : :class:`float`, optional
+            If passed, the closed form is
+            :math:`k \\cdot log(m \\cdot c + \\epsilon) +
+            r \\cdot log(r \\cdot c)`, with :math:`c` equal to
+            :math:`\\frac{1}{r+m+\\epsilon}`, up to
+            ``NB_R_SWITCH_EPS``.
+
         Returns
         -------
         x : :class:`torch.Tensor`
@@ -762,19 +877,6 @@ class OutputModuleNB(OutputModuleBase):
 
             Each value in the tensor corresponds to the log-probability
             mass of a different negative binomial.
-
-        Notes
-        -----
-        The log-probability mass is
-
-        .. math::
-
-           \\log P(k \\mid m, r) &=
-           \\log \\Gamma(k+r) - \\log \\Gamma(r) - \\log \\Gamma(k+1)
-           \\\\
-           &+ k \\log \\frac{m}{r+m} + r \\log \\frac{r}{r+m}
-
-        with a small :math:`\\epsilon` preventing underflow.
         """
 
         # Compute the log-probability mass in double precision.
@@ -782,24 +884,72 @@ class OutputModuleNB(OutputModuleBase):
         m = m.double()
         r = r.double()
 
-        # Set a small value used to prevent underflow and overflow.
-        eps = 1.e-10
+        # Offset the means.
+        m_off = m + MEAN_OFFSET
+
+        # Keep the r-values in their range.
+        r = torch.clamp(r,
+                        min = NB_R_MIN,
+                        max = NB_R_MAX)
+
+        # Get the r-value above which the expansion is used.
+        switch = NB_R_SWITCH if eps is None else NB_R_SWITCH_EPS
 
         #-------------------------------------------------------------#
 
-        # Set the constant 'c' of the log-probability mass.
-        c = 1.0 / (r + m + eps)
+        # Find the r-values above the switch.
+        large = r > switch
 
-        # Get the log-probability mass of the negative binomial
-        # distributions (see the Notes for the derivation).
-        x = \
-            torch.lgamma(k+r) - torch.lgamma(r) - \
-            torch.lgamma(k+1) + k*torch.log(m*c+eps) + \
-            r*torch.log(r*c)
+        # Get whether any r-value exceeds it.
+        any_large = bool(large.any())
 
-        # Return the log-probability mass for the negative binomial
-        # distributions.
-        return x
+        # Cap the r-values of the closed form at the switch, if needed.
+        r_low = torch.clamp(r,
+                            max = switch) \
+            if any_large else r
+
+        # If no eps was passed
+        if eps is None:
+
+            # Get the log-probability mass from the closed form.
+            x = \
+                torch.lgamma(k+r_low) - torch.lgamma(r_low) - \
+                torch.lgamma(k+1) + k*torch.log(m_off) - \
+                k*torch.log(r_low+m_off) - \
+                r_low*torch.log1p(m_off/r_low)
+
+        # Otherwise
+        else:
+
+            # Set the constant 'c' of the log-probability mass.
+            c = 1.0 / (r_low + m + eps)
+
+            # Get the log-probability mass from the closed form with
+            # the eps.
+            x = \
+                torch.lgamma(k+r_low) - torch.lgamma(r_low) - \
+                torch.lgamma(k+1) + k*torch.log(m*c+eps) + \
+                r_low*torch.log(r_low*c)
+
+        # If no r-value exceeds the switch, return the mass.
+        if not any_large:
+            return x
+
+        #-------------------------------------------------------------#
+
+        # Get the log-probability mass from the expansion.
+        x_large = \
+            log_prob_mass_nb_large_r(
+                k = k,
+                m = m_off,
+                r = torch.clamp(r,
+                                min = switch))
+
+        # Return the log-probability mass, from the expansion above
+        # the switch.
+        return torch.where(large,
+                           x_large,
+                           x)
 
 
 class OutputModuleNBFeatureDispersion(OutputModuleNB):
@@ -819,7 +969,8 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
                  input_dim: int,
                  output_dim: int,
                  r_init: int,
-                 activation: str = "softplus") -> None:
+                 activation: str = "softplus",
+                 eps: Optional[float] = None) -> None:
         """Initialize an instance of the class.
 
         Parameters
@@ -841,12 +992,17 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
 
             * ``"sigmoid"``: the sigmoid activation function.
             * ``"softplus"``: the softplus activation function.
+
+        eps : :class:`float`, optional
+            The small value the log-probability mass adds inside its
+            logarithms. If not passed, the exact form is used.
         """
 
         # Initialize the instance.
         super().__init__(input_dim = input_dim,
                          output_dim = output_dim,
-                         activation = activation)
+                         activation = activation,
+                         eps = eps)
 
         # Initialize the value of the log of r. Real-valued positive
         # parameters are usually used as their log equivalent.
@@ -1020,14 +1176,17 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
                                    scaling_factors = scaling_factors)
 
         # Get the 'r' values of the negative binomial distributions.
-        # Exponentiate in double precision.
-        r = torch.exp(self.log_r.double())
+        # Exponentiate in double precision, within the range.
+        r = torch.exp(torch.clamp(self.log_r.double(),
+                                  min = math.log(NB_R_MIN),
+                                  max = math.log(NB_R_MAX)))
 
         # Return the log-probability mass for the negative binomial
         # distributions.
         return self.__class__.log_prob_mass(k = obs_counts,
                                             m = m,
-                                            r = r)
+                                            r = r,
+                                            eps = self.eps)
 
 
     def loss(self,
@@ -1103,7 +1262,8 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
                 m = self.__class__.rescale(
                         means = pred_means,
                         scaling_factors = scaling_factors),
-                r = torch.exp(log_r_outlier.double()))
+                r = torch.exp(log_r_outlier.double()),
+                eps = self.eps)
 
         #-------------------------------------------------------------#
 
@@ -1159,8 +1319,10 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
                     scaling_factors = scaling_factors)
 
             # Get the r-values of the negative binomial distributions.
-            # Exponentiate in double precision.
-            r = torch.exp(self.log_r.double())
+            # Exponentiate in double precision, within the range.
+            r = torch.exp(torch.clamp(self.log_r.double(),
+                                      min = math.log(NB_R_MIN),
+                                      max = math.log(NB_R_MAX)))
 
             # Get the probabilities from the means using the formula:
             # m = p * r / (1-p), so p = m / (m+r)
@@ -1191,7 +1353,8 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
     def __init__(self,
                  input_dim: int,
                  output_dim: int,
-                 activation: str = "softplus") -> None:
+                 activation: str = "softplus",
+                 eps: Optional[float] = None) -> None:
         """Initialize an instance of the class.
 
         Parameters
@@ -1210,12 +1373,17 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
 
             * ``"sigmoid"``: the sigmoid activation function.
             * ``"softplus"``: the softplus activation function.
+
+        eps : :class:`float`, optional
+            The small value the log-probability mass adds inside its
+            logarithms. If not passed, the exact form is used.
         """
 
         # Initialize the instance.
         super().__init__(input_dim = input_dim,
                          output_dim = output_dim,
-                         activation = activation)
+                         activation = activation,
+                         eps = eps)
 
         # Set the layer that will contain the means of the negative
         # binomial distributions.
@@ -1344,14 +1512,17 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
                                    scaling_factors = scaling_factors)
 
         # Get the r-values of the negative binomial distributions.
-        # Exponentiate in double precision.
-        r = torch.exp(pred_log_r_values.double())
+        # Exponentiate in double precision, within the range.
+        r = torch.exp(torch.clamp(pred_log_r_values.double(),
+                                  min = math.log(NB_R_MIN),
+                                  max = math.log(NB_R_MAX)))
 
         # Return the log-probability mass for the negative binomial
         # distributions.
         return self.__class__.log_prob_mass(k = obs_counts,
                                             m = m,
-                                            r = r)
+                                            r = r,
+                                            eps = self.eps)
 
 
     def loss(self,
@@ -1501,8 +1672,10 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
                     scaling_factors = scaling_factors)
 
             # Get the r-values of the negative binomial distributions.
-            # Exponentiate in double precision.
-            r = torch.exp(pred_log_r_values.double())
+            # Exponentiate in double precision, within the range.
+            r = torch.exp(torch.clamp(pred_log_r_values.double(),
+                                      min = math.log(NB_R_MIN),
+                                      max = math.log(NB_R_MAX)))
 
             # Get the probabilities from the means using the formula:
             # m = p * r / (1-p), so p = m / (m+r)

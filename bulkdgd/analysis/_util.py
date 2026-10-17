@@ -41,8 +41,10 @@ from typing import Optional
 # Import from third-party packages.
 import numpy as np
 import pandas as pd
-from scipy.special import gammaln
 import torch
+
+# Import from 'bulkdgd'.
+from bulkdgd.core import outputmodules
 
 
 #######################################################################
@@ -113,7 +115,8 @@ def get_aligned_genes(obs_counts: pd.Series,
 
 def log_prob_mass_nb(k: np.ndarray,
                      m: np.ndarray,
-                     r: np.ndarray) -> np.ndarray:
+                     r: np.ndarray,
+                     eps: Optional[float] = None) -> np.ndarray:
     """Compute the natural logarithm of the probability mass for a set
     of negative binomial distributions.
 
@@ -131,6 +134,10 @@ def log_prob_mass_nb(k: np.ndarray,
         A one-dimensional array containing the "number of failures"
         after which the trials end, one per negative binomial.
 
+    eps : :class:`float`, optional
+        The small value of the log-probability mass (see
+        :meth:`core.outputmodules.OutputModuleNB.log_prob_mass`).
+
     Returns
     -------
     x : :class:`numpy.ndarray`
@@ -145,12 +152,10 @@ def log_prob_mass_nb(k: np.ndarray,
 
        logPDF_{NB(k,m,r)} &=
        log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\
-       &+ k \\cdot log(m \\cdot c + \\epsilon) +
-       r \\cdot log(r \\cdot c)
+       &+ k \\cdot log(\\frac{m}{r+m}) +
+       r \\cdot log(\\frac{r}{r+m})
 
-    Where :math:`\\epsilon` is a small value to prevent underflow/
-    overflow, and :math:`c` is equal to
-    :math:`\\frac{1}{r+m+\\epsilon}`.
+    Where :math:`m` is offset by a small value to prevent underflow.
 
     It derives from the probability mass:
 
@@ -175,34 +180,25 @@ def log_prob_mass_nb(k: np.ndarray,
        \\left( \\frac{m}{r+m} \\right)^k
        \\left( \\frac{r}{r+m} \\right)^r
 
-    Taking the natural logarithm of both sides, adding
-    :math:`\\epsilon`, and substituting :math:`c` yields the formula
-    above.
+    Taking the natural logarithm of both sides yields the formula
+    above. Above ``NB_R_SWITCH``,
+    :func:`core.outputmodules.log_prob_mass_nb_large_r` is used.
     """
 
-    # Convert the "number of successes" to a double-precision
-    # floating point number.
-    k = k.astype(np.float64)
-
-    # Set a small value used to prevent underflow and overflow.
-    eps = 1.e-10
-
-    # Set a constant used later in the equation defining the log-
-    # probability mass.
-    c = 1.0 / (r + m + eps)
-
-    # Get the log-probability mass of the negative binomials.
-    x = \
-        gammaln(k+r) - gammaln(r) - \
-        gammaln(k+1) + k*np.log(m*c+eps) + \
-        r*np.log(r*c)
-
-    # Return the log-probability mass for the negative binomials.
-    return x
+    # Return the log-probability mass.
+    return outputmodules.OutputModuleNB.log_prob_mass(
+        k = torch.as_tensor(k,
+                            dtype = torch.float64),
+        m = torch.as_tensor(m,
+                            dtype = torch.float64),
+        r = torch.as_tensor(r,
+                            dtype = torch.float64),
+        eps = eps).numpy()
 
 
 def log_prob_mass_poisson(k: np.ndarray,
-                          m: np.ndarray) -> np.ndarray:
+                          m: np.ndarray,
+                          eps: Optional[float] = None) -> np.ndarray:
     """Compute the natural logarithm of the probability mass for a
     set of Poisson distributions.
 
@@ -215,6 +211,10 @@ def log_prob_mass_poisson(k: np.ndarray,
     m : :class:`numpy.ndarray`
         A one-dimensional array containing the means of the Poisson
         distributions.
+
+    eps : :class:`float`, optional
+        The small value of the log-probability mass (see
+        :meth:`core.outputmodules.OutputModuleNB.log_prob_mass`).
 
     Returns
     -------
@@ -247,89 +247,10 @@ def log_prob_mass_poisson(k: np.ndarray,
     :math:`\\epsilon` yields the formula above.
     """
 
-    # Convert the "number of successes" to a double-precision
-    # floating point number.
-    k = k.astype(np.float64)
-
-    # Set a small value used to prevent underflow and overflow.
-    eps = 1.e-10
-
-    # Get the log-probability mass of the Poisson distributions.
-    x = k * np.log(m + eps) - m - gammaln(k + 1)
-
-    # Return the log-probability mass for the Poisson
-    # distributions.
-    return x
-
-
-def log_prob_mass_nb_torch(k: torch.Tensor,
-                           m: torch.Tensor,
-                           r: torch.Tensor) -> torch.Tensor:
-    """Compute the natural logarithm of the probability mass for a set
-    of negative binomial distributions, using :mod:`torch` so that the
-    computation can run on a GPU.
-
-    Parameters
-    ----------
-    k : :class:`torch.Tensor`
-        The "number of successes" seen before stopping the trials.
-
-    m : :class:`torch.Tensor`
-        The means of the negative binomials.
-
-    r : :class:`torch.Tensor`
-        The r-values of the negative binomials.
-
-    Returns
-    -------
-    x : :class:`torch.Tensor`
-        The log-probability mass of the negative binomials, evaluated
-        at the given points.
-    """
-
-    # Set a small value used to prevent underflow and overflow.
-    eps = 1.e-10
-
-    # Set a constant used later in the equation defining the log-
-    # probability mass.
-    c = 1.0 / (r + m + eps)
-
-    # Get the log-probability mass of the negative binomials.
-    x = \
-        torch.lgamma(k+r) - torch.lgamma(r) - \
-        torch.lgamma(k+1) + k*torch.log(m*c+eps) + \
-        r*torch.log(r*c)
-
-    # Return the log-probability mass for the negative binomials.
-    return x
-
-
-def log_prob_mass_poisson_torch(k: torch.Tensor,
-                                m: torch.Tensor) -> torch.Tensor:
-    """Compute the natural logarithm of the probability mass for a set
-    of Poisson distributions, using :mod:`torch` so that the
-    computation can run on a GPU.
-
-    Parameters
-    ----------
-    k : :class:`torch.Tensor`
-        The "number of successes" seen before stopping the trials.
-
-    m : :class:`torch.Tensor`
-        The means of the Poisson distributions.
-
-    Returns
-    -------
-    x : :class:`torch.Tensor`
-        The log-probability mass of the Poisson distributions,
-        evaluated at the given points.
-    """
-
-    # Set a small value used to prevent underflow and overflow.
-    eps = 1.e-10
-
-    # Get the log-probability mass of the Poisson distributions.
-    x = k * torch.log(m + eps) - m - torch.lgamma(k + 1)
-
-    # Return the log-probability mass for the Poisson distributions.
-    return x
+    # Return the log-probability mass.
+    return outputmodules.OutputModulePoisson.log_prob_mass(
+        k = torch.as_tensor(k,
+                            dtype = torch.float64),
+        m = torch.as_tensor(m,
+                            dtype = torch.float64),
+        eps = eps).numpy()

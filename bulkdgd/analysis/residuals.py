@@ -43,6 +43,7 @@ import pandas as pd
 from scipy.stats import nbinom, norm, poisson
 
 # Import from 'bulkdgd'.
+from bulkdgd.core import outputmodules
 from . import _util
 
 
@@ -245,6 +246,15 @@ def get_residuals(obs_counts: pd.Series,
                            n = r_value_gene_i,
                            p = 1 - p_i)
 
+            # If the Poisson limit holds
+            if p_i < outputmodules.NB_POISSON_Q and \
+                r_value_gene_i > outputmodules.NB_R_SWITCH:
+
+                # Use the Poisson limit.
+                cdf_nb_value = \
+                    poisson.cdf(k = obs_count_gene_i,
+                                mu = pred_mean_gene_i)
+
         #-------------------------------------------------------------#
 
         # If Poisson distributions were used to model the genes' counts
@@ -381,6 +391,18 @@ def get_residuals_df(df_obs_counts: pd.DataFrame,
         cdf = nbinom.cdf(k = obs,
                          n = r,
                          p = r / (r + means))
+
+        # Find the genes where the Poisson limit holds.
+        poisson_limit = \
+            (means / (r + means) < outputmodules.NB_POISSON_Q) & \
+            (r > outputmodules.NB_R_SWITCH)
+
+        # If any, use the Poisson limit for them.
+        if poisson_limit.any():
+            cdf = np.where(poisson_limit,
+                           poisson.cdf(k = obs,
+                                       mu = means),
+                           cdf)
 
     # Otherwise
     else:

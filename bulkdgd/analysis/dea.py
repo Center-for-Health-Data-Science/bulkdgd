@@ -47,6 +47,7 @@ from statsmodels.stats.multitest import multipletests
 import torch
 
 # Import from 'bulkdgd'.
+from bulkdgd.core import outputmodules
 from . import _util
 
 
@@ -116,7 +117,8 @@ def _get_scaling_factor(obs_counts: np.ndarray,
 def _yield_p_values(obs_counts: np.ndarray,
                     pred_means: np.ndarray,
                     r_values: Optional[np.ndarray] = None,
-                    resolution: Optional[int] = None) -> \
+                    resolution: Optional[int] = None,
+                    eps: Optional[float] = None) -> \
                         Iterator[tuple[float, np.ndarray, np.ndarray]]:
     """For each gene, yield its p-value and the log-probability mass
     function's evaluation points and values.
@@ -134,6 +136,10 @@ def _yield_p_values(obs_counts: np.ndarray,
 
     resolution : :class:`int`, optional
         The resolution at which to perform the p-value calculation.
+
+    eps : :class:`float`, optional
+        The small value of the log-probability mass (see
+        :meth:`core.outputmodules.OutputModuleNB.log_prob_mass`).
 
     Yields
     ------
@@ -178,6 +184,16 @@ def _yield_p_values(obs_counts: np.ndarray,
                 {"q" : 0.99999,
                  "n" : float(r_value_gene_i),
                  "p" : 1 - p_i}
+
+            # If the Poisson limit holds
+            if p_i < outputmodules.NB_POISSON_Q and \
+                r_value_gene_i > outputmodules.NB_R_SWITCH:
+
+                # Use the Poisson limit.
+                ppf_dist = poisson
+                ppf_options = \
+                    {"q" : 0.99999,
+                     "mu" : float(pred_mean_gene_i)}
 
         #-------------------------------------------------------------#
 
@@ -241,14 +257,16 @@ def _yield_p_values(obs_counts: np.ndarray,
             log_prob_mass_pmf_options = \
                 {"k" : k,
                  "m" : pred_mean_gene_i,
-                 "r" : r_value_gene_i}
+                 "r" : r_value_gene_i,
+                 "eps" : eps}
 
             # Get the options to evaluate the log-probability mass
             # function at the observed count.
             log_prob_mass_count_options = \
                 {"k" : obs_count_gene_i,
                  "m" : pred_mean_gene_i,
-                 "r" : r_value_gene_i}
+                 "r" : r_value_gene_i,
+                 "eps" : eps}
 
         #-------------------------------------------------------------#
 
@@ -262,13 +280,15 @@ def _yield_p_values(obs_counts: np.ndarray,
             # function at the points 'k'.
             log_prob_mass_pmf_options = \
                 {"k" : k,
-                 "m" : pred_mean_gene_i}
+                 "m" : pred_mean_gene_i,
+                 "eps" : eps}
 
             # Get the options to evaluate the log-probability mass
             # function at the observed count.
             log_prob_mass_count_options = \
                 {"k" : obs_count_gene_i,
-                 "m" : pred_mean_gene_i}
+                 "m" : pred_mean_gene_i,
+                 "eps" : eps}
 
         #-------------------------------------------------------------#
 
@@ -344,6 +364,18 @@ def _get_tails(pred_means: np.ndarray,
         tails = nbinom.ppf(q = 0.99999,
                            n = r_values,
                            p = 1 - p)
+
+        # Find the genes where the Poisson limit holds.
+        poisson_limit = \
+            (np.asarray(p) < outputmodules.NB_POISSON_Q) & \
+            (np.asarray(r_values) > outputmodules.NB_R_SWITCH)
+
+        # If any, use the Poisson limit for them.
+        if poisson_limit.any():
+            tails = np.where(poisson_limit,
+                             poisson.ppf(q = 0.99999,
+                                         mu = pred_means),
+                             tails)
 
     # If Poisson distributions were used to model the genes' counts
     else:
@@ -455,7 +487,8 @@ def _compute_p_values(obs_counts: np.ndarray,
                       r_values: Optional[np.ndarray] = None,
                       resolution: Optional[int] = None,
                       device: Union[str, torch.device] = "cpu",
-                      max_elements: int = 2**26) -> np.ndarray:
+                      max_elements: int = 2**26,
+                      eps: Optional[float] = None) -> np.ndarray:
     """Calculate the p-value for all the genes in a sample at once.
 
     Parameters
@@ -480,6 +513,10 @@ def _compute_p_values(obs_counts: np.ndarray,
     max_elements : :class:`int`, ``2**26``
         The maximum number of points at which the log-probability mass
         function is evaluated in one chunk (caps the memory used).
+
+    eps : :class:`float`, optional
+        The small value of the log-probability mass (see
+        :meth:`core.outputmodules.OutputModuleNB.log_prob_mass`).
 
     Returns
     -------
@@ -667,15 +704,19 @@ def _compute_p_values(obs_counts: np.ndarray,
             r_values_chunk = r_values_t[idx_t].unsqueeze(1)
 
             # Get the log-probability mass at each point.
-            pmf = _util.log_prob_mass_nb_torch(k = k,
-                                               m = pred_means_chunk,
-                                               r = r_values_chunk)
+            pmf = outputmodules.OutputModuleNB.log_prob_mass(
+                k = k,
+                m = pred_means_chunk,
+                r = r_values_chunk,
+                eps = eps)
 
             # Get the log-probability mass at the observed count.
             prob_obs = \
-                _util.log_prob_mass_nb_torch(k = obs_counts_chunk,
-                                             m = pred_means_chunk,
-                                             r = r_values_chunk)
+                outputmodules.OutputModuleNB.log_prob_mass(
+                    k = obs_counts_chunk,
+                    m = pred_means_chunk,
+                    r = r_values_chunk,
+                    eps = eps)
 
         # If the genes' counts were modelled using Poisson
         # distributions
@@ -683,13 +724,17 @@ def _compute_p_values(obs_counts: np.ndarray,
 
             # Get the log-probability mass at each point.
             pmf = \
-                _util.log_prob_mass_poisson_torch(k = k,
-                                                  m = pred_means_chunk)
+                outputmodules.OutputModulePoisson.log_prob_mass(
+                    k = k,
+                    m = pred_means_chunk,
+                    eps = eps)
 
             # Get the log-probability mass at the observed count.
             prob_obs = \
-                _util.log_prob_mass_poisson_torch(k = obs_counts_chunk,
-                                                  m = pred_means_chunk)
+                outputmodules.OutputModulePoisson.log_prob_mass(
+                    k = obs_counts_chunk,
+                    m = pred_means_chunk,
+                    eps = eps)
 
         #-------------------------------------------------------------#
 
@@ -781,6 +826,24 @@ def _compute_p_values_equal_tail(obs_counts: np.ndarray,
         at_obs = nbinom.pmf(obs_counts,
                             r_values,
                             probs)
+
+        # Find the genes where the Poisson limit holds.
+        poisson_limit = \
+            (np.asarray(pred_means / (r_values + pred_means)) <
+             outputmodules.NB_POISSON_Q) & \
+            (np.asarray(r_values) > outputmodules.NB_R_SWITCH)
+
+        # If any, use the Poisson limit for them.
+        if poisson_limit.any():
+            lower = np.where(poisson_limit,
+                             poisson.cdf(obs_counts, pred_means),
+                             lower)
+            upper = np.where(poisson_limit,
+                             poisson.sf(obs_counts - 1, pred_means),
+                             upper)
+            at_obs = np.where(poisson_limit,
+                              poisson.pmf(obs_counts, pred_means),
+                              at_obs)
 
     # If the genes' counts were modelled using Poisson distributions
     else:
@@ -892,7 +955,8 @@ def get_p_values(obs_counts: pd.Series,
                  max_elements: Optional[int] = None,
                  scaling_factor: str = "mean",
                  two_sided: str = "equal_tail",
-                 mid_p: bool = True) -> \
+                 mid_p: bool = True,
+                 eps: Optional[float] = None) -> \
                     tuple[pd.Series, pd.DataFrame, pd.DataFrame]:
     """Compute, for each gene, the p-value of its predicted mean count
     against its actual observed count in a single sample.
@@ -951,6 +1015,11 @@ def get_p_values(obs_counts: pd.Series,
     mid_p : :class:`bool`, ``True``
         Whether to apply the mid-p correction under the
         ``"equal_tail"`` rule.
+
+    eps : :class:`float`, optional
+        The small value of the log-probability mass under the
+        ``"density"`` rule (see
+        :meth:`core.outputmodules.OutputModuleNB.log_prob_mass`).
 
     Returns
     -------
@@ -1089,7 +1158,8 @@ def get_p_values(obs_counts: pd.Series,
                                      r_values = r_values,
                                      resolution = resolution,
                                      device = device,
-                                     max_elements = max_elements)
+                                     max_elements = max_elements,
+                                     eps = eps)
 
         # Convert the p-values into a series.
         series_p_values = pd.Series(p_values)
@@ -1110,7 +1180,8 @@ def get_p_values(obs_counts: pd.Series,
     results = _yield_p_values(obs_counts = obs_counts,
                               pred_means = pred_means,
                               r_values = r_values,
-                              resolution = resolution)
+                              resolution = resolution,
+                              eps = eps)
 
     #-----------------------------------------------------------------#
 
@@ -1350,7 +1421,8 @@ def get_statistics(obs_counts: pd.Series,
                    max_elements: Optional[int] = None,
                    scaling_factor: str = "mean",
                    two_sided: str = "equal_tail",
-                   mid_p: bool = True) -> \
+                   mid_p: bool = True,
+                   eps: Optional[float] = None) -> \
                         tuple[pd.DataFrame, Optional[str]]:
     """Compute p-values, q-values, and/or log2-fold changes for a
     single sample.
@@ -1416,6 +1488,11 @@ def get_statistics(obs_counts: pd.Series,
         Whether to apply the mid-p correction under the
         ``"equal_tail"`` rule.
 
+    eps : :class:`float`, optional
+        The small value of the log-probability mass under the
+        ``"density"`` rule (see
+        :meth:`core.outputmodules.OutputModuleNB.log_prob_mass`).
+
     Returns
     -------
     df_stats : :class:`pandas.DataFrame`
@@ -1472,7 +1549,8 @@ def get_statistics(obs_counts: pd.Series,
                          max_elements = max_elements,
                          scaling_factor = scaling_factor,
                          two_sided = two_sided,
-                         mid_p = mid_p)
+                         mid_p = mid_p,
+                         eps = eps)
 
     #-----------------------------------------------------------------#
 
@@ -1496,7 +1574,8 @@ def get_statistics(obs_counts: pd.Series,
                              max_elements = max_elements,
                              scaling_factor = scaling_factor,
                              two_sided = two_sided,
-                             mid_p = mid_p)
+                             mid_p = mid_p,
+                             eps = eps)
 
         # Calculate the q-values.
         q_values, _ = \
@@ -1671,7 +1750,8 @@ def perform_dea(obs_counts: pd.DataFrame,
                 max_elements: Optional[int] = None,
                 scaling_factor: str = "mean",
                 two_sided: str = "equal_tail",
-                mid_p: bool = True) -> \
+                mid_p: bool = True,
+                eps: Optional[float] = None) -> \
                     tuple[dict[str, pd.DataFrame],
                           pd.Series,
                           pd.DataFrame]:
@@ -1749,6 +1829,11 @@ def perform_dea(obs_counts: pd.DataFrame,
         Whether to apply the mid-p correction under the
         ``"equal_tail"`` rule.
 
+    eps : :class:`float`, optional
+        The small value of the log-probability mass under the
+        ``"density"`` rule (see
+        :meth:`core.outputmodules.OutputModuleNB.log_prob_mass`).
+
     Returns
     -------
     dfs_stats : :class:`dict`
@@ -1800,7 +1885,8 @@ def perform_dea(obs_counts: pd.DataFrame,
              "max_elements" : max_elements,
              "scaling_factor" : scaling_factor,
              "two_sided" : two_sided,
-             "mid_p" : mid_p}
+             "mid_p" : mid_p,
+             "eps" : eps}
 
         # If r-values were passed
         if r_values is not None:

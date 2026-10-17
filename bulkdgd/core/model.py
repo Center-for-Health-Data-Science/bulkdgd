@@ -208,7 +208,7 @@ class BulkDGD(nn.Module):
             the decoder's predicted means to the sample's counts.
 
         dtype : :class:`str`, \
-            {``"float32"``, ``"float64"``}, ``"float32"``
+            {``"float32"``, ``"float64"``}, ``"float64"``
             The precision of the model's parameters.
 
         device : :class:`str`, ``"cpu"``
@@ -273,7 +273,7 @@ class BulkDGD(nn.Module):
 
         # If no precision was given, use the default one.
         if dtype is None:
-            dtype = "float32"
+            dtype = "float64"
 
         # If the architecture was only partly given
         if latent_dim is None or latent_options is None \
@@ -4882,6 +4882,103 @@ class BulkDGD(nn.Module):
             # Get the gain factor.
             train_noise_gain = train_noise_options["gain"]
 
+            # Get whether the noise stays in the stored
+            # representations.
+            train_noise_persist = train_noise_options["persist"]
+
+        # If the noise follows the optimizer's step sizes
+        elif train_noise_type == "langevin":
+
+            # Get the temperature the representations are sampled at.
+            train_noise_temperature = \
+                train_noise_options["temperature"]
+
+            # Get the temperature's multipliers at the start and end of
+            # the annealing, and the fraction of training it spans.
+            train_noise_start = train_noise_options["start"]
+            train_noise_end = train_noise_options["end"]
+            train_noise_end_fraction = \
+                train_noise_options["end_fraction"]
+
+            # The noise stays in the stored representations.
+            train_noise_persist = True
+
+        #-------------------------------------------------------------#
+
+        # Get the type of noise to inject in the representations for
+        # the test samples.
+        test_noise_type = \
+            representations_options["test_noise_type"]
+
+        # Get the noise options for the representations for the test
+        # samples.
+        test_noise_options = \
+            representations_options.get("test_noise_options")
+
+        # If the noise is Gaussian
+        if test_noise_type == "gaussian":
+
+            # Get the noise scale (zero disables the noise).
+            test_noise_scale_base = test_noise_options["scale"]
+
+            # Get the starting noise scale (for cosine annealing).
+            test_noise_start = test_noise_options["start"]
+
+            # Get the ending noise scale (for cosine annealing).
+            test_noise_end = test_noise_options["end"]
+
+            # Get the fraction of the mass within the radius the noise
+            # is scaled by.
+            test_noise_within_radius_prob = \
+                test_noise_options["within_radius_prob"]
+
+            # Get the gain factor.
+            test_noise_gain = test_noise_options["gain"]
+
+            # Get whether the noise stays in the stored
+            # representations.
+            test_noise_persist = test_noise_options["persist"]
+
+            # Get the seed of the noise's generator, by default the
+            # seed torch was given.
+            test_noise_seed = test_noise_options["seed"]
+            if test_noise_seed is None:
+                test_noise_seed = torch.initial_seed()
+
+            # Create the noise's own generator, so that the test noise
+            # leaves the training's random numbers unchanged.
+            test_noise_generator = \
+                torch.Generator(device = self.device)
+            test_noise_generator.manual_seed(int(test_noise_seed))
+
+        # If the noise follows the optimizer's step sizes
+        elif test_noise_type == "langevin":
+
+            # Get the temperature the representations are sampled at.
+            test_noise_temperature = test_noise_options["temperature"]
+
+            # Get the temperature's multipliers at the start and end of
+            # the annealing, and the fraction of training it spans.
+            test_noise_start = test_noise_options["start"]
+            test_noise_end = test_noise_options["end"]
+            test_noise_end_fraction = \
+                test_noise_options["end_fraction"]
+
+            # The noise stays in the stored representations.
+            test_noise_persist = True
+
+            # Get the seed of the noise's generator, by default the
+            # seed torch was given.
+            test_noise_seed = test_noise_options["seed"]
+            if test_noise_seed is None:
+                test_noise_seed = torch.initial_seed()
+
+            # Create the noise's own generator, so that the test noise
+            # leaves the training's random numbers unchanged.
+            test_noise_generator = \
+                torch.Generator(device = self.device)
+            test_noise_generator.manual_seed(int(test_noise_seed))
+
         #-------------------------------------------------------------#
 
         # Get the type of early stopping to perform from the
@@ -5340,11 +5437,74 @@ class BulkDGD(nn.Module):
                     # No noise will be injected.
                     train_noise_scale = 0.0
 
+            # If the noise follows the optimizer's step sizes
+            elif train_noise_type == "langevin":
+
+                # Get how far the annealing has progressed.
+                progress = \
+                    min((epoch - 1) / max(n_epochs - 1, 1) / \
+                            train_noise_end_fraction,
+                        1.0)
+
+                # Compute the temperature's multiplier using cosine
+                # annealing between the start and end values.
+                train_noise_scale = \
+                    train_noise_end + \
+                        (train_noise_start - train_noise_end) * \
+                            0.5 * (1 + math.cos(math.pi * progress))
+
+                # Inject no noise when the temperature is zero.
+                if train_noise_temperature == 0:
+                    train_noise_scale = 0.0
+
             # Otherwise (no noise)
             else:
 
                 # No noise will be injected.
                 train_noise_scale = 0.0
+
+            # If Gaussian noise is injected in the test representations
+            if test_noise_type == "gaussian" \
+            and test_noise_scale_base > 0:
+
+                # Compute the noise scale using cosine annealing
+                # between the start and end values.
+                test_noise_scale = \
+                    test_noise_end + \
+                        (test_noise_start - test_noise_end) * \
+                            0.5 * \
+                                (1 + math.cos(math.pi * \
+                                    (epoch - 1) / max(n_epochs - 1, 1)))
+
+                # Set the noise scale.
+                test_noise_scale = \
+                    test_noise_scale * test_noise_scale_base
+
+            # If the test noise follows the optimizer's step sizes
+            elif test_noise_type == "langevin":
+
+                # Get how far the annealing has progressed.
+                progress = \
+                    min((epoch - 1) / max(n_epochs - 1, 1) / \
+                            test_noise_end_fraction,
+                        1.0)
+
+                # Compute the temperature's multiplier using cosine
+                # annealing between the start and end values.
+                test_noise_scale = \
+                    test_noise_end + \
+                        (test_noise_start - test_noise_end) * \
+                            0.5 * (1 + math.cos(math.pi * progress))
+
+                # Inject no noise when the temperature is zero.
+                if test_noise_temperature == 0:
+                    test_noise_scale = 0.0
+
+            # Otherwise
+            else:
+
+                # No noise will be injected.
+                test_noise_scale = 0.0
 
             #=========================================================#
             #                      TRAINING PHASE                     #
@@ -5393,21 +5553,66 @@ class BulkDGD(nn.Module):
                 # If noise injection is enabled
                 if train_noise_scale > 0:
 
-                    # Get the radius of the hypersphere within which
-                    # the specified fraction of samples lie.
-                    radius = \
-                        float(
-                            chi2.ppf(train_noise_within_radius_prob,
-                                     self.latent.dim)) ** 0.5
+                    # If the noise is Gaussian
+                    if train_noise_type == "gaussian":
 
-                    # Get the base noise.
-                    base_noise = torch.randn_like(z) / radius
+                        # Get the radius of the hypersphere within
+                        # which the specified fraction of samples lie.
+                        radius = \
+                            float(
+                                chi2.ppf(train_noise_within_radius_prob,
+                                         self.latent.dim)) ** 0.5
 
-                    # Scale the base noise to get the final noise to
-                    # inject.
-                    noise = \
-                        train_noise_scale * base_noise * \
-                            train_noise_gain
+                        # Get the base noise.
+                        base_noise = torch.randn_like(z) / radius
+
+                        # Scale the base noise to get the final noise
+                        # to inject.
+                        noise = \
+                            train_noise_scale * base_noise * \
+                                train_noise_gain
+
+                    # Otherwise (the noise follows the optimizer)
+                    else:
+
+                        # Get the optimizer's state for the
+                        # representations.
+                        rep_state = \
+                            optimizer_rep_train.state.get(
+                                rep_layer_train.z, {})
+
+                        # If the optimizer has taken a step
+                        if "exp_avg_sq" in rep_state:
+
+                            # Get the optimizer's options.
+                            rep_group = \
+                                optimizer_rep_train.param_groups[0]
+
+                            # Get the bias-corrected second moments of
+                            # the batch's gradients.
+                            v_hat = \
+                                rep_state["exp_avg_sq"][samples_ixs] / \
+                                    (1 - rep_group["betas"][1] ** \
+                                         float(rep_state["step"]))
+
+                            # Get each coordinate's step size.
+                            step_size = \
+                                rep_group["lr"] / \
+                                    (v_hat.sqrt() + rep_group["eps"])
+
+                            # Draw the noise, with a variance of twice
+                            # the step size times the temperature.
+                            noise = \
+                                torch.randn_like(z) * \
+                                    torch.sqrt(\
+                                        2.0 * train_noise_temperature * \
+                                            train_noise_scale * step_size)
+
+                        # Otherwise
+                        else:
+
+                            # No noise is drawn before the first step.
+                            noise = torch.zeros_like(z)
 
                     # Add the noise.
                     z = z + noise
@@ -5566,6 +5771,13 @@ class BulkDGD(nn.Module):
 
                 # Backpropagate the loss.
                 loss.backward()
+
+                # If the noise stays in the stored representations
+                if train_noise_scale > 0 and train_noise_persist:
+
+                    # Add it to them.
+                    with torch.no_grad():
+                        rep_layer_train.z[samples_ixs] += noise
 
                 #-----------------------------------------------------#
 
@@ -5761,6 +5973,78 @@ class BulkDGD(nn.Module):
                 # Get the representations for the current samples.
                 z = rep_layer_test(ixs = samples_ixs).to(self.device)
 
+                # If noise injection is enabled
+                if test_noise_scale > 0:
+
+                    # If the noise is Gaussian
+                    if test_noise_type == "gaussian":
+
+                        # Get the radius of the hypersphere within
+                        # which the specified fraction of samples lie.
+                        radius = \
+                            float(
+                                chi2.ppf(test_noise_within_radius_prob,
+                                         self.latent.dim)) ** 0.5
+
+                        # Get the noise from its own generator.
+                        test_noise = \
+                            test_noise_scale * test_noise_gain * \
+                                torch.randn(z.shape,
+                                            generator = \
+                                                test_noise_generator,
+                                            device = z.device,
+                                            dtype = z.dtype) / radius
+
+                    # Otherwise (the noise follows the optimizer)
+                    else:
+
+                        # Get the optimizer's state for the
+                        # representations.
+                        rep_state = \
+                            optimizer_rep_test.state.get(
+                                rep_layer_test.z, {})
+
+                        # If the optimizer has taken a step
+                        if "exp_avg_sq" in rep_state:
+
+                            # Get the optimizer's options.
+                            rep_group = \
+                                optimizer_rep_test.param_groups[0]
+
+                            # Get the bias-corrected second moments of
+                            # the batch's gradients.
+                            v_hat = \
+                                rep_state["exp_avg_sq"][samples_ixs] / \
+                                    (1 - rep_group["betas"][1] ** \
+                                         float(rep_state["step"]))
+
+                            # Get each coordinate's step size.
+                            step_size = \
+                                rep_group["lr"] / \
+                                    (v_hat.sqrt() + rep_group["eps"])
+
+                            # Draw the noise from its own generator,
+                            # with a variance of twice the step size
+                            # times the temperature.
+                            test_noise = \
+                                torch.randn(z.shape,
+                                            generator = \
+                                                test_noise_generator,
+                                            device = z.device,
+                                            dtype = z.dtype) * \
+                                    torch.sqrt(\
+                                        2.0 * test_noise_temperature * \
+                                            test_noise_scale * step_size)
+
+                        # Otherwise
+                        else:
+
+                            # No noise is drawn before the first step.
+                            test_noise = torch.zeros_like(z)
+
+                    # Add the noise.
+                    z = z + test_noise
+
                 #-----------------------------------------------------#
 
                 # If the Gaussian mixture model is the legacy one
@@ -5911,6 +6195,13 @@ class BulkDGD(nn.Module):
 
                 # Backpropagate the loss.
                 loss.backward()
+
+                # If the noise stays in the stored representations
+                if test_noise_scale > 0 and test_noise_persist:
+
+                    # Add it to them.
+                    with torch.no_grad():
+                        rep_layer_test.z[samples_ixs] += test_noise
 
                 #-----------------------------------------------------#
 
@@ -6161,6 +6452,14 @@ class BulkDGD(nn.Module):
                     # Add the noise scale to the log string.
                     info_msg += \
                         f", noise scale {train_noise_scale:.6f}"
+
+            # If the noise follows the optimizer's step sizes
+            elif train_noise_type == "langevin":
+
+                # Add the temperature to the log string.
+                info_msg += \
+                    ", noise temperature " \
+                    f"{train_noise_temperature * train_noise_scale:.6f}"
 
             # End the log string and inform the user.
             info_msg += "."
@@ -7134,6 +7433,21 @@ class BulkDGD(nn.Module):
             upper = nbinom.ppf(quantiles[1],
                                r,
                                p)
+
+            # Find the genes where the Poisson limit holds.
+            poisson_limit = \
+                (means / (r + means) < outputmodules.NB_POISSON_Q) & \
+                (r > outputmodules.NB_R_SWITCH)
+
+            # Use the Poisson limit for them.
+            lower = np.where(poisson_limit,
+                             poisson.ppf(quantiles[0],
+                                         means),
+                             lower)
+            upper = np.where(poisson_limit,
+                             poisson.ppf(quantiles[1],
+                                         means),
+                             upper)
 
         #-------------------------------------------------------------#
 

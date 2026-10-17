@@ -2191,7 +2191,7 @@ def load_shipped_model(seed = None):
     # Fill in the defaults 'BulkDGD.__init__' otherwise expects.
     config.setdefault("latent_type", "tgmm")
     config.setdefault("scaling_factor", "mean")
-    config.setdefault("dtype", "float32")
+    config.setdefault("dtype", "float64")
 
     # Return the completed configuration.
     return config

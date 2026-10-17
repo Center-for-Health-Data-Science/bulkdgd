@@ -373,6 +373,14 @@ _MODEL_DECODER_OPTIONS = {
                                  OutputModulePoisson.
                                     ACTIVATION_FUNCTIONS,
                         },
+                    "eps" : {
+                        "type" : (float, int, type(None)),
+                        "condition" : lambda v: \
+                            isinstance(v, (float, int)) \
+                            and not isinstance(v, bool) and v >= 0,
+                        "message" : "must be a non-negative number",
+                        "default" : None,
+                        },
                     },
 
                 "nb_feature_dispersion" : {
@@ -389,6 +397,14 @@ _MODEL_DECODER_OPTIONS = {
                         "message" : "must be a positive number",
                         "default" : 2,
                         },
+                    "eps" : {
+                        "type" : (float, int, type(None)),
+                        "condition" : lambda v: \
+                            isinstance(v, (float, int)) \
+                            and not isinstance(v, bool) and v >= 0,
+                        "message" : "must be a non-negative number",
+                        "default" : None,
+                        },
                     },
 
                 "nb_full_dispersion" : {
@@ -399,6 +415,14 @@ _MODEL_DECODER_OPTIONS = {
                             core.outputmodules.
                                 OutputModuleNBFullDispersion.
                                     ACTIVATION_FUNCTIONS,
+                        },
+                    "eps" : {
+                        "type" : (float, int, type(None)),
+                        "condition" : lambda v: \
+                            isinstance(v, (float, int)) \
+                            and not isinstance(v, bool) and v >= 0,
+                        "message" : "must be a non-negative number",
+                        "default" : None,
                         },
                     },
 
@@ -1031,7 +1055,7 @@ _TRAIN_REPRESENTATIONS = {
     # The type of noise to add to the representations during training.
     "train_noise_type" : {
         "type": (str, type(None)),
-        "choices": ["gaussian", "none"],
+        "choices": ["gaussian", "langevin", "none"],
         "default": "gaussian",
         },
 
@@ -1082,6 +1106,175 @@ _TRAIN_REPRESENTATIONS = {
                         "condition": lambda v: v >= 0,
                         "message": "must be a non-negative number",
                         "default": 4.0,
+                        },
+
+                    # Whether the noise stays in the stored
+                    # representations.
+                    "persist" : {
+                        "type": (bool,),
+                        "default": False,
+                        },
+                    },
+
+                # Noise scaled to the optimizer's step sizes, kept in
+                # the stored representations.
+                "langevin" : {
+
+                    # The temperature the representations are sampled
+                    # at.
+                    "temperature" : {
+                        "type": (float, int),
+                        "condition": lambda v: v >= 0,
+                        "message": "must be a non-negative number",
+                        "default": 1.0,
+                        },
+
+                    # The temperature's multiplier at the start of
+                    # training.
+                    "start" : {
+                        "type": (float, int),
+                        "condition": lambda v: v >= 0,
+                        "message": "must be a non-negative number",
+                        "default": 1.0,
+                        },
+
+                    # The temperature's multiplier at the end of the
+                    # annealing.
+                    "end" : {
+                        "type": (float, int),
+                        "condition": lambda v: v >= 0,
+                        "message": "must be a non-negative number",
+                        "default": 1.0,
+                        },
+
+                    # The fraction of training the annealing spans.
+                    "end_fraction" : {
+                        "type": (float, int),
+                        "condition": lambda v: 0 < v <= 1,
+                        "message": "must be in (0, 1]",
+                        "default": 1.0,
+                        },
+                    },
+                },
+            },
+        },
+
+    # The type of noise to add to the representations of the test
+    # samples during training.
+    "test_noise_type" : {
+        "type": (str, type(None)),
+        "choices": ["gaussian", "langevin", "none"],
+        "default": "none",
+        },
+
+    # The options for the noise to add to the representations of the
+    # test samples during training.
+    "test_noise_options" : {
+        "switch" : {
+            "option" : "test_noise_type",
+            "cases" : {
+                "gaussian" : {
+
+                    # The base scale of the Gaussian noise.
+                    "scale" : {
+                        "type": (float, int),
+                        "condition": lambda v: v >= 0,
+                        "message": "must be a non-negative number",
+                        "default": 0.1,
+                        },
+
+                    # The scale multiplier at the start of training.
+                    "start" : {
+                        "type": (float, int),
+                        "condition": lambda v: v >= 0,
+                        "message": "must be a non-negative number",
+                        "default": 1.0,
+                        },
+
+                    # The scale multiplier at the end of training.
+                    "end" : {
+                        "type": (float, int),
+                        "condition": lambda v: v >= 0,
+                        "message": "must be a non-negative number",
+                        "default": 0.01,
+                        },
+
+                    # The probability mass the noise keeps within the
+                    # component's radius.
+                    "within_radius_prob" : {
+                        "type": (float, int),
+                        "condition": lambda v: 0 <= v <= 1,
+                        "message": "must be a number between 0 and 1",
+                        "default": 0.95,
+                        },
+
+                    # The final multiplier on the noise.
+                    "gain" : {
+                        "type": (float, int),
+                        "condition": lambda v: v >= 0,
+                        "message": "must be a non-negative number",
+                        "default": 4.0,
+                        },
+
+                    # Whether the noise stays in the stored
+                    # representations.
+                    "persist" : {
+                        "type": (bool,),
+                        "default": False,
+                        },
+
+                    # The seed of the noise's own random generator, by
+                    # default the seed torch was given.
+                    "seed" : {
+                        "type": (int, type(None)),
+                        "default": None,
+                        },
+                    },
+
+                # Noise scaled to the optimizer's step sizes, kept in
+                # the stored representations.
+                "langevin" : {
+
+                    # The temperature the representations are sampled
+                    # at.
+                    "temperature" : {
+                        "type": (float, int),
+                        "condition": lambda v: v >= 0,
+                        "message": "must be a non-negative number",
+                        "default": 1.0,
+                        },
+
+                    # The temperature's multiplier at the start of
+                    # training.
+                    "start" : {
+                        "type": (float, int),
+                        "condition": lambda v: v >= 0,
+                        "message": "must be a non-negative number",
+                        "default": 1.0,
+                        },
+
+                    # The temperature's multiplier at the end of the
+                    # annealing.
+                    "end" : {
+                        "type": (float, int),
+                        "condition": lambda v: v >= 0,
+                        "message": "must be a non-negative number",
+                        "default": 1.0,
+                        },
+
+                    # The fraction of training the annealing spans.
+                    "end_fraction" : {
+                        "type": (float, int),
+                        "condition": lambda v: 0 < v <= 1,
+                        "message": "must be in (0, 1]",
+                        "default": 1.0,
+                        },
+
+                    # The seed of the noise's own random generator, by
+                    # default the seed torch was given.
+                    "seed" : {
+                        "type": (int, type(None)),
+                        "default": None,
                         },
                     },
                 },
