@@ -4568,6 +4568,95 @@ class BulkDGD(nn.Module):
                         save_pathways_saliency_maps_epoch_dir)
 
 
+    def _draw_kept_noise(self,
+                         noise_type: str,
+                         noise_options: dict[str, object],
+                         noise_scale: float,
+                         generator: torch.Generator,
+                         optimizer: torch.optim.Optimizer,
+                         rep_layer: latents.RepresentationLayer,
+                         samples_ixs: torch.Tensor) -> torch.Tensor:
+        """Draw the noise kept in a batch's stored representations.
+
+        Parameters
+        ----------
+        noise_type : :class:`str`, {``"gaussian"``, ``"langevin"``}
+            The type of noise.
+
+        noise_options : :class:`dict`
+            The noise's options.
+
+        noise_scale : :class:`float`
+            The noise's scale (Gaussian) or the temperature's
+            multiplier (Langevin) at the current epoch.
+
+        generator : :class:`torch.Generator`
+            The noise's own random generator.
+
+        optimizer : :class:`torch.optim.Optimizer`
+            The optimizer of the representations.
+
+        rep_layer : :class:`core.latents.RepresentationLayer`
+            The layer holding the representations.
+
+        samples_ixs : :class:`torch.Tensor`
+            The indexes of the batch's samples.
+
+        Returns
+        -------
+        noise : :class:`torch.Tensor`
+            The noise, shaped as the batch's representations.
+        """
+
+        # Get the batch's representations.
+        z = rep_layer.z[samples_ixs]
+
+        # Draw standard normal values from the noise's generator.
+        draw = torch.randn(z.shape,
+                           generator = generator,
+                           device = z.device,
+                           dtype = z.dtype)
+
+        # If the noise is Gaussian
+        if noise_type == "gaussian":
+
+            # Get the radius of the hypersphere within which the
+            # specified fraction of samples lie.
+            radius = \
+                float(chi2.ppf(noise_options["within_radius_prob"],
+                               self.latent.dim)) ** 0.5
+
+            # Return the scaled noise.
+            return noise_scale * noise_options["gain"] * draw / radius
+
+        # Get the optimizer's state for the representations.
+        rep_state = optimizer.state.get(rep_layer.z, {})
+
+        # If the optimizer has not taken a step yet
+        if "exp_avg_sq" not in rep_state:
+
+            # No noise is kept before the first step.
+            return torch.zeros_like(z)
+
+        # Get the optimizer's options.
+        rep_group = optimizer.param_groups[0]
+
+        # Get the bias-corrected second moments of the batch's
+        # gradients.
+        v_hat = \
+            rep_state["exp_avg_sq"][samples_ixs] / \
+                (1 - rep_group["betas"][1] ** float(rep_state["step"]))
+
+        # Get each coordinate's step size.
+        step_size = rep_group["lr"] / (v_hat.sqrt() + rep_group["eps"])
+
+        # Return the noise, with a variance of twice the step size
+        # times the temperature.
+        return draw * \
+            torch.sqrt(2.0 * noise_options["temperature"] * \
+                           noise_scale * step_size)
+
+
     def _train(self,
                config_train: dict[str, object],
                samples_names_train: list[str],
@@ -4965,6 +5054,31 @@ class BulkDGD(nn.Module):
             test_noise_generator = \
                 torch.Generator(device = self.device)
             test_noise_generator.manual_seed(int(test_noise_seed))
+
+        #-------------------------------------------------------------#
+
+        # Get the type of noise kept in the stored representations,
+        # apart from the noise the decoder sees.
+        kept_noise_type = \
+            representations_options.get("kept_noise_type", "none")
+
+        # Get its options.
+        kept_noise_options = \
+            representations_options.get("kept_noise_options")
+
+        # If any noise is kept
+        if kept_noise_type in ("gaussian", "langevin"):
+
+            # Get the seed of its generator, by default one past the
+            # seed torch was given.
+            kept_noise_seed = kept_noise_options["seed"]
+            if kept_noise_seed is None:
+                kept_noise_seed = torch.initial_seed() + 1
+
+            # Create the kept noise's own generator.
+            kept_noise_generator = \
+                torch.Generator(device = self.device)
+            kept_noise_generator.manual_seed(int(kept_noise_seed))
 
         #-------------------------------------------------------------#
 
@@ -5491,6 +5605,48 @@ class BulkDGD(nn.Module):
                 # No noise will be injected.
                 test_noise_scale = 0.0
 
+            # If Gaussian noise is kept in the stored representations
+            if kept_noise_type == "gaussian":
+
+                # Get the noise progress.
+                progress = (epoch - 1) / max(n_epochs - 1, 1)
+
+                # Compute the noise scale using cosine annealing
+                # between the start and end values.
+                kept_noise_scale = \
+                    (kept_noise_options["end"] + \
+                        (kept_noise_options["start"] - \
+                         kept_noise_options["end"]) * \
+                            0.5 * (1 + math.cos(math.pi * progress))) \
+                    * kept_noise_options["scale"]
+
+            # If the kept noise follows the optimizer's step sizes
+            elif kept_noise_type == "langevin":
+
+                # Get how far the annealing has progressed.
+                progress = \
+                    min((epoch - 1) / max(n_epochs - 1, 1) / \
+                            kept_noise_options["end_fraction"],
+                        1.0)
+
+                # Compute the temperature's multiplier using cosine
+                # annealing between the start and end values.
+                kept_noise_scale = \
+                    kept_noise_options["end"] + \
+                        (kept_noise_options["start"] - \
+                         kept_noise_options["end"]) * \
+                            0.5 * (1 + math.cos(math.pi * progress))
+
+                # Keep no noise when the temperature is zero.
+                if kept_noise_options["temperature"] == 0:
+                    kept_noise_scale = 0.0
+
+            # Otherwise
+            else:
+
+                # No noise will be kept.
+                kept_noise_scale = 0.0
+
             #=========================================================#
             #                      TRAINING PHASE                     #
             #=========================================================#
@@ -5761,6 +5917,21 @@ class BulkDGD(nn.Module):
                     # Add it to them.
                     with torch.no_grad():
                         rep_layer_train.z[samples_ixs] += noise
+
+                # If a separate noise is kept in them
+                if kept_noise_scale > 0:
+
+                    # Add it to them.
+                    with torch.no_grad():
+                        rep_layer_train.z[samples_ixs] += \
+                            self._draw_kept_noise(\
+                                noise_type = kept_noise_type,
+                                noise_options = kept_noise_options,
+                                noise_scale = kept_noise_scale,
+                                generator = kept_noise_generator,
+                                optimizer = optimizer_rep_train,
+                                rep_layer = rep_layer_train,
+                                samples_ixs = samples_ixs)
 
                 #-----------------------------------------------------#
 
@@ -6181,6 +6352,21 @@ class BulkDGD(nn.Module):
                     # Add it to them.
                     with torch.no_grad():
                         rep_layer_test.z[samples_ixs] += test_noise
+
+                # If a separate noise is kept in them
+                if kept_noise_scale > 0:
+
+                    # Add it to them.
+                    with torch.no_grad():
+                        rep_layer_test.z[samples_ixs] += \
+                            self._draw_kept_noise(\
+                                noise_type = kept_noise_type,
+                                noise_options = kept_noise_options,
+                                noise_scale = kept_noise_scale,
+                                generator = kept_noise_generator,
+                                optimizer = optimizer_rep_test,
+                                rep_layer = rep_layer_test,
+                                samples_ixs = samples_ixs)
 
                 #-----------------------------------------------------#
 

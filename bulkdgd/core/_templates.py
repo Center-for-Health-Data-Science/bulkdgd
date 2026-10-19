@@ -1281,6 +1281,119 @@ _TRAIN_REPRESENTATIONS = {
             },
         },
 
+    # The type of noise kept in the stored representations of the
+    # training and test samples, apart from the noise the decoder sees.
+    "kept_noise_type" : {
+        "type": (str, type(None)),
+        "choices": ["gaussian", "langevin", "none"],
+        "default": "none",
+        },
+
+    # The options for the noise kept in the stored representations.
+    "kept_noise_options" : {
+        "switch" : {
+            "option" : "kept_noise_type",
+            "cases" : {
+                "gaussian" : {
+
+                    # The base scale of the Gaussian noise.
+                    "scale" : {
+                        "type": (float, int),
+                        "condition": lambda v: v >= 0,
+                        "message": "must be a non-negative number",
+                        "default": 0.01,
+                        },
+
+                    # The scale multiplier at the start of training.
+                    "start" : {
+                        "type": (float, int),
+                        "condition": lambda v: v >= 0,
+                        "message": "must be a non-negative number",
+                        "default": 1.0,
+                        },
+
+                    # The scale multiplier at the end of training.
+                    "end" : {
+                        "type": (float, int),
+                        "condition": lambda v: v >= 0,
+                        "message": "must be a non-negative number",
+                        "default": 0.01,
+                        },
+
+                    # The probability mass the noise keeps within the
+                    # component's radius.
+                    "within_radius_prob" : {
+                        "type": (float, int),
+                        "condition": lambda v: 0 <= v <= 1,
+                        "message": "must be a number between 0 and 1",
+                        "default": 0.95,
+                        },
+
+                    # The final multiplier on the noise.
+                    "gain" : {
+                        "type": (float, int),
+                        "condition": lambda v: v >= 0,
+                        "message": "must be a non-negative number",
+                        "default": 4.0,
+                        },
+
+                    # The seed of the noise's own random generator, by
+                    # default one past the seed torch was given.
+                    "seed" : {
+                        "type": (int, type(None)),
+                        "default": None,
+                        },
+                    },
+
+                # Noise scaled to the optimizer's step sizes.
+                "langevin" : {
+
+                    # The temperature the representations are sampled
+                    # at.
+                    "temperature" : {
+                        "type": (float, int),
+                        "condition": lambda v: v >= 0,
+                        "message": "must be a non-negative number",
+                        "default": 0.1,
+                        },
+
+                    # The temperature's multiplier at the start of
+                    # training.
+                    "start" : {
+                        "type": (float, int),
+                        "condition": lambda v: v >= 0,
+                        "message": "must be a non-negative number",
+                        "default": 1.0,
+                        },
+
+                    # The temperature's multiplier at the end of the
+                    # annealing.
+                    "end" : {
+                        "type": (float, int),
+                        "condition": lambda v: v >= 0,
+                        "message": "must be a non-negative number",
+                        "default": 1.0,
+                        },
+
+                    # The fraction of training the annealing spans.
+                    "end_fraction" : {
+                        "type": (float, int),
+                        "condition": lambda v: 0 < v <= 1,
+                        "message": "must be in (0, 1]",
+                        "default": 1.0,
+                        },
+
+                    # The seed of the noise's own random generator, by
+                    # default one past the seed torch was given.
+                    "seed" : {
+                        "type": (int, type(None)),
+                        "default": None,
+                        },
+                    },
+                },
+            },
+        },
+
     # The options for the optimizer used to train the representations.
     **_override_items(
         d = _OPTIMIZER,
