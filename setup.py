@@ -212,7 +212,8 @@ install_requires = ["dask",
                     "scikit-learn",
                     "scipy",
                     "statsmodels",
-                    "tgmm",
+                    # Later versions fit the mixture differently.
+                    "tgmm==0.2.1",
                     "torch",
                     "umap-learn",
                     "PyYAML"]

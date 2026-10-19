@@ -43,9 +43,7 @@ import hashlib
 import logging as log
 import math
 import os
-import random
 import re
-import string
 import time
 from typing import Optional, Union
 
@@ -7029,14 +7027,15 @@ class BulkDGD(nn.Module):
             # Initialize the padding samples' own identifiers.
             padding_names = []
 
+            # Initialize the number of the next identifier.
+            n_name = 0
+
             # Until there is one for every padding sample
             while len(padding_names) < n_padding:
 
-                # Draw an identifier at random.
-                name = "".join(
-                    random.choices(
-                        string.ascii_letters + string.digits,
-                        k = 16))
+                # Take the next numbered identifier.
+                name = f"padding_{n_name}"
+                n_name += 1
 
                 # If no sample already has it
                 if name not in taken:
