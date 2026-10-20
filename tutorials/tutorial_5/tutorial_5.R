@@ -191,8 +191,8 @@ run_bulkdgd_cli("bulkdgd_find_representations", c(
 # decoder's prediction for that same sample (its in silico "control")
 # - no separate control samples are needed. This computes p-values,
 # Benjamini-Hochberg-adjusted q-values, and log2 fold changes for
-# every gene, and writes one CSV file per sample
-# ("dea_sample_<name>.csv").
+# every gene, and writes one Parquet file per sample
+# ("dea_sample_<name>.parquet").
 run_bulkdgd_cli("bulkdgd_dea", c(
   "-is", "samples_preprocessed.csv",
   "-im", "pred_means.csv",
@@ -202,16 +202,17 @@ run_bulkdgd_cli("bulkdgd_dea", c(
   "-lc", "-v"
 ))
 
-# From here on, it's plain R: read a result file back in as a regular
-# R data frame (gene as row name; columns 'p_value', 'q_value',
+# Read a result file back in, with pandas through reticulate, as a
+# regular R data frame (gene as row name; columns 'p_value', 'q_value',
 # 'log2_fold_change', plus the observed count and the decoder's
 # predicted mean/r-value for reference) and work with it as you would
-# a DESeq2 results table. For example, the significantly
+# a DESeq2 results table, in plain R. For example, the significantly
 # differentially expressed genes (q < 0.05) for the first sample,
 # strongest fold change first:
-dea_files <- list.files(pattern = "^dea_sample_.*\\.csv$")
+dea_files <- list.files(pattern = "^dea_sample_.*\\.parquet$")
 
-df_dea_first <- read.csv(dea_files[1], row.names = 1)
+pd <- import("pandas")
+df_dea_first <- py_to_r(pd$read_parquet(dea_files[1]))
 df_sig <- df_dea_first[df_dea_first$q_value < 0.05, ]
 df_sig <- df_sig[order(-abs(df_sig$log2_fold_change)), ]
 

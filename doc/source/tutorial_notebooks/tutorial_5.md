@@ -89,7 +89,7 @@ Finding a representation is a per-sample optimisation in latent space (not a sin
 
 ## Differential expression analysis
 
-For each sample, `bulkdgd` compares its observed gene counts against the decoder's own prediction for that sample and computes p-values, Benjamini-Hochberg-adjusted q-values, and log2 fold changes, writing one CSV file per sample (`dea_sample_<name>.csv`):
+For each sample, `bulkdgd` compares its observed gene counts against the decoder's own prediction for that sample and computes p-values, Benjamini-Hochberg-adjusted q-values, and log2 fold changes, writing one Parquet file per sample (`dea_sample_<name>.parquet`):
 
 ```r
 run_bulkdgd_cli("bulkdgd_dea", c(
@@ -102,12 +102,13 @@ run_bulkdgd_cli("bulkdgd_dea", c(
 ))
 ```
 
-From here on, the analysis is plain R: read a result file back as an R data frame (columns `p_value`, `q_value`, `log2_fold_change`, plus the observed count and the decoder's predicted mean/r-value) and work with it as you would with a DESeq2 results table:
+Read a result file back, with pandas through `reticulate`, as an R data frame (columns `p_value`, `q_value`, `log2_fold_change`, plus the observed count and the decoder's predicted mean/r-value) and work with it as you would with a DESeq2 results table:
 
 ```r
-dea_files <- list.files(pattern = "^dea_sample_.*\\.csv$")
+dea_files <- list.files(pattern = "^dea_sample_.*\\.parquet$")
 
-df_dea_first <- read.csv(dea_files[1], row.names = 1)
+pd <- import("pandas")
+df_dea_first <- py_to_r(pd$read_parquet(dea_files[1]))
 df_sig <- df_dea_first[df_dea_first$q_value < 0.05, ]
 df_sig <- df_sig[order(-abs(df_sig$log2_fold_change)), ]
 ```
