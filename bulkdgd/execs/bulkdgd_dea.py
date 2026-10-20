@@ -297,6 +297,25 @@ def set_parser() -> argparse.ArgumentParser:
 
     #-----------------------------------------------------------------#
 
+    # Set the default value for the argument.
+    sf_default = "median"
+
+    # Set a help message.
+    sf_help = \
+        "The statistic of each sample's counts its predicted means " \
+        "are scaled by, as in the model's 'scaling_factor': " \
+        "'mean' or 'median'. The default is " \
+        f"'{sf_default}', that of the models shipped with bulkdgd."
+
+    # Add the argument to the group.
+    dea_group.add_argument("-sf", "--scaling-factor",
+                           type = str,
+                           default = sf_default,
+                           choices = dea.SCALING_FACTORS,
+                           help = sf_help)
+
+    #-----------------------------------------------------------------#
+
     # Set a help message.
     gsf_help = \
         "The plain text files containing the gene sets for the " \
@@ -404,6 +423,7 @@ def main(args: argparse.Namespace) -> None:
     q_values_method = args.q_values_method
     q_values_threshold = args.q_values_threshold
     log2_fold_change_threshold = args.log2_fold_change_threshold
+    scaling_factor = args.scaling_factor
     genes_sets_files = args.genes_sets_files
 
     # Get the arguments corresponding to the run options.
@@ -664,7 +684,8 @@ def main(args: argparse.Namespace) -> None:
              "alpha" : q_values_alpha,
              "method" : q_values_method,
              "device" : device,
-             "p_values_method" : p_values_method}
+             "p_values_method" : p_values_method,
+             "scaling_factor" : scaling_factor}
 
         # If r-values were passed
         if r_values is not None:

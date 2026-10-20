@@ -11,7 +11,7 @@ The output of `bulkdgd_dea` is a Parquet file for each sample containing the res
 ## Command line
 
 ```
-bulkdgd_dea [-h] -is INPUT_SAMPLES -im INPUT_MEANS [-iv INPUT_RVALUES] [-odp OUTPUT_DEA_PREFIX] [-ogp OUTPUT_GSEA_PREFIX] [-mg] [-pr P_VALUES_RESOLUTION] [-pt P_VALUES_THRESHOLD] [-qa Q_VALUES_ALPHA] [-qm Q_VALUES_METHOD] [-qt Q_VALUES_THRESHOLD] [-fct LOG2_FOLD_CHANGE_THRESHOLD] [-gsf GENES_SETS_FILES [GENES_SETS_FILES ...]] [-n N_PROC] [-dev DEVICE] [-pm {auto,batched,per-gene}] [-d WORK_DIR] [-lf LOG_FILE] [-lc] [-v] [-vv]
+bulkdgd_dea [-h] -is INPUT_SAMPLES -im INPUT_MEANS [-iv INPUT_RVALUES] [-odp OUTPUT_DEA_PREFIX] [-ogp OUTPUT_GSEA_PREFIX] [-mg] [-pr P_VALUES_RESOLUTION] [-pt P_VALUES_THRESHOLD] [-qa Q_VALUES_ALPHA] [-qm Q_VALUES_METHOD] [-qt Q_VALUES_THRESHOLD] [-fct LOG2_FOLD_CHANGE_THRESHOLD] [-sf {mean,median}] [-gsf GENES_SETS_FILES [GENES_SETS_FILES ...]] [-n N_PROC] [-dev DEVICE] [-pm {auto,batched,per-gene}] [-d WORK_DIR] [-lf LOG_FILE] [-lc] [-v] [-vv]
 ```
 
 ## Options
@@ -48,6 +48,7 @@ bulkdgd_dea [-h] -is INPUT_SAMPLES -im INPUT_MEANS [-iv INPUT_RVALUES] [-odp OUT
 | `-qm`, `--q-values-method`     | The method used to calculate the q-values (i.e., to adjust the p-values). The default is `"fdr_bh"`. The available methods can be found in the documentation of `statsmodels.stats.multitest.multipletests`, which is used to perform the calculation. |
 | `-qt`, `--q-values-threshold` | The threshold used to select the significant genes based on the q-values. The default is `0.05`. |
 | `-fct`, `--log2-fold-change-threshold` | The threshold used to select the significant genes based on the log2-fold changes. The default is `2`. |
+| `-sf`, `--scaling-factor` | The statistic of each sample's counts its predicted means are scaled by, as in the model's `scaling_factor`: `"mean"` or `"median"`. The default is `"median"`, that of the models shipped with bulkdgd. |
 | `-gsf`, `--genes-sets-files` | A list of plain text files containing the gene sets to be used in the analysis. The files must contain one gene symbol per line. The gene sets will be used to perform the gene set enrichment analysis. |
 
 ### Run options
