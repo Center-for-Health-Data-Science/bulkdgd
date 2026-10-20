@@ -74,7 +74,7 @@ P_VALUES_METHODS = ["auto", "batched", "per-gene"]
 def _get_scaling_factor(obs_counts: np.ndarray,
                         scaling_factor: str = "mean") -> float:
     """Get the factor a sample's predicted means are multiplied by to
-    put them on the scale of the sample's own counts.
+    put them on the scale of the sample's counts.
 
     Parameters
     ----------
@@ -135,7 +135,8 @@ def _yield_p_values(obs_counts: np.ndarray,
         The r-values for the genes, if negative binomial.
 
     resolution : :class:`int`, optional
-        The resolution at which to perform the p-value calculation.
+        The number of points at which the probability mass function
+        is evaluated. If not passed, every count up to the tail.
 
     eps : :class:`float`, optional
         The small value of the log-probability mass (see
@@ -503,7 +504,8 @@ def _compute_p_values(obs_counts: np.ndarray,
         A one-dimensional array containing the r-values for the genes.
 
     resolution : :class:`int`, optional
-        The resolution at which to perform the p-value calculation.
+        The number of points at which the probability mass function
+        is evaluated. If not passed, every count up to the tail.
 
     device : :class:`str` or :class:`torch.device`, ``"cpu"``
         The device on which to perform the calculation.
@@ -758,7 +760,7 @@ def _compute_p_values(obs_counts: np.ndarray,
         norm_const = prob_mass.sum(dim = 1)
 
         # Get the p-values of the genes in the chunk (NaN for genes
-        # whose tail is 0).
+        # with no points).
         p_values_t[idx_t] = lower_probs / norm_const
 
         #-------------------------------------------------------------#
@@ -906,7 +908,7 @@ def _compute_p_values_symmetric_error(
     # distributions
     if r_values is not None:
 
-        # Get the negative binomial's own variance of the counts.
+        # Get the negative binomial variance of the counts.
         variance = pred_means + (pred_means ** 2) / r_values
 
     # If the genes' counts were modelled using Poisson distributions
@@ -920,8 +922,8 @@ def _compute_p_values_symmetric_error(
     # Propagate the variance onto the log scale (delta method).
     log_variance = variance / (pred_means ** 2)
 
-    # Get the z-score of the observed count's own log-distance from
-    # the predicted mean's log.
+    # Get the z-scores of the observed counts' logarithms against the
+    # predicted means' logarithms.
     z_scores = \
         (np.log(obs_counts) - np.log(pred_means)) \
         / np.sqrt(log_variance)
@@ -954,8 +956,8 @@ def get_p_values(obs_counts: pd.Series,
                  mid_p: bool = True,
                  eps: Optional[float] = None) -> \
                     tuple[pd.Series, pd.DataFrame, pd.DataFrame]:
-    """Compute, for each gene, the p-value of its predicted mean count
-    against its actual observed count in a single sample.
+    """Compute, for each gene of a single sample, the p-value of its
+    observed count under its predicted count distribution.
 
     Parameters
     ----------
@@ -970,17 +972,18 @@ def get_p_values(obs_counts: pd.Series,
         if omitted, the counts are taken to be Poisson-distributed.
 
     resolution : :class:`int`, optional
-        Coarseness of the p-value sum over the probability mass
-        function; exact if not passed.
+        The number of points at which the probability mass function
+        is evaluated under the ``"density"`` rule. If not passed,
+        every count up to the tail.
 
     return_pmf_values : :class:`bool`, :obj:`False`
         Also return the evaluation points and values of the log-
-        probability mass function; forces per-gene, CPU-only
-        computation, ignoring ``device``.
+        probability mass function under the ``"density"`` rule;
+        forces per-gene, CPU-only computation, ignoring ``device``.
 
     pseudocount : :class:`int`, ``1``
-        Pseudocount added to observed counts and predicted means to
-        avoid artifacts.
+        Pseudocount added to the observed counts and the predicted
+        means.
 
     device : :class:`str` or :class:`torch.device`, ``"cpu"``
         Device on which to compute the p-values.
@@ -996,7 +999,7 @@ def get_p_values(obs_counts: pd.Series,
     scaling_factor : :class:`str`, \
         {``"mean"``, ``"median"``}, ``"mean"``
         How the model scales a sample's predicted means to the
-        scale of the sample's own counts.
+        scale of the sample's counts.
 
     two_sided : :class:`str`, \
         {``"equal_tail"``, ``"symmetric_error"``, ``"density"``}, \
@@ -1023,13 +1026,14 @@ def get_p_values(obs_counts: pd.Series,
 
     ks : :class:`pandas.DataFrame`
         Count values at which the log-probability mass function was
-        evaluated, one row per gene. Empty if ``return_pmf_values``
-        is ``False``.
+        evaluated, one row per gene. Empty unless
+        ``return_pmf_values`` is ``True`` under the ``"density"``
+        rule.
 
-    pmfs : :class:`numpy.ndarray`
+    pmfs : :class:`pandas.DataFrame`
         Log-probability mass function values at each ``ks`` point,
-        one row per gene. Empty if ``return_pmf_values`` is
-        ``False``.
+        one row per gene. Empty unless ``return_pmf_values`` is
+        ``True`` under the ``"density"`` rule.
     """
 
     # Get the genes, checking that all inputs list them in the same
@@ -1329,13 +1333,13 @@ def get_log2_fold_changes(obs_counts: pd.Series,
         Predicted means of the genes' count distributions.
 
     pseudocount : :class:`int`, ``1``
-        Pseudocount added to observed counts and predicted means to
-        avoid artifacts.
+        Pseudocount added to the observed counts and the predicted
+        means.
 
     scaling_factor : :class:`str`, \
         {``"mean"``, ``"median"``}, ``"mean"``
         How the model scales a sample's predicted means to the
-        scale of the sample's own counts.
+        scale of the sample's counts.
 
     Returns
     -------
@@ -1440,8 +1444,9 @@ def get_statistics(obs_counts: pd.Series,
         The statistics to compute; by default, all of them.
 
     resolution : :class:`int`, optional
-        Coarseness of the p-value sum over the probability mass
-        function; exact if not passed.
+        The number of points at which the probability mass function
+        is evaluated under the ``"density"`` rule. If not passed,
+        every count up to the tail.
 
     alpha : :class:`float`, ``0.05``
         The family-wise error rate for the calculation of the
@@ -1452,8 +1457,8 @@ def get_statistics(obs_counts: pd.Series,
         ``statsmodels.stats.multitest.multipletests``).
 
     pseudocount : :class:`int`, ``1``
-        Pseudocount added to observed counts and predicted means to
-        avoid artifacts.
+        Pseudocount added to the observed counts and the predicted
+        means.
 
     device : :class:`str` or :class:`torch.device`, ``"cpu"``
         Device on which to compute the p-values.
@@ -1469,7 +1474,7 @@ def get_statistics(obs_counts: pd.Series,
     scaling_factor : :class:`str`, \
         {``"mean"``, ``"median"``}, ``"mean"``
         How the model scales a sample's predicted means to the
-        scale of the sample's own counts.
+        scale of the sample's counts.
 
     two_sided : :class:`str`, \
         {``"equal_tail"``, ``"symmetric_error"``, ``"density"``}, \
@@ -1767,8 +1772,9 @@ def perform_dea(obs_counts: pd.DataFrame,
         to be Poisson-distributed.
 
     resolution : :class:`int`, optional
-        Coarseness of the p-value sum over the probability mass
-        function; exact if not passed.
+        The number of points at which the probability mass function
+        is evaluated under the ``"density"`` rule. If not passed,
+        every count up to the tail.
 
     alpha : :class:`float`, ``0.05``
         The family-wise error rate for the calculation of the
@@ -1793,8 +1799,8 @@ def perform_dea(obs_counts: pd.DataFrame,
         gene names.
 
     pseudocount : :class:`int`, ``1``
-        Pseudocount added to observed counts and predicted means to
-        avoid artifacts.
+        Pseudocount added to the observed counts and the predicted
+        means.
 
     device : :class:`str` or :class:`torch.device`, ``"cpu"``
         Device on which to compute the p-values.
@@ -1810,7 +1816,7 @@ def perform_dea(obs_counts: pd.DataFrame,
     scaling_factor : :class:`str`, \
         {``"mean"``, ``"median"``}, ``"mean"``
         How the model scales a sample's predicted means to the
-        scale of the sample's own counts.
+        scale of the sample's counts.
 
     two_sided : :class:`str`, \
         {``"equal_tail"``, ``"symmetric_error"``, ``"density"``}, \
@@ -1854,7 +1860,7 @@ def perform_dea(obs_counts: pd.DataFrame,
 
     #-----------------------------------------------------------------#
 
-    # Get the sample's names.
+    # Get the samples' names.
     obs_counts_names = obs_counts.index.tolist()
 
     #-----------------------------------------------------------------#

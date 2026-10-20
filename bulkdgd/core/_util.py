@@ -390,9 +390,11 @@ def _check_config_recursive(
                 not ("switch" in template_spec or \
                      "type" in template_spec):
 
-            # If the section is optional and missing, leave it out.
+            # If the section is optional and missing
             if template_key not in config \
                     and template_spec.get("__optional__"):
+
+                # Skip it.
                 continue
 
             # If the section is missing or empty
@@ -474,6 +476,8 @@ def _check_value(value,
 
     # If the value is None and None is allowed
     if value is None and type(None) in option_type:
+
+        # Return an empty string.
         return ""
 
     #-----------------------------------------------------------------#
@@ -548,8 +552,7 @@ def _check_value(value,
                 choices_str = \
                     ", ".join([f"'{c}'" for c in option_choices])
 
-                # Add the supported choices to the
-                # error string.
+                # Add the supported choices to the error string.
                 err_str += \
                     "must be a list of strings, each being one of " \
                     "the supported values: " \
@@ -743,7 +746,7 @@ def parse_config_model(config: dict[str, object],
                 os.path.normpath(\
                     defaults.DATA_FILES_MODEL["dec"])
 
-            # If the file is not present locally, download it.
+            # If the file is not present locally
             if not os.path.isfile(default_decoder_pth_file):
 
                 # Download the decoder's weights.
@@ -783,9 +786,8 @@ def parse_config_train(
         The configuration.
 
     config_model : :class:`dict`, optional
-        The configuration of the model. This can be passed to check the
-        consistency between the training configuration and the model
-        configuration.
+        The configuration of the model, whose latent type the training
+        configuration must match.
 
     Returns
     -------
@@ -901,8 +903,7 @@ def parse_config_rep(config: Optional[dict[str, object]]) -> \
 
     #-----------------------------------------------------------------#
 
-    # If the latent type is 'tgmm', check the initialization options
-    # (the required fields depend on 'mode' and 'scheme_type').
+    # If the latent type is 'tgmm'
     if config_validated.get("latent_type") == "tgmm":
 
         # Get (or create) the scheme options section.
@@ -953,7 +954,7 @@ def parse_config_rep(config: Optional[dict[str, object]]) -> \
                     "found. The default value 'sample_keyed' will be "
                     "used.")
 
-            # Get the (possibly defaulted) mode.
+            # Get the mode.
             mode = initialization.get("mode")
 
             # Define the supported modes.
@@ -1100,8 +1101,7 @@ def parse_config_rep(config: Optional[dict[str, object]]) -> \
                         f"{', '.join(unexpected)} may only be used "
                         "with mode 'legacy_indexed'.")
 
-            # Store the (possibly defaulted/normalized) initialization
-            # section back in the configuration.
+            # Store the initialization section in the configuration.
             scheme_options["initialization"] = initialization
 
     #-----------------------------------------------------------------#
@@ -1177,8 +1177,7 @@ def get_time_dataframe(time_list: list[tuple[float, float]]) -> \
                    column = "processor",
                    value = curr_processor)
 
-    # Add a column defining the number of threads that were used
-    # to the data frame.
+    # Add a column defining the number of threads to the data frame.
     df_time.insert(loc = 2,
                    column = "num_threads",
                    value = num_threads)
@@ -1286,7 +1285,7 @@ def get_final_data_frames_rep(
     # Otherwise
     else:
 
-        # The data frame containing the r-values will be None.
+        # Set the data frame containing the r-values to None.
         df_pred_r_values = None
 
     #-----------------------------------------------------------------#
@@ -1312,7 +1311,7 @@ def get_final_data_frames_rep(
     # time.
     df_time = get_time_dataframe(time_list = time_opt)
 
-    # Name and sort the columns.
+    # Name the columns.
     df_time.columns = \
         ["platform", "processor", "num_threads",
          "opt_round", "epoch",
@@ -1641,7 +1640,7 @@ def normalize_loss(loss: torch.Tensor,
 
     Returns
     -------
-    loss_normalized: :class:`torch.Tensor`
+    loss_normalized : :class:`torch.Tensor`
         The normalized loss.
     """
 
@@ -2005,7 +2004,7 @@ def save_genes_saliency_maps_epoch(
         prefix: str,
         genes_names: list[str],
         save_dir: Optional[str] = None) -> None:
-    """Save the saliency map at the end of a given epoch.
+    """Save the gene-level saliency map at the end of a given epoch.
 
     Parameters
     ----------
@@ -2025,7 +2024,7 @@ def save_genes_saliency_maps_epoch(
         The directory where to save the saliency map.
     """
 
-    # Set the name of the rows.
+    # Set the names of the rows.
     index_names = genes_names
 
     # Set the names of the columns.
@@ -2066,7 +2065,7 @@ def save_pathways_saliency_maps_epoch(
         prefix: str,
         pathways_names: list[str],
         save_dir: Optional[str] = None) -> None:
-    """Save the saliency map at the end of a given epoch.
+    """Save the pathway-level saliency map at the end of a given epoch.
 
     Parameters
     ----------
@@ -2086,7 +2085,7 @@ def save_pathways_saliency_maps_epoch(
         The directory where to save the saliency map.
     """
 
-    # Set the name of the rows.
+    # Set the names of the rows.
     index_names = pathways_names
 
     # Set the names of the columns.
@@ -2166,8 +2165,10 @@ def load_shipped_model(seed = None):
     # the base member's files).
     config["latent_options"]["latent_pth_file"] = files["gmm"]
 
-    # If the decoder's weights are missing, download them.
+    # If the decoder's weights are missing
     if not os.path.isfile(files["dec"]):
+
+        # Download them.
         _internals.util.download_decoder_pth(dest_path = files["dec"],
                                              seed = seed)
 

@@ -44,7 +44,7 @@ from typing import Optional
 # Import from third-party libraries.
 import pandas as pd
 
-# Import from the package.
+# Import from 'bulkdgd'.
 from ..ioutil.tableio import save_table
 
 # Import from third-party libraries.
@@ -92,7 +92,7 @@ def load_samples_batches(samples_file: str) -> pd.DataFrame:
         file.
     """
 
-    # Set the columns taken into consideration in the data frame.
+    # Set the columns the file may contain.
     supported_columns = \
         ["recount3_project_name",
          "recount3_samples_category",
@@ -215,7 +215,7 @@ def get_gene_sums(project_name: str,
     # If no working directory was specified
     if wd is None:
 
-        # The working directory will be the current working directory.
+        # Use the current working directory.
         wd = os.getcwd()
 
     # Otherwise
@@ -348,7 +348,7 @@ def get_qc(project_name: str,
     # If no working directory was specified
     if wd is None:
 
-        # The working directory will be the current working directory.
+        # Use the current working directory.
         wd = os.getcwd()
 
     # Otherwise
@@ -444,12 +444,12 @@ def get_metadata(project_name: str,
         The category of samples requested.
 
     save_metadata : :class:`bool`, :obj:`True`
-        If :obj:`True`, save the original metadata file in the working
-        directory.
+        If :obj:`True`, save the metadata, with the attributes split
+        into columns, in the working directory.
 
     wd : :class:`str`, optional
-        The working directory where the original metadata file will be
-        saved, if ``save_metadata`` is :obj:`True`.
+        The working directory where the metadata file will be saved,
+        if ``save_metadata`` is :obj:`True`.
 
         If not specified, it will be the current working directory.
 
@@ -476,7 +476,7 @@ def get_metadata(project_name: str,
     # If no working directory was specified
     if wd is None:
 
-        # The working directory will be the current working directory.
+        # Use the current working directory.
         wd = os.getcwd()
 
     # Otherwise
@@ -597,8 +597,8 @@ def get_metadata(project_name: str,
                              in str(attr_str).split("|") \
                              if item != "nan" and ";;" in item)
 
-            # Parse the samples' attributes from the data frame and
-            # convert them into a data frame.
+            # Parse the attributes into a data frame, one column per
+            # attribute.
             df_attrs = \
                 df_metadata[column_attrs].apply(\
                     parse_attributes).apply(pd.Series)
@@ -620,7 +620,7 @@ def get_metadata(project_name: str,
 
             #---------------------------------------------------------#
 
-            # Get any attributes that are already found in the
+            # Get the attributes already present as columns in the
             # metadata.
             attrs_to_drop = \
                 df_attrs.columns[\
@@ -631,7 +631,7 @@ def get_metadata(project_name: str,
             df_attrs = df_attrs.drop(labels = attrs_to_drop,
                                      axis = 1)
 
-            # Add the metadata columns to the data frame of metadata.
+            # Add the attributes' columns to the metadata.
             df_metadata = df_metadata.join(df_attrs)
 
             # Drop the original column from the data frame containing
@@ -639,8 +639,8 @@ def get_metadata(project_name: str,
             df_metadata = df_metadata.drop(labels = [column_attrs],
                                            axis = 1)
 
-            # Convert all metadata columns to string type, to avoid
-            # issues with missing values.
+            # Convert all the columns to strings (missing values become
+            # 'nan').
             df_metadata = df_metadata.astype(str)
 
     #-----------------------------------------------------------------#
@@ -689,8 +689,8 @@ def get_read_counts(df_raw_counts: pd.DataFrame,
         as columns. Row indices are sample IDs.
 
     avg_mapped_read_length : :class:`pandas.Series`
-        Per-sample average mapped read length,
-        indexed by sample IDs (matches ``df_raw_counts.index``).
+        The samples' average mapped read lengths, indexed like the
+        rows of ``df_raw_counts``.
 
     do_round : :class:`bool`, :obj:`True`
         If :obj:`True`, round to 0 decimals (banker's rounding,

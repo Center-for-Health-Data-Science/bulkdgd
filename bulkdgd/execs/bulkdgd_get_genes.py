@@ -172,7 +172,7 @@ def main(args: argparse.Namespace) -> None:
     # Get the argument corresponding to the working directory.
     wd = args.work_dir
 
-    # Get the arguments corresponding to the configuration files.
+    # Get the argument corresponding to the configuration file.
     config_file_genes = args.config_file_genes
 
     # Get the arguments corresponding to the output files.

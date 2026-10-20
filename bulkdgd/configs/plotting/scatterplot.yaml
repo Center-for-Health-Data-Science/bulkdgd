@@ -114,7 +114,7 @@ legend:
   # Type: int.
   ncols: 2
   
-  # Set the font properties of the legend labels
+  # Set the font properties of the legend labels.
   prop:
     
     # Set the font size.

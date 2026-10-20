@@ -416,8 +416,7 @@ def main(args: argparse.Namespace,
 
     #-----------------------------------------------------------------#
 
-    # Set the name of the dimensionality reduction analysis that will
-    # be used in the help messages.
+    # Set the name of the analysis to use in the log messages.
     dim_red_help = NAME2HELPNAME[dim_red_name]
 
     #-----------------------------------------------------------------#
@@ -528,7 +527,7 @@ def main(args: argparse.Namespace,
     # Otherwise
     else:
 
-        # The fitted model will be None.
+        # Set the fitted model to None.
         fitted_model = None
 
     #-----------------------------------------------------------------#
@@ -563,7 +562,7 @@ def main(args: argparse.Namespace,
 
     #-----------------------------------------------------------------#
 
-    # Get the function to perform dimensionality reduction analysis.
+    # Get the function to perform the analysis.
     dim_red_func = DIMREDNAME2DIMREDFUNC[dim_red_name]
 
     # Set a string representing the options used for the analysis.
@@ -697,7 +696,7 @@ def main(args: argparse.Namespace,
 #######################################################################
 
 
-# Define a shared entry point helper.
+# Define the entry point shared by the executables.
 def _entry_point(dim_red_name: str) -> None:
     """Run a dimensionality reduction executable.
 

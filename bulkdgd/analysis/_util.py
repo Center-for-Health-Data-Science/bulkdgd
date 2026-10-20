@@ -153,7 +153,8 @@ def log_prob_mass_nb(k: np.ndarray,
        &+ k \\cdot log(\\frac{m}{r+m}) +
        r \\cdot log(\\frac{r}{r+m})
 
-    Where :math:`m` is offset by a small value to prevent underflow.
+    Where :math:`m` is offset by ``MEAN_OFFSET`` to keep its logarithm
+    finite.
 
     It derives from the probability mass:
 
@@ -179,8 +180,9 @@ def log_prob_mass_nb(k: np.ndarray,
        \\left( \\frac{r}{r+m} \\right)^r
 
     Taking the natural logarithm of both sides yields the formula
-    above. Above ``NB_R_SWITCH``,
-    :func:`core.outputmodules.log_prob_mass_nb_large_r` is used.
+    above. Above ``NB_R_SWITCH`` (``NB_R_SWITCH_EPS`` if ``eps`` is
+    passed), :func:`core.outputmodules.log_prob_mass_nb_large_r` is
+    used.
     """
 
     # Return the log-probability mass.
@@ -203,8 +205,8 @@ def log_prob_mass_poisson(k: np.ndarray,
     Parameters
     ----------
     k : :class:`numpy.ndarray`
-        A one-dimensional array containing the "number of successes"
-        seen before stopping the trials, one per Poisson distribution.
+        A one-dimensional array containing the observed counts, one
+        per Poisson distribution.
 
     m : :class:`numpy.ndarray`
         A one-dimensional array containing the means of the Poisson
@@ -212,7 +214,7 @@ def log_prob_mass_poisson(k: np.ndarray,
 
     eps : :class:`float`, optional
         The small value of the log-probability mass (see
-        :meth:`core.outputmodules.OutputModuleNB.log_prob_mass`).
+        :meth:`core.outputmodules.OutputModulePoisson.log_prob_mass`).
 
     Returns
     -------

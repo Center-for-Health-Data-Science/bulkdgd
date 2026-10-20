@@ -1,12 +1,12 @@
 # `bulkdgd_find_representations`
 
-This command allows you to get representations in the latent space defined by the bulkdgd model for new samples.
+This command finds representations in the latent space defined by the bulkdgd model for new samples.
 
 `bulkdgd_find_representations` takes as input a CSV file containing a data frame with the expression data (RNA-seq read counts for the different genes) for the samples of interest. The program expects the input data frame to display the samples as rows and the genes as columns. The genes' names are expected to be their Ensembl IDs. Additional columns containing data about the samples (for instance, the tissue they come from) are allowed.
 
-It is recommended that the samples are preprocessed with [`bulkdgd_preprocess_samples`](bulkdgd_preprocess_samples.md) before running `bulkdgd_find_representations`.
+The samples should be preprocessed with [`bulkdgd_preprocess_samples`](bulkdgd_preprocess_samples.md) before running `bulkdgd_find_representations`.
 
-`bulkdgd_find_representations` also needs a YAML configuration file specifying the bulkdgd model's parameters. The architecture of each member of the shipped ensemble is in `bulkdgd/configs/model/<seed>/model.yaml`, with `seed37` the member the paper reports. These files name an architecture and no parameter files, so a configuration file for this executable has to add `latent_pth_file` and `decoder_pth_file` to them: copy `bulkdgd/configs/model/seed37/model.yaml`, set both options to `default`, and pass the copy. See the [model configuration options](model_config_options.rst) for what `default` resolves to and why the older `model_tgmm_trained.yaml` and `model_lgmm_trained.yaml` should no longer be used.
+`bulkdgd_find_representations` also needs a YAML configuration file specifying the bulkdgd model's parameters. The architecture of each member of the shipped ensemble is in `bulkdgd/configs/model/<seed>/model.yaml`, with `seed37` the base member. These files name an architecture and no parameter files, so a configuration file for this executable must add `latent_pth_file` and `decoder_pth_file` to them: copy `bulkdgd/configs/model/seed37/model.yaml`, set both options to `default`, and pass the copy. See the [model configuration options](model_config_options.rst) for what `default` resolves to.
 
 The executable also needs a configuration file defining the data loading and optimization options for finding the representations. Several examples are available in `bulkdgd/configs/representations`.
 
@@ -18,9 +18,9 @@ To run the executable, you also need the trained bulkdgd model, which comes in t
 
 `bulkdgd_find_representations` produces three to four output files:
 
-* A CSV file containing a data frame with the best representations found. Here, the rows represent the samples for which the representations were found. In contrast, the columns represent the dimensions of the latent space where the representations live and any extra information about the representations found in the input data frame.
+* A CSV file containing a data frame with the best representations found. Here, the rows represent the samples for which the representations were found, and the columns represent the dimensions of the latent space where the representations live and any extra information about the representations found in the input data frame.
 
-* A CSV file containing a data frame with the predicted means of the distributions used to model the genes' counts in the in silico samples associated with the best representations found. Here, the rows represent the samples, and the columns represent the genes (identified by their Ensembl IDs) and any extra information about the representations found in the input data frame. If negative binomial distributions were used to model the genes' counts, the predicted means of these distributions are scaled by the distributions' r-values.
+* A CSV file containing a data frame with the predicted means of the distributions used to model the genes' counts in the in silico samples associated with the best representations found. Here, the rows represent the samples, and the columns represent the genes (identified by their Ensembl IDs) and any extra information about the representations found in the input data frame. These means are not yet on the scale of the samples' counts: they are multiplied by each sample's scaling factor (the `scaling_factor` set in the model's configuration) when the counts are compared against them, as `bulkdgd_dea` does.
 
 * A CSV file containing a data frame with the predicted r-values of the negative binomials used to model the genes' counts in the in silico samples associated with the best representations found. Here, the rows represent the samples, and the columns represent the genes (identified by their Ensembl IDs) and any extra information about the representations found in the input data frame. This file is produced only if negative binomial distributions are used to model the genes' counts.
 
@@ -32,7 +32,7 @@ The command can be run in parallel over different inputs in different directorie
 
 * If `-ds dir1 path/to/dir2`, the program will be run in parallel in each directory using the input and configuration files in it. The name of the input file may be provided using the `-is`/`--input-samples` option, while the name of the configuration file may be provided using the `-cm`/ `--config-file-model` and `-cr`/`--config-file-rep` options. The output files and the log file for each run will be saved in the corresponding directory and named according to the file names provided in the `-or`/`--output-rep`, `-om`/`--output-means`, `-ov`/`--output-rvalues`, `-ot`/`--output-time`, and `-lf`/`--log-file` options.
 
-* If `-ds file.txt`, `file.txt` the file is expected to contain a newline-separated list of either names of directories in the working directory or absolute/relative paths to directories. The name of the input file may be provided using the `-is`/`--input-samples` option, while the names of the configuration files may be provided using the `-cm`/ `--config-file-model` and `-cr`/`--config-file-rep` options. The output files and the log file for each run will be saved in the corresponding directory and named according to the file names provided in the `-or`/`--output-rep`, `-om`/`--output-means`, `-ov`/`--output-rvalues`, `-ot`/`--output-time`, and `-lf`/`--log-file` options. `file.txt` can, for instance, look like this:
+* If `-ds file.txt`, `file.txt` is expected to contain a newline-separated list of either names of directories in the working directory or absolute/relative paths to directories. The name of the input file may be provided using the `-is`/`--input-samples` option, while the names of the configuration files may be provided using the `-cm`/ `--config-file-model` and `-cr`/`--config-file-rep` options. The output files and the log file for each run will be saved in the corresponding directory and named according to the file names provided in the `-or`/`--output-rep`, `-om`/`--output-means`, `-ov`/`--output-rvalues`, `-ot`/`--output-time`, and `-lf`/`--log-file` options. `file.txt` can, for instance, look like this:
 
     .. code-block::
 
@@ -121,4 +121,4 @@ decoder_options:
   decoder_pth_file: "default"
 ```
 
-`two_opt` is passed as a bare name because it ships in `bulkdgd/configs/representations`, and a name **without an extension** is looked up there. Anything else, including the same name written as `two_opt.yaml`, is taken as a path relative to the working directory. The per-member model configurations sit in a sub-directory of `bulkdgd/configs/model`, which that lookup does not reach, so the model's configuration file is always passed as a path.
+`two_opt` is passed as a bare name because it ships in `bulkdgd/configs/representations`, and a name **without an extension** is looked up there. Anything else, including the same name written as `two_opt.yaml`, is taken as a path relative to the working directory. The per-member model configurations are in a sub-directory of `bulkdgd/configs/model`, which that lookup does not reach, so the model's configuration file is always passed as a path.

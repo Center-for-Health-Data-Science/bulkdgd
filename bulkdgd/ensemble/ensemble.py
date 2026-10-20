@@ -547,7 +547,7 @@ class BulkDGDEnsemble:
 
         Parameters
         ----------
-        value
+        value : :class:`dict`
             The new value.
         """
 
@@ -576,7 +576,7 @@ class BulkDGDEnsemble:
 
         Parameters
         ----------
-        value
+        value : :class:`dict`
             The new value.
         """
 
@@ -1162,10 +1162,10 @@ class BulkDGDEnsemble:
         pathways : :class:`pandas.DataFrame`, optional
             The pathways, if the saliency maps are to be computed.
 
-        labels_train : optional
+        labels_train : :class:`numpy.ndarray`, optional
             The labels of the samples to train on.
 
-        labels_test : optional
+        labels_test : :class:`numpy.ndarray`, optional
             The labels of the samples to test on.
 
         resume : :class:`bool`, ``True``

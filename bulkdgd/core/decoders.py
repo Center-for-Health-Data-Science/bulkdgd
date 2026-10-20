@@ -71,27 +71,26 @@ logger = log.getLogger(__name__)
 
 def reshape_scaling_factors(x: torch.Tensor,
                             out_dim: int) -> torch.Tensor:
-    """Reshape the scaling factor (a tensor).
+    """Add singleton dimensions to the scaling factors.
 
     Parameters
     ----------
     x : :class:`torch.Tensor`
-        The input tensor to be reshaped.
+        The scaling factors.
 
     out_dim : :class:`int`
-        The dimensionality of the output tensor.
+        The number of dimensions of the output tensor.
 
     Returns
     -------
     x : :class:`torch.Tensor`
-        The reshaped tensor.
+        The reshaped scaling factors.
     """
 
-    # Get the dimensionality of the input tensor.
+    # Get the number of dimensions of the input tensor.
     start_dim = len(x.shape)
 
-    # For each extra dimension that the output tensor needs to
-    # have with respect to the input tensor
+    # For each dimension the input tensor lacks
     for i in range(out_dim - start_dim):
 
         # Add a singleton dimension.
@@ -154,8 +153,8 @@ class Decoder(nn.Module):
             'activation', plus 'r_init' for
             'nb_feature_dispersion').
 
-        dropout : :class:`float`
-            The dropout rate used in the decoder (default: 0.0).
+        dropout : :class:`float`, ``0.0``
+            The dropout rate used in the decoder.
         """
 
         # Initialize the class.
@@ -215,8 +214,7 @@ class Decoder(nn.Module):
             The list of layers.
         """
 
-        # If the number of hidden layers does not correspond to the
-        # length of activation functions
+        # If there is not one activation function per hidden layer
         if len(n_units_hidden_layers) != len(activations):
 
             # Raise an error.
@@ -244,27 +242,23 @@ class Decoder(nn.Module):
             # If it is the first module
             if n_module == 0:
 
-                # The number of input units will be the number of
-                # units in the input layer.
+                # Use the number of units in the input layer.
                 n_units_in = n_units_input_layer
 
             # Otherwise
             else:
 
-                # The number of input units will be the number of
-                # units in the previous hidden layer.
+                # Use the number of units in the previous layer.
                 n_units_in = prev_n_units
 
             #---------------------------------------------------------#
 
-            # The number of output units will be the number of units
-            # in the current hidden layer.
+            # Get the number of output units.
             n_units_out = n_units_hidden_layers[n_module]
 
             #---------------------------------------------------------#
 
-            # Get the name of the activation function to be used in the
-            # current module.
+            # Get the name of the current module's activation function.
             activation_name = activations[n_module]
 
             # If the activation function is a ReLU
@@ -320,13 +314,12 @@ class Decoder(nn.Module):
 
             #---------------------------------------------------------#
 
-            # Set the previous number of units (used in the next step)
-            # to the number of units in the current hidden layer.
+            # Save the number of units for the next module.
             prev_n_units = n_units_hidden_layers[n_module]
 
         #-------------------------------------------------------------#
 
-        # Return the modules/layers.
+        # Return the layers.
         return layers
 
 
@@ -355,9 +348,7 @@ class Decoder(nn.Module):
         -------
         out_module : \
             :class:`bulkdgd.core.outputmodules.OutputModuleBase`
-            An instance of a subclass of
-            :class:`core.outputmodules.OutputModuleBase` depending on
-            the chosen output module.
+            The output module.
         """
 
         # If the output module is 'nb_feature_dispersion'
@@ -457,13 +448,12 @@ class Decoder(nn.Module):
         # For each layer of the neural network
         for i in range(len(self.main)):
 
-            # Pass through the layer and find the intermediate (or
-            # final) representations.
+            # Pass the representations through the layer.
             z = self.main[i](z)
 
             # If the layer is an activation, apply the dropout.
             if i % 2 != 0:
                 z = self.dropout(z)
 
-        # Return the final result.
+        # Return the outputs of the output module.
         return self.nb(z)

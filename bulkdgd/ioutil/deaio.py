@@ -115,7 +115,7 @@ def _get_archive(zip_path: str) -> tuple[zipfile.ZipFile, set]:
         The names of the archive's members.
     """
 
-    # Use the process the caches were built in.
+    # Use the global record of the caches' process.
     global _CACHE_PID
 
     # Get the current process.
@@ -356,7 +356,7 @@ def list_samples(dea_dir: str,
     # Otherwise
     else:
 
-        # There are no samples.
+        # Return an empty list.
         return []
 
     #-----------------------------------------------------------------#

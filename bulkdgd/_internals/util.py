@@ -130,8 +130,8 @@ def recursive_map_dict(d: dict[str, object],
         The input dictionary.
 
     func : any callable
-        A callable taking as keyword arguments the values of a
-        dictionary and returning a single value.
+        A callable taking a selected dictionary's items as keyword
+        arguments and returning a single value.
 
     keys : :class:`list` or :class:`set` or :class:`tuple`, optional
         The keys whose values the function is applied to.
@@ -178,7 +178,7 @@ def recursive_map_dict(d: dict[str, object],
                     if k in sel_keys:
 
                         # Substitute the value with the return value
-                        # of 'func' applied to it.
+                        # of 'func' applied to its items.
                         d[k] = func(**v)
 
                     # Otherwise
@@ -222,7 +222,7 @@ def recursive_add(d: dict[str, object],
 
     d2 : :class:`dict`
         The dictionary whose elements should be added to the input
-        dictionary.
+        dictionary, where they are missing.
 
     keys : :class:`list` or :class:`set` or :class:`tuple`
         The keys corresponding to the places where the key, value
@@ -276,7 +276,7 @@ def recursive_add(d: dict[str, object],
                             if k not in d[key]:
 
                                 # Add the key and associated value to
-                                # the first dictionary.
+                                # the value associated with 'key'.
                                 d[key][k] = v
 
                 # If the value associated with the key is a dictionary
@@ -423,7 +423,7 @@ def recursive_get(d: dict[str, object],
     Returns
     -------
     item : any object
-        The item of interest.
+        The item of interest, or :const:`None` if it is not found.
     """
 
     # Define the recursion.
@@ -580,13 +580,13 @@ def kwargs_to_dict(kwargs: dict[str, object]) -> dict[str, object]:
         # Split the key into parts.
         parts = key.split("_")
 
-        # Initialize the nested dictionary.
+        # Start from the top level of the dictionary.
         d_init = d
 
-        # For each part in the key
+        # For each part in the key but the last
         for part in parts[:-1]:
 
-            # If the part is not in the dictionary, add it.
+            # Get the part's sub-dictionary, adding it if missing.
             d_init = d_init.setdefault(part, {})
 
         # Add the value to the dictionary.

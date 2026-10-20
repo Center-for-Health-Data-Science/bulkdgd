@@ -60,15 +60,15 @@ description = \
     "A generative model for human gene expression from bulk " \
     "RNA-seq data."
 
-# Set the long description from the README file, to be rendered
-# on the project's PyPI page.
+# Set the long description from the README file.
 long_description = \
     pathlib.Path(__file__).parent.joinpath("README.md").read_text(\
         encoding = "utf-8")
+
+# Set the long description's format.
 long_description_content_type = "text/markdown"
 
-# Set the minimum Python version required (the code uses the
-# PEP 604 'X | Y' union type syntax, which requires Python 3.10+).
+# Set the minimum Python version required.
 python_requires = ">=3.10"
 
 # Set the project's classifiers.
@@ -112,19 +112,15 @@ package_data = \
          "configs/fine_tuning/*.yaml",
          "configs/genes/*.yaml",
          "configs/model/*.yaml",
-         # One directory per member of the shipped ensemble, holding
-         # that member's architecture and the seeds it was trained
-         # with. Without this line an installed package has no model
-         # configuration to load and 'BulkDGD()' cannot build itself.
+         # Each member's configuration and training seeds
          "configs/model/*/*.yaml",
          "configs/plotting/*.yaml",
          "configs/representations/*.yaml",
          "configs/training/*.yaml",
          # Data files
          "data/model/genes/*.txt",
-         # Each member's fitted mixture, 28 KB apiece. The decoders
-         # are NOT here: at 1.79 GiB each they are release assets,
-         # downloaded into the member's own directory on first use.
+         # Each member's fitted mixture (the decoders are downloaded
+         # on first use)
          "data/model/*/gmm.pth",
          "data/*.md"],
      
@@ -187,8 +183,7 @@ entry_points = \
          "bulkdgd_train = " \
          f"{name}.execs.bulkdgd_train:entry_point",
 
-         # "Private" executables - not intended to be called
-         # directly by end users.
+         # Private executables, not called directly by users
          "_bulkdgd_get_recount3_single_batch = " \
          f"{name}.execs._bulkdgd_get_recount3_single_batch:main",],
     }
@@ -199,13 +194,7 @@ install_requires = ["dask",
                     "matplotlib",
                     "numpy",
                     "pandas",
-                    # Representations and decoder outputs can be written
-                    # as Parquet, which is the only format the package
-                    # offers that returns a float64 unchanged - text
-                    # round-trips one to within about 1e-12 of itself.
-                    # It is not pinned to an exact version: the values
-                    # a file holds do not depend on the writer, only
-                    # the version string recorded inside it does.
+                    # Read and write Parquet tables.
                     "pyarrow",
                     "requests",
                     "seaborn",

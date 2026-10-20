@@ -582,12 +582,12 @@ def main(args: argparse.Namespace) -> None:
     # Otherwise
     else:
 
-        # The r-values will be None.
+        # Set the r-values to None.
         r_values = None
 
     #-----------------------------------------------------------------#
 
-    # Set the list of genes sets to None.
+    # Set the gene sets to None.
     genes_sets = None
 
     # Set the list of all genes to None.
@@ -597,10 +597,10 @@ def main(args: argparse.Namespace) -> None:
     # enrichment analysis.
     gsea_results = []
 
-    # If a list of files containing genes sets was passed
+    # If files containing gene sets were passed
     if genes_sets_files is not None:
 
-        # Get all the genes from the columns of the observed counts.
+        # Get the Ensembl gene IDs among the observed counts' columns.
         genes_all = \
             [c for c in obs_counts.columns.tolist() \
             if c.startswith("ENSG")]
@@ -624,7 +624,7 @@ def main(args: argparse.Namespace) -> None:
                     os.path.splitext(\
                         os.path.basename(genes_set_file))[0]
 
-                # Add the gene set to the dictionary of genes sets.
+                # Add the gene set to the dictionary.
                 genes_sets[genes_set_name] = genes_set
 
             # If something went wrong
@@ -694,14 +694,11 @@ def main(args: argparse.Namespace) -> None:
         # Create the local cluster.
         cluster = LocalCluster(# Number of workers
                                n_workers = n_proc,
-                               # Below which level log messages will
-                               # be silenced
+                               # Silence log messages below this level
                                silence_logs = "ERROR",
-                               # Whether to use processes, single-core
-                               # or threads
+                               # Use processes, not threads
                                processes = True,
-                               # How many threads for each worker
-                               # should be used
+                               # Number of threads per worker
                                threads_per_worker = 1)
 
         # Open the client from the cluster.
@@ -895,7 +892,7 @@ def main(args: argparse.Namespace) -> None:
     # If a cluster was created to analyze the samples
     if client is not None:
 
-        # Close it.
+        # Close the client and the cluster.
         client.close()
         cluster.close()
 

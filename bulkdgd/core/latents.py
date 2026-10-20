@@ -141,49 +141,39 @@ class GaussianMixtureModelLegacy(nn.Module):
             components of the Gaussian mixture.
 
         means_prior_options : :class:`dict`
-            A dictionary containing the options needed to set up the
-            prior over the means of the components of the Gaussian
-            mixture model.
-
-            It varies according to the selected prior.
+            The options to set up the prior over the means of the
+            components of the Gaussian mixture model.
 
             If ``means_prior_name`` is ``"softball"``, the
             options that must be provided are:
 
-            * ``"radius"``, namely the radius of the multi-
-              dimensional soft ball.
+            * ``"radius"``: the radius of the soft ball.
 
-            * ``"sharpness"``, namely the sharpness of the
-              soft boundary of the ball.
+            * ``"sharpness"``: the sharpness of the soft boundary of
+              the ball.
 
         weights_prior_options : :class:`dict`
-            A dictionary containing the options needed to set up the
-            prior over the weights of the components of the Gaussian
-            mixture model.
-
-            It varies according to the selected prior.
+            The options to set up the prior over the weights of the
+            components of the Gaussian mixture model.
 
             If ``weights_prior_name`` is ``"dirichlet"``, the options
             that must be provided are:
 
-            * ``"alpha"``, namely the alpha of the Dirichlet
-              distribution.
+            * ``"alpha"``: the alpha of the Dirichlet distribution.
 
         log_var_prior_options : :class:`dict`
-            A dictionary containing the options needed to set up the
-            prior over the negative log-variance of the Gaussian
-            mixture model.
-
-            It varies according to the selected prior.
+            The options to set up the prior over the negative
+            log-variance of the components of the Gaussian mixture
+            model.
 
             If ``log_var_prior_name`` is ``"gaussian"``, the
             options that must be provided are:
 
-            * ``"mean"``, namely the mean of the Gaussian
-              distribution.
+            * ``"mean"``: the components' standard deviation at the
+              prior's mean, which is ``-2 * log(mean)``.
 
-            * ``"stddev"``, namely the standard deviation of the
-              Gaussian distribution.
+            * ``"stddev"``: the standard deviation of the Gaussian
+              distribution.
 
         covariance_type : :class:`str`, {``"fixed"``, ``"isotropic"``, \
             ``"diagonal"``}, ``"diagonal"``
@@ -262,7 +252,7 @@ class GaussianMixtureModelLegacy(nn.Module):
                 log_var_prior_name = log_var_prior_name,
                 log_var_prior_options = log_var_prior_options)
 
-        # Get the log-variance.
+        # Set the log-variance.
         self._log_var = self._get_log_var()
 
         # Set a string with the options used for the prior over the
@@ -477,13 +467,13 @@ class GaussianMixtureModelLegacy(nn.Module):
         # If the prior is the Gaussian distribution
         if log_var_prior_name == "gaussian":
 
-            # Get the mean of the Gaussian distribution.
+            # Get the 'mean' (the components' standard deviation).
             dist_mean = log_var_prior_options.get("mean")
 
             # Get the standard deviation of the Gaussian distribution.
             dist_stddev = log_var_prior_options.get("stddev")
 
-            # If the mean of the Gaussian distribution was not provided
+            # If the 'mean' was not provided
             if dist_mean is None:
 
                 # Raise an error.
@@ -510,15 +500,13 @@ class GaussianMixtureModelLegacy(nn.Module):
             # If the covariance matrix is fixed
             if self.covariance_type == "fixed":
 
-                # The log-variance factor will be half of the
-                # dimensionality of the space.
+                # Set the log-variance factor to 'dim' / 2.
                 dist_factor = self.dim * 0.5
 
-                # The dimensionality of the log-variance factor will
-                # be 1.
+                # Use one log-variance per component.
                 dist_dim = 1
 
-                # Gradients will not be required.
+                # Do not require gradients.
                 requires_grad = False
 
             #---------------------------------------------------------#
@@ -526,15 +514,13 @@ class GaussianMixtureModelLegacy(nn.Module):
             # If the covariance matrix is isotropic
             elif self.covariance_type == "isotropic":
 
-                # The log-variance factor will be half of the
-                # dimensionality of the space.
+                # Set the log-variance factor to 'dim' / 2.
                 dist_factor = self.dim * 0.5
 
-                # The dimensionality of the log-variance factor will
-                # be 1.
+                # Use one log-variance per component.
                 dist_dim = 1
 
-                # Gradients will be required.
+                # Require gradients.
                 requires_grad = True
 
             #---------------------------------------------------------#
@@ -542,14 +528,13 @@ class GaussianMixtureModelLegacy(nn.Module):
             # If the covariance matrix is diagonal
             elif self.covariance_type == "diagonal":
 
-                # The log-variance factor will be 1/2.
+                # Set the log-variance factor to 1/2.
                 dist_factor = 0.5
 
-                # The dimensionality of the log-variance will be the
-                # dimensionality of the space.
+                # Use one log-variance per component per dimension.
                 dist_dim = self.dim
 
-                # Gradients will be required.
+                # Require gradients.
                 requires_grad = True
 
             #---------------------------------------------------------#
@@ -627,13 +612,13 @@ class GaussianMixtureModelLegacy(nn.Module):
         # If the prior is a Gaussian distribution
         if log_var_prior_name == "gaussian":
 
-            # Get the mean of the Gaussian distribution.
+            # Get the 'mean' (the components' standard deviation).
             dist_mean = self.log_var_prior["options"]["mean"]
 
             # Disable gradient calculation.
             with torch.no_grad():
 
-                # Populate the log-variance.
+                # Set each variance to the square of 'mean'.
                 log_var.fill_(2 * math.log(dist_mean))
 
         #-------------------------------------------------------------#
@@ -671,7 +656,7 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         Parameters
         ----------
-        value
+        value : :class:`int`
             The new value.
         """
 
@@ -702,7 +687,7 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         Parameters
         ----------
-        value
+        value : :class:`int`
             The new value.
         """
 
@@ -733,7 +718,7 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         Parameters
         ----------
-        value
+        value : :class:`str`
             The new value.
         """
 
@@ -766,7 +751,7 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         Parameters
         ----------
-        value
+        value : :class:`dict`
             The new value.
         """
 
@@ -798,7 +783,7 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         Parameters
         ----------
-        value
+        value : :class:`torch.Tensor`
             The new value.
         """
 
@@ -831,7 +816,7 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         Parameters
         ----------
-        value
+        value : :class:`dict`
             The new value.
         """
 
@@ -863,7 +848,7 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         Parameters
         ----------
-        value
+        value : :class:`torch.Tensor`
             The new value.
         """
 
@@ -896,7 +881,7 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         Parameters
         ----------
-        value
+        value : :class:`dict`
             The new value.
         """
 
@@ -929,7 +914,7 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         Parameters
         ----------
-        value
+        value : :class:`torch.Tensor`
             The new value.
         """
 
@@ -978,8 +963,7 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Get the covariance of the components from the
-        # log-variance.
+        # Get the variance of the components from the log-variance.
         covariance = torch.exp(self.log_var)
 
         #-------------------------------------------------------------#
@@ -989,7 +973,7 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Get the means term.
+        # Get the squared-distance term.
         y = \
             -(x.unsqueeze(-2) - self.means).square().div(\
                 2 * covariance).sum(-1)
@@ -1071,8 +1055,10 @@ class GaussianMixtureModelLegacy(nn.Module):
             * The first dimension has a length equal to the number of
               components in the Gaussian mixture.
 
-            * The second dimension has a length equal to the
-              dimensionality of the Gaussian mixture model.
+            * The second dimension has a length equal to 1 for a
+              fixed or isotropic covariance, and to the
+              dimensionality of the Gaussian mixture model for a
+              diagonal one.
         """
 
         # Set the log-variance.
@@ -1103,11 +1089,11 @@ class GaussianMixtureModelLegacy(nn.Module):
 
         Returns
         -------
-        p : :class:`float`
+        p : :class:`torch.Tensor`
             The log-probability of the prior.
         """
 
-        # Initialize the probability to 0.0.
+        # Initialize the log-probability to 0.0.
         p = 0.0
 
         #-------------------------------------------------------------#
@@ -1122,7 +1108,7 @@ class GaussianMixtureModelLegacy(nn.Module):
             # Get the alpha.
             alpha = self.weights_prior["options"]["alpha"]
 
-            # Get the Dirichlet constant.
+            # Start from the Dirichlet constant.
             p = self.weights_prior["options"]["constant"]
 
             # If the alpha is different from 1
@@ -1197,7 +1183,7 @@ class GaussianMixtureModelLegacy(nn.Module):
                 f"{', '.join(self.LOG_VAR_PRIORS)}."
             raise ValueError(errstr)
 
-        # Return the probability.
+        # Return the log-probability.
         return p
 
 
@@ -1226,7 +1212,8 @@ class GaussianMixtureModelLegacy(nn.Module):
             input data points.
 
             Each element of the tensor is the negative log-probability
-            density of a data point.
+            density of a data point, minus the log-probability of the
+            priors divided by the number of data points.
         """
 
         # Get the per-sample, per-component log-probability.
@@ -1286,8 +1273,7 @@ class GaussianMixtureModelLegacy(nn.Module):
 
     def log_prob(self,
                  x: torch.Tensor) -> torch.Tensor:
-        """Get the log-probability density of a set of samples drawn
-        from the Gaussian mixture model.
+        """Get the log-probability density of a set of data points.
 
         Parameters
         ----------
@@ -1304,8 +1290,8 @@ class GaussianMixtureModelLegacy(nn.Module):
         -------
         log_prob : :class:`torch.Tensor`
             A 1D tensor storing the log-probability density of each
-            input data point to be drawn from the Gaussian mixture
-            model.
+            input data point, plus the log-probability of the priors
+            divided by the number of data points.
 
             The tensor has a size equal to the number of data points
             passed.
@@ -1338,9 +1324,7 @@ class GaussianMixtureModelLegacy(nn.Module):
 
             Available options are:
 
-            * ``"mean"`` means taking the mean of each component as
-              the value of each ``n_samples_per_comp`` sample taken
-              for each data point.
+            * ``"mean"``: each sample is the mean of its component.
 
         Returns
         -------
@@ -1359,14 +1343,12 @@ class GaussianMixtureModelLegacy(nn.Module):
         # Set the supported sampling methods.
         SAMPLING_METHODS = ["mean"]
 
-        # Get the total number of samples to be taken from the Gaussian
-        # mixture model.
+        # Get the number of samples to draw from each component.
         n_samples = n_points * n_samples_per_comp
 
         #-------------------------------------------------------------#
 
-        # If the user selected the option to take the mean of each
-        # component as initial representation for each data point
+        # If the samples are the means of the components
         if sampling_method == "mean":
 
             # Disable gradient calculation.
@@ -1558,11 +1540,11 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
         """
 
         # Get the per-sample, per-component responsibilities and the
-        # log of the normalizing constant of the log-probabilities.
+        # log-probability density of each sample.
         resp, log_prob_norm = self._e_step(x.to(self.device))
 
-        # Return the log of the responsibilities plus the log of the
-        # normalizing constant of the log-probabilities.
+        # Return the log of the responsibilities plus the
+        # log-probability density, avoiding the log of zero.
         return torch.log(resp + 1.0e-20) + log_prob_norm.unsqueeze(1)
 
 
@@ -1707,9 +1689,7 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
 
             Available options are:
 
-            * ``"mean"`` means taking the mean of each component as
-              the value of each ``n_samples_per_comp`` sample taken
-              for each data point.
+            * ``"mean"``: each sample is the mean of its component.
 
         Returns
         -------
@@ -1730,13 +1710,12 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
 
         #-------------------------------------------------------------#
 
-        # Get the total number of samples to be drawn.
+        # Get the number of samples to draw from each component.
         n_samples = n_points * n_samples_per_comp
 
         #-------------------------------------------------------------#
 
-        # If the user selected the option to take the mean of each
-        # component as initial representation for each data point
+        # If the samples are the means of the components
         if sampling_method == "mean":
 
             # Disable gradient calculation.
@@ -1894,7 +1873,7 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
                         attr,
                         fn(val))
 
-        # Return an updated object.
+        # Return the model.
         return self
 
 
@@ -1934,7 +1913,7 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
         # Import the named tuple factory.
         from collections import namedtuple
 
-        # Build a dummy named tuple to satisfy PyTorch's API.
+        # Create the named tuple type PyTorch's method returns.
         _IncompatibleKeys = \
             namedtuple('_IncompatibleKeys',
                        ['missing_keys', 'unexpected_keys'])
@@ -2129,7 +2108,6 @@ class RepresentationLayer(nn.Module):
         else:
 
             # If the representations are to be initialized to zero
-            # (i.e., no sampling is performed)
             if dist == "zeros":
 
                 # Initialize the representations to zero.
@@ -2377,7 +2355,7 @@ class RepresentationLayer(nn.Module):
         Returns
         -------
         n_rep : :class:`int`
-            The number of representations found in the input tensor.
+            The number of representations.
 
         dim : :class:`int`
             The dimensionality of the representations.
@@ -2884,7 +2862,7 @@ class RepresentationLayer(nn.Module):
 
         Parameters
         ----------
-        value
+        value : :class:`int`
             The new value.
         """
 
@@ -2912,7 +2890,7 @@ class RepresentationLayer(nn.Module):
 
         Parameters
         ----------
-        value
+        value : :class:`int`
             The new value.
         """
 
@@ -2942,7 +2920,7 @@ class RepresentationLayer(nn.Module):
 
         Parameters
         ----------
-        value
+        value : :class:`dict`
             The new value.
         """
 
@@ -2970,7 +2948,7 @@ class RepresentationLayer(nn.Module):
 
         Parameters
         ----------
-        value
+        value : :class:`torch.Tensor`
             The new value.
         """
 
@@ -3196,12 +3174,10 @@ class RepresentationLayer(nn.Module):
         # Disable the calculation of the gradients.
         with torch.no_grad():
 
-            # Subtract the mean value of all representations' values
-            # from each of the representation's value.
+            # Subtract the mean from the representations.
             self.z -= m
 
-            # Divide each representation's value by the standard
-            # deviation of all representations' values.
+            # Divide the representations by the standard deviation.
             self.z /= sd
 
 
@@ -3261,10 +3237,10 @@ def fit_final_gmm(gmm,
 
     reg_covar : :class:`float`, optional
         The value added to the diagonal of the covariance. If not
-        passed, the trained mixture's own value is used.
+        passed, the trained mixture's own value (or 1e-6) is used.
 
     chunk_size : :class:`int`, ``2048``
-        How many samples are processed at a time.
+        The number of representations processed at a time.
 
     Returns
     -------
@@ -3364,7 +3340,7 @@ def fit_final_gmm(gmm,
     # If no regularization of the covariance was passed
     if reg_covar is None:
 
-        # Use the trained mixture's own.
+        # Use the trained mixture's own, or 1e-6 if it has none.
         reg_covar = getattr(gmm,
                             "reg_covar",
                             1.0e-6) or 1.0e-6
@@ -3377,7 +3353,7 @@ def fit_final_gmm(gmm,
     # If each component gets its own full covariance matrix
     if covariance_type == "full":
 
-        # Take the shrunk per-component covariance as it is.
+        # Take the shrunk per-component covariance.
         covariances = shrunk + reg_covar * eye
 
     # If all the components share one full covariance matrix

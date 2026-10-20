@@ -1,16 +1,16 @@
 Installing with ``virtualenv``
 ==============================
 
-This section guides you in installing the ``bulkdgd`` package in a virtual environment, meaning an instance of Python that is isolated from your system.
+This section shows how to install the ``bulkdgd`` package in a virtual environment, that is, an instance of Python isolated from your system.
 
-This is not strictly necessary, and ``bulkdgd`` may be installed system-wide similarly, following steps 4 to 6.
+A virtual environment is not required: to install ``bulkdgd`` system-wide, follow step 4 only.
 
 Step 1 - Install ``virtualenv``
 -------------------------------
 
-First, check if the ``virtualenv`` Python package is installed in your system. This can be done by verifying whether the ``virtualenv`` command is available.
+First, check whether the ``virtualenv`` Python package is installed on your system, that is, whether the ``virtualenv`` command is available.
 
-It is usually available as a package in your distribution if you need to install it. For instance, on Debian-based systems (such as Debian or Ubuntu), it is sufficient to install the ``python-virtualenv`` package.
+If you need to install it, your distribution usually provides it as a package. For instance, on Debian-based systems (such as Debian or Ubuntu), install the ``python-virtualenv`` package.
 
 We recommend installing the ``virtualenv`` package for your local user using ``pip``:
 
@@ -29,7 +29,7 @@ Create your virtual environment in a directory of your choice (in this case, it 
 
     virtualenv -p /usr/bin/python3.11 bulkdgd-env
 
-You should replace the argument of option ``-p`` according to the location of the Python interpreter you want to use inside the virtual environment.
+Replace the argument of option ``-p`` with the location of the Python interpreter you want to use inside the virtual environment.
 
 Step 3 - Activate the environment
 ---------------------------------
@@ -51,10 +51,10 @@ You can now install ``bulkdgd`` from `PyPI <https://pypi.org/project/bulkdgd/>`_
 
 ``bulkdgd`` should now be installed.
 
-The trained decoders' parameters are not distributed with the package because of their size: there is one per member of the shipped ensemble, each 1.79 GiB in ``float64``. You do not need to do anything about this now: the first time you use one of them (for instance, the first time you run ``bulkdgd_find_representations``), ``bulkdgd`` will automatically download that member's decoder and cache it inside the installed package for subsequent runs.
+The trained decoders' parameters are not distributed with the package because of their size: there is one per member of the shipped ensemble, each 1.79 GiB in ``float64``. No action is needed: the first time you use a member (for instance, the first time you run ``bulkdgd_find_representations``), ``bulkdgd`` downloads that member's decoder and caches it inside the installed package for later runs.
 
 .. note::
 
-   If the machine you are running ``bulkdgd`` on has no internet access, download the decoder manually on another machine from `this URL <https://github.com/Center-for-Health-Data-Science/bulkdgd/releases/download/v2.3.0/dec_seed37.pth>`_ (replace ``v2.3.0`` with your installed ``bulkdgd`` version - run ``python -c "import bulkdgd; print(bulkdgd.__version__)"`` to check - and ``seed37`` with the member you want, if it is not the default one), transfer it to the offline machine, find where ``bulkdgd`` was installed with ``python -c "import bulkdgd, os; print(os.path.dirname(bulkdgd.__file__))"``, and place the file in the ``data/model/seed37`` sub-folder of that directory, under the name ``dec.pth``. The release asset carries the seed in its name, the file on disk does not: each member's directory holds its own ``dec.pth``.
+   If the machine you are running ``bulkdgd`` on has no internet access, download the decoder manually on another machine from `this URL <https://github.com/Center-for-Health-Data-Science/bulkdgd/releases/download/v2.3.0/dec_seed37.pth>`_ (replace ``v2.3.0`` with your installed ``bulkdgd`` version, which ``python -c "import bulkdgd; print(bulkdgd.__version__)"`` prints, and ``seed37`` with the member you want, if it is not the default one), transfer it to the offline machine, find where ``bulkdgd`` was installed with ``python -c "import bulkdgd, os; print(os.path.dirname(bulkdgd.__file__))"``, and place the file in the ``data/model/seed37`` sub-folder of that directory, under the name ``dec.pth``. The release asset carries the seed in its name, the file on disk does not: each member's directory holds its own ``dec.pth``.
 
-Every time you need to run ``bulkdgd`` after opening a new shell, just run step 3 beforehand.
+Each time you open a new shell, run step 3 before running ``bulkdgd``.

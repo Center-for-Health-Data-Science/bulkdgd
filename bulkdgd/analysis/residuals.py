@@ -200,7 +200,7 @@ def get_residuals(obs_counts: pd.Series,
     # Create an empty list to store the residuals.
     residuals = []
 
-    # For each gene's observed count, predicted mean count, and r-value
+    # For each gene's observed count and predicted mean count
     for i, (obs_count_gene_i, pred_mean_gene_i) \
         in enumerate(zip(obs_counts, pred_means)):
 
@@ -378,8 +378,10 @@ def get_residuals_df(df_obs_counts: pd.DataFrame,
             (means / (r + means) < outputmodules.NB_POISSON_Q) & \
             (r > outputmodules.NB_R_SWITCH)
 
-        # If any, use the Poisson limit for them.
+        # If the Poisson limit holds for any gene
         if poisson_limit.any():
+
+            # Use the Poisson limit for those genes.
             cdf = np.where(poisson_limit,
                            poisson.cdf(k = obs,
                                        mu = means),
@@ -409,8 +411,7 @@ def get_significant_genes(
         series_residuals: pd.Series,
         res_pos_threshold: int | float = 1,
         res_neg_threshold: int | float = -1) -> pd.Series:
-    """Get the genes that are significant at a given significance
-    level.
+    """Get the genes whose residuals reach either threshold.
 
     Parameters
     ----------
@@ -422,12 +423,12 @@ def get_significant_genes(
         values are the residuals.
 
     res_pos_threshold : :class:`int` or :class:`float`, ``1``
-        The threshold above which a gene is considered significantly
-        up-regulated.
+        The threshold at or above which a gene is considered
+        significantly up-regulated.
 
     res_neg_threshold : :class:`int` or :class:`float`, ``-1``
-        The threshold below which a gene is considered significantly
-        down-regulated.
+        The threshold at or below which a gene is considered
+        significantly down-regulated.
 
     Returns
     -------
@@ -435,7 +436,7 @@ def get_significant_genes(
         The residuals of the significant genes.
     """
 
-    # Get the genes satisfying all the conditions.
+    # Get the genes whose residuals reach either threshold.
     series_significant_genes = \
         series_residuals[(series_residuals >= res_pos_threshold) | \
                          (series_residuals <= res_neg_threshold)]
@@ -454,14 +455,14 @@ def get_genes_by_residual_threshold(
         ascending: bool = False) -> \
             tuple[pd.DataFrame, pd.DataFrame,
                   pd.DataFrame, pd.DataFrame]:
-    """Get the genes whose residuals fall in specified intervals and
-    are common to a certain number of samples.
+    """Count, for each gene, the samples where its residual is at most
+    ``le_than`` and those where it is at least ``ge_than``.
 
     Parameters
     ----------
     df_res : :class:`pandas.DataFrame`
-        A data frame containing the residual vectors for a set of
-        samples.
+        The residuals, with samples as rows and genes as columns. Only
+        the columns whose names start with ``"ENSG"`` are used.
 
     le_than : :class:`int` or :class:`float`, ``-1``
         The threshold at or below which a residual meets the first
@@ -481,67 +482,39 @@ def get_genes_by_residual_threshold(
     Returns
     -------
     df_samples_count_le : :class:`pandas.DataFrame`
-        A data frame containing each gene with the count of samples
-        where the gene's residual value is lower than or equal to
-        ``le_than``.
-
-        The data frame's rows are identified by each gene's ID (as
-        provided in the input data frame) and the data frame includes
-        one column:
-
-        - 'n_samples': the number of samples where the gene's residual
-          meets the condition.
+        A data frame indexed by the genes' IDs, with an
+        ``"n_samples"`` column holding the number of samples where
+        the gene's residual is at most ``le_than``.
 
     df_genes_distribution_le : :class:`pandas.DataFrame`
-        A data frame displaying the distribution of genes having a
-        residual value lower than or equal to ``le_than`` across
-        different sample counts.
-
-        Each row represents the number of samples, and the columns are:
-
-        - 'n_genes': the number of genes that meet the condition in
-          exactly that many samples.
-        - 'genes': a period-separated string listing the genes that
-          meet the condition in exactly that many samples.
+        A data frame indexed by the number of samples, with an
+        ``"n_genes"`` column holding how many genes have a residual
+        at most ``le_than`` in exactly that many samples, and a
+        ``"genes"`` column listing those genes, separated by periods.
 
     df_samples_count_ge : :class:`pandas.DataFrame`
-        A data frame containing each gene with the count of samples
-        where the gene's residual value is greater than or equal to
-        ``ge_than``.
-
-        The data frame's rows are identified by each gene's ID (as
-        provided in the input data frame) and the data frame includes
-        one column:
-
-        - 'n_samples': the number of samples where the gene's residual
-          meets the condition.
+        A data frame indexed by the genes' IDs, with an
+        ``"n_samples"`` column holding the number of samples where
+        the gene's residual is at least ``ge_than``.
 
     df_genes_distribution_ge : :class:`pandas.DataFrame`
-        A data frame displaying the distribution of genes having a
-        residual value greater than or equal to ``ge_than`` across
-        different sample counts.
-
-        Each row represents the number of samples, and the columns are:
-
-        - 'n_genes': the number of genes that meet the condition in
-          exactly that many samples.
-        - 'genes': a period-separated string listing the genes that
-          meet the condition in exactly that many samples.
+        A data frame indexed by the number of samples, with an
+        ``"n_genes"`` column holding how many genes have a residual
+        at least ``ge_than`` in exactly that many samples, and a
+        ``"genes"`` column listing those genes, separated by periods.
     """
 
-    # Get the names of the cells containing residual values.
+    # Keep only the genes' columns.
     df_res_data = \
         df_res.loc[:, [col for col in df_res.columns \
                        if col.startswith("ENSG")]]
 
     #-----------------------------------------------------------------#
 
-    # Set the condition for which the residuals must be lower than or
-    # equal to the specified value.
+    # Get where the residuals are at most 'le_than'.
     condition_le = df_res_data <= le_than
 
-    # Set the condition for which the residuals must be greater than
-    # or equal to the specified value.
+    # Get where the residuals are at least 'ge_than'.
     condition_ge = df_res_data >= ge_than
 
     #-----------------------------------------------------------------#
@@ -642,10 +615,10 @@ def get_genes_by_residual_threshold(
 
     #-----------------------------------------------------------------#
 
-    # Update the index of the first data frame.
+    # Index the first data frame by the genes.
     df_samples_count_le = df_samples_count_le.set_index("gene")
 
-    # Update the index of the second data frame.
+    # Index the second data frame by the genes.
     df_samples_count_ge = df_samples_count_ge.set_index("gene")
 
     #-----------------------------------------------------------------#
@@ -653,11 +626,11 @@ def get_genes_by_residual_threshold(
     # If the genes must be sorted by the number of samples
     if sort_genes:
 
-        # Sort the first data frame by the number of samples.
+        # Sort the first distribution by the number of samples.
         df_genes_distribution_le = \
             df_genes_distribution_le.sort_index(ascending = ascending)
 
-        # Sort the second data frame by the number of samples.
+        # Sort the second distribution by the number of samples.
         df_genes_distribution_ge = \
             df_genes_distribution_ge.sort_index(ascending = ascending)
 

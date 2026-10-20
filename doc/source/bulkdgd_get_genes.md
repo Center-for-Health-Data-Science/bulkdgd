@@ -1,6 +1,6 @@
 # `bulkdgd_get_genes`
 
-This command allows you to create customized lists of genes to use with the bulkdgd model.
+This command creates customized lists of genes to use with the bulkdgd model.
 
 `bulkdgd_get_genes` takes as input a YAML configuration file containing:
 
@@ -12,7 +12,7 @@ The command produces two output files:
 
 * A CSV file containing the `attributes` for the genes passing all the `filters`.
 
-* A plain text file containing the Ensembl IDs of the genes reported in the CSV file. This file can be directly used when setting up a new instance of the bulkdgd model or preprocessing a set of samples to be used with the model.
+* A plain text file containing the Ensembl IDs of the genes reported in the CSV file. This file can be used directly when setting up a new instance of the bulkdgd model or preprocessing a set of samples to be used with the model.
 
 ## Parallelization
 
@@ -20,7 +20,7 @@ The command can be run in parallel over different inputs in different directorie
 
 * If `-ds dir1 path/to/dir2`, the program will be run in parallel in each directory using the input and configuration files in it. The name of the configuration file may be provided using the `-cg`/ `--config-file-genes` option. The output files and the log file for each run will be saved in the corresponding directory and named according to the file names provided in the `-ol`/`--output-list`, `-oa`/`--output-attributes`, and `-lf`/`--log-file` options.
 
-* If `-ds file.txt`, `file.txt` the file is expected to contain a newline-separated list of either names of directories in the working directory or absolute/relative paths to directories. The name of the configuration file may be provided using the `-cg`/ `--config-file-genes` option. The output files and the log file for each run will be saved in the corresponding directory and named according to the file names provided in the `-ol`/`--output-list`, `-oa`/`--output-attributes`, and `-lf`/`--log-file` options. `file.txt` can, for instance, look like this:
+* If `-ds file.txt`, `file.txt` is expected to contain a newline-separated list of either names of directories in the working directory or absolute/relative paths to directories. The name of the configuration file may be provided using the `-cg`/ `--config-file-genes` option. The output files and the log file for each run will be saved in the corresponding directory and named according to the file names provided in the `-ol`/`--output-list`, `-oa`/`--output-attributes`, and `-lf`/`--log-file` options. `file.txt` can, for instance, look like this:
 
     .. code-block::
 
@@ -49,7 +49,7 @@ bulkdgd_get_genes [-h] [-ol OUTPUT_LIST] [-oa OUTPUT_ATTRIBUTES] -cg CONFIG_FILE
 | Option                       | Description                                                  |
 | ---------------------------- | ------------------------------------------------------------ |
 | `-ol`, `--output-list`       | The name of the output plain text file containing the list of genes of interest, identified using their Ensembl IDs. The default file name is `genes_list.txt`. |
-| `-oa`, `--output-attributes` | The name of the output CSV file containing the attributes retrieved from the Ensembl database for the genes of interest. The default file name is `genes_attributes.txt`. |
+| `-oa`, `--output-attributes` | The name of the output CSV file containing the attributes retrieved from the Ensembl database for the genes of interest. The default file name is `genes_attributes.csv`. |
 
 ### Configuration files
 

@@ -8,21 +8,21 @@ bulkdgd can be used, for instance, to find differentially expressed genes betwee
 Installation
 ------------
 
-We provide detailed instructions to install bulkdgd in a Python virtual environment or in a ``conda`` environment in the :doc:`Installation <installation>` section.
+The :doc:`Installation <installation>` section explains how to install bulkdgd in a Python virtual environment or in a ``conda`` environment.
 
 Usage
 -----
 
 The modules of bulkdgd can be imported and used to build customized scripts and pipelines.
 
-The :doc:`API reference section <api_reference>` provides a detailed descriptions of bulkdgd's sub-packages and modules.
+The :doc:`API reference section <api_reference>` describes bulkdgd's sub-packages and modules.
 
-However, we also provide a small :doc:`command-line interface <command_line_interface>` to automate some of the most common tasks for which the DGD model can be used for more bio-oriented audiences.
+A :doc:`command-line interface <command_line_interface>`, aimed at more bio-oriented audiences, automates some of the most common tasks the DGD model is used for.
 
 Tutorials
 ---------
 
-Our :doc:`tutorials <tutorials>` provide detailed, step-by-step explanations of how to perform different tasks using bulkdgd.
+The :doc:`tutorials <tutorials>` show step by step how to perform different tasks with bulkdgd.
 
 Issues, bugs, and questions
 ---------------------------

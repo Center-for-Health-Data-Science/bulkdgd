@@ -317,8 +317,7 @@ def data_files_model(seed: str = BASE_SEED) -> dict:
     Returns
     -------
     data_files : :class:`dict`
-        The files. 'dec.pth' is downloaded on first use (see
-        'DECODER_PTH_URL').
+        The files ('dec.pth' is downloaded on first use).
     """
 
     # Return the files.

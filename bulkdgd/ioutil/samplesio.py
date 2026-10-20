@@ -81,14 +81,14 @@ def load_samples(csv_file: str,
     sep : :class:`str`, ``","``
         The column separator in the input CSV file.
 
-    keep_samples_names : :class:`bool`, :class:`True`
+    keep_samples_names : :class:`bool`, ``True``
         Whether to keep the names/IDs/indexes assigned to the
         samples in the input data frame.
 
-        If :class:`True`, the samples' names/IDs/indexes are assumed
+        If ``True``, the samples' names/IDs/indexes are assumed
         to be in the first column of the input data frame.
 
-    split : :class:`bool`, :class:`False`
+    split : :class:`bool`, ``False``
         Whether to split the input data frame into one data frame
         with the gene expression data and one with the additional
         information about the samples, if any.
@@ -99,14 +99,14 @@ def load_samples(csv_file: str,
         A data frame containing the gene expression data, with the
         samples as rows and the genes as columns.
 
-        If ``split`` is :class:`False`, it also contains the columns
+        If ``split`` is ``False``, it also contains the columns
         with additional information about the samples, if any.
 
     df_other_data : :class:`pandas.DataFrame`
         A data frame containing the additional information about the
         samples found in the input data frame.
 
-        If ``split`` is :class:`False`, only ``df_data`` is returned.
+        If ``split`` is ``False``, only ``df_data`` is returned.
     """
 
     # If the samples' original names should be kept
@@ -202,7 +202,7 @@ def load_samples(csv_file: str,
 def save_samples(df: pd.DataFrame,
                  csv_file: str,
                  sep: str = ",") -> None:
-    """Save the samples to a CSV file.
+    """Save the samples to a CSV or Parquet file.
 
     Parameters
     ----------
@@ -210,7 +210,8 @@ def save_samples(df: pd.DataFrame,
         A data frame containing the samples.
 
     csv_file : :class:`str`
-        The output CSV file.
+        The output file ('.parquet' or '.pq' for Parquet, delimited
+        text otherwise).
 
     sep : :class:`str`, ``","``
         The column separator in the output CSV file.
@@ -428,8 +429,7 @@ def preprocess_samples(df_samples: pd.DataFrame,
         duplicated_genes = \
             genes_series[genes_series.duplicated()].tolist()
 
-        # Raise an error informing the user of the presence of
-        # duplicated genes.
+        # Raise an error.
         errstr = \
             "Duplicated genes were found in the input data " \
             f"frame: {', '.join(duplicated_genes)}. Remove them " \

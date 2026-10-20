@@ -2,7 +2,7 @@
 
 This command retrieves RNA-seq data (and associated metadata) from the [Recount3 platform](https://rna.recount.bio/).
 
-So far, the program supports retrieving data for samples from the [GTEx](https://gtexportal.org/home/), [TCGA](https://www.cancer.gov/ccg/research/genome-sequencing/tcga), and [SRA](https://www.ncbi.nlm.nih.gov/sra) projects.
+The program supports retrieving data for samples from the [GTEx](https://gtexportal.org/home/), [TCGA](https://www.cancer.gov/ccg/research/genome-sequencing/tcga), and [SRA](https://www.ncbi.nlm.nih.gov/sra) projects.
 
 The executable allows samples to be selected for a single tissue (for GTEx data), cancer type (for TCGA), or project code (for SRA).
 
@@ -11,11 +11,11 @@ The executable allows samples to be selected for a single tissue (for GTEx data)
   * `"recount3_project_name"`, containing the name of the project (`"GTEx"`, `"TCGA"`, or `"SRA"`) the samples belong to.
   * `"recount3_samples_category"`, containing the name of the category the samples belong to (it is a tissue type for GTEx data, a cancer type for TCGA data, and a project code for SRA data).
 
-The main output of `bulkdgd_get_recount3` is several CSV files (one per batch of samples) containing the RNA-seq data retrieved from Recount3 for the samples of interest. The rows represent the samples, while the columns contain the genes identified by their Ensembl IDs or the samples' metadata. This file is named `{recount3_project_name}_{recount3_samples_category}.csv`.
+The main output of `bulkdgd_get_recount3` is several CSV files (one per batch of samples) containing the RNA-seq data retrieved from Recount3 for the samples of interest. The rows represent the samples, while the columns contain the genes identified by their Ensembl IDs or the samples' metadata. Each file is named `{recount3_project_name}_{recount3_samples_category}.csv`.
 
 The raw RNA-seq data are converted into read counts by dividing the raw counts by the average mapped length of the reads per sample.
 
-The user also has the option to save the original compressed (`.gz`) files containing the raw RNA-seq data, the quality control metrics (including the average mapped length per sample), and the metadata associated with the samples. If these files are found in the working directory for a specific project and sample category, they will not be downloaded again.
+You can also save the original compressed (`.gz`) files containing the raw RNA-seq data, the quality control metrics (including the average mapped length per sample), and the metadata associated with the samples. If these files are found in the working directory for a specific project and sample category, they will not be downloaded again.
 
 ## Command line
 
@@ -82,4 +82,4 @@ SRA,SRP141440
 bulkdgd_get_recount3 -ib batches.csv -d recount3_data
 ```
 
-This downloads, in parallel, the TCGA glioblastoma multiforme (GBM) samples and the three SRA glioblastoma studies listed in `batches.csv`, writing one CSV file per batch (for instance, `TCGA_GBM.csv` and `SRA_SRP027383.csv`) in the `recount3_data` directory. See :doc:`Tutorial 4 <tutorial_notebooks/tutorial_4>` for a complete, worked example using this exact dataset.
+This downloads the TCGA glioblastoma multiforme (GBM) samples and the three SRA glioblastoma studies listed in `batches.csv`, one batch at a time (pass `-n` to download several batches in parallel), writing one CSV file per batch (for instance, `TCGA_GBM.csv` and `SRA_SRP027383.csv`) in the `recount3_data` directory. See :doc:`Tutorial 4 <tutorial_notebooks/tutorial_4>` for a worked example using this dataset.

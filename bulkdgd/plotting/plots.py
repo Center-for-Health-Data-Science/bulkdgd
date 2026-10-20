@@ -266,7 +266,7 @@ def plot_dimensionality_reduction(
     Parameters
     ----------
     dfs : :class:`list` or :class:`pandas.DataFrame`
-        A list of data frames containing the results of the
+        One or more data frames containing the results of the
         dimensionality reduction analyses (data points as rows,
         projections along the components as columns).
 

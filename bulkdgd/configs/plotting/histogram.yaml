@@ -182,7 +182,7 @@ colorbar:
   # https://bulkdgd.readthedocs.io/en/latest/histograms.html
   interval:
 
-    # Set type of interval displayed on the axis.
+    # Set the type of interval displayed on the axis.
     #
     # Type: str.
     #

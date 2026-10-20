@@ -345,7 +345,7 @@ def get_dask_logging_config(
 
     Returns
     -------
-    dask_logging_config : :class:`dict[str, object]`
+    dask_logging_config : :class:`dict`
         The logging configuration for Dask/distributed loggers.
     """
 
@@ -449,8 +449,8 @@ def get_dask_logging_config(
 def add_wd_and_logging_arguments(parser: argparse.ArgumentParser,
                                  command_name: str) -> \
                                     argparse.ArgumentParser:
-    """Add the options for logging and for the working directory to
-    a parser.
+    """Add the options for the working directory, logging and, for
+    most commands, parallelization to a parser.
 
     Parameters
     ----------
@@ -673,7 +673,7 @@ def set_main_logging(args: argparse.Namespace,
 def process_arg_input_columns(val: Optional[str]) -> \
         Optional[str | list[str]]:
     """Process the value passed to the '-ic', '--input-columns'
-    argument in the 'bulkdgd reduction' sub-commands.
+    argument of the 'bulkdgd_reduction_*' commands.
 
     Parameters
     ----------
@@ -694,7 +694,7 @@ def process_arg_input_columns(val: Optional[str]) -> \
 def process_arg_groups_column(val: Optional[str]) -> \
         Optional[str | int]:
     """Process the value passed to the '-gc', '--groups-column'
-    argument in the 'bulkdgd reduction' sub-commands.
+    argument of the 'bulkdgd_reduction_*' commands.
 
     Parameters
     ----------
@@ -712,8 +712,8 @@ def process_arg_groups_column(val: Optional[str]) -> \
 
 
 def process_arg_groups(val: Optional[str]) -> Optional[list[str]]:
-    """Process the value passed to the '-gr', '--groups' argument in
-    the 'bulkdgd reduction' sub-commands.
+    """Process the value passed to the '-gr', '--groups' argument of
+    the 'bulkdgd_reduction_*' commands.
 
     Parameters
     ----------
@@ -891,8 +891,8 @@ def get_file_path(file_name: str,
     Returns
     -------
     file_path : :class:`str` or :obj:`None`
-        The full path to the file or :obj:`None` if ``file_name`` is
-        not a file.
+        The full path to the file, or :obj:`None` if it exists in
+        neither directory.
     """
 
     # Get the full path to the file in the working directory.
@@ -1113,16 +1113,13 @@ def run_with_parallelization(executable: str,
     # Create the local cluster.
     cluster = \
         LocalCluster(\
-            # Number of workers.
+            # Set the number of workers.
             n_workers = n_proc,
-            # Below which level log messages will
-            # be silenced.
+            # Silence log messages below ERROR.
             silence_logs = "ERROR",
-            # Whether to use processes, single-core
-            # or threads.
+            # Use processes instead of threads.
             processes = True,
-            # How many threads for each worker
-            # should be used.
+            # Use one thread per worker.
             threads_per_worker = 1)
 
     # Open the client from the cluster.

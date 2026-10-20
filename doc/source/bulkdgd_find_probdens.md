@@ -1,8 +1,8 @@
 # `bulkdgd_find_probdens`
 
-For a set of given representations and the Gaussian mixture model (GMM) modelling the representation space in the bulkdgd model, this command outputs the probability density of each representation for each GMM component.
+For a given set of representations and the Gaussian mixture model (GMM) modelling the representation space in the bulkdgd model, this command outputs the probability density of each representation for each GMM component.
 
-This is useful, for instance, to identify a representative sample for each GMM component, namely the one having the highest probability for that component for all samples under consideration.
+This is useful, for instance, to identify a representative sample for each GMM component, namely the sample with the highest probability density for that component among all samples considered.
 
 `bulkdgd_find_probdens` takes as input a CSV file containing the representations for a set of samples formatted as the one produced by [`bulkdgd_find_representations`](bulkdgd_find_representations.md). This CSV file stores a data frame in which each row represents a sample's representation, and each column represents a dimension of the latent space where the representations live.
 
@@ -12,7 +12,7 @@ The command can be run in parallel over different inputs in different directorie
 
 * If `-ds dir1 path/to/dir2`, the program will be run in parallel in each directory using the input and configuration files in it. The name of the input file may be provided using the `-ir`/`--input-rep` option, while the name of the configuration file may be provided using the `-cm`/ `--config-file-model` option. The output files and the log file for each run will be saved in the corresponding directory and named according to the file names provided in the `-opr`/`--output-prob-rep`, `-opc`/`--output-prob-comp`, and `-lf`/`--log-file` options.
 
-* If `-ds file.txt`, `file.txt` the file is expected to contain a newline-separated list of either names of directories in the working directory or absolute/relative paths to directories. The name of the input file may be provided using the `-ir`/`--input-rep` option, while the name of the configuration file may be provided using the `-cm`/ `--config-file-model` option. The output files and the log file for each run will be saved in the corresponding directory and named according to the file names provided in the `-opr`/`--output-prob-rep`, `-opc`/`--output-prob-comp`, and `-lf`/`--log-file` options. `file.txt` can, for instance, look like this:
+* If `-ds file.txt`, `file.txt` is expected to contain a newline-separated list of either names of directories in the working directory or absolute/relative paths to directories. The name of the input file may be provided using the `-ir`/`--input-rep` option, while the name of the configuration file may be provided using the `-cm`/ `--config-file-model` option. The output files and the log file for each run will be saved in the corresponding directory and named according to the file names provided in the `-opr`/`--output-prob-rep`, `-opc`/`--output-prob-comp`, and `-lf`/`--log-file` options. `file.txt` can, for instance, look like this:
 
     .. code-block::
 
@@ -86,4 +86,4 @@ bulkdgd_find_probdens -ir representations.csv -cm model_trained.yaml
 
 This computes, for each representation in `representations.csv` (as produced by [`bulkdgd_find_representations`](bulkdgd_find_representations.md)), the probability density with respect to each component of the Gaussian mixture model defined in `model_trained.yaml`.
 
-`model_trained.yaml` is a copy of `bulkdgd/configs/model/seed37/model.yaml` with `latent_pth_file` and `decoder_pth_file` added to it, as described in [`bulkdgd_find_representations`](bulkdgd_find_representations.md) and in the [model configuration options](model_config_options.rst). The superseded `model_tgmm_trained.yaml` should no longer be used: it declares 32 mixture components where the shipped mixture has 48.
+`model_trained.yaml` is a copy of `bulkdgd/configs/model/seed37/model.yaml` with `latent_pth_file` and `decoder_pth_file` added to it, as described in [`bulkdgd_find_representations`](bulkdgd_find_representations.md) and in the [model configuration options](model_config_options.rst).

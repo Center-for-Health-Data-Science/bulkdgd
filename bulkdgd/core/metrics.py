@@ -111,7 +111,7 @@ def _to_numpy(x: object) -> np.ndarray:
     if hasattr(x, "detach"):
         x = x.detach().cpu().numpy()
 
-    # Convert (or view) the input as a NumPy array.
+    # Return the input as a NumPy array.
     return np.asarray(x)
 
 
@@ -162,10 +162,10 @@ def _validate_clustering_inputs(
     if unique_labels.shape[0] < 2 \
         or unique_labels.shape[0] >= X.shape[0]:
 
-        # Return None if inputs are invalid.
+        # Return None.
         return None, None
 
-    # Return validated inputs.
+    # Return the validated inputs.
     return X, labels
 
 
@@ -180,11 +180,11 @@ def encode_labels(labels_lists: list[list[str]]) -> list[np.ndarray]:
     Returns
     -------
     encoded_labels : :class:`list`
-        A list of Numpy arrays of encoded integer labels, one for each
+        A list of NumPy arrays of encoded integer labels, one for each
         input list.
     """
 
-    # Unpack the list of lists into a single list of labels.
+    # Flatten the lists of labels into a single list.
     labels = [label for sub_list in labels_lists for label in sub_list]
 
     # Create the LabelEncoder.
@@ -220,7 +220,7 @@ def get_silhouette_score(X: object,
         The silhouette score, or ``nan`` if undefined.
     """
 
-    # Validate and normalize inputs.
+    # Validate the inputs and convert them to NumPy arrays.
     X, labels = _validate_clustering_inputs(X, labels)
 
     # If inputs are invalid, return NaN.
@@ -249,7 +249,7 @@ def get_davies_bouldin_score(X: object,
         The Davies-Bouldin score, or ``nan`` if undefined.
     """
 
-    # Validate and normalize inputs.
+    # Validate the inputs and convert them to NumPy arrays.
     X, labels = _validate_clustering_inputs(X, labels)
 
     # If inputs are invalid, return NaN.
@@ -278,7 +278,7 @@ def get_calinski_harabasz_score(X: object,
         The Calinski-Harabasz score, or ``nan`` if undefined.
     """
 
-    # Validate and normalize inputs.
+    # Validate the inputs and convert them to NumPy arrays.
     X, labels = _validate_clustering_inputs(X, labels)
 
     # If inputs are invalid, return NaN.
@@ -521,7 +521,7 @@ def get_metric_score(metric_name: str,
                      gmm_model: Optional[object] = None,
                      y_true: Optional[np.ndarray] = None,
                      y_pred: Optional[np.ndarray] = None) -> float:
-    """Dispatch and compute a metric from its name.
+    """Compute a metric from its name.
 
     Parameters
     ----------
@@ -532,16 +532,16 @@ def get_metric_score(metric_name: str,
         The feature matrix used by unsupervised metrics.
 
     labels : :class:`object`, optional
-        Predicted labels used by unsupervised metrics.
+        The predicted labels used by unsupervised metrics.
 
     gmm_model : :class:`object`, optional
         A fitted Gaussian mixture model used by the ``"bic"`` metric.
 
     y_true : :class:`object`, optional
-        Ground-truth labels used by supervised metrics.
+        The ground-truth labels used by supervised metrics.
 
     y_pred : :class:`object`, optional
-        Predicted labels used by supervised metrics.
+        The predicted labels used by supervised metrics.
 
     Returns
     -------
@@ -582,7 +582,7 @@ def get_metric_score(metric_name: str,
 
 
 def get_metric_optimization_direction(metric_name: str) -> str:
-    """Get optimization direction for a metric.
+    """Get the optimization direction of a metric.
 
     Parameters
     ----------
@@ -595,14 +595,14 @@ def get_metric_optimization_direction(metric_name: str) -> str:
         ``"min"`` if lower values are better, ``"max"`` otherwise.
     """
 
-    # Normalize metric name.
+    # Normalize the metric name.
     metric_name = str(metric_name).strip().lower()
 
-    # Handle unsupervised metrics.
+    # If the metric is unsupervised, return its direction.
     if metric_name in UNSUPERVISED_METRICS:
         return UNSUPERVISED_METRICS[metric_name]
 
-    # Handle supervised metrics.
+    # If the metric is supervised, return its direction.
     if metric_name in SUPERVISED_METRICS:
         return SUPERVISED_METRICS[metric_name]
 

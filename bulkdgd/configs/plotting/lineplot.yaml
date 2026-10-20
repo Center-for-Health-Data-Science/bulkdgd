@@ -1,4 +1,4 @@
-# Configuration file describing the aesthetics of a scatter plot.
+# Configuration file describing the aesthetics of a line plot.
 #
 # The file also contains the options specifying the output file format
 # where the plot will be saved.
@@ -74,7 +74,7 @@ legend:
   # Type: bool.
   frameon: False
 
-  # The alignment of the legend title and entries
+  # Set the alignment of the legend title and entries.
   #
   # Type: str.
   #
@@ -91,7 +91,7 @@ legend:
   # Type: int.
   ncols: 2
   
-  # Set the font properties of the legend labels
+  # Set the font properties of the legend labels.
   prop:
     
     # Set the font size.
@@ -116,7 +116,7 @@ legend:
 # https://bulkdgd.readthedocs.io/en/latest/titles.html
 title:
 
-  # Set the font properties of the title
+  # Set the font properties of the title.
   fontproperties:
     
     # Set the font size.

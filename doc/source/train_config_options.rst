@@ -3,9 +3,9 @@
 Configuration for training the bulkdgd model
 ============================================
 
-To train an instance of :class:`core.model.BulkDGD`, we need to set a number of options.
+Training an instance of :class:`core.model.BulkDGD` requires a number of options.
 
-These options can be passed as a nested dictionary or are specified in a YAML configuration file.
+These options can be passed as a nested dictionary or specified in a YAML configuration file.
 
 The function that loads the configuration file is :func:`bulkdgd.ioutil.load_config_train`.
 
@@ -13,9 +13,9 @@ The options that can be specified are described below.
 
 * ``"continue_training"`` is whether the model being trained is allowed to be one that was built from trained parameters. This is a boolean and defaults to ``False``.
 
-  :meth:`bulkdgd.core.model.BulkDGD.train` **refuses** to run on a model whose decoder came from a checkpoint - which is what a model configuration naming a ``"decoder_pth_file"`` gives, and what a bare ``BulkDGD()`` gives - unless this is set to ``true`` at the **top level** of the training configuration. Such a model starts from the published optimum, and training it moves it away from that without anything in the output saying so: the object answers to the same name afterwards, and the results it then produces are no longer the published model's.
+  :meth:`bulkdgd.core.model.BulkDGD.train` **refuses** to run on a model whose decoder came from a checkpoint (as with a model configuration naming a ``"decoder_pth_file"``, or a bare ``BulkDGD()``) unless this is set to ``true`` at the **top level** of the training configuration. Such a model starts from the published optimum, and training moves it away from that optimum with no sign of it in the output: the object keeps the same name, but its results are no longer the published model's.
 
-  Continuing to train one is legitimate, for fine-tuning it on a new cohort, which is why the option exists. Absent it the answer is no, because the mistake is silent and the deliberate case is not. To train a new model instead, build it from an architecture that names no parameter files, such as ``bulkdgd/configs/model/model_tgmm.yaml``.
+  Set this option to fine-tune a trained model, for instance on a new cohort. To train a new model instead, build it from an architecture that names no parameter files, such as ``bulkdgd/configs/model/model_tgmm.yaml``.
 
 * ``"n_epochs"`` is the number of epochs to train the model for. This is a positive integer and defaults to ``200``.
 
@@ -95,7 +95,7 @@ The options that can be specified are described below.
    
    * ``"optional_outputs"`` is a dictionary of options to specify which optional outputs to save during training. It can contain the following options:
 
-      * ``"model_epoch"`` is a dictionary of options to specify how to save the model (the decoder's weights and the latent space's parameters) at the end of each epoch. Training otherwise writes the model out only when it is over, so a run that is killed or runs out of time leaves nothing behind; enabling this saves it as the run goes, both so it can be resumed and so the model's state can be inspected epoch by epoch. The decoder is written as ``dec_<epoch>.pth`` and the latent space as ``gmm_<epoch>.pth``. It can contain the following options:
+      * ``"model_epoch"`` is a dictionary of options to specify how to save the model (the decoder's weights and the latent space's parameters) at the end of each epoch. Without it, training writes the model only at the end, so a run that is killed or runs out of time leaves nothing behind. Enabling it saves the model during the run, so the run can be resumed and the model's state inspected epoch by epoch. The decoder is written as ``dec_<epoch>.pth`` and the latent space as ``gmm_<epoch>.pth``. It can contain the following options:
 
          * ``"enabled"`` is a boolean that specifies whether to save the model at the end of each epoch. This defaults to ``False``.
 
@@ -173,8 +173,6 @@ The options that can be specified are described below.
 
          * ``"one_cycle"``, which uses the OneCycleLR scheduler.
 
-      * ``"cosine"``, which uses the CosineAnnealingLR scheduler. It anneals the optimizer's own learning rate down to ``"eta_min"`` over the whole run, in a single half-cosine with no restarts.
-
          * ``"cosine"``, which uses the CosineAnnealingLR scheduler. It anneals the optimizer's own learning rate down to ``"eta_min"`` over the whole run, in a single half-cosine with no restarts.
 
       * ``"lr_scheduler_options"`` is a dictionary of options for the learning rate scheduler. For the ``"one_cycle"`` scheduler, the options are:
@@ -200,8 +198,6 @@ The options that can be specified are described below.
          * ``"final_div_factor"`` is the factor by which to divide the initial learning rate to get the minimum learning rate at the end of training. This is a positive float that defaults to ``1000.0``.
 
          * ``"three_phase"`` is a boolean that specifies whether to use a three-phase learning rate schedule. This defaults to ``False``.
-
-      For the ``"cosine"`` scheduler, the only option is ``"eta_min"``, the learning rate the schedule anneals down to by the end of training (its peak is the optimizer's own ``"lr"``). This is a non-negative float that defaults to ``0.0``.
 
          For the ``"cosine"`` scheduler, the only option is ``"eta_min"``, the learning rate the schedule anneals down to by the end of training (its peak is the optimizer's own ``"lr"``). This is a non-negative float that defaults to ``0.0``.
 
@@ -265,13 +261,13 @@ The options that can be specified are described below.
         
 * ``"gmm_final_training_options"`` is an optional dictionary of options for fitting the Gaussian mixture model that describes the latent space after training.
 
-  What that mixture *is* lives in the model's configuration, under ``"gmm_final"`` - see :doc:`the model configuration <model_config_options>`. How it is obtained lives here. A model whose configuration has no ``"gmm_final"`` section ignores this one.
+  The mixture itself is defined in the model's configuration, under ``"gmm_final"`` (see :doc:`the model configuration <model_config_options>`). This section defines how it is fitted. A model whose configuration has no ``"gmm_final"`` section ignores this one.
 
    * ``"fit"`` is what the fit is allowed to move. This is a string that can take one of the following values:
 
-      * ``"covariance_only"`` freezes the means and the weights where training left them and refits only the covariance, in one closed-form M-step against the trained model's own responsibilities. Nothing iterates, so no component can drift onto a different part of the latent space, and every mapping from a component to a label - a tissue, a cancer type - established on the trained mixture stays valid. This is the default.
+      * ``"covariance_only"`` freezes the means and the weights where training left them and refits only the covariance, in one closed-form M-step against the trained model's own responsibilities. Nothing iterates, so no component can drift onto a different part of the latent space, and every mapping from a component to a label (a tissue, a cancer type) established on the trained mixture stays valid. This is the default.
 
-      * ``"full_em"`` re-estimates the means and the weights as well. It fits the representations better, and it is a different set of components: anything that labelled the old ones does not carry over, and a warning says so.
+      * ``"full_em"`` re-estimates the means and the weights as well. It fits the representations better, but gives a different set of components: labels assigned to the old components do not carry over, and a warning says so.
 
    * ``"max_iter"`` is the maximum number of iterations. It is used only by ``"full_em"``, since ``"covariance_only"`` does not iterate. If not specified, the default value is 1000.
 
@@ -347,7 +343,7 @@ The options that can be specified are described below.
 
    * ``"init_rep_scale"`` is the scale by which the initial representations are multiplied when they are drawn from the default normal distribution. This is a non-negative float that defaults to ``0.0``, which starts every representation at the origin. It is ignored when ``"init_rep_dist"`` is given.
 
-   * ``"init_rep_dist"`` is the distribution the initial representations are drawn from, before any training happens. This is the name of any distribution :class:`core.latents.RepresentationLayer` supports, namely ``"normal"``, ``"uniform"``, ``"laplace"``, ``"student_t"``, ``"cauchy"``, ``"uniform_ball"`` or ``"zeros"``. If not specified, the representations are drawn from a normal distribution scaled by ``"init_rep_scale"``, which is what earlier versions did unconditionally.
+   * ``"init_rep_dist"`` is the distribution the initial representations are drawn from, before any training happens. This is the name of any distribution :class:`core.latents.RepresentationLayer` supports, namely ``"normal"``, ``"uniform"``, ``"laplace"``, ``"student_t"``, ``"cauchy"``, ``"uniform_ball"`` or ``"zeros"``. If not specified, the representations are drawn from a normal distribution scaled by ``"init_rep_scale"``.
 
    * ``"init_rep_dist_options"`` is a dictionary of options for that distribution, and its contents depend on which one was named: ``"scale"`` for ``"normal"``, ``"uniform"``, ``"laplace"`` and ``"cauchy"``; ``"df"`` and ``"scale"`` for ``"student_t"``; ``"radius"`` for ``"uniform_ball"``; nothing for ``"zeros"``. The number of representations and their dimensionality follow from the data and the model, so ``"n_samples"`` and ``"dim"`` are set here automatically and any value given for them in the configuration is overridden.
 

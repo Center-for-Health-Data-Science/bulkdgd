@@ -1,16 +1,16 @@
 Tutorial 6 - Differential expression and gene set enrichment with the ensemble
 ==============================================================================
 
-Which genes a single bulkdgd model calls differentially expressed depends on the seed it was trained with, so which of those genes are real is not a question one model can answer. What can be answered is how many of several identically trained models agree on a gene, and that is what the ensemble is for: fifteen models sharing an architecture, a gene universe, a training set and a train/test split, and differing only in the seed they were fitted with.
+The genes a single bulkdgd model calls differentially expressed depend on the seed it was trained with, so one model cannot tell which of those genes are real. The ensemble answers a different question: how many of several identically trained models agree on a gene. It is fifteen models sharing an architecture, a gene universe, a training set and a train/test split, and differing only in the seed they were fitted with.
 
-This tutorial takes a set of samples through the ensemble end to end - representations, differential expression, the tiered consensus drawn from what the members call, and gene set enrichment - and closes with when the ensemble is worth its cost and when the single model is enough.
+This tutorial takes a set of samples through the ensemble end to end (representations, differential expression, the tiered consensus drawn from what the members call, and gene set enrichment), and closes with when to use the ensemble and when a single model is enough.
 
 It assumes :doc:`Tutorial 1 <tutorial_1>` and :doc:`Tutorial 2 <tutorial_2>`, which do the first two of those steps with one model.
 
 Loading the ensemble
 --------------------
 
-``BulkDGDEnsemble()``, called with no arguments, is the ensemble that ships with the package. The members differ in nothing but their seed, so describing them by hand would mean writing the same architecture fifteen times and fifteen paths that have to agree with it; given neither configuration, the class builds both from what the package ships.
+``BulkDGDEnsemble()``, called with no arguments, is the ensemble that ships with the package. The members differ only in their seed, so, given neither configuration, the class builds the shared architecture and the members' paths from the files the package ships.
 
 .. code-block:: python
 
@@ -63,26 +63,26 @@ A member is built only when it is asked for, one at a time, by ``get_model``:
    # one in Tutorial 1.
    model = ensemble.get_model(name = "seed37")
 
-``BulkDGD()`` with no arguments is the base member, ``seed37``, on its own. It is the model the paper reports, and nothing distinguishes it from the other fourteen; running the whole ensemble is what this tutorial is about, and running only ``seed37`` is :doc:`Tutorial 1 <tutorial_1>`.
+``BulkDGD()`` with no arguments is the base member, ``seed37``, on its own. Apart from being the default, nothing distinguishes it from the other fourteen members. This tutorial runs the whole ensemble; :doc:`Tutorial 1 <tutorial_1>` runs only ``seed37``.
 
 What the first run downloads
 ----------------------------
 
-Each member's fitted mixture (``gmm.pth``, about 28 KiB) ships with the package. Its decoder does not: at about 1.79 GiB in ``float64`` a single one is close to the 2 GiB limit on a GitHub release asset, and fifteen of them are not something to put on PyPI. They are fetched on demand, one asset per member and per release, from
+Each member's fitted mixture (``gmm.pth``, about 28 KiB) ships with the package. Its decoder does not: each decoder is about 1.79 GiB in ``float64``, close to the 2 GiB limit on a GitHub release asset, and fifteen of them are too large for PyPI. They are downloaded on demand, one asset per member and per release, from
 
 .. code-block:: text
 
    https://github.com/Center-for-Health-Data-Science/bulkdgd/releases/download/v{version}/dec_{seed}.pth
 
-and land in the per-seed directory the package expects them in, ``bulkdgd/data/model/{seed}/dec.pth``, **inside the installed package**. Three consequences are worth knowing before the first run:
+and saved in the per-seed directory the package expects, ``bulkdgd/data/model/{seed}/dec.pth``, **inside the installed package**. This has three consequences:
 
 * The full ensemble is about **27 GiB** of one-off downloads. Later runs reuse the files.
 
-* The install has to be writable. A read-only or system-wide install will fail on the first member it tries to fetch.
+* The installation must be writable. A read-only or system-wide installation fails on the first member it tries to download.
 
-* A member is fetched the first time that member is built, so the download is spread over the run and not paid up front.
+* A member is downloaded the first time it is built, so the downloads are spread over the run rather than done up front.
 
-``status`` reports what is already on disk, and is a download checklist as much as a training checklist - ``trained`` is ``False`` for a member whose decoder has not been fetched yet:
+``status`` reports what is already on disk. ``trained`` is ``False`` for a member whose decoder has not been downloaded yet:
 
 .. code-block:: python
 
@@ -103,9 +103,9 @@ and land in the per-seed directory the package expects them in, ``bulkdgd/data/m
 Where the results go
 --------------------
 
-Every member has a ``"results_dir"``, and everything run with that member is written under it. There is nowhere inside an installed package that a user's output belongs, so the shipped configuration puts them under the working directory, in ``bulkdgd_ensemble_results/{seed}``. The path is resolved when the ensemble is built, so it is the working directory *at that moment* that decides where the results land.
+Every member has a ``"results_dir"``, and everything run with that member is written under it. The shipped configuration puts the results under the working directory, in ``bulkdgd_ensemble_results/{seed}``. The path is resolved when the ensemble is built, so the working directory *at that moment* decides where the results are written.
 
-To put them somewhere of your own, pass a configuration to the method you are calling. It may point the ensemble's members at different directories, and it may not change which members there are:
+To write them elsewhere, pass a configuration to the method you are calling. It can point the ensemble's members at different directories, but cannot change which members there are:
 
 .. code-block:: python
 
@@ -117,12 +117,12 @@ To put them somewhere of your own, pass a configuration to the method you are ca
                     results_dir = os.path.join("/data/brca", name))
         for name, options in ensemble.config_ensemble.items()}
 
-This is also how a second cohort is run through the same members without its results landing on top of the first cohort's: same ensemble, a different ``config_ensemble`` per cohort. Every method below takes it as the optional ``config_ensemble`` argument.
+Use the same approach to run a second cohort through the same members without overwriting the first cohort's results: one ensemble, with a different ``config_ensemble`` per cohort. Every method below takes it as the optional ``config_ensemble`` argument.
 
 Preprocess the samples
 ----------------------
 
-The ensemble takes the samples exactly as a single model does - a data frame with the samples as rows and the model's genes as columns - so the preprocessing is the one in :doc:`Tutorial 1 <tutorial_1>`, done once for the whole ensemble, since every member shares a gene universe:
+The ensemble takes the samples exactly as a single model does (a data frame with the samples as rows and the model's genes as columns), so the preprocessing is the one in :doc:`Tutorial 1 <tutorial_1>`. Every member shares a gene universe, so it is done once for the whole ensemble:
 
 .. code-block:: python
 
@@ -142,7 +142,7 @@ The ensemble takes the samples exactly as a single model does - a data frame wit
 Find the representations
 ------------------------
 
-Differential expression needs each member's own prediction for each sample, so the representations come first. This is the step that builds the members, and therefore the step that downloads the decoders and takes the time: finding a representation is a per-sample optimization in latent space, and the ensemble runs it fifteen times.
+Differential expression needs each member's own prediction for each sample, so the representations come first. This step builds the members, so it is also the step that downloads the decoders and takes the longest: finding a representation is a per-sample optimization in latent space, and the ensemble runs it fifteen times.
 
 .. code-block:: python
 
@@ -164,7 +164,7 @@ Differential expression needs each member's own prediction for each sample, so t
 
 Each member writes ``representations.csv``, ``pred_means.csv`` and ``time.csv`` into its results' directory, plus ``pred_r_values.csv`` when the output module has r-values, which the shipped model's does. The predicted means are the in silico control the next step compares the observed counts against.
 
-A member that fails is recorded and the ones after it are run anyway - fourteen good models are not worth throwing away because the fifteenth could not be read - so what came back has to be looked at:
+A member that fails is recorded, and the members after it are still run, so check what came back:
 
 .. code-block:: python
 
@@ -178,12 +178,12 @@ Every stage below returns a dictionary of the same shape, keyed by member name, 
 
 .. note::
 
-   ``resume = True`` skips a member that already has *all* of its outputs. It is what makes a run that died halfway cheap to restart, and it is also what silently reuses a stale result: a cohort re-run with different options into the same directories will be skipped, not recomputed. Point the results elsewhere, or pass ``resume = False``.
+   ``resume = True`` skips a member that already has *all* of its outputs. This makes an interrupted run cheap to restart, but it also silently reuses stale results: a cohort re-run with different options into the same directories is skipped, not recomputed. Point the results elsewhere, or pass ``resume = False``.
 
 Differential expression across the ensemble
 -------------------------------------------
 
-``dea`` compares each sample's observed counts against each member's predicted means, and computes p-values, q-values and log2-fold changes exactly as :doc:`Tutorial 2 <tutorial_2>` does with one model. It reads ``pred_means.csv`` and ``pred_r_values.csv`` out of each member's results' directory, where the previous step left them, and **builds no model at all**, so this stage needs neither the decoders nor a GPU. It does mean the two calls have to be given the same ``config_ensemble``, since that is what says where those files are:
+``dea`` compares each sample's observed counts against each member's predicted means, and computes p-values, q-values and log2-fold changes exactly as :doc:`Tutorial 2 <tutorial_2>` does with one model. It reads ``pred_means.csv`` and ``pred_r_values.csv`` from each member's results' directory, where the previous step wrote them, and **builds no model at all**, so this stage needs neither the decoders nor a GPU. The two calls must therefore be given the same ``config_ensemble``, since it says where those files are:
 
 .. code-block:: python
 
@@ -213,20 +213,20 @@ Differential expression across the ensemble
            # Whether to skip the samples that already have results
            resume = True)
 
-Everything in ``config_dea`` that is not one of the ensemble's own keys is passed straight on to :func:`bulkdgd.analysis.dea.get_statistics`.
+Everything in ``config_dea`` that is not one of the ensemble's own keys is passed on to :func:`bulkdgd.analysis.dea.get_statistics`.
 
-One of those keys is filled in for you. The statistics are computed against a scaled predicted mean, and which scaling was used is a property of the model the ensemble is made of, something the function computing the statistics has no way to ask. ``scaling_factor`` is therefore taken from the ensemble's own model configuration - ``"median"``, for the shipped ensemble - unless you pass it yourself. Passing the wrong one leaves every predicted mean wrong by the ratio of the two, about three, while every p-value still looks like a p-value.
+One of those keys is filled in for you. The statistics are computed against a scaled predicted mean, and the scaling is a property of the ensemble's model, which the function computing the statistics cannot know. ``scaling_factor`` is therefore taken from the ensemble's own model configuration (``"median"`` for the shipped ensemble) unless you pass it yourself. Passing the wrong one makes every predicted mean wrong by the ratio of the two, about three, without any error.
 
-The results are written one file per sample per member, under ``{results_dir}/dea``, as ``dea_{sample}.parquet``. That is what makes the analysis resumable where it matters: a run that dies halfway picks up at the first sample that has no file, and not at the first member. Each file holds one row per gene, with the columns ``p_value``, ``q_value``, ``log2_fold_change``, the ``obs_counts`` the sample was scored on, and the ``dgd_mean`` and ``dgd_r`` the statistics were computed from, so that a sample's file says what produced it. Everything that reads these results looks the sample up by name and takes whichever form is on disk, so the ``.csv`` files older runs wrote keep loading.
+The results are written as one file per sample per member, under ``{results_dir}/dea``, as ``dea_{sample}.parquet``. An interrupted run therefore resumes at the first sample that has no file, not at the first member. Each file holds one row per gene, with the columns ``p_value``, ``q_value``, ``log2_fold_change``, the ``obs_counts`` the sample was scored on, and the ``dgd_mean`` and ``dgd_r`` the statistics were computed from. Everything that reads these results looks the sample up by name and reads whichever form is on disk, including ``.csv`` files.
 
 .. note::
 
-   One file per sample per member is fifteen times the file count of a single-model run, which is tens of thousands of small files for a cohort of any size. ``"zip_results" : True`` in ``config_dea`` packs each member's results into one archive once they are all there and removes the loose files; the archive is written, closed and read back before anything is removed, and everything downstream reads either form.
+   One file per sample per member is fifteen times the file count of a single-model run, which quickly adds up to many small files. ``"zip_results" : True`` in ``config_dea`` packs each member's results into one archive once they are all written, and removes the loose files. The archive is written, closed and read back before anything is removed, and everything downstream reads either form.
 
 How the members' calls are combined
 -----------------------------------
 
-``consensus`` turns fifteen sets of per-sample calls into one tiered list of genes per group of samples. Three definitions carry it, and they are worth stating precisely, because "the ensemble agrees" is the whole claim:
+``consensus`` turns fifteen sets of per-sample calls into one tiered list of genes per group of samples. It rests on three definitions:
 
 * A model **calls** a gene for a sample when the gene's q-value is below ``q_val`` and the absolute value of its log2-fold change is above ``log2_fold_change``. Both comparisons are strict.
 
@@ -234,7 +234,7 @@ How the members' calls are combined
 
 * A gene's **tier** is how many of the ensemble's models consider it: the number of models that agree on it. The **consensus recurrence** reported for a gene of tier *K* is the *K*-th largest of its per-model recurrences, which is the level at which *K* models agree. Genes below ``min_tier`` are left out.
 
-Three models and ten samples in one group make the arithmetic visible:
+For example, with three models and ten samples in one group:
 
 .. code-block:: text
 
@@ -243,9 +243,9 @@ Three models and ten samples in one group make the arithmetic visible:
    GENE_B   5/10, 2/10, 1/10              0.50, 0.20, 0.10      2                   0.20
    GENE_C   3/10, 1/10, 0/10              0.30, 0.10, 0.00      1                      -
 
-At the default ``recurrence`` of ``0.20``, all three of ``GENE_A``'s models consider it, so it is tier 3, and the third-largest recurrence, ``0.40``, is the level at which three models agree on it. Two of ``GENE_B``'s three do, so it is tier 2 at ``0.20``. Only one of ``GENE_C``'s does, and at the default ``min_tier`` of ``2`` a gene one model considers is not something the ensemble agrees on, so it is dropped.
+At the default ``recurrence`` of ``0.20``, all three of ``GENE_A``'s models consider it, so it is tier 3, and the third-largest recurrence, ``0.40``, is the level at which three models agree on it. Two of ``GENE_B``'s three do, so it is tier 2 at ``0.20``. Only one of ``GENE_C``'s does, so at the default ``min_tier`` of ``2`` it is dropped.
 
-Samples that any one model has no results for are dropped for the whole ensemble, and the number dropped is reported. A gene's tier is how many models agree on it, and that is only comparable between genes if every gene was offered the same models.
+Samples that any one model has no results for are dropped for the whole ensemble, and the number dropped is reported. This keeps tiers comparable between genes, since every gene is then scored by the same models.
 
 .. code-block:: python
 
@@ -295,7 +295,7 @@ Samples that any one model has no results for are dropped for the whole ensemble
                 # How many processes to score the samples with
                 "n_processes" : 8})
 
-What comes back is a dictionary mapping each group to a data frame with one row per gene, with the genes the most models agree on first. The rows below continue the three-model example, so that ``rec_sorted`` fits on a line; a run of the shipped ensemble carries fifteen recurrences and tiers up to 15.
+The result is a dictionary mapping each group to a data frame with one row per gene, with the genes the most models agree on first. The rows below continue the three-model example; a run of the shipped ensemble has fifteen recurrences and tiers up to 15.
 
 .. code-block:: text
 
@@ -303,7 +303,7 @@ What comes back is a dictionary mapping each group to a data frame with one row 
    0        BRCA  ENSG00000141510    TP53     3                   0.40  1.000|0.800|0.400
    1        BRCA  ENSG00000012048   BRCA1     2                   0.20  0.500|0.200|0.100
 
-``rec_sorted`` is every per-model recurrence, largest first, so the whole distribution behind a tier is on the row and a tier can be recomputed at a different ``recurrence`` without reading the per-sample files again. ``symbol`` falls back to the gene's name when ``genes_symbols`` has no entry for it.
+``rec_sorted`` lists every per-model recurrence, largest first, so a tier can be recomputed at a different ``recurrence`` without reading the per-sample files again. ``symbol`` falls back to the gene's name when ``genes_symbols`` has no entry for it.
 
 .. code-block:: python
 
@@ -316,7 +316,7 @@ What comes back is a dictionary mapping each group to a data frame with one row 
 
 .. note::
 
-   ``consensus`` raises if any member has no results at all. A member with no results would drop every sample, and the consensus would come back empty with nothing to say why.
+   ``consensus`` raises an error if any member has no results at all, since such a member would drop every sample and leave the consensus empty.
 
 Gene set enrichment
 -------------------
@@ -357,7 +357,7 @@ The gene sets are a dictionary mapping a name to a list of genes. They are inter
 
 Everything in ``config_gsea`` that is not one of the ensemble's own keys is passed on to :func:`bulkdgd.analysis.dea.get_significant_genes`.
 
-Each member writes one ``e_scores.csv`` into ``{results_dir}/gsea``, covering every sample it has results for, with the columns ``sample``, ``genes_set``, ``num_genes_in_set``, ``num_genes_significant`` and ``e_score``. A score of 1 is what a set of that size would get by chance among that many significant genes; above 1 is enrichment. Reading the fifteen files back and comparing a set's score across the members says how much of the enrichment survived the seed:
+Each member writes one ``e_scores.csv`` into ``{results_dir}/gsea``, covering every sample it has results for, with the columns ``sample``, ``genes_set``, ``num_genes_in_set``, ``num_genes_significant`` and ``e_score``. A score of 1 is what a set of that size would get by chance among that many significant genes; above 1 is enrichment. Comparing a set's score across the fifteen members shows how much of the enrichment does not depend on the seed:
 
 .. code-block:: python
 
@@ -385,25 +385,25 @@ Each member writes one ``e_scores.csv`` into ``{results_dir}/gsea``, covering ev
 
 .. note::
 
-   The thresholds are **not** shared with the consensus, and their defaults differ: :func:`bulkdgd.analysis.dea.get_significant_genes` defaults to a ``log2_fold_change`` of ``2``, while the consensus defaults to ``1.0``. It also filters on ``p_val``, which the consensus ignores entirely, and it compares inclusively (``<=``, ``>=``) where the consensus compares strictly (``<``, ``>``), so a gene sitting exactly on a threshold is significant here and is not called there. Pass the same thresholds to both if the two answers are meant to be about the same genes.
+   The thresholds are **not** shared with the consensus, and their defaults differ: :func:`bulkdgd.analysis.dea.get_significant_genes` defaults to a ``log2_fold_change`` of ``2``, while the consensus defaults to ``1.0``. It also filters on ``p_val``, which the consensus ignores, and it compares inclusively (``<=``, ``>=``) where the consensus compares strictly (``<``, ``>``), so a gene exactly on a threshold is significant here but not called there. Pass the same thresholds to both if the two answers should refer to the same genes.
 
 When to use the ensemble, and when one model is enough
 ------------------------------------------------------
 
-The ensemble answers one question, and it costs fifteen times a single run to answer it. Use it when that question is the one you are asking:
+The ensemble costs fifteen times a single run. Use it for:
 
-* **A per-gene claim about a cohort that will be taken forward** - a driver list, a signature, a set of genes handed to someone who will spend a bench week on them. One model's list is one draw from a distribution over training seeds, and a tier is how many independent draws agree. The same argument, for the seed the *representation search* starts from, has been measured: the calls several seeds agree on overlap a cancer-matched driver catalogue substantially more often than the calls only one of them makes (see :ref:`rep_multiseed`).
+* **A per-gene claim about a cohort that will be followed up**, such as a driver list, a signature, or a set of genes for experimental validation. One model's list is one draw from a distribution over training seeds, and a tier is how many independent draws agree. For the seed the *representation search* starts from, the calls several seeds agree on overlap a cancer-matched driver catalogue more often than the calls only one of them makes (see :ref:`rep_multiseed`).
 
-* **Anything going into a paper**, for the same reason: a result quoted from one seed is a result nobody else's seed has to reproduce.
+* **Results to be published**, for the same reason: a result from one seed may not reproduce with another.
 
-* **Comparing methods**, where "the model found this and DESeq2 did not" needs to survive the model being re-fitted.
+* **Comparing methods**, where a difference such as "the model found this and DESeq2 did not" must hold when the model is re-fitted.
 
-The single model is the right tool, and not a compromise, when:
+A single model is the right choice when:
 
-* **The result is per-sample.** The consensus is a statement about a group, drawn from recurrences within it. It has nothing to say about one sample, so a per-sample p-value, an imputation, or a representation used as a feature is a single-model job. Fifteen answers per sample is fifteen answers, not a better one.
+* **The result is per-sample.** The consensus is a statement about a group, drawn from recurrences within it, and says nothing about one sample. A per-sample p-value, an imputation, or a representation used as a feature is a single-model task.
 
-* **The cohort has few samples per group.** A recurrence is a share of a group's samples: at ``0.20``, a group of five calls a gene "recurrent" on the strength of a single sample, so with a handful of samples per group a tier is counting single samples, and a group of one has no recurrence to compute. Check the group sizes before reading anything into the tiers.
+* **The cohort has few samples per group.** A recurrence is a share of a group's samples: at ``0.20``, a group of five calls a gene "recurrent" based on a single sample, so with few samples per group a tier counts single samples, and a group of one has no recurrence. Check the group sizes before interpreting the tiers.
 
-* **You are exploring**, where the answer changes several times before it matters and 27 GiB of decoders plus fifteen representation searches is a poor way to find out that the samples were preprocessed wrong.
+* **You are exploring**, while the analysis still changes and 27 GiB of decoders plus fifteen representation searches is a costly way to find, for instance, a preprocessing error.
 
-The two are not exclusive, and the cheap half of the split is worth knowing: the representations are the expensive stage and the only one that needs a decoder, so an exploratory pass with ``BulkDGD()`` on one seed and a final pass with the full ensemble share their preprocessing and their gene set, and cost nothing to run in that order.
+The two can be combined: the representations are the expensive stage and the only one that needs a decoder, so an exploratory pass with ``BulkDGD()`` on one seed and a final pass with the full ensemble can share their preprocessing and their gene set.

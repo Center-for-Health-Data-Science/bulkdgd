@@ -220,7 +220,7 @@ class SoftballPrior:
             samples.div_(samples.norm(dim = -1,
                                       keepdim = True))
 
-            # Get 'n' random lengths.
+            # Draw one random length per sample.
             local_len = \
                 self.radius * \
                 torch.pow(torch.rand((n_samples, 1)), 1.0 / self.dim)
@@ -410,7 +410,7 @@ class GaussianPrior:
             The samples drawn from the Gaussian distribution.
         """
 
-        # Get the samples from the distribution and return them.
+        # Return samples drawn from the distribution.
         return self._dist.sample((n_samples, self.dim))
 
 
@@ -431,6 +431,6 @@ class GaussianPrior:
             at ``x``.
         """
 
-        # Return the log probability of the density function
-        # evaluated at the input(s).
+        # Return the log of the probability density function
+        # evaluated at 'x'.
         return self._dist.log_prob(x)

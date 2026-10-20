@@ -1,11 +1,10 @@
-# This is a configuration file describing the aesthetics of a three-
-# panels plot showing:
+# Configuration file describing the aesthetics of a three-panel plot
+# showing:
 #
 # - A bar plot of the number of genes of interest per group (for
 #   instance, driver genes per cancer).
-# - A violin plot of the distribution of genes of interest per group.
+# - A violin plot of the number of significant genes per group.
 # - A strip plot of the enrichment scores.
-#
 #
 # The file also contains the options specifying the format of the
 # output file(s) where the plot will be saved.
@@ -67,7 +66,7 @@ figure:
 #######################################################################
 
 
-# The general font properties.
+# Set the general font properties.
 #
 # https://bulkdgd.readthedocs.io/en/latest/text_elements.html
 general_fontproperties:
@@ -83,7 +82,7 @@ general_fontproperties:
 #######################################################################
 
 
-# The palette to be used for the groups in all three panels.
+# Set the palette for the groups in all three panels.
 #
 # Type: str.
 #
@@ -130,7 +129,7 @@ violinplot:
 #######################################################################
 
 
-# Set the options for the x-axis. This axis is shared between the 
+# Set the options for the x-axis. This axis is shared between the
 # three panels.
 xaxis:
   
@@ -185,7 +184,7 @@ xaxis:
 #######################################################################
 
 
-# The options to be used for the y-axis of all three plots.
+# Set the options for the y-axis of all three plots.
 yaxis:
 
   # Set the options for the axis' label.

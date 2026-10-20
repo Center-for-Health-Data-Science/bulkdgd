@@ -17,7 +17,7 @@ filters:
   #
   # Protein coding transcripts.
   #
-  # - 'protein_coding' = transcript that contains an open reading frame 
+  # - 'protein_coding' = transcript that contains an open reading frame
   #   (ORF).
   #
   # - 'protein_coding_CDS_not_defined' = alternatively spliced
@@ -33,7 +33,7 @@ filters:
   # Transcripts from immunoglobulin genes that undergo somatic
   # recombination.
   #
-  # - 'IG_gene' = transcript from an immunoglobulin gene. 
+  # - 'IG_gene' = transcript from an immunoglobulin gene.
   #
   # - 'IG_C_gene' = transcript from a constant chain immunoglobulin
   #   gene.
@@ -137,7 +137,7 @@ filters:
   # - 'IG_pseudogene' = transcript from an inactivated immunoglobulin
   #   gene.
   #
-  # - 'IG_C_pseudogene' = transcript from an inactivated constant chain 
+  # - 'IG_C_pseudogene' = transcript from an inactivated constant chain
   #   immunoglobulin gene.
   #
   # - 'IG_D_pseudogene' = transcript from an inactivated diversity
@@ -202,7 +202,7 @@ filters:
   #
   # Transcripts from regions to be experimentally confirmed.
   #
-  # - 'TEC' = transcript from a a region with EST clusters that have
+  # - 'TEC' = transcript from a region with EST clusters that have
   #   polyA features that could indicate the presence of protein coding
   #   genes. These require experimental validation, either by 5' RACE
   #   or RT-PCR to extend the transcripts, or by confirming expression
@@ -226,14 +226,14 @@ filters:
   #
   # Protein coding genes.
   #
-  # - 'protein_coding' = gene that contains an open reading frame 
+  # - 'protein_coding' = gene that contains an open reading frame
   #   (ORF).
   #
   #-------------------------------------------------------------------#
   #
   # Immunoglobulin genes that undergo somatic recombination.
   #
-  # - 'IG_gene' = immunoglobulin gene. 
+  # - 'IG_gene' = immunoglobulin gene.
   #
   # - 'IG_C_gene' = constant chain immunoglobulin gene that undergoes
   #    somatic recombination before transcription.
@@ -404,7 +404,7 @@ filters:
   # - "Cancer Gene Census" = catalog of genes of which mutations have
   #   been causally implicated in cancer.
   #
-  # - "G2P" =   Genotype-to-Phenotype Database.
+  # - "G2P" = Genotype-to-Phenotype Database.
   #
   # - "MIM Morbid" = Online Mendelian Inheritance in Man (OMIM)
   #   database.
@@ -464,7 +464,7 @@ filters:
 #---------------------------------------------------------------------#
 
 # Attributes to report for each gene in the list. For a complete list
-# of available filters for human genes, go to
+# of available attributes for human genes, go to
 # https://mart.ensembl.org/biomart and select the
 # 'Ensembl Genes 112', 'Human genes (GRCh38.p14)' dataset.
 attributes:

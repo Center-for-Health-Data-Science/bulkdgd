@@ -1,6 +1,6 @@
 # `bulkdgd_preprocess_samples`
 
-This command allows users to preprocess new samples for use with the bulkdgd model.
+This command preprocesses new samples for use with the bulkdgd model.
 
 It expects as input a CSV file containing a data frame with the gene expression data for the new samples.
 
@@ -8,23 +8,23 @@ Each row must represent a sample, while each column must represent a gene identi
 
 During preprocessing, Ensembl IDs indicating [pseudoautosomal regions](http://www.ensembl.org/info/genome/genebuild/human_PARS.html) are treated as different genes.
 
-In detail, sample preprocessing consists of the following steps:
+Preprocessing consists of the following steps:
 
 1. Removing duplicated samples.
 2. Removing samples containing missing values for the expression of some genes.
-3. Excluding all data for genes that are not included in a user-provided list. The default list used corresponds to the genes included in the bulkdgd model and can be found in a plain text file (`genes.txt`) available in `bulkdgd/data/model/genes`. It is the curated list of **14,740** genes the shipped models were trained on, and every member of the shipped ensemble shares it.
+3. Excluding all data for genes that are not included in a user-provided list. The default list contains the genes included in the bulkdgd model and is the plain text file `genes.txt` in `bulkdgd/data/model/genes`. It is the curated list of **14,740** genes the shipped models were trained on, shared by every member of the shipped ensemble.
 4. Adding a count of 0 for all genes not found in the input samples but part of the set of genes used to train the bulkdgd model.
 5. Sorting the genes in the order expected by the bulkdgd model.
 
 The program will exit with an error if it finds duplicated genes.
 
-Preprocessing new samples is a critical step before finding the samples' best representations in latent space using the bulkdgd model (using, for instance, the [`bulkdgd_find_representations`](bulkdgd_find_representations.md) executable).
+New samples should be preprocessed before finding their best representations in latent space with the bulkdgd model (using, for instance, the [`bulkdgd_find_representations`](bulkdgd_find_representations.md) executable).
 
 The main output of `bulkdgd_preprocess_samples` is a CSV file containing the preprocessed samples.
 
 The Ensembl IDs of the genes found in the input samples but not present in the user-provided (or default) gene list, if any, are written in a separate output file in plain text format, with one gene per line. 
 
-Furthermore, if any gene present in the user-provided (or default) gene list is not found in the genes for which counts are available in the input samples, the gene will be written to the output CSV file containing the preprocessed samples with a count of 0 for all samples. These "missing" genes are also written in a separate plain text file containing one gene per line.
+If a gene in the user-provided (or default) gene list has no counts in the input samples, it is written to the output CSV file containing the preprocessed samples with a count of 0 for all samples. These "missing" genes are also written in a separate plain text file containing one gene per line.
 
 ## Parallelization
 
@@ -32,7 +32,7 @@ The command can be run in parallel over different inputs in different directorie
 
 * If `-ds dir1 path/to/dir2`, the program will be run in parallel in each directory using the input and configuration files in it. The names of the input files may be provided using the `-is`/`--input-samples` and the `-ig`/`--input-genes-list` options. The output files and the log file for each run will be saved in the corresponding directory and named according to the file names provided in the `-os`/`--output-samples`, `-oe`/`--output-genes-excluded`, `-om`/`--output-genes-missing`, and `-lf`/`--log-file` options.
 
-* If `-ds file.txt`, `file.txt` the file is expected to contain a newline-separated list of either names of directories in the working directory or absolute/relative paths to directories. The names of the input files may be provided using the `-is`/`--input-samples` and the `-ig`/`--input-genes-list` options. The output files and the log file for each run will be saved in the corresponding directory and named according to the file names provided in the `-os`/`--output-samples`, `-oe`/`--output-genes-excluded`, `-om`/`--output-genes-missing`, and `-lf`/`--log-file` options. `file.txt` can, for instance, look like this:
+* If `-ds file.txt`, `file.txt` is expected to contain a newline-separated list of either names of directories in the working directory or absolute/relative paths to directories. The names of the input files may be provided using the `-is`/`--input-samples` and the `-ig`/`--input-genes-list` options. The output files and the log file for each run will be saved in the corresponding directory and named according to the file names provided in the `-os`/`--output-samples`, `-oe`/`--output-genes-excluded`, `-om`/`--output-genes-missing`, and `-lf`/`--log-file` options. `file.txt` can, for instance, look like this:
 
     .. code-block::
 

@@ -58,12 +58,13 @@ def load_decoder_outputs(
     sep: str = ",",
     split: bool = False) -> \
         pd.DataFrame | tuple[pd.DataFrame, pd.DataFrame]:
-    """Load the decoder's outputs from a CSV file.
+    """Load the decoder's outputs from a CSV or Parquet file.
 
     Parameters
     ----------
     csv_file : :class:`str`
-        A CSV file containing a data frame with the decoder's outputs.
+        A CSV or Parquet file containing a data frame with the
+        decoder's outputs.
 
         Each row should represent the decoder's output for a given
         representation, while each column should contain either the
@@ -82,14 +83,14 @@ def load_decoder_outputs(
     df_data : :class:`pandas.DataFrame`
         A data frame containing the decoder's outputs.
 
-        If ``split`` is :class:`False`, it also contains the columns
+        If ``split`` is ``False``, it also contains the columns
         with additional information, if any.
 
     df_other_data : :class:`pandas.DataFrame`
         A data frame containing additional information about the
         decoder's outputs found in the input data frame.
 
-        If ``split`` is :class:`False`, only ``df_data`` is returned.
+        If ``split`` is ``False``, only ``df_data`` is returned.
     """
 
     # If the file is a Parquet file

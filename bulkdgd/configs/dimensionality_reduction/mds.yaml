@@ -1,4 +1,4 @@
-# Configuration file to perform a MDS. The full list of available
+# Configuration file to perform an MDS. The full list of available
 # options can be found here: https://scikit-learn.org/stable/modules/
 # generated/sklearn.manifold.MDS.html#mds
 

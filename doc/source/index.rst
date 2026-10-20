@@ -26,7 +26,7 @@ Welcome to bulkdgd!
 
       Check out our Introduction. It contains a brief explanation
       of bulkdgd's functionalities, tutorials,
-      how to contribute to bulkdgd and how to cite us if you
+      how to report issues and how to cite us if you
       use bulkdgd in your work.
 
       +++
@@ -91,8 +91,7 @@ Welcome to bulkdgd!
       Command-line utilities reference guide.
 
       Here, you can find a guide to the command-line utilities
-      that speed up and simplify some of the most common tasks
-      bulkdgd is used for.
+      for some of the most common tasks bulkdgd is used for.
 
       +++
 
@@ -113,7 +112,7 @@ Welcome to bulkdgd!
 
       bulkdgd's tutorials.
 
-      Here, a list of tutorials that can get you started with bulkdgd.
+      Here, you can find tutorials to get started with bulkdgd.
 
       +++
 

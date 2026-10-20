@@ -1,12 +1,12 @@
 # `bulkdgd_dea`
 
-This command can be used to perform differential expression analysis (DEA) of genes between a "treated" sample (for instance, a cancer sample) and an "untreated" (control) sample.
+This command performs differential expression analysis (DEA) of genes between a "treated" sample (for instance, a cancer sample) and an "untreated" (control) sample.
 
-Within the context of the bulkdgd model, the DEA is intended between a "treated" experimental sample and a "control" sample, which is the model's decoder's output for the best representation of the "treated" sample in latent space. Therefore, the decoder output for the best representation of the "treated" sample acts as an in silico control sample.
+In bulkdgd, the DEA compares a "treated" experimental sample with a "control" sample, which is the decoder's output for the best representation of the "treated" sample in latent space. This output acts as an in silico control sample.
 
 `bulkdgd_dea` expects two to three inputs. First, a CSV file containing a data frame of experimental "treated" samples. The program assumes that each row represents a sample and each column represents either a gene or additional sample metadata. Second, the program expects a CSV file containing a data frame with the means of the distributions modeling the genes' counts in the in silico "control" samples. A third input is needed if the genes' counts were modeled using negative binomial distributions: a CSV file containing the r-values of the negative binomials modeling the genes' counts in the "control" samples. These last two files are obtained by running the [`bulkdgd_find_representations`](bulkdgd_find_representations.md) command on the "treated" samples.
 
-The output of `bulkdgd_dea` is a CSV file for each sample containing the results of the differential expression analysis. Here, the p-values, q-values (adjusted p-values), and log2-fold changes relative to each gene's differential expression are reported. The program can also return one or more (one per sample) CSV file(s) containing the results of the gene set enrichment analysis, if one or more `-gsf`, `--genes-sets-files` are provided.
+The output of `bulkdgd_dea` is a Parquet file for each sample containing the results of the differential expression analysis. Each file reports the p-values, q-values (adjusted p-values), and log2-fold changes of each gene. The program can also return one or more (one per sample) Parquet file(s) containing the results of the gene set enrichment analysis, if one or more `-gsf`, `--genes-sets-files` are provided.
 
 ## Command line
 
@@ -34,8 +34,8 @@ bulkdgd_dea [-h] -is INPUT_SAMPLES -im INPUT_MEANS [-iv INPUT_RVALUES] [-odp OUT
 
 | Option                   | Description                                                  |
 | ------------------------ | ------------------------------------------------------------ |
-| `-odp`, `--output-dea-prefix` | The prefix of the output CSV file(s) that will contain the results of the differential expression analysis. Since the analysis will be performed for each sample, one file per sample will be created. The files' names will have the form `{output_csv_prefix}{sample_name}.csv`. The default prefix is `dea_`. |
-| `-ogp`, `--output-gsea-prefix`| The prefix of the output CSV file(s) that will contain the results of the gene set enrichment analysis. By default, the analysis will be performed for each sample and one per sample will be created. The files' names will have the form `{output_csv_prefix}{sample_name}.csv`. The default prefix is `gsea_`. If the `-mg`, `--merge-gsea` option is passed, this option is interpreted as the name of the output file where the merged results will be written (stripped of any trailing underscores or dots). |
+| `-odp`, `--output-dea-prefix` | The prefix of the output Parquet file(s) that will contain the results of the differential expression analysis. Since the analysis will be performed for each sample, one file per sample will be created. The files' names will have the form `{output_dea_prefix}{sample_name}.parquet`. The default prefix is `dea_`. |
+| `-ogp`, `--output-gsea-prefix`| The prefix of the output Parquet file(s) that will contain the results of the gene set enrichment analysis. By default, the analysis will be performed for each sample and one file per sample will be created. The files' names will have the form `{output_gsea_prefix}{sample_name}.parquet`. The default prefix is `gsea_`. If the `-mg`, `--merge-gsea` option is passed, this option is interpreted as the name of the output file where the merged results will be written (stripped of any trailing underscores or dots, with `.parquet` added). |
 | `-mg`, `--merge-gsea` | Whether the results of the gene set enrichment analysis will be merged into a single file. By default, the results for each sample are written in separate files. |
 
 ### DEA options
@@ -68,17 +68,16 @@ and they **give the same p-values**.
 `batched` calculates the p-values for all the genes at once. This is
 what allows them to be calculated on a GPU. On a CPU, `torch` spreads
 the calculation over the cores by itself, so `batched` should be used
-with a single process (`-n 1`) — a single process already uses the whole
-machine.
+with a single process (`-n 1`), which already uses the whole machine.
 
 `per-gene` calculates the p-values one gene at a time, and is
 parallelized over the samples with the `-n`, `--n-proc` option. This is
-how to use a machine with many cores when no GPU is available. Note that
-it can use no more processes than there are samples.
+how to use a machine with many cores when no GPU is available. It can
+use no more processes than there are samples.
 
 The two kinds of parallelism **do not compose**. Several processes, each
 running a `batched` calculation, would each try to use every core on the
-machine, and would fight over them — which is slower than either kind of
+machine and compete for them, which is slower than either kind of
 parallelism on its own. `bulkdgd_dea` warns if it is asked to do this.
 
 `auto`, the default, uses `batched` on a GPU and on a CPU with a single

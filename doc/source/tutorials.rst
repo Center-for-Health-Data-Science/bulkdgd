@@ -12,13 +12,11 @@ Tutorials
    tutorial_notebooks/tutorial_5
    tutorial_notebooks/tutorial_6
 
-In this section, you will find examples of how to use the bulkdgd package for different tasks.
+This section shows how to use the bulkdgd package for different tasks.
 
-If you want an overview of the command-line utilities available in bulkdgd, see the :doc:`Command-line interface <command_line_interface>` section.
+For an overview of the command-line utilities available in bulkdgd, see the :doc:`Command-line interface <command_line_interface>` section.
 
-Here, we will showcase the usage of the package's functions in the context of larger analysis scripts.
-
-Specifically, we provide detailed tutorials to:
+The tutorials use the package's functions inside larger analysis scripts to:
 
 * Find the best representations in latent space for a new set of samples (:doc:`Tutorial 1 <tutorial_notebooks/tutorial_1>`).
 
@@ -30,4 +28,6 @@ Specifically, we provide detailed tutorials to:
 
 * Use bulkdgd directly from R, via ``reticulate``, to find representations and perform DEA without writing any Python code (:doc:`Tutorial 5 <tutorial_notebooks/tutorial_5>`).
 
-The data and Python notebooks needed to reproduce the tutorials can be found in the different ``tutorial_*`` directories inside the ``tutorials`` directory at the root of the repository.
+* Run a set of samples through the ensemble of models that ships with the package (representations, DEA, the tiered consensus and gene set enrichment), and decide when the ensemble is needed and when a single model is enough (:doc:`Tutorial 6 <tutorial_notebooks/tutorial_6>`).
+
+The data and Python notebooks needed to reproduce the tutorials are in the ``tutorial_*`` directories inside the ``tutorials`` directory at the root of the repository.

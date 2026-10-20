@@ -22,19 +22,19 @@ bulkdgd consists of several packages:
 
 * :doc:`core <core>`, containing the core components of the bulkdgd model and the model itself.
 
-* ``ensemble``, containing ``bulkdgd.ensemble.ensemble.BulkDGDEnsemble``, the ensemble of models differing only in the seed they were trained with, and the tiered consensus drawn from it. The fifteen members that ship with the package are what a bare ``BulkDGDEnsemble()`` loads; see :ref:`model_shipped`.
+* ``ensemble``, containing ``bulkdgd.ensemble.ensemble.BulkDGDEnsemble``, the ensemble of models differing only in the seed they were trained with, and the tiered consensus drawn from it. A bare ``BulkDGDEnsemble()`` loads the fifteen members that ship with the package; see :ref:`model_shipped`.
 
 * :doc:`genes <genes>`, containing utilities to create customized lists of genes to use with the bulkdgd model.
 
-* :doc:`ioutil <ioutil>`, containing utilities for loading and saving files and pre-process data.
+* :doc:`ioutil <ioutil>`, containing utilities for loading and saving files and preprocessing data.
 
 * :doc:`plotting <plotting>`, containing plotting utilities.
 
 * :doc:`recount3 <recount3>`, containing utilities to interact with the Recount3 platform.
 
-* :doc:`reproducibility <reproducibility>`, containing :func:`bulkdgd.reproducibility.set_seeds`, which seeds the generators a run draws from. It has to be called before the model is built, since building it already draws the decoder's weights.
+* :doc:`reproducibility <reproducibility>`, containing :func:`bulkdgd.reproducibility.set_seeds`, which seeds the generators a run draws from. It must be called before the model is built, because building the model draws the decoder's weights.
 
-Some functions and methods use dictionary-based configurations for several tasks, such as setting up the bulkdgd model, finding the best representations for a new set of samples and training the bulkdgd model. More detailed descriptions of such configurations are available here:
+Some functions and methods take dictionary-based configurations, for instance to set up the bulkdgd model, find the best representations for a new set of samples and train the bulkdgd model. These configurations are described in:
 
 * :doc:`configuration used to set up the bulkdgd model <model_config_options>`.
 

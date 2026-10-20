@@ -58,12 +58,13 @@ def load_representations(
         sep: str = ",",
         split: bool = False) -> \
             pd.DataFrame | tuple[pd.DataFrame, pd.DataFrame]:
-    """Load the representations from a CSV file.
+    """Load the representations from a CSV or Parquet file.
 
     Parameters
     ----------
     csv_file : :class:`str`
-        A CSV file containing a data frame with the representations.
+        A CSV or Parquet file containing a data frame with the
+        representations.
 
         Each row should contain a representation. The columns should
         contain the representation's values along the latent

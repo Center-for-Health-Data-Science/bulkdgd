@@ -231,8 +231,7 @@ latent_training_options:
   # Set the options for calculating the latent space loss.
   loss_calculation:
 
-    # Set the lambda value for the latent space loss.
-    # This controls the weight of the GMM loss in the total loss.
+    # Set the weight of the latent space loss in the total loss.
     #
     # Type: float.
     lambda: 1.0
@@ -242,25 +241,25 @@ latent_training_options:
   # Set the options for fitting the GMM during training.
   fitting:
 
-    # Set the first epoch after which the Gaussian mixture model will
-    # be fitted. The GMM will be fitted at this epoch.
+    # Set the epoch at which the Gaussian mixture model is first
+    # fitted.
     #
     # Type: int.
     first_epoch: 25
 
-    # Set whether a final refitting of the Gaussian mixture model will
-    # be performed at the end of training.
+    # Set whether to refit the Gaussian mixture model at the end of
+    # training.
     #
     # Type: bool.
     refit_final: True
 
     # Set the interval (in epochs) at which the Gaussian mixture model
-    # will be refitted. Set to 0 or null to disable periodic refitting.
+    # is refitted. Set to 0 to disable periodic refitting.
     #
-    # Type: int or null.
+    # Type: int.
     refit_interval: 0
 
-    # Set the maximum number of EM iterations to perform at 
+    # Set the maximum number of EM iterations to perform at
     # 'first_epoch'.
     #
     # Type: int.
@@ -278,7 +277,7 @@ latent_training_options:
     # Type: int.
     max_iter_warm_refit: 100
 
-    # Set the maximum number of EM iterations at a refit epoch (if
+    # Set the maximum number of EM iterations at the final refit (if
     # 'refit_final' is True).
     #
     # Type: int.
@@ -286,7 +285,7 @@ latent_training_options:
 
   #-------------------------------------------------------------------#
 
-  # Set the options for removing collapsed components.
+  # Set the type of removal of the collapsed components.
   components_removal_type: weight_threshold
 
   # Set the options for the components removal.
@@ -328,13 +327,15 @@ decoder_training_options:
 
   #-------------------------------------------------------------------#
 
-  # Set the options for the learning rate scheduler.
-  lr_scheduler_type: one_cycle    # one_cycle | cosine | null
+  # Set the type of learning rate scheduler.
+  #
+  # Options: 'one_cycle', 'cosine', null.
+  lr_scheduler_type: one_cycle
 
   # Set the options for the learning rate scheduler.
   lr_scheduler_options:
 
-    # Whether the learning rate scheduler is enabled.
+    # Ignored: a null 'lr_scheduler_type' disables the scheduler.
     #
     # Type: bool.
     enabled: True
@@ -446,13 +447,15 @@ representations_training_options:
 
   #-------------------------------------------------------------------#
 
-  # Set the options for the learning rate scheduler.
-  lr_scheduler_type: one_cycle    # one_cycle | cosine | null
+  # Set the type of learning rate scheduler.
+  #
+  # Options: 'one_cycle', 'cosine', null.
+  lr_scheduler_type: one_cycle
 
   # Set the options for the learning rate scheduler.
   lr_scheduler_options:
 
-    # Whether the learning rate scheduler is enabled.
+    # Ignored: a null 'lr_scheduler_type' disables the scheduler.
     #
     # Type: bool.
     enabled: True
@@ -517,8 +520,8 @@ early_stopping_type: loss
 # Set the options for early stopping.
 early_stopping_options:
 
-  # The number of epochs without improvement in test loss before
-  # stopping.
+  # Set the number of epochs without improvement in the test loss
+  # before stopping.
   #
   # Type: int.
   patience: 10

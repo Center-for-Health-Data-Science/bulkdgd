@@ -48,8 +48,7 @@ RECOUNT3_GENCODE_RELEASES = {26, 29}
 
 #---------------------------------------------------------------------#
 
-# Set the files containing the list of fields containing metadata
-# for each project.
+# Set the files listing each project's metadata fields.
 RECOUNT3_METADATA_FIELDS_FILE = {
 
     "GTEx" : os.path.join(os.path.dirname(__file__),
@@ -95,12 +94,12 @@ RECOUNT3_GENE_SUMS_FILE = "{:s}_{:s}_gene_sums.gz"
 
 #---------------------------------------------------------------------#
 
-# Set the name of the output CSV file containing the samples' QC
+# Set the name of the output GZ file containing the samples' QC
 # metadata, if the user decided to save it.
 RECOUNT3_QC_FILE = "{:s}_{:s}_qc.gz"
 
 #---------------------------------------------------------------------#
 
-# Set the name of the output CSV file containing the samples' metadata,
+# Set the name of the output GZ file containing the samples' metadata,
 # if the user decided to save it.
 RECOUNT3_METADATA_FILE = "{:s}_{:s}_metadata.gz"

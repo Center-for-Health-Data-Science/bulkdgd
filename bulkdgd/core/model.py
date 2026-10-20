@@ -284,7 +284,7 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # If the scaling factor is not one that is supported.
+        # If the scaling factor is not supported
         if scaling_factor not in dataclasses.GeneExpressionDataset.\
                                     SCALING_FACTORS:
 
@@ -304,7 +304,7 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # If the precision is not one that is supported.
+        # If the precision is not supported
         if dtype not in self.DTYPES:
 
             # Raise an error.
@@ -415,7 +415,7 @@ class BulkDGD(nn.Module):
 
         Parameters
         ----------
-        latent_dim : :obj:`int`
+        latent_dim : :class:`int`
             The number of dimensions of the latent space.
 
         latent_type : :class:`str`, {``"lgmm"``, ``"tgmm"``}
@@ -499,7 +499,7 @@ class BulkDGD(nn.Module):
 
         Parameters
         ----------
-        latent_dim : :obj:`int`
+        latent_dim : :class:`int`
             The number of dimensions of the latent space.
 
         genes : :class:`list`
@@ -1118,7 +1118,7 @@ class BulkDGD(nn.Module):
             The total number of genes the model was built for.
 
         scaling_factor : :class:`str`, {``"mean"``, ``"median"``}, \
-            optional
+            ``"mean"``
             Which scaling factor to compute.
 
         Returns
@@ -1136,7 +1136,7 @@ class BulkDGD(nn.Module):
             # Count the measured genes per sample.
             n_measured = mask.sum(dim = -1, keepdim = True).long()
 
-            # Take the lower middle value, as 'torch.median' does.
+            # Get the lower middle value's index, as in 'torch.median'.
             idx = ((n_measured - 1) // 2).clamp(min = 0)
 
             # Get the median of the measured counts (the unmeasured
@@ -1242,11 +1242,11 @@ class BulkDGD(nn.Module):
             scaling factor. By default, all genes are measured.
 
         contamination : :class:`float`, ``0.0``
-            How much of a sample the model may give up on. Zero
-            disables it.
+            The weight of the negative binomial outlier component in
+            each gene's likelihood. Zero disables it.
 
         contamination_r : :class:`float`, ``0.05``
-            The dispersion used for the contamination model.
+            The r-value of the outlier component.
 
         noise_type : :class:`str`, optional
             The type of noise to inject into the representations
@@ -1858,11 +1858,11 @@ class BulkDGD(nn.Module):
             candidates' losses.
 
         contamination : :class:`float`, ``0.0``
-            How much of a sample the model may give up on, as used in
-            the optimization.
+            The weight of the negative binomial outlier component in
+            each gene's likelihood.
 
         contamination_r : :class:`float`, ``0.05``
-            The dispersion used for the contamination model.
+            The r-value of the outlier component.
 
         n_components : :class:`int`, optional
             The number of components to lay the candidates out over.
@@ -2229,7 +2229,8 @@ class BulkDGD(nn.Module):
             ``legacy_indexed``.
 
         mode : :class:`str`, {``"sample_keyed"``, \
-            ``"legacy_positional"``, ``"legacy_indexed"``}
+            ``"legacy_positional"``, ``"legacy_indexed"``}, \
+            ``"sample_keyed"``
             The initialization mode: ``sample_keyed`` draws an
             independent stream per sample ID, ``legacy_positional``
             one global stream in chunk order, and ``legacy_indexed``
@@ -2237,15 +2238,15 @@ class BulkDGD(nn.Module):
             index table.
 
         index_file : :class:`str`, optional
-            The CSV file mapping sample names to historical absolute
-            positions for ``legacy_indexed``.
+            The CSV file mapping sample names to their absolute
+            positions in the original input, for ``legacy_indexed``.
 
         original_n_samples : :class:`int`, optional
-            The number of samples in the historical input for
+            The number of samples in the original input, for
             ``legacy_indexed``.
 
         chunk_size : :class:`int`, optional
-            The outer chunk size used by the historical run for
+            The outer chunk size of the original run, for
             ``legacy_indexed``.
 
         Returns
@@ -2506,7 +2507,7 @@ class BulkDGD(nn.Module):
                     "strings when 'legacy_indexed' initialization is "
                     "used.")
 
-            # Load the table of historical positions.
+            # Load the table of original positions.
             df_positions = pd.read_csv(index_file,
                                        sep = ",",
                                        index_col = 0)
@@ -2623,7 +2624,7 @@ class BulkDGD(nn.Module):
                         "historical positions in the legacy index "
                         "file.")
 
-                # Get any position outside the historical sample range.
+                # Get any position outside the original sample range.
                 invalid = \
                     {sample_id : position
                      for sample_id, position in positions.items()
@@ -2644,14 +2645,14 @@ class BulkDGD(nn.Module):
                 # For each non-keyed sample
                 for sample_id in legacy_ids:
 
-                    # Get its absolute historical position.
+                    # Get its absolute original position.
                     absolute_position = positions[sample_id]
 
-                    # Get the start of the historical chunk it fell in.
+                    # Get the start of the original chunk it fell in.
                     chunk_start = \
                         (absolute_position // chunk_size) * chunk_size
 
-                    # Get the size of that historical chunk.
+                    # Get the size of that original chunk.
                     old_chunk_n_samples = \
                         min(chunk_size,
                             original_n_samples - chunk_start)
@@ -2946,12 +2947,11 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Get how much of a sample the model may give up on (zero
-        # disables the contamination model).
+        # Get the weight of the outlier component (zero disables it).
         contamination = \
             float(config["scheme_options"].get("contamination", 0.0))
 
-        # Get the dispersion used for the contamination model.
+        # Get the r-value of the outlier component.
         contamination_r = \
             float(config["scheme_options"].get("contamination_r", 0.05))
 
@@ -3120,10 +3120,11 @@ class BulkDGD(nn.Module):
             A 2D mask of which genes were measured for each sample.
 
         contamination : :class:`float`
-            How much of a sample the model may give up on.
+            The weight of the negative binomial outlier component in
+            each gene's likelihood.
 
         contamination_r : :class:`float`
-            The dispersion used for the contamination model.
+            The r-value of the outlier component.
 
         Returns
         -------
@@ -3220,8 +3221,8 @@ class BulkDGD(nn.Module):
             if the counts are modelled by Poisson distributions.
 
         time_opt : :class:`list`
-            A list of tuples storing, for each epoch, information
-            about the CPU and wall clock time used.
+            A list of tuples storing, for each epoch of every seed,
+            the CPU and wall clock time used.
         """
 
         # Get the seeds to run the scheme with.
@@ -3578,7 +3579,7 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Clean up.
+        # Delete the copy of the representations.
         del z_in
 
         #-------------------------------------------------------------#
@@ -3656,8 +3657,7 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # Initialize the candidate number of components to evaluate to
-        # the current models' number of components.
+        # Start the candidates with the current number of components.
         candidates_n_components = set([current_n_components])
 
         # Get how many components either side of the current number to
@@ -3747,7 +3747,7 @@ class BulkDGD(nn.Module):
                 # found so far.
                 is_better = False
 
-            # If the current best selection value is NaN
+            # If the best selection value is missing or NaN
             elif (best_selection_value is None) \
                 or (np.isnan(best_selection_value)):
 
@@ -3945,8 +3945,7 @@ class BulkDGD(nn.Module):
             # Otherwise
             else:
 
-                # Keep the covariances for all components (they are
-                # re-initialized in the new model).
+                # Keep the tied covariances, shared by all components.
                 covariances_new = \
                     self.latent.covariances_.detach().clone()
 
@@ -4596,7 +4595,7 @@ class BulkDGD(nn.Module):
         optimizer : :class:`torch.optim.Optimizer`
             The optimizer of the representations.
 
-        rep_layer : :class:`core.latents.RepresentationLayer`
+        rep_layer : :class:`bulkdgd.core.latents.RepresentationLayer`
             The layer holding the representations.
 
         samples_ixs : :class:`torch.Tensor`
@@ -5232,7 +5231,7 @@ class BulkDGD(nn.Module):
                 latent_options_fitting["max_iter_warm_refit"]
 
             # Get the maximum number of EM iterations to perform at
-            # the final refit (if 'final_refit' is True).
+            # the final refit (if 'refit_final' is True).
             latent_max_iter_final_refit = \
                 latent_options_fitting["max_iter_final_refit"]
 
@@ -6961,7 +6960,7 @@ class BulkDGD(nn.Module):
                 torch.exp(self.decoder.nb.log_r).squeeze().detach()
 
             # Return the representations, decoder's outputs, losses,
-            # and training time.
+            # metrics and training time.
             return ((rep_train, rep_test),
                     (means_final_train, means_final_test),
                     r_values_final,
@@ -6997,7 +6996,7 @@ class BulkDGD(nn.Module):
                     log_r_values_final_test).squeeze().detach()
 
             # Return the representations, decoder's outputs, losses,
-            # and training time.
+            # metrics and training time.
             return ((rep_train, rep_test),
                     (means_final_train, means_final_test),
                     (r_values_final_train, r_values_final_test),
@@ -7021,7 +7020,7 @@ class BulkDGD(nn.Module):
             r_values_final = None
 
             # Return the representations, decoder's outputs, losses,
-            # and training time.
+            # metrics and training time.
             return ((rep_train, rep_test),
                     (means_final_train, means_final_test),
                     r_values_final,
@@ -7055,7 +7054,7 @@ class BulkDGD(nn.Module):
         -------
         df_scaled : :class:`pandas.DataFrame`
             Same columns and order as ``df_pred_means``, with the
-            gene columns' values scaled back by the r-values.
+            gene columns' values multiplied by the r-values.
         """
 
         # Get whether the rows' names of the two input data frames
@@ -7096,12 +7095,10 @@ class BulkDGD(nn.Module):
             [col for col in df_pred_means.columns \
              if col.startswith("ENSG")]
 
-        # Create a data frame with only those columns containing gene
-        # expression data.
+        # Create a data frame with only the means' gene columns.
         df_pred_means_data = df_pred_means.loc[:,genes_columns]
 
-        # Create a data frame with only those columns containing gene
-        # expression data.
+        # Create a data frame with only the r-values' gene columns.
         df_pred_r_values_data = df_pred_r_values.loc[:,genes_columns]
 
         #-------------------------------------------------------------#
@@ -7176,7 +7173,7 @@ class BulkDGD(nn.Module):
             binomial counts), followed by any additional input
             columns.
 
-        df_pred_r_values : :class:`pandas.DataFrame`, optional
+        df_pred_r_values : :class:`pandas.DataFrame` or :obj:`None`
             One row per representation; columns are the predicted
             negative-binomial r-values, followed by any additional
             input columns. :obj:`None` for Poisson counts.
@@ -7724,8 +7721,7 @@ class BulkDGD(nn.Module):
         # had maximum probability density
         for comp in df_prob_rep[MAX_PROB_COMP_COL].unique():
 
-            # Get only those rows corresponding to the current
-            # component under consideration.
+            # Get the rows of the current component.
             sub_df = \
                 df_prob_rep.loc[df_prob_rep[MAX_PROB_COMP_COL] == comp]
 
@@ -8630,9 +8626,8 @@ class BulkDGD(nn.Module):
             configuration the shipped models were trained with.
 
         gmm_pth_file : :class:`str`, ``"gmm.pth"``
-            The .pth file where to save the GMM's trained parameters
-            (means of the components, weights of the components,
-            and log-variance of the components).
+            The .pth file where to save the Gaussian mixture model's
+            trained parameters.
 
         dec_pth_file : :class:`str`, ``"dec.pth"``
             The .pth file where to save the decoder's trained
@@ -8665,22 +8660,23 @@ class BulkDGD(nn.Module):
             the predicted decoder means for training and testing
             samples.
 
-        dfs_pred_r_values  : :obj:`None` or \
-            :class:`pandas.DataFrame` or :class:`tuple`
+        dfs_pred_r_values : :obj:`None` or :class:`tuple`
             The predicted r-values: :obj:`None` for Poisson counts, a
-            single data frame for per-gene r-values, or a
-            ``(train, test)`` tuple for per-sample r-values.
+            one-element tuple with one data frame for per-gene
+            r-values, or a ``(train, test)`` tuple for per-sample
+            r-values.
 
         df_loss : :class:`pandas.DataFrame`
             The losses calculated during training.
 
         dfs_metrics : :obj:`None` or :class:`tuple`
-            :obj:`None` if metrics were not requested, else a
-            ``(df_metrics_train, df_metrics_test)`` tuple with each
-            epoch's metrics.
+            A ``(df_metrics_train, df_metrics_test)`` tuple with each
+            epoch's reporting metrics (only the ``epoch`` column if
+            none were requested).
 
         df_time : :class:`pandas.DataFrame`
-            The training-time metrics.
+            One row per epoch, with the platform, CPU thread count,
+            and CPU/wall-clock time of the epoch.
         """
 
         # If no configuration was given

@@ -21,9 +21,8 @@
 #    License along with this program. If not, see
 #    <http://www.gnu.org/licenses/>.
 
-"""A ridge predictor from counts to representations, giving the
-representation search one extra starting candidate (in the slot of one
-mixture draw). It does not enter the model, the objective, or training.
+"""A ridge predictor from counts to representations, used as one of
+the starting candidates of the representation search.
 """
 
 
@@ -43,10 +42,11 @@ logger = log.getLogger(__name__)
 
 class RidgeWarmStart:
 
-    """Predict a sample's representation from its counts.
+    """Class implementing a ridge predictor of a sample's
+    representation from its counts.
 
-    Fitted once from a model's training representations, saved beside
-    the model, and applied to any batch of counts on the same genes.
+    It is fitted on a model's training representations and applies to
+    counts on the same genes.
     """
 
     def __init__(self,
@@ -55,8 +55,7 @@ class RidgeWarmStart:
                  scale,
                  lam,
                  genes):
-        """Initialize the fitted state (use :meth:`fit` or
-        :meth:`from_file` to build one).
+        """Initialize the predictor from its fitted state.
 
         Parameters
         ----------
@@ -95,7 +94,8 @@ class RidgeWarmStart:
     def _featurise(counts,
                    mean = None,
                    scale = None):
-        """Median-scale, log1p, and standardise the counts per gene.
+        """Scale each sample by its median count, apply log1p, and
+        standardise each gene.
 
         Parameters
         ----------
@@ -125,7 +125,8 @@ class RidgeWarmStart:
         # Convert the counts to a double-precision tensor.
         x = torch.as_tensor(counts, dtype = torch.float64)
 
-        # Divide each sample by its median count, then take log1p.
+        # Divide each sample by its median count (at least 1), then
+        # take log1p.
         scal = x.median(dim = 1, keepdim = True).values.clamp(min = 1.0)
         x = torch.log1p(x / scal)
 
@@ -185,8 +186,7 @@ class RidgeWarmStart:
         X, mean, scale = cls._featurise(counts)
         Y = torch.as_tensor(representations, dtype = torch.float64)
 
-        # Randomly permute the samples (the counts files are ordered
-        # by tissue).
+        # Randomly permute the samples.
         g = torch.Generator().manual_seed(seed)
         perm = torch.randperm(len(X), generator = g)
 
@@ -212,7 +212,7 @@ class RidgeWarmStart:
         # For each ridge parameter
         for lam in lambdas:
 
-            # Solve the ridge in sample space.
+            # Solve the dual ridge problem on the training samples.
             G = X[tr] @ X[tr].T
             A = G + lam * torch.eye(len(tr), dtype = torch.float64)
             alpha = torch.linalg.solve(A, Y[tr])
@@ -291,7 +291,7 @@ class RidgeWarmStart:
 
     def save(self,
              path):
-        """Write the fitted state.
+        """Save the fitted state to a file.
 
         Parameters
         ----------
@@ -315,7 +315,7 @@ class RidgeWarmStart:
     @classmethod
     def from_file(cls,
                   path):
-        """Load a fitted predictor.
+        """Load a fitted predictor from a file.
 
         Parameters
         ----------
@@ -357,13 +357,13 @@ def fit_from_model_dir(model_dir,
         ``representations_train`` as Parquet or CSV.
 
     counts_file : :class:`str`
-        The counts the model was trained on.
+        The CSV file of the counts the model was trained on.
 
     genes : :class:`list`
         The genes, in the order the model expects them.
 
     output_file : :class:`str`, optional
-        Where to save the fitted predictor.
+        The file to save the fitted predictor to.
 
     Returns
     -------
@@ -371,7 +371,7 @@ def fit_from_model_dir(model_dir,
         The fitted predictor.
     """
 
-    # Get the path's stem of the training representations.
+    # Get the path stem of the training representations' file.
     _stem = os.path.join(model_dir, "representations_train")
 
     # Get the first existing file among the Parquet and CSV formats.

@@ -46,7 +46,7 @@ data_loader_options:
   # Type: int.
   batch_size: 16
 
-  # Whether to shuffle the samples.
+  # Set whether to shuffle the samples.
   #
   # Type: bool.
   shuffle: False
@@ -108,8 +108,8 @@ scheme_options:
 
   #-------------------------------------------------------------------#
 
-  # Set how much of a sample the model may give up on, and the
-  # outlier r-value. Uncomment for a non-healthy cohort.
+  # Set the weight of the outlier component in the loss and its
+  # r-value. Uncomment them for a non-healthy cohort.
   #
   # Type: float in [0, 1), and a positive float.
 
@@ -132,11 +132,12 @@ scheme_options:
   # Set how the candidate representations are placed.
   initialization:
 
-    # Match the default's deterministic per-sample initialization.
+    # Derive a separate random stream from the seed and sample ID,
+    # independently of input ordering, subsetting and chunking.
     mode: sample_keyed
 
-    # The seed of the draw that places the candidates. It does not
-    # seed the noise.
+    # Set the seed of the draw that places the candidates. It does
+    # not seed the noise.
     #
     # Type: int.
     seed: 7
@@ -146,7 +147,7 @@ scheme_options:
   # Set the options for the first optimization round.
   optimization_1:
 
-    # Set the number of epochs the optimization should be run for.
+    # Set the number of epochs to run the optimization for.
     #
     # Type: int.
     epochs: 300
@@ -188,7 +189,7 @@ scheme_options:
       # Type: float.
       gain: 4.0
 
-    # Set the name of the optimizer to be used.
+    # Set the optimizer.
     #
     # Type: str.
     #
@@ -212,7 +213,7 @@ scheme_options:
   # Set the options for the second optimization round.
   optimization_2:
 
-    # Set the number of epochs the optimization should be run for.
+    # Set the number of epochs to run the optimization for.
     #
     # Type: int.
     epochs: 500
@@ -241,7 +242,7 @@ scheme_options:
       # Type: float.
       gain: 4.0
 
-    # Set the name of the optimizer to be used.
+    # Set the optimizer.
     #
     # Type: str.
     #

@@ -1,12 +1,10 @@
 # `data`
 
-Last updated: 22/07/2024
+## `gtex_metadata_fields.txt`
 
-## `gtex_metadata_fileds`
+A plain text file listing the fields (columns) of the metadata files for the GTEx samples downloaded from the Recount3 platform.
 
-A plain text file containing the fields (= columns) found in the files describing the metadata associated with GTEx samples downloaded from the Recount3 platform.
-
-The file is used by the `dgd_get_recount3_data` executable when filtering the GTEx samples through a query string.
+`bulkdgd_get_recount3` can filter the GTEx samples with a query string on these fields.
 
 Example:
 
@@ -25,9 +23,9 @@ DTHHRDY
 
 ## `sra_metadata_fields.txt`
 
-A plain text file containing the fields (= columns) found in the files describing the metadata associated with SRA samples downloaded from the Recount3 platform. 
+A plain text file listing the fields (columns) of the metadata files for the SRA samples downloaded from the Recount3 platform.
 
-The file is used by the `dgd_get_recount3_data` executable when filtering the SRA samples through a query string.
+`bulkdgd_get_recount3` can filter the SRA samples with a query string on these fields.
 
 Example:
 
@@ -43,9 +41,9 @@ experiment_acc
 
 ## `tcga_metadata_fields.txt`
 
-A plain text file containing the fields (= columns) found in the files describing the metadata associated with TCGA samples downloaded from the Recount3 platform.
+A plain text file listing the fields (columns) of the metadata files for the TCGA samples downloaded from the Recount3 platform.
 
-This file is used by the `dgd_get_recount3_data` executable when filtering the TCGA samples through a query string.
+`bulkdgd_get_recount3` can filter the TCGA samples with a query string on these fields.
 
 Example:
 

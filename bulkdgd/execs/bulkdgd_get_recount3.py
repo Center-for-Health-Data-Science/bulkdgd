@@ -207,16 +207,13 @@ def main(args: argparse.Namespace) -> None:
     #-----------------------------------------------------------------#
 
     # Create the local cluster.
-    cluster = LocalCluster(# Number of workers
+    cluster = LocalCluster(# Set the number of workers.
                            n_workers = n_proc,
-                           # Below which level log messages will
-                           # be silenced
+                           # Silence log messages below ERROR.
                            silence_logs = "ERROR",
-                           # Whether to use processes, single-core
-                           # or threads
+                           # Use processes instead of threads.
                            processes = True,
-                           # How many threads for each worker should
-                           # be used
+                           # Use one thread per worker.
                            threads_per_worker = 1)
 
     # Open the client from the cluster.

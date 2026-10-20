@@ -99,7 +99,7 @@ def _perform_dim_red(df: pd.DataFrame,
     mod_class : :obj:`sklearn` model class
         The class of the model that needs to be built.
 
-        It should be :obj:`None` if ``mod_fitted`` is passed.
+        It is ignored if ``mod_fitted`` is passed.
 
     mod_options : :class:`dict`
         A dictionary of options to initialize a model from
@@ -133,11 +133,11 @@ def _perform_dim_red(df: pd.DataFrame,
 
     Returns
     -------
-    df_projected: :class:`pandas.DataFrame`
+    df_projected : :class:`pandas.DataFrame`
         A data frame containing the results of the dimensionality
         reduction.
 
-    mod : :obj:`sklearn` model class
+    mod : :obj:`sklearn` model
         The fitted dimensionality reduction model.
     """
 

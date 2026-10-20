@@ -366,6 +366,7 @@ _MODEL_DECODER_OPTIONS = {
             "option": "decoder_options.output_module_name",
             "cases" : {
                 "poisson" : {
+                    # The activation function giving the means.
                     "activation" : {
                         "type" : (str,),
                         "choices" :
@@ -373,6 +374,8 @@ _MODEL_DECODER_OPTIONS = {
                                  OutputModulePoisson.
                                     ACTIVATION_FUNCTIONS,
                         },
+                    # The offset added to the means inside the
+                    # logarithm, or null for the default one.
                     "eps" : {
                         "type" : (float, int, type(None)),
                         "condition" : lambda v: \
@@ -384,6 +387,7 @@ _MODEL_DECODER_OPTIONS = {
                     },
 
                 "nb_feature_dispersion" : {
+                    # The activation function giving the means.
                     "activation" : {
                         "type" : (str,),
                         "choices" :
@@ -391,12 +395,15 @@ _MODEL_DECODER_OPTIONS = {
                                  OutputModuleNBFeatureDispersion.
                                     ACTIVATION_FUNCTIONS,
                         },
+                    # The initial r-value.
                     "r_init" : {
                         "type" : (float, int),
                         "condition" : lambda v: v > 0,
                         "message" : "must be a positive number",
                         "default" : 2,
                         },
+                    # The small value added inside the logarithms, or
+                    # null for the exact form.
                     "eps" : {
                         "type" : (float, int, type(None)),
                         "condition" : lambda v: \
@@ -409,6 +416,7 @@ _MODEL_DECODER_OPTIONS = {
 
                 "nb_full_dispersion" : {
 
+                    # The activation function giving the means.
                     "activation" : {
                         "type" : (str,),
                         "choices" :
@@ -416,6 +424,8 @@ _MODEL_DECODER_OPTIONS = {
                                 OutputModuleNBFullDispersion.
                                     ACTIVATION_FUNCTIONS,
                         },
+                    # The small value added inside the logarithms, or
+                    # null for the exact form.
                     "eps" : {
                         "type" : (float, int, type(None)),
                         "condition" : lambda v: \
@@ -723,7 +733,7 @@ _LR_SCHEDULER_COSINE = {
 #---------------------------------------------------------------------#
 
 
-# Set the template for learning rate scheduler's options.
+# Set the template for the learning rate scheduler's options.
 _LR_SCHEDULER = {
 
     # The type of learning rate scheduler to use.
@@ -767,6 +777,8 @@ _COMPONENTS_REMOVAL = {
             "cases" : {
 
                 "weight_threshold" : {
+                    # The weight at or below which a component is
+                    # removed.
                     "threshold" : {
                         "type": (float, int),
                         "condition": lambda v: v >= 0,
@@ -789,6 +801,7 @@ _TRAIN_TGMM = {
 
     # The options for the calculation of the loss.
     "loss_calculation" : {
+        # The weight of the latent space's loss.
         "lambda" : {
             "type": (float, int),
             "condition": lambda v: v >= 0,
@@ -858,8 +871,8 @@ _TRAIN_TGMM = {
             "default": True,
             },
 
-        # The interval (in epochs) at which to refit the Gaussian
-        # mixture model during training.
+        # The interval (in epochs) between full refits of the Gaussian
+        # mixture model (0 disables them).
         "refit_interval" : {
             "type": (int,),
             "condition": lambda v: v >= 0,
@@ -876,8 +889,8 @@ _TRAIN_TGMM = {
             "default": 1000,
             },
 
-        # The maximum number of iterations for fitting the Gaussian
-        # mixture model during the epochs of refitting.
+        # The maximum number of iterations for a full refit of the
+        # Gaussian mixture model.
         "max_iter_full_refit" : {
             "type": (int,),
             "condition": lambda v: v > 0,
@@ -1091,8 +1104,8 @@ _TRAIN_REPRESENTATIONS = {
                         "default": 0.01,
                         },
 
-                    # The probability mass the noise keeps within the
-                    # component's radius.
+                    # The fraction of the noise's mass within a
+                    # radius of its scale times the gain.
                     "within_radius_prob" : {
                         "type": (float, int),
                         "condition": lambda v: 0 <= v <= 1,
@@ -1199,8 +1212,8 @@ _TRAIN_REPRESENTATIONS = {
                         "default": 0.01,
                         },
 
-                    # The probability mass the noise keeps within the
-                    # component's radius.
+                    # The fraction of the noise's mass within a
+                    # radius of its scale times the gain.
                     "within_radius_prob" : {
                         "type": (float, int),
                         "condition": lambda v: 0 <= v <= 1,
@@ -1320,8 +1333,8 @@ _TRAIN_REPRESENTATIONS = {
                         "default": 0.01,
                         },
 
-                    # The probability mass the noise keeps within the
-                    # component's radius.
+                    # The fraction of the noise's mass within a
+                    # radius of its scale times the gain.
                     "within_radius_prob" : {
                         "type": (float, int),
                         "condition": lambda v: 0 <= v <= 1,
@@ -1463,7 +1476,7 @@ _LOSS_OPTIONS = {
             },
         },
 
-    # The options for the normalization of the loss for the total loss.
+    # The options for the normalization of the total loss.
     "total" : {
         "norm_type" : {
             "type": (str,),
@@ -1506,8 +1519,7 @@ _REPORTING_OPTIONS = {
                 },
             },
 
-        # The options for the normalization of the loss for the total
-        # loss.
+        # The options for the normalization of the total loss.
         "total" : {
             "norm_type" : {
                 "type": (str,),
@@ -1521,8 +1533,7 @@ _REPORTING_OPTIONS = {
     # The options for the metrics to calculate during training.
     "metrics" : {
 
-        # The options for the metrics to calculate for the latent
-        # space.
+        # The metrics to calculate for the latent space.
         "latent" : {
             "type" : (list,),
             "choices" : [*list(metrics.UNSUPERVISED_METRICS.keys()),
@@ -1715,8 +1726,8 @@ _REP_OPTIMIZATION = {
                         "default": 0.01,
                         },
 
-                    # The probability mass the noise keeps within the
-                    # component's radius.
+                    # The fraction of the noise's mass within a
+                    # radius of its scale times the gain.
                     "within_radius_prob" : {
                         "type": (float, int),
                         "condition": lambda v: 0 <= v <= 1,
@@ -1847,6 +1858,7 @@ _REP_TWO_OPT_TGMM = {
 
     # The options for calculating the loss of the latent space.
     "latent_loss_calculation" : {
+        # The weight of the latent space's loss.
         "lambda" : {
             "type": (float, int),
             "condition": lambda v: v >= 0,

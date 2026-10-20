@@ -77,6 +77,8 @@ def main() -> None:
 
     # Set the choices for the argument.
     ip_choices = ["GTEx", "TCGA", "SRA"]
+
+    # Format the choices for the help message.
     ip_choices_str = ", ".join(f"'{choice}'" for choice in ip_choices)
 
     # Set a help message.

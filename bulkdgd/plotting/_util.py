@@ -515,7 +515,8 @@ def split_text_by_length(text: object,
         The text to split.
 
     max_length : :class:`int`
-        The maximum length of a piece of text.
+        The maximum length of a piece of text. Longer words are kept
+        whole.
 
     Returns
     -------
@@ -722,8 +723,7 @@ def find_rectangular_grid(n: int) -> tuple[int, int]:
 
     #-----------------------------------------------------------------#
 
-    # For each possible number ranging from 2 to the square root of
-    # 'n', plus 1
+    # For each number from 2 to the square root of 'n'
     for i in range(2, int(math.sqrt(n)) + 1):
 
         # If the number is a factor of 'n'
@@ -737,8 +737,7 @@ def find_rectangular_grid(n: int) -> tuple[int, int]:
     # If there is only one row ('n' is prime)
     if nrows == 1:
 
-        # For each possible number ranging from 2 to the square root
-        # of 'n + 1', plus 1
+        # For each number from 2 to the square root of 'n + 1'
         for i in range(2, int(math.sqrt(n+1)) + 1):
 
             # If the number is a factor of 'n + 1'
@@ -762,16 +761,15 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
     Parameters
     ----------
     values : :class:`list` or :class:`numpy.ndarray`
-        The values from which the ticks' positions should be set.
+        The values the ticks' positions are computed from.
 
     item : :class:`str`
-        The name of the item of the plot you are setting the ticks'
-        positions for (e.g., ``"x-axis"``, ``"y-axis"``, or
-        ``"colorbar"``).
+        The name of the plot's item the ticks belong to (e.g.,
+        ``"x-axis"``, ``"y-axis"``, or ``"cbar"``).
 
     config : :class:`dict`
-        The configuration for the interval that the ticks' positions
-        should cover.
+        The configuration for the axis or colorbar. The ticks'
+        interval is read from its ``interval`` section.
 
     Returns
     -------
@@ -1029,7 +1027,7 @@ def get_ticks_positions(values: tuple[np.ndarray, list[str]],
 def get_colormap(cmap: str,
                  n_colors: Optional[int] = None) -> \
                     mcolors.Colormap | list:
-    """Discretize a given colormap into a specific number of colors.
+    """Get a color map, optionally discretized into a number of colors.
 
     Parameters
     ----------
@@ -1037,7 +1035,8 @@ def get_colormap(cmap: str,
         The name of a color map available in Seaborn or Matplotlib.
 
     n_colors : :class:`int`, optional
-        The number of colors the palette should be discretized into.
+        The number of colors to discretize the color map into. If not
+        provided, the color map is returned.
 
     Returns
     -------
@@ -1163,7 +1162,7 @@ def get_colors(config: dict[str, object],
     # If there is a list of colors defined
     if "colors" in config_colors:
 
-        # If the list of colors is not a list
+        # If the colors are not a list
         if not isinstance(config_colors["colors"], list):
 
             # Raise an error.
@@ -1350,7 +1349,7 @@ def set_extra_subplots(sub_plots: np.ndarray,
                        y_ticks: list,
                        config: Optional[dict[str, object]] = None) \
                         -> None:
-    """Set the unused slots for sub-plots in a multi-panel plot.
+    """Set up and hide the unused sub-plots in a multi-panel plot.
 
     Parameters
     ----------
@@ -1418,8 +1417,8 @@ def set_axis(sub_plot: matplotlib.axes.Axes,
         The configuration for setting the axis.
 
     label : :class:`str`, optional
-        The axis' label. If it is provided, it overrides the label
-        specified in the configuration.
+        The axis' label, used if the ``label`` section of the
+        configuration does not set one.
 
     ticks : :class:`list`, optional
         A list of ticks' positions. If not passed, the ticks already
@@ -1429,7 +1428,7 @@ def set_axis(sub_plot: matplotlib.axes.Axes,
         A list of ticks' labels. If not passed, the ticks' labels
         will represent the ticks' positions.
 
-    abs_values : :class:`bool`, optional
+    abs_values : :class:`bool`, :obj:`False`
         Whether the ticks' labels are the absolute values of the
         ticks' positions.
 
@@ -1634,8 +1633,8 @@ def set_cbar_axis(cbar: matplotlib.colorbar.Colorbar,
         The configuration for setting the colorbar's axis.
 
     label : :class:`str`, optional
-        The colorbar's label. If it is provided, it overrides the
-        label specified in the configuration.
+        The colorbar's label, used if the ``label`` section of the
+        configuration does not set one.
 
     ticks : :class:`list`, optional
         A list of ticks' positions. If not passed, the ticks already
@@ -1912,8 +1911,7 @@ def generate_plots(dfs: list[pd.DataFrame],
                    dfs_names: Optional[list[str]] = None,
                    categories: Optional[list[str]] = None,
                    kwargs: Optional[dict[str, object]] = None) -> None:
-    """Generate one or multiple plots from a data frame or a list of
-    data frames.
+    """Generate one or multiple plots from a list of data frames.
 
     Parameters
     ----------
@@ -1921,11 +1919,11 @@ def generate_plots(dfs: list[pd.DataFrame],
         A list of data frames.
 
     output_file : :class:`str`
-        The name of the output file.
+        The output file. Multiple files get a number appended to the
+        name. If :obj:`None`, the plots are shown instead.
 
     max_plots_per_output : :class:`int`
-        The number of plots that should be written in each output
-        file.
+        The maximum number of plots for each output file.
 
     plot_type : :class:`str`
         The type of plot that will be generated.
@@ -1947,10 +1945,10 @@ def generate_plots(dfs: list[pd.DataFrame],
         A list of names for the data frames.
 
     categories : :class:`list`, optional
-        A list of categories that will be plotted.
+        The names of the two paired sets of data frames.
 
     kwargs : :class:`dict`, optional
-        Additional keyword arguments.
+        Additional options for the plot's aesthetics.
     """
 
     # If no keyword arguments for the plot function were passed
@@ -1999,8 +1997,8 @@ def generate_plots(dfs: list[pd.DataFrame],
 
     #-----------------------------------------------------------------#
 
-    # Split the list of data frames into equally-sized chunks
-    # with 'max_plots_per_output' data frames per chunk.
+    # Split the data frames into chunks of at most
+    # 'max_plots_per_output' data frames.
     dfs_chunks = \
         [dfs[i:i + max_plots_per_output] \
          for i in range(0,
@@ -2010,7 +2008,7 @@ def generate_plots(dfs: list[pd.DataFrame],
     # If there are names for the data frames
     if dfs_names is not None:
 
-        # Split the list of names into equally-sized chunks.
+        # Split the names into chunks of the same sizes.
         dfs_names_chunks = \
             [dfs_names[i:i + max_plots_per_output] \
              for i in range(0,
@@ -2041,8 +2039,8 @@ def generate_plots(dfs: list[pd.DataFrame],
                 "first set."
             raise ValueError(errstr)
 
-        # Split the second list of data frames into equally-sized
-        # chunks with 'max_plots_per_output' data frames per chunk.
+        # Split the second set of data frames into chunks of the
+        # same sizes.
         dfs_2_chunks = \
             [dfs_2[i:i + max_plots_per_output] \
              for i in range(0,
@@ -2200,12 +2198,10 @@ def plot_scatterplots(dfs_chunk: list[pd.DataFrame],
         The number of plots that will be generated.
 
     num_output : :class:`int`
-        The number of the output file where the plots will be
-        generated.
+        The index of the output file the plots belong to.
 
     columns : :class:`list`
-        A list of the names of the two columns containing the data that
-        should be plotted on the x and y axes.
+        The names of the two columns to plot on the x- and y-axis.
 
     colors : :class:`list`
         A list of colors that will be used for the scatter plots.
@@ -2360,8 +2356,10 @@ def plot_scatterplots(dfs_chunk: list[pd.DataFrame],
 
         #-------------------------------------------------------------#
 
-        # Hide the top and right spine.
+        # For each of the top and right spines
         for spine in ["top", "right"]:
+
+            # Hide it.
             sub_plot.spines[spine].set_visible(False)
 
         #-------------------------------------------------------------#
@@ -2615,8 +2613,10 @@ def plot_histograms(dfs_chunk: list[pd.DataFrame],
 
         #-------------------------------------------------------------#
 
-        # Hide the top and right spine.
+        # For each of the top and right spines
         for spine in ["top", "right"]:
+
+            # Hide it.
             sub_plot.spines[spine].set_visible(False)
 
         #-------------------------------------------------------------#
@@ -2712,7 +2712,7 @@ def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
                          config: Optional[dict[str, object]] = None,
                          dfs_names: Optional[list[str]] = None) \
                             -> None:
-    """Plot dual histograms.
+    """Plot bi-histograms or overlapping histograms.
 
     Parameters
     ----------
@@ -2723,7 +2723,8 @@ def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
         A list of data frames paired with the data frames in
         ``dfs_chunk``.
 
-    plot_type : :class:`str`
+    plot_type : :class:`str`, {``"histogram_bihist"``, \
+        ``"histogram_overlap"``}
         The type of plot to generate.
 
     num_plots : :class:`int`
@@ -2805,10 +2806,11 @@ def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
 
         #-------------------------------------------------------------#
 
-        # Get the configuration for the histograms.
+        # Get the configuration for the first histogram.
         config_hist = config["histogram"]
 
-        # Get the configuration for the paired histograms, if any.
+        # Get the configuration for the second histogram (the first
+        # one's by default).
         config_hist_2 = config.get("histogram_2", config_hist)
 
         #-------------------------------------------------------------#
@@ -2989,8 +2991,10 @@ def plot_histograms_dual(dfs_chunk: list[pd.DataFrame],
 
         #-------------------------------------------------------------#
 
-        # Hide the top and right spine.
+        # For each of the top and right spines
         for spine in ["top", "right"]:
+
+            # Hide it.
             sub_plot.spines[spine].set_visible(False)
 
         #-------------------------------------------------------------#
@@ -3098,7 +3102,7 @@ def plot_box_violin(plot_type: str,
         The number of plots to generate.
 
     num_output : :class:`int`
-        The number of the output being generated.
+        The index of the output file the plot belongs to.
 
     categories : :class:`list`
         A list of names for the categories of data points represented
@@ -3153,7 +3157,7 @@ def plot_box_violin(plot_type: str,
 
     #-----------------------------------------------------------------#
 
-    # Generate the figure and subplots.
+    # Generate the figure and the sub-plot.
     _, sub_plot = \
         plt.subplots(\
             nrows = 1,
@@ -3258,8 +3262,10 @@ def plot_box_violin(plot_type: str,
 
     #-----------------------------------------------------------------#
 
-    # Hide the top and right spine.
+    # For each of the top and right spines
     for spine in ["top", "right"]:
+
+        # Hide it.
         sub_plot.spines[spine].set_visible(False)
 
     #-----------------------------------------------------------------#
@@ -3402,8 +3408,10 @@ def plot_lineplot(data: np.ndarray,
 
     #-----------------------------------------------------------------#
 
-    # Hide the top and right spine.
+    # For each of the top and right spines
     for spine in ["top", "right"]:
+
+        # Hide it.
         sub_plot.spines[spine].set_visible(False)
 
     #-----------------------------------------------------------------#
@@ -3461,8 +3469,8 @@ def plot_enrichplot(data: np.ndarray,
                     hue: str,
                     config: Optional[dict[str, object]] = None) -> \
                         np.ndarray:
-    """Plot the enrichment scores as a bar plot, a violin plot, and
-    a strip plot.
+    """Plot three columns of enrichment results as a bar plot, a violin
+    plot, and a strip plot sharing the x-axis.
 
     Parameters
     ----------
@@ -3590,7 +3598,7 @@ def plot_enrichplot(data: np.ndarray,
 
     #-----------------------------------------------------------------#
 
-    # Generate the bar plot for the genes of interest.
+    # Generate the bar plot for the genes in the set.
     sns.barplot(data = data,
                 x = x,
                 y = y_1,
@@ -3677,8 +3685,10 @@ def plot_enrichplot(data: np.ndarray,
             [y_1, y_2, y_3],
             ["barplot", "violinplot", "stripplot"]):
 
-        # Hide the top and right spine.
+        # For each of the top and right spines
         for spine in ["top", "right"]:
+
+            # Hide it.
             sub_plot.spines[spine].set_visible(False)
 
         #-------------------------------------------------------------#

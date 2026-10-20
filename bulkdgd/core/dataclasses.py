@@ -98,12 +98,8 @@ class GeneExpressionDataset(object):
         Parameters
         ----------
         df : :class:`pandas.DataFrame`
-            A data frame whose rows must represent samples,
-            and columns must represent genes.
-
-            Therefore, each cell of the data frame represents the
-            expression of the gene on the column in the sample on
-            the row.
+            A data frame with samples as rows and genes as columns,
+            holding the expression of each gene in each sample.
 
             For example:
 
@@ -174,7 +170,7 @@ class GeneExpressionDataset(object):
 
         #-------------------------------------------------------------#
 
-        # Get the genes' names (all remaining columns).
+        # Get the genes' names.
         self._genes = df.columns
 
         #-------------------------------------------------------------#
@@ -342,7 +338,7 @@ class GeneExpressionDataset(object):
 
     @property
     def data_exp(self):
-        """A 2D tensor where:
+        """The gene expression for all samples, as a 2D tensor where:
 
         * The first dimension has a length equal to the number of
           samples in the dataset.
@@ -475,10 +471,10 @@ class GeneExpressionDataset(object):
         Returns
         -------
         data : :class:`torch.Tensor`
-            An array containing the data for the selected samples.
+            A tensor containing the data for the selected samples.
 
         mean_expr : :class:`torch.Tensor`
-            An array with the scaling factor of each sample.
+            A tensor with the scaling factor of each selected sample.
 
         idx : :class:`list`
             A list of indexes of the samples that are returned.
@@ -491,7 +487,7 @@ class GeneExpressionDataset(object):
         # If no index is passed
         if idx is None:
 
-            # The index will encompass all items in the dataset.
+            # Select all samples in the dataset.
             idx = np.arange(self.__len__()).tolist()
 
         # If the index is a tensor
@@ -516,8 +512,7 @@ class GeneExpressionDataset(object):
 
 
     def __len__(self) -> int:
-        """Get the length of the dataset, which corresponds to the
-        number of samples.
+        """Get the number of samples in the dataset.
 
         Returns
         -------
@@ -533,14 +528,14 @@ class GeneExpressionDataset(object):
 
 
     def get_tot_expr_per_gene(self) -> torch.Tensor:
-        """Get the total expression of all genes across the samples in
+        """Get the total expression of each gene across the samples in
         the dataset.
 
         Returns
         -------
         tot_expr : :class:`torch.Tensor`
-            The total expression of all genes across all samples.
+            The total expression of each gene across all samples.
         """
 
-        # Return the total expression of all genes across all samples.
+        # Return the total expression of each gene across all samples.
         return torch.sum(self.data_exp, dim = 0)

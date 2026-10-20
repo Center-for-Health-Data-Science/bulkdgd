@@ -1,34 +1,34 @@
 # `bulkdgd_train`
 
-This command allows you to train the bulkdgd model.
+This command trains the bulkdgd model.
 
 `bulkdgd_train` takes as input:
 
-* A CSV files containing the expression data (RNA-seq read counts) for the training and test samples. The program expects the input data frame to display samples as rows and genes as columns. The samples' names/indexes/IDs should be in the first column of the data frame. The genes' names are expected to be their Ensembl IDs. Additional columns containing sample metadata (for instance, tissue of origin) are allowed.
+* A CSV file containing the expression data (RNA-seq read counts) for the training and test samples. The program expects the input data frame to display samples as rows and genes as columns. The samples' names/indexes/IDs should be in the first column of the data frame. The genes' names are expected to be their Ensembl IDs. Additional columns containing sample metadata (for instance, tissue of origin) are allowed.
 
 * A plain text file with a newline-separated list of the names/indexes/IDs of the training samples.
 
 * A plain text file with a newline-separated list of the names/indexes/IDs of the test samples.
 
-It is recommended to pre-process the samples with [`bulkdgd_preprocess_samples`](bulkdgd_preprocess_samples.md) before using them.
+The samples should be preprocessed with [`bulkdgd_preprocess_samples`](bulkdgd_preprocess_samples.md) before use.
 
 `bulkdgd_train` also needs two configuration files:
 
-* A YAML configuration file specifying the bulkdgd model's options. Examples of this configuration file can be found in `bulkdgd/configs/model`: `model_tgmm.yaml` for the current Gaussian mixture model implementation, `model_lgmm.yaml` for the legacy one. Both describe an architecture and name no parameter files, which is what training a new model needs.
+* A YAML configuration file specifying the bulkdgd model's options. Examples of this configuration file can be found in `bulkdgd/configs/model`: `model_tgmm.yaml` for the TorchGMM implementation of the Gaussian mixture model, `model_lgmm.yaml` for the legacy one. Both describe an architecture and name no parameter files, as training a new model requires.
 
 * A YAML configuration file defining the options used for the training process. An example of this configuration file can be found in `bulkdgd/configs/training`.
 
 ## Training a model that is already trained
 
-A model built from fitted parameters - which is what a configuration file naming a `latent_pth_file` and a `decoder_pth_file` gives, and what `BulkDGD()` gives in Python - starts from the published optimum, and training it moves it away from that silently: the object still answers to the same name, and nothing in the output says that its results are no longer the published model's.
+A model built from fitted parameters (from a configuration file naming a `latent_pth_file` and a `decoder_pth_file`, or from `BulkDGD()` in Python) starts from the published optimum, and training moves it away from that optimum silently: the object keeps the same name, and nothing in the output says that its results are no longer the published model's.
 
-Training therefore **refuses** on such a model unless the training configuration asks for it in as many words, by setting
+Training therefore **refuses** to run on such a model unless the training configuration explicitly allows it by setting
 
 ```yaml
 continue_training: true
 ```
 
-at its top level. Continuing to train a trained model is legitimate for fine-tuning it on a new cohort, which is why the option exists; absent it the answer is no, because the mistake is silent and the deliberate case is not.
+at its top level. Set it to fine-tune a trained model, for instance on a new cohort.
 
 To train a new model instead, build it from an architecture: use one of the configuration files above, which name no parameters.
 
@@ -46,11 +46,11 @@ The executable produces six to eight output files. These files are always produc
 
 * A CSV file containing information about the CPU and wall clock time used by each epoch during training.
 
-If the genes' are modeled by negative binomial distributions (instead of Poisson distributions) and the r-values of the distributions are learned per gene, one additional file is produced:
+If the genes are modeled by negative binomial distributions (instead of Poisson distributions) and the r-values of the distributions are learned per gene, one additional file is produced:
 
 * A CSV file containing a data frame with the r-values of the negative binomial distributions modeling the genes.
 
-If the genes' are modeled by negative binomial distributions (instead of Poisson distributions) and the r-values of the distributions are learned per gene and per sample, two additional files are produced:
+If the genes are modeled by negative binomial distributions (instead of Poisson distributions) and the r-values of the distributions are learned per gene and per sample, two additional files are produced:
 
 * A CSV file containing a data frame with the r-values of the negative binomial distributions modeling the genes for the training samples.
 
@@ -62,7 +62,7 @@ The command can be run in parallel over different inputs in different directorie
 
 * If `-ds dir1 path/to/dir2`, the program will be run in parallel in each directory using the input and configuration files in it. The names of the input files may be provided using the `-is`/`--input-samples`, `-it`/`--input-train`, and `-ie`/`--input-test` options, and the names of the configuration files may be provided using the `-icm`/`--input-config-file-model` and `-ict`/`--input-config-file-train` options. The output files and the log file for each run will be saved in the corresponding directory and named according to the file names provided in the `-ort`/`--output-rep-train`, `-ore`/`--output-rep-test`, `-opmt`/`--output-pred-means-train`, `-opme`/`--output-pred-means-test`, `-opv`/`--output-pred-rvalues`, `-opvt`/`--output-pred-rvalues-train`, `-opve`/`--output-pred-rvalues-test`, `-ol`/`--output-loss`, `-ot`/`--output-time`, and `-lf`/`--log-file` options.
 
-* If `-ds file.txt`, `file.txt` the file is expected to contain a newline-separated list of either names of directories in the working directory or absolute/relative paths to directories. The same input, configuration, and output options as above apply. `file.txt` can, for instance, look like this:
+* If `-ds file.txt`, `file.txt` is expected to contain a newline-separated list of either names of directories in the working directory or absolute/relative paths to directories. The same input, configuration, and output options as above apply. `file.txt` can, for instance, look like this:
 
     .. code-block::
 
@@ -118,7 +118,7 @@ bulkdgd_train [-h] -is INPUT_SAMPLES -it INPUT_TRAIN -ie INPUT_TEST [-ilt INPUT_
 | `-ome`, `--output-metrics-test` | The output CSV file containing the data frame with the per-epoch values of the latent space clustering metrics computed during training for the test samples. The default file name is `metrics_test.csv`. This file will be written only if at least one clustering metric is computed during training (they are specified in the `-ict`, `--input-config-file-train` configuration file).|
 | `-ot`, `--output-time` | The output CSV file containing the data frame with information about the CPU and wall clock time spent for each training epoch. The default file name is `train_time.csv`. |
 
-Every one of these tables is written through `bulkdgd.ioutil.save_table`, which picks the format from the file's suffix: the default names end in `.csv` and are written as text, and a name ending in `.parquet` is written as Parquet instead. Parquet is the format that returns a `float64` unchanged, so it is the one to ask for when the numbers are going to be compared between runs.
+Each of these tables is written with the same rule as `bulkdgd.ioutil.save_table`, which picks the format from the file's suffix: the default names end in `.csv` and are written as text, and a name ending in `.parquet` is written as Parquet. Parquet reads a `float64` back unchanged, so use it when the numbers will be compared between runs.
 
 ### Run options
 

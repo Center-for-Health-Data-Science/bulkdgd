@@ -473,25 +473,13 @@ class OutputModulePoisson(OutputModuleBase):
         """Compute the natural logarithm of the probability mass for a
         set of Poisson distributions.
 
-        The formula used to compute the logarithm of the probability
-        mass is:
-
-        .. math::
-
-           logPDF_{Poisson(k,m)} &=
-           k * log(m + \\epsilon) - m - log\\Gamma(k+1)
-
-        Where :math:`\\epsilon` is a small value to prevent underflow/
-        overflow.
-
         Parameters
         ----------
         k : :class:`torch.Tensor`
-            A one-dimensional tensor containing the "number of
-            successes" seen before stopping the trials.
+            A one-dimensional tensor containing the observed counts.
 
-            Each value in the tensor corresponds to the number of
-            successes in a different Poisson distribution.
+            Each value in the tensor corresponds to the count of a
+            different Poisson distribution.
 
         m : :class:`torch.Tensor`
             A one-dimensional tensor containing the means of the
@@ -718,7 +706,8 @@ class OutputModulePoisson(OutputModuleBase):
                 [math.log1p(-contamination) - nll,
                  math.log(contamination) - nll_outlier])
 
-        # Return -log[(1-eps) * Poisson + eps * NB(r_outlier)].
+        # Return -log[(1-c) * Poisson + c * NB(r_outlier)], with c the
+        # contamination.
         return - torch.logsumexp(log_weights, dim = 0)
 
 
@@ -747,10 +736,8 @@ class OutputModulePoisson(OutputModuleBase):
         samples : :class:`torch.Tensor`
             The samples drawn from the Poisson distributions.
 
-            The shape of this tensor depends on the shape of ``n``
-            and ``pred_means``, but the first dimension always has
-            a length equal to the number of samples drawn from the
-            Poisson distribution.
+            Its first dimension has length ``n`` and the others match
+            ``pred_means``, with the dimensions of length 1 removed.
         """
 
         # Disable the gradient calculation.
@@ -761,7 +748,7 @@ class OutputModulePoisson(OutputModuleBase):
                     means = pred_means,
                     scaling_factors = scaling_factors)
 
-            # Sample from the Poisson distributions.
+            # Get the Poisson distributions.
             poisson = dist.Poisson(rate = m)
 
             # Get 'n' samples from the distributions.
@@ -826,19 +813,6 @@ class OutputModuleNB(OutputModuleBase):
         """Compute the natural logarithm of the probability mass for a
         set of negative binomial distributions.
 
-        The formula used to compute the logarithm of the probability
-        mass is:
-
-        .. math::
-
-           logPDF_{NB(k,m,r)} &=
-           log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\
-           &+ k \\cdot log(\\frac{m}{r+m}) +
-           r \\cdot log(\\frac{r}{r+m})
-
-        Where :math:`m` is offset by a small value to prevent underflow.
-        Above ``NB_R_SWITCH``, :func:`log_prob_mass_nb_large_r` is used.
-
         Parameters
         ----------
         k : :class:`torch.Tensor`
@@ -877,6 +851,21 @@ class OutputModuleNB(OutputModuleBase):
 
             Each value in the tensor corresponds to the log-probability
             mass of a different negative binomial.
+
+        Notes
+        -----
+        The log-probability mass is:
+
+        .. math::
+
+           logPDF_{NB(k,m,r)} &=
+           log\\Gamma(k+r) - log\\Gamma(r) - log\\Gamma(k+1) \\\\
+           &+ k \\cdot log(\\frac{m}{r+m}) +
+           r \\cdot log(\\frac{r}{r+m})
+
+        Where :math:`m` is offset by ``MEAN_OFFSET`` to keep its
+        logarithm finite. Above ``NB_R_SWITCH`` (``NB_R_SWITCH_EPS`` if
+        ``eps`` is passed), :func:`log_prob_mass_nb_large_r` is used.
         """
 
         # Compute the log-probability mass in double precision.
@@ -1035,9 +1024,8 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
         Returns
         -------
         log_r : :class:`torch.Tensor`
-            A tensor containing the ``r_init`` value as many times
-            as the number of dimensions of the space the negative
-            binomials live in.
+            A trainable tensor of shape (1, ``output_dim``) filled with
+            the natural logarithm of ``r_init``.
         """
 
         # Return the natural logarithm of the initial value of
@@ -1272,7 +1260,8 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
                 [math.log1p(-contamination) - nll,
                  math.log(contamination) - nll_outlier])
 
-        # Return -log[(1-eps) * NB(r) + eps * NB(r_outlier)].
+        # Return -log[(1-c) * NB(r) + c * NB(r_outlier)], with c the
+        # contamination.
         return - torch.logsumexp(log_weights, dim = 0)
 
 
@@ -1302,10 +1291,8 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
         samples : :class:`torch.Tensor`
             The samples drawn from the negative binomial distributions.
 
-            The shape of this tensor depends on the shape of ``n``
-            and ``pred_means``, but the first dimension always has
-            a length equal to the number of samples drawn from the
-            negative binomial distribution.
+            Its first dimension has length ``n`` and the others match
+            ``pred_means``, with the dimensions of length 1 removed.
         """
 
         # Disable the gradient calculation.
@@ -1327,7 +1314,7 @@ class OutputModuleNBFeatureDispersion(OutputModuleNB):
             # m = p * r / (1-p), so p = m / (m+r)
             probs = m / (m + r)
 
-            # Sample from the negative binomial distributions with the
+            # Get the negative binomial distributions with the
             # calculated probabilities.
             nb = dist.NegativeBinomial(total_count = r,
                                        probs = probs)
@@ -1615,7 +1602,8 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
                 [math.log1p(-contamination) - nll,
                  math.log(contamination) - nll_outlier])
 
-        # Return -log[(1-eps) * NB(r) + eps * NB(r_outlier)].
+        # Return -log[(1-c) * NB(r) + c * NB(r_outlier)], with c the
+        # contamination.
         return - torch.logsumexp(log_weights, dim = 0)
 
 
@@ -1654,10 +1642,8 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
         samples : :class:`torch.Tensor`
             The samples drawn from the negative binomial distributions.
 
-            The shape of this tensor depends on the shape of ``n``
-            and ``pred_means``/``pred_log_r_values``, but the first
-            dimension always has a length equal to the number of
-            samples drawn from the negative binomial distribution.
+            Its first dimension has length ``n`` and the others match
+            ``pred_means``, with the dimensions of length 1 removed.
         """
 
         # Disable the gradient calculation.
@@ -1679,7 +1665,7 @@ class OutputModuleNBFullDispersion(OutputModuleNB):
             # m = p * r / (1-p), so p = m / (m+r)
             probs = m / (m + r)
 
-            # Sample from the negative binomial distributions with the
+            # Get the negative binomial distributions with the
             # calculated probabilities.
             nb = dist.NegativeBinomial(total_count = r,
                                        probs = probs)

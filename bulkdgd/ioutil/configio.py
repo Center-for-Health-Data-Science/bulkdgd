@@ -79,7 +79,8 @@ def _load_config(config_file: str,
     Parameters
     ----------
     config_file : :class:`str`
-        The YAML configuration file.
+        The YAML configuration file, or the name (without extension)
+        of a file in the default directory for the configuration type.
 
     config_type : :class:`str`
         The type of configuration to load from the file.
@@ -160,7 +161,7 @@ def _load_config(config_file: str,
     # "dimensionality_reduction"
     elif config_type in ["genes", "dimensionality_reduction"]:
 
-        # Do not check the configuration (no function checks it).
+        # Use the configuration unchecked.
         config_validated = config
 
     # Otherwise
@@ -271,7 +272,7 @@ def load_config_train(config_file: Optional[str]) -> dict[str, object]:
             os.path.join(defaults.CONFIG_DIRS["training"],
                          "training.yaml")
 
-    # Load the configuration from the file.
+    # Load and check the configuration.
     return _load_config(config_file = config_file,
                         config_type = "training")
 
@@ -290,7 +291,7 @@ def load_config_plot(config_file: str) -> dict[str, object]:
         A dictionary containing the configuration.
     """
 
-    # Load the configuration from the file.
+    # Load and check the configuration.
     return _load_config(config_file = config_file,
                         config_type = "plotting")
 
@@ -310,7 +311,7 @@ def load_config_genes(config_file: str) -> dict[str, object]:
         A dictionary containing the configuration.
     """
 
-    # Load and check the configuration.
+    # Load the configuration.
     return _load_config(config_file = config_file,
                         config_type = "genes")
 
@@ -330,6 +331,6 @@ def load_config_dim_red(config_file: str) -> dict[str, object]:
         A dictionary containing the configuration.
     """
 
-    # Load and check the configuration.
+    # Load the configuration.
     return _load_config(config_file = config_file,
                         config_type = "dimensionality_reduction")

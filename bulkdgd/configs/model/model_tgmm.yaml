@@ -1,5 +1,4 @@
-# Configuration file containing the configuration for the BulkDGD
-# model with 'tgmm' latent space.
+# Configuration of the BulkDGD model with a 'tgmm' latent space.
 
 genes_txt_file: "default"
 
