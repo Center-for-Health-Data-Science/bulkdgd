@@ -104,7 +104,7 @@ def plot_representations_time(
     kwargs = \
         _internals.kwargs_to_dict(\
             kwargs = {k : v for k, v in kwargs.items() \
-                      if k not in ["dfs", "config", "output_file"]})
+                      if k not in ["df", "config", "output_file"]})
 
     #-----------------------------------------------------------------#
 

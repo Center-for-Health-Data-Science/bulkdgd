@@ -505,7 +505,7 @@ def check_config_plot(config: dict[str, object]) -> \
 #######################################################################
 
 
-def split_text_by_length(text: object,
+def split_text_by_length(text: str,
                          max_length: int) -> str:
     """Split a text into pieces of at most a given length.
 
@@ -1450,7 +1450,7 @@ def set_axis(sub_plot: matplotlib.axes.Axes,
     if axis == "x":
 
         # Get the corresponding methods.
-        plot_ticks = plt.xticks
+        get_ticks = sub_plot.get_xticks
         set_label = sub_plot.set_xlabel
         set_lim = sub_plot.set_xlim
         set_ticks = sub_plot.set_xticks
@@ -1464,7 +1464,7 @@ def set_axis(sub_plot: matplotlib.axes.Axes,
     elif axis == "y":
 
         # Get the corresponding methods.
-        plot_ticks = plt.yticks
+        get_ticks = sub_plot.get_yticks
         set_label = sub_plot.set_ylabel
         set_lim = sub_plot.set_ylim
         set_ticks = sub_plot.set_yticks
@@ -1521,7 +1521,7 @@ def set_axis(sub_plot: matplotlib.axes.Axes,
     if ticks is None:
 
         # Default to the tick locations already present.
-        ticks = plot_ticks()[0]
+        ticks = get_ticks()
 
     #-----------------------------------------------------------------#
 
@@ -3218,17 +3218,11 @@ def plot_box_violin(plot_type: str,
             # Add the hue values for the second data frame to the list.
             hue.extend([categories[1]] * len(values_2))
 
-            # Mark the data as paired.
-            paired = True
-
         # Otherwise
         else:
 
             # Add the hue values for the only data frame to the list.
             hue.extend([name] * len(values_1))
-
-            # Mark the data as not paired.
-            paired = False
 
     #-----------------------------------------------------------------#
 
@@ -3318,7 +3312,7 @@ def plot_box_violin(plot_type: str,
         sub_plot.axhline(**config_hline)
 
 
-def plot_lineplot(data: np.ndarray,
+def plot_lineplot(data: pd.DataFrame,
                   x: str,
                   y: str,
                   hue: str,
@@ -3461,7 +3455,7 @@ def plot_lineplot(data: np.ndarray,
     return sub_plot
 
 
-def plot_enrichplot(data: np.ndarray,
+def plot_enrichplot(data: pd.DataFrame,
                     x: str,
                     y_1: str,
                     y_2: str,
