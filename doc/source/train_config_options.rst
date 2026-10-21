@@ -47,9 +47,9 @@ The options that can be specified are described below.
          
          * ``"norm_type"`` is the method to use to normalize the loss when reporting it. This can be:
 
-            * ``"none"``, which does not normalize the loss. This is the default value if not specified.
+            * ``"none"``, which does not normalize the loss.
 
-            * ``"n_samples"``, which normalizes the loss by the number of samples in the batch.
+            * ``"n_samples"``, which normalizes the loss by the number of samples in the batch. This is the default value if not specified.
 
             * ``"n_samples * latent_dim"``, which normalizes the loss by the number of samples times the latent dimension.
          
@@ -57,9 +57,9 @@ The options that can be specified are described below.
          
          * ``"norm_type"`` is the method to use to normalize the loss when reporting it. This can be:
 
-            * ``"none"``, which does not normalize the loss. This is the default value if not specified.
+            * ``"none"``, which does not normalize the loss.
 
-            * ``"n_samples"``, which normalizes the loss by the number of samples in the batch.
+            * ``"n_samples"``, which normalizes the loss by the number of samples in the batch. This is the default value if not specified.
 
             * ``"n_samples * n_genes"``, which normalizes the loss by the number of samples times the number of genes.
          
@@ -67,15 +67,15 @@ The options that can be specified are described below.
          
          * ``"norm_type"`` is the method to use to normalize the loss when reporting it. This can be:
 
-            * ``"none"``, which does not normalize the loss. This is the default value if not specified.
+            * ``"none"``, which does not normalize the loss.
 
-            * ``"n_samples"``, which normalizes the loss by the number of samples in the batch.
+            * ``"n_samples"``, which normalizes the loss by the number of samples in the batch. This is the default value if not specified.
 
             * ``"n_samples * n_genes"``, which normalizes the loss by the number of samples times the number of genes.
    
    * ``"metrics"`` is a dictionary of options to report the metrics. It can contain the following options:
 
-      * ``"latent"`` is a list of metrics to compute for the latent space during training. The available metrics are listed below. The default value is ``["silhouette_score", "adjusted_rand_index_score"]``.
+      * ``"latent"`` is a list of metrics to compute for the latent space during training. The available metrics are listed below. The default value is ``["bic", "silhouette_score", "davies_bouldin_score", "calinski_harabasz_score", "adjusted_rand_index_score", "adjusted_mutual_info_score"]``.
 
          Unsupervised metrics (do not require ground-truth labels):
 
@@ -92,6 +92,8 @@ The options that can be specified are described below.
          * ``"adjusted_rand_index_score"``, which reports the adjusted Rand index of the cluster assignments given by the latent space model with respect to the true labels. Higher is better.
 
          * ``"normalized_mutual_info_score"``, which reports the normalized mutual information of the cluster assignments given by the latent space model with respect to the true labels. Higher is better.
+
+         * ``"adjusted_mutual_info_score"``, which reports the adjusted mutual information of the cluster assignments given by the latent space model with respect to the true labels. Higher is better.
    
    * ``"optional_outputs"`` is a dictionary of options to specify which optional outputs to save during training. It can contain the following options:
 
@@ -147,7 +149,7 @@ The options that can be specified are described below.
 
    * ``"lgmm"`` for the legacy Gaussian Mixture Model implementation.
 
-   * ``"tgmm"`` for the TorchGMM implementation.
+   * ``"tgmm"`` for the TorchGMM implementation. This is the default value if not specified.
 
 * ``"latent_training_options"`` is a dictionary of options to train the latent space. The options vary depending on the latent space implementation specified in ``"latent_type"``.
 
@@ -166,6 +168,8 @@ The options that can be specified are described below.
          * ``"weight_decay"`` is the weight decay. This is a non-negative float that defaults to ``0.0``.
 
          * ``"betas"`` is a list of two floats that specify the beta parameters for the Adam or AdamW optimizer. The defaults are ``[0.9, 0.999]``.
+
+      * ``"grad_clipping_max_norm"`` is the norm the gradients are clipped to before each optimizer step, or ``None`` to not clip them. Non-finite gradients are set to zero first. This is a positive float that defaults to ``None``.
 
       * ``"lr_scheduler_type"`` is the type of learning rate scheduler to use. This can be:
 
@@ -223,15 +227,19 @@ The options that can be specified are described below.
 
          * ``"metric"``, which selects the best model based on a metric.
       
-      * ``"model_selection_options"`` specifies the metric to use for model selection when ``"model_selection_type"`` is ``"metric"``. The available metrics are:
+      * ``"model_selection_options"`` is a dictionary of options for the model selection, used when ``"model_selection_type"`` is ``"metric"``. It can contain the following options:
 
-         * ``"bic"``, which uses the Bayesian Information Criterion (BIC). Lower is better. This is the default value if not specified.
+         * ``"metric"`` is the metric to use for model selection. This can be:
 
-         * ``"silhouette_score"``, which uses the silhouette score. Higher is better.
+            * ``"bic"``, which uses the Bayesian Information Criterion (BIC). Lower is better. This is the default value if not specified.
 
-         * ``"calinski_harabasz_score"``, which uses the Calinski-Harabasz score. Higher is better.
+            * ``"silhouette_score"``, which uses the silhouette score. Higher is better.
 
-         * ``"davies_bouldin_score"``, which uses the Davies-Bouldin score. Lower is better.
+            * ``"calinski_harabasz_score"``, which uses the Calinski-Harabasz score. Higher is better.
+
+            * ``"davies_bouldin_score"``, which uses the Davies-Bouldin score. Lower is better.
+
+         * ``"step"`` is how many components below and above the current number are tried as candidates at each refit. This is a positive integer that defaults to ``1``.
       
       * ``"fitting"`` is a dictionary of options to specify how to fit the GMM during training. It can contain the following options:
 
@@ -281,17 +289,19 @@ The options that can be specified are described below.
       
    * ``"optimizer_options"`` is a dictionary of options for the optimizer. The options depend on the optimizer type. It can contain the following options:
 
-      * ``"lr"`` is the learning rate. This is a positive float that defaults to ``0.001``.
+      * ``"lr"`` is the learning rate. This is a positive float that defaults to ``0.01``.
 
-      * ``"weight_decay"`` is the weight decay. This is a non-negative float that defaults to ``0.0``.
+      * ``"weight_decay"`` is the weight decay. This is a non-negative float that defaults to ``0.1`` for ``"adamw"`` and ``0.0`` for ``"adam"``.
 
       * ``"betas"`` is a list of two floats that specify the beta parameters for the Adam or AdamW optimizer. The defaults are ``[0.9, 0.999]``.
 
+   * ``"grad_clipping_max_norm"`` is the norm the gradients are clipped to before each optimizer step, or ``None`` to not clip them. Non-finite gradients are set to zero first. This is a positive float that defaults to ``None``.
+
    * ``"lr_scheduler_type"`` is the type of learning rate scheduler to use. This can be:
 
-      * ``None``, which does not use a learning rate scheduler. This is the default value if not specified.
+      * ``None``, which does not use a learning rate scheduler.
 
-      * ``"one_cycle"``, which uses the OneCycleLR scheduler.
+      * ``"one_cycle"``, which uses the OneCycleLR scheduler. This is the default value if not specified.
 
       * ``"cosine"``, which uses the CosineAnnealingLR scheduler. It anneals the optimizer's own learning rate down to ``"eta_min"`` over the whole run, in a single half-cosine with no restarts.
     
@@ -325,21 +335,59 @@ The options that can be specified are described below.
 
    * ``"train_noise_type"`` is the type of noise to add to the representations during training. This can be:
 
-      * ``None`` or ``"none"``, which does not add any noise to the representations during training. This is the default value if not specified.
+      * ``None`` or ``"none"``, which does not add any noise to the representations during training.
 
-      * ``"gaussian"``, which adds Gaussian noise to the representations.
+      * ``"gaussian"``, which adds Gaussian noise to the representations. This is the default value if not specified.
+
+      * ``"langevin"``, which adds noise scaled to the step sizes of the representations' optimizer, and keeps it in the stored representations.
    
    * ``"train_noise_options"`` is a dictionary of options to specify the noise to add to the representations during training. For the ``"gaussian"`` type, the options are:
 
-      * ``"scale"`` is the base noise scale. This is a non-negative float that defaults to ``0.0`` (no noise).
+      * ``"scale"`` is the base noise scale. ``0.0`` disables the noise. This is a non-negative float that defaults to ``0.1``.
 
-      * ``"start"`` is the starting noise multiplier (at epoch 1). This is a non-negative float that defaults to ``1.0``.
+      * ``"start"`` is the starting noise multiplier (at epoch 1). The multiplier on the scale is cosine-annealed from ``"start"`` to ``"end"``. This is a non-negative float that defaults to ``1.0``.
 
       * ``"end"`` is the ending noise multiplier (at the final epoch). This is a non-negative float that defaults to ``0.01``.
 
-      * ``"within_radius_prob"`` is the probability of the noise being within a given radius. This is a float between 0 and 1 that defaults to ``0.95``.
+      * ``"within_radius_prob"`` is the fraction of the noise's mass within a radius of the scale times the multiplier times the gain. This is a float between 0 and 1 that defaults to ``0.95``.
 
-      * ``"gain"`` is the gain factor for the noise. This is a non-negative float that defaults to ``1.0``.
+      * ``"gain"`` is the gain factor for the noise. This is a non-negative float that defaults to ``4.0``.
+
+      * ``"persist"`` is a boolean that specifies whether to also add the noise to the stored representations, not only to the ones the decoder and the latent space see. This defaults to ``False``.
+
+      For the ``"langevin"`` type, the options are:
+
+      * ``"temperature"`` is the temperature the representations are sampled at. Each coordinate's noise has a variance of 2 times the temperature, times the current multiplier, times that coordinate's Adam step size (the current learning rate divided by the square root of the bias-corrected second moment plus ``eps``). No noise is added before the optimizer's first step or at a temperature of ``0.0``. This is a non-negative float that defaults to ``1.0``.
+
+      * ``"start"`` is the temperature's multiplier at epoch 1. This is a non-negative float that defaults to ``1.0``.
+
+      * ``"end"`` is the temperature's multiplier at the end of the annealing, kept until the last epoch. This is a non-negative float that defaults to ``1.0``.
+
+      * ``"end_fraction"`` is the fraction of the epochs over which the multiplier is cosine-annealed from ``"start"`` to ``"end"``. This is a float in (0, 1] that defaults to ``1.0``.
+
+   * ``"test_noise_type"`` is the type of noise to add to the representations of the test samples while they are optimized during training. This can be:
+
+      * ``None`` or ``"none"``, which does not add any noise. This is the default value if not specified.
+
+      * ``"gaussian"``, which adds Gaussian noise.
+
+      * ``"langevin"``, which adds noise scaled to the step sizes of the test representations' optimizer, and keeps it in the stored representations.
+
+   * ``"test_noise_options"`` is a dictionary of options to specify that noise. It takes the options of ``"train_noise_options"`` for the same type, with the same defaults. It also takes:
+
+      * ``"seed"`` is the seed of the noise's own random generator. This is an integer that defaults to ``None``, meaning the seed torch was given.
+
+   * ``"kept_noise_type"`` is the type of noise added to the stored representations of the training and test samples after each batch's backward pass, drawn separately from the noise the decoder sees. This can be:
+
+      * ``None`` or ``"none"``, which keeps no noise. This is the default value if not specified.
+
+      * ``"gaussian"``, which keeps Gaussian noise.
+
+      * ``"langevin"``, which keeps noise scaled to the step sizes of the representations' optimizers.
+
+   * ``"kept_noise_options"`` is a dictionary of options to specify that noise. It takes the options of ``"train_noise_options"`` for the same type, without ``"persist"``, and with the same defaults except ``"scale"`` (``0.01``) and ``"temperature"`` (``0.1``). It also takes:
+
+      * ``"seed"`` is the seed of the noise's own random generator. This is an integer that defaults to ``None``, meaning one past the seed torch was given.
 
    * ``"init_rep_scale"`` is the scale by which the initial representations are multiplied when they are drawn from the default normal distribution. This is a non-negative float that defaults to ``0.0``, which starts every representation at the origin. It is ignored when ``"init_rep_dist"`` is given.
 
@@ -355,17 +403,19 @@ The options that can be specified are described below.
       
    * ``"optimizer_options"`` is a dictionary of options for the optimizer. The options depend on the optimizer type. It can contain the following options:
 
-      * ``"lr"`` is the learning rate. This is a positive float that defaults to ``0.001``.
+      * ``"lr"`` is the learning rate. This is a positive float that defaults to ``0.01``.
 
       * ``"weight_decay"`` is the weight decay. This is a non-negative float that defaults to ``0.0``.
 
       * ``"betas"`` is a list of two floats that specify the beta parameters for the Adam or AdamW optimizer. The defaults are ``[0.9, 0.999]``.
 
+   * ``"grad_clipping_max_norm"`` is the norm the gradients are clipped to before each optimizer step, or ``None`` to not clip them. Non-finite gradients are set to zero first. This is a positive float that defaults to ``None``.
+
    * ``"lr_scheduler_type"`` is the type of learning rate scheduler to use. This can be:
 
-      * ``None``, which does not use a learning rate scheduler. This is the default value if not specified.
+      * ``None``, which does not use a learning rate scheduler.
 
-      * ``"one_cycle"``, which uses the OneCycleLR scheduler.
+      * ``"one_cycle"``, which uses the OneCycleLR scheduler. This is the default value if not specified.
 
       * ``"cosine"``, which uses the CosineAnnealingLR scheduler. It anneals the optimizer's own learning rate down to ``"eta_min"`` over the whole run, in a single half-cosine with no restarts.
 

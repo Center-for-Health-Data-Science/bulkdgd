@@ -68,9 +68,9 @@ The options that can be specified are described below.
 
 * ``"genes_txt_file"`` is the path to the plain text file containing the list of genes used in the model. This file should contain one gene name per line in Ensembl ID format.
 
-* ``"latent_dim"`` is the dimensionality of the latent space, a positive integer.
+* ``"latent_dim"`` is the dimensionality of the latent space, a positive integer. If not specified, the default value is ``64``.
 
-* ``"latent_type"`` is the type of latent space to use. This is a string that can take one of the following values: ``"lgmm"`` for the legacy Gaussian Mixture Model implementation, and ``"tgmm"`` for the TorchGMM implementation.
+* ``"latent_type"`` is the type of latent space to use. This is a string that can take one of the following values: ``"lgmm"`` for the legacy Gaussian Mixture Model implementation, and ``"tgmm"`` for the TorchGMM implementation. If not specified, the default value is ``"tgmm"``.
 
 * ``"latent_options"`` is a dictionary containing the options for the GMM. The options that can be specified in this dictionary depend on the type of GMM used.
 
@@ -78,7 +78,7 @@ The options that can be specified are described below.
 
    * For the legacy GMM (``"lgmm"``):
 
-      * ``"n_components"`` is the number of Gaussian components in the GMM, a positive integer.
+      * ``"n_components"`` is the number of Gaussian components in the GMM, a positive integer. If not specified, the default value is ``45``.
 
       * ``"covariance_type"`` is the type of covariance to use. This is a string that can take one of the following values:
          
@@ -131,7 +131,7 @@ The options that can be specified are described below.
          * ``"tied_diag"`` for a diagonal tied covariance matrix.
          * ``"tied_spherical"`` for a spherical tied covariance matrix.
 
-     * ``"init_means"`` is the method used to initialize the means of the GMM components. This is a string that can take one of the following values:
+      * ``"init_means"`` is the method used to initialize the means of the GMM components. This is a string that can take one of the following values:
 
          * ``"kmeans"`` for K-means initialization.
          * ``"kpp"`` for K-means++ initialization.
@@ -139,30 +139,30 @@ The options that can be specified are described below.
          * ``"points"`` for initialization using random points from the dataset.
          * ``"maxdist"`` for initialization using the points with the maximum determinant of the covariance matrix. This is the default value if not specified, and it is what the shipped models were trained with.
     
-     * ``"init_weights"`` is the method used to initialize the weights of the GMM components. This is a string that can take one of the following values:
+      * ``"init_weights"`` is the method used to initialize the weights of the GMM components. This is a string that can take one of the following values:
          
          * ``"uniform"`` for uniform initialization. This is the default value if not specified.
          * ``"random"`` for random initialization.
          * ``"kmeans"`` for K-means initialization.
    
-     * ``"init_covariances"`` is the method used to initialize the covariances of the GMM components. This is a string that can take one of the following values:
+      * ``"init_covariances"`` is the method used to initialize the covariances of the GMM components. This is a string that can take one of the following values:
          
          * ``"empirical"`` for empirical covariance initialization. This is the default value if not specified.
          * ``"eye"`` for identity covariance initialization.
          * ``"random"`` for random initialization.
          * ``"global"`` for global covariance initialization.
    
-     * ``"tol"`` is the convergence threshold based on relative improvement in log-likelihood. If not specified, the default value is ``1e-4``.
+      * ``"tol"`` is the convergence threshold based on relative improvement in log-likelihood. If not specified, the default value is ``1e-4``.
 
-     * ``"reg_covar"`` is the non-negative regularization added to the diagonal of the covariance, which keeps the covariance matrices positive definite. If not specified, the default value is ``1e-6``.
+      * ``"reg_covar"`` is the non-negative regularization added to the diagonal of the covariance, which keeps the covariance matrices positive definite. If not specified, the default value is ``1e-6``.
 
-     * ``"n_init"`` is the number of initializations to perform. The default value is 1.
+      * ``"n_init"`` is the number of initializations to perform. The default value is 1.
    
-     * ``"random_state"`` is the random seed used for initialization, an integer. If not specified, the default value is None, and the seed is determined by PyTorch's internal seed.
+      * ``"random_state"`` is the random seed used for initialization, an integer. If not specified, the default value is None, and the seed is determined by PyTorch's internal seed.
 
-       This affects more than the GMM. When it is set, ``tgmm`` calls :func:`torch.manual_seed` with it as it places the mixture's components, which reseeds PyTorch's global generator for everything drawn afterwards: the representations' initialization, the order of the batches, and the noise added during training. Leaving it unset and calling :func:`bulkdgd.reproducibility.set_seeds` once, before the model is built, makes the placement reproducible along with everything else, without this side effect. See :doc:`reproducibility <reproducibility>`.
+        This affects more than the GMM. When it is set, ``tgmm`` calls :func:`torch.manual_seed` with it as it places the mixture's components, which reseeds PyTorch's global generator for everything drawn afterwards: the representations' initialization, the order of the batches, and the noise added during training. Leaving it unset and calling :func:`bulkdgd.reproducibility.set_seeds` once, before the model is built, makes the placement reproducible along with everything else, without this side effect. See :doc:`reproducibility <reproducibility>`.
 
-     * ``"cem"`` is a boolean that specifies whether to use the classification expectation-maximization (CEM) algorithm for fitting the GMM. If not specified, the default value is False, and the standard expectation-maximization (EM) algorithm is used.
+      * ``"cem"`` is a boolean that specifies whether to use the classification expectation-maximization (CEM) algorithm for fitting the GMM. If not specified, the default value is False, and the standard expectation-maximization (EM) algorithm is used.
 
 * ``"gmm_final"`` is an optional dictionary containing the options for a second Gaussian mixture model, fitted to the representations *after* training and saved to its own file, ``gmm_final.pth``.
 
@@ -214,6 +214,8 @@ The options that can be specified are described below.
                
             * ``"sigmoid"`` for sigmoid activation.
             * ``"softplus"`` for softplus activation.
+
+         * ``"eps"`` is the offset added to the means inside the logarithm, a non-negative float. If not specified, the default value is ``None``, meaning ``1e-30``.
          
       * For the negative binomial output module with r-values learned per gene (``"nb_feature_dispersion"``):
 
@@ -222,7 +224,9 @@ The options that can be specified are described below.
             * ``"sigmoid"`` for sigmoid activation.
             * ``"softplus"`` for softplus activation.
             
-         * ``"r_init"`` is the initial value of the r-values in the negative binomial output module, a positive integer. If not specified, the default value is ``2``.
+         * ``"r_init"`` is the initial value of the r-values in the negative binomial output module, a positive float. If not specified, the default value is ``2``.
+
+         * ``"eps"`` is the small value added inside the logarithms of the log-probability mass, a non-negative float. If not specified, the default value is ``None``, meaning the exact form.
          
       * For the negative binomial output module with r-values learned per gene and sample (``"nb_full_dispersion"``):
 
@@ -230,6 +234,8 @@ The options that can be specified are described below.
 
             * ``"sigmoid"`` for sigmoid activation.
             * ``"softplus"`` for softplus activation.
+
+         * ``"eps"`` is the small value added inside the logarithms of the log-probability mass, a non-negative float. If not specified, the default value is ``None``, meaning the exact form.
 
 * ``"scaling_factor"`` is how a sample's scaling factor is computed. The scaling factor is the number the decoder's predicted means are multiplied by to put them on the scale of the sample's own counts. This is a string that can take one of the following values:
 
