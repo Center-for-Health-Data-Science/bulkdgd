@@ -1083,7 +1083,7 @@ class GaussianMixtureModelLegacy(nn.Module):
                              dim = -1)
 
 
-    def get_prior_log_prob(self) -> float:
+    def get_prior_log_prob(self) -> torch.Tensor:
         """Calculate the log-probability of the prior over the means,
         log-variance, and mixture coefficients.
 

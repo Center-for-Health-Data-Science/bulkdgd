@@ -407,7 +407,7 @@ def recursive_add_items(d: dict[str, object],
 
 
 def recursive_get(d: dict[str, object],
-                  key_path: tuple[str, ...] | list[str] | set[str]) \
+                  key_path: tuple[str, ...] | list[str]) \
                     -> object:
     """Recursively get an item from a (possibly nested) dictionary
     given the item's "key path".
@@ -417,7 +417,7 @@ def recursive_get(d: dict[str, object],
     d : :class:`dict`
         The input dictionary.
 
-    key_path : :class:`list` or :class:`set` or :class:`tuple`
+    key_path : :class:`list` or :class:`tuple`
         The "key path" leading to the item of interest.
 
     Returns

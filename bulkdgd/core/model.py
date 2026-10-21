@@ -4666,8 +4666,8 @@ class BulkDGD(nn.Module):
                rep_layer_train: latents.RepresentationLayer,
                rep_layer_test: latents.RepresentationLayer,
                pathways: Optional[dict[str, list[str]]] = None,
-               labels_train: Optional[str] = None,
-               labels_test: Optional[str] = None) -> \
+               labels_train: Optional[torch.Tensor] = None,
+               labels_test: Optional[torch.Tensor] = None) -> \
                 tuple[tuple[torch.Tensor, torch.Tensor],
                       tuple[torch.Tensor, torch.Tensor],
                       Optional[torch.Tensor],
@@ -8594,7 +8594,7 @@ class BulkDGD(nn.Module):
               gmm_pth_file: str = "gmm.pth",
               dec_pth_file: str = "dec.pth",
               gmm_final_pth_file: str = "gmm_final.pth",
-              pathways: Optional[pd.DataFrame] = None,
+              pathways: Optional[dict[str, list[str]]] = None,
               labels_train: Optional[object] = None,
               labels_test: Optional[object] = None) -> \
                 tuple[tuple[pd.DataFrame, pd.DataFrame],

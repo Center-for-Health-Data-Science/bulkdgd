@@ -49,7 +49,7 @@ bulkdgd_dea [-h] -is INPUT_SAMPLES -im INPUT_MEANS [-iv INPUT_RVALUES] [-odp OUT
 | `-qt`, `--q-values-threshold` | The threshold used to select the significant genes based on the q-values. The default is `0.05`. |
 | `-fct`, `--log2-fold-change-threshold` | The threshold used to select the significant genes based on the log2-fold changes. The default is `2`. |
 | `-sf`, `--scaling-factor` | The statistic of each sample's counts its predicted means are scaled by, as in the model's `scaling_factor`: `"mean"` or `"median"`. The default is `"median"`, that of the models shipped with bulkdgd. |
-| `-gsf`, `--genes-sets-files` | A list of plain text files containing the gene sets to be used in the analysis. The files must contain one gene symbol per line. The gene sets will be used to perform the gene set enrichment analysis. |
+| `-gsf`, `--genes-sets-files` | A list of plain text files containing the gene sets to be used in the analysis. The files must contain one Ensembl gene ID per line. The gene sets will be used to perform the gene set enrichment analysis. |
 
 ### Run options
 
