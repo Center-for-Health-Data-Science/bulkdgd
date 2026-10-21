@@ -8110,6 +8110,18 @@ class BulkDGD(nn.Module):
             written.
         """
 
+        # If a hidden layer is not a ReLU
+        if any(name != "relu" for name in
+               self._decoder_initial_options["activations"]):
+
+            # Raise an error (pruning computes ReLU activations).
+            errstr = \
+                "Only decoders whose hidden layers are all ReLUs " \
+                "can be pruned."
+            raise ValueError(errstr)
+
+        #-------------------------------------------------------------#
+
         # Get the required paths from the configuration.
         gmm_pth_file = config_prune["gmm_pth_file"]
         dec_pth_file = config_prune["dec_pth_file"]

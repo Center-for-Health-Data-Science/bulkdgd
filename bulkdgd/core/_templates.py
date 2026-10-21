@@ -346,6 +346,22 @@ _MODEL_DECODER_OPTIONS = {
         "choices" : core.decoders.Decoder.ACTIVATIONS,
         },
 
+    # The slope of the 'leaky_relu' layers for negative inputs.
+    "leaky_relu_negative_slope" : {
+        "type" : (float, int),
+        "condition" : lambda v: v >= 0,
+        "message" : "must be a non-negative number",
+        "default" : 0.01,
+        },
+
+    # The sharpness of the 'softplus' layers.
+    "softplus_beta" : {
+        "type" : (float, int),
+        "condition" : lambda v: v > 0,
+        "message" : "must be a positive number",
+        "default" : 1.0,
+        },
+
     # The dropout rate in the hidden layers of the decoder.
     "dropout" : {
         "type" : (float, int),

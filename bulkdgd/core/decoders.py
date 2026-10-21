@@ -115,7 +115,7 @@ class Decoder(nn.Module):
 
     # Set the names of the supported activation functions.
     ACTIVATIONS = \
-        ["relu", "elu", "gelu"]
+        ["relu", "elu", "gelu", "leaky_relu", "softplus"]
 
 
     ######################### INITIALIZATION ##########################
@@ -127,7 +127,9 @@ class Decoder(nn.Module):
                  activations: object,
                  output_module_name: str,
                  output_module_options: dict[str, object],
-                 dropout: float = 0.0) -> None:
+                 dropout: float = 0.0,
+                 leaky_relu_negative_slope: float = 0.01,
+                 softplus_beta: float = 1.0) -> None:
         """Initialize an instance of the neural network representing
         the decoder.
 
@@ -142,7 +144,7 @@ class Decoder(nn.Module):
 
         activations : :class:`list`
             The activation function for each hidden layer ('relu',
-            'elu', or 'gelu').
+            'elu', 'gelu', 'leaky_relu', or 'softplus').
 
         output_module_name : :class:`str`
             The output module to use ('nb_feature_dispersion',
@@ -155,6 +157,12 @@ class Decoder(nn.Module):
 
         dropout : :class:`float`, ``0.0``
             The dropout rate used in the decoder.
+
+        leaky_relu_negative_slope : :class:`float`, ``0.01``
+            The slope of the 'leaky_relu' layers for negative inputs.
+
+        softplus_beta : :class:`float`, ``1.0``
+            The sharpness of the 'softplus' layers.
         """
 
         # Initialize the class.
@@ -167,7 +175,9 @@ class Decoder(nn.Module):
             self._get_layers(\
                 n_units_input_layer = n_units_input_layer,
                 n_units_hidden_layers = n_units_hidden_layers,
-                activations = activations)
+                activations = activations,
+                leaky_relu_negative_slope = leaky_relu_negative_slope,
+                softplus_beta = softplus_beta)
 
         #-------------------------------------------------------------#
 
@@ -192,7 +202,9 @@ class Decoder(nn.Module):
     def _get_layers(self,
                     n_units_input_layer: int,
                     n_units_hidden_layers: list[int],
-                    activations: list[str]) -> torch.nn.ModuleList:
+                    activations: list[str],
+                    leaky_relu_negative_slope: float = 0.01,
+                    softplus_beta: float = 1.0) -> torch.nn.ModuleList:
         """Get the decoder's layers.
 
         Parameters
@@ -206,7 +218,13 @@ class Decoder(nn.Module):
 
         activations : :class:`list`
             The activation function for each hidden layer ('relu',
-            'elu', or 'gelu').
+            'elu', 'gelu', 'leaky_relu', or 'softplus').
+
+        leaky_relu_negative_slope : :class:`float`, ``0.01``
+            The slope of the 'leaky_relu' layers for negative inputs.
+
+        softplus_beta : :class:`float`, ``1.0``
+            The sharpness of the 'softplus' layers.
 
         Returns
         -------
@@ -278,6 +296,20 @@ class Decoder(nn.Module):
 
                 # Set it.
                 activation = nn.GELU()
+
+            # If the activation function is a leaky ReLU
+            elif activation_name == "leaky_relu":
+
+                # Set it.
+                activation = \
+                    nn.LeakyReLU(
+                        negative_slope = leaky_relu_negative_slope)
+
+            # If the activation function is a softplus
+            elif activation_name == "softplus":
+
+                # Set it.
+                activation = nn.Softplus(beta = softplus_beta)
 
             # Otherwise
             else:

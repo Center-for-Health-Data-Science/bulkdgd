@@ -191,7 +191,13 @@ The options that can be specified are described below.
       * ``"relu"`` for ReLU activation.
       * ``"elu"`` for ELU activation.
       * ``"gelu"`` for GELU activation (smooth everywhere, so the decoder map has no activation boundaries).
+      * ``"leaky_relu"`` for leaky ReLU activation, with the slope ``"leaky_relu_negative_slope"`` for negative inputs.
+      * ``"softplus"`` for softplus activation, with the sharpness ``"softplus_beta"``.
       
+   * ``"leaky_relu_negative_slope"`` is the slope of the ``"leaky_relu"`` layers for negative inputs, a non-negative float. If not specified, the default value is ``0.01``.
+
+   * ``"softplus_beta"`` is the sharpness of the ``"softplus"`` layers, a positive float. If not specified, the default value is ``1.0``.
+
    * ``"dropout"`` is a float between 0 and 1 that specifies the dropout rate to use in the decoder. This is the fraction of the input units to drop during training. If not specified, the default value is 0, which means that no dropout will be applied.
 
    * ``"output_module_name"`` is the name of the output module used in the decoder. This is a string that can take one of the following values:
