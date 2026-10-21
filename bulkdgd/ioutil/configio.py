@@ -48,6 +48,7 @@ from bulkdgd.core._util import (
     parse_config_train,
     parse_config_rep)
 from bulkdgd.plotting._util import parse_config_plot
+from bulkdgd.recount3._util import parse_config_recount3
 
 
 #######################################################################
@@ -66,14 +67,17 @@ type2parsefunc = \
    {"model" : parse_config_model,
     "training" : parse_config_train,
     "representations" : parse_config_rep,
-    "plotting" : parse_config_plot}
+    "plotting" : parse_config_plot,
+    "recount3" : parse_config_recount3}
 
 
 #######################################################################
 
 
 def _load_config(config_file: str,
-                 config_type: str) -> dict[str, object]:
+                 config_type: str,
+                 project_name: Optional[str] = None) -> \
+                    dict[str, object]:
     """Load a configuration from a YAML configuration file.
 
     Parameters
@@ -84,6 +88,10 @@ def _load_config(config_file: str,
 
     config_type : :class:`str`
         The type of configuration to load from the file.
+
+    project_name : :class:`str`, optional
+        The Recount3 project the configuration is for (``"recount3"``
+        configurations only).
 
     Returns
     -------
@@ -120,9 +128,10 @@ def _load_config(config_file: str,
     #-----------------------------------------------------------------#
 
     # If the configuration type is "model", "representations",
-    # "training", or "plotting"
+    # "training", "plotting", or "recount3"
     if config_type in \
-        ["model", "representations", "training", "plotting"]:
+        ["model", "representations", "training", "plotting",
+         "recount3"]:
 
         # If it is the model's configuration
         if config_type == "model":
@@ -131,6 +140,15 @@ def _load_config(config_file: str,
             config_validated, errors, warnings = \
                 type2parsefunc[config_type](config = config,
                                             path = config_file)
+
+        # If it is the configuration of a dataset built from Recount3
+        elif config_type == "recount3":
+
+            # Parse and check it (for the given project).
+            config_validated, errors, warnings = \
+                type2parsefunc[config_type](\
+                    config = config,
+                    project_name = project_name)
 
         # Otherwise
         else:
@@ -171,7 +189,7 @@ def _load_config(config_file: str,
         errstr = \
             f"Unknown configuration type '{config_type}'. The " \
             "supported types are: 'model', 'representations', " \
-            "'training', 'plotting', 'genes', " \
+            "'training', 'plotting', 'recount3', 'genes', " \
             "'dimensionality_reduction'."
         raise ValueError(errstr)
 
@@ -334,3 +352,31 @@ def load_config_dim_red(config_file: str) -> dict[str, object]:
     # Load the configuration.
     return _load_config(config_file = config_file,
                         config_type = "dimensionality_reduction")
+
+
+def load_config_recount3(config_file: str,
+                         project_name: str) -> dict[str, object]:
+    """Load the configuration selecting the Recount3 studies and
+    samples a dataset is built from, and harmonizing their metadata,
+    from a YAML file.
+
+    Parameters
+    ----------
+    config_file : :class:`str`
+        A YAML configuration file, or the name (without extension)
+        of a file in the directory storing the configuration files
+        for Recount3 datasets.
+
+    project_name : :class:`str`, {``"GTEx"``, ``"TCGA"``, ``"SRA"``}
+        The Recount3 project the studies belong to.
+
+    Returns
+    -------
+    config : :class:`dict`
+        A dictionary containing the configuration.
+    """
+
+    # Load and check the configuration.
+    return _load_config(config_file = config_file,
+                        config_type = "recount3",
+                        project_name = project_name)

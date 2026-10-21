@@ -37,20 +37,19 @@ __doc__ = \
 
 
 # Import from the standard library.
+import gzip
+import io
 import logging as log
 import os
+import time
 from typing import Optional
 
 # Import from third-party libraries.
 import pandas as pd
-
-# Import from 'bulkdgd'.
-from ..ioutil.tableio import save_table
-
-# Import from third-party libraries.
 import requests as rq
 
 # Import from 'bulkdgd'.
+from ..ioutil.tableio import save_table
 from . import defaults
 
 
@@ -741,3 +740,388 @@ def get_read_counts(df_raw_counts: pd.DataFrame,
 
     # Return the read counts.
     return df_read_counts
+
+def get_geo_metadata(geo_code: str,
+                     wd: Optional[str] = None) -> pd.DataFrame:
+    """Get the samples' metadata from a GEO series' SOFT file.
+
+    Parameters
+    ----------
+    geo_code : :class:`str`
+        The GEO series' code (for instance, ``"GSE123456"``).
+
+    wd : :class:`str`, optional
+        The directory where the SOFT file is saved and, if already
+        there, read from. If not passed, the file is not saved.
+
+    Returns
+    -------
+    df_geo : :class:`pandas.DataFrame`
+        A data frame with one row per sample and the samples'
+        attributes as columns.
+    """
+
+    # Get the URL of the SOFT file.
+    geo_url = \
+        defaults.GEO_SOFT_URL.format(geo_code[:-3],
+                                     geo_code,
+                                     geo_code)
+
+    #-----------------------------------------------------------------#
+
+    # If a directory was passed
+    if wd is not None:
+
+        # Create it if it does not exist.
+        os.makedirs(wd,
+                    exist_ok = True)
+
+        # Get the path to the SOFT file.
+        geo_path = \
+            os.path.join(wd,
+                         defaults.GEO_SOFT_FILE.format(geo_code))
+
+        # If the file is not there yet
+        if not os.path.exists(geo_path):
+
+            # Get the file, failing on an HTTP error.
+            response = rq.get(geo_url,
+                              stream = True)
+            response.raise_for_status()
+
+            # Open the output file.
+            with open(geo_path, "wb") as out:
+
+                # For each chunk of the file
+                for chunk in response.iter_content(\
+                        chunk_size = 1024 * 1024):
+
+                    # Write the chunk.
+                    out.write(chunk)
+
+            # Inform the user that the file was saved.
+            infostr = f"The GEO SOFT file was saved in '{geo_path}'."
+            logger.info(infostr)
+
+        # Otherwise
+        else:
+
+            # Inform the user that the file will be read.
+            infostr = \
+                f"'{geo_path}' already exists. The GEO metadata " \
+                "will be read from this file."
+            logger.info(infostr)
+
+        # Open the file.
+        f_geo = open(geo_path, "rb")
+
+    #-----------------------------------------------------------------#
+
+    # Otherwise
+    else:
+
+        # Get the file, failing on an HTTP error.
+        response = rq.get(geo_url,
+                          stream = True)
+        response.raise_for_status()
+
+        # Read the file from the response's stream.
+        f_geo = response.raw
+
+    #-----------------------------------------------------------------#
+
+    # Initialize the list of samples.
+    samples = []
+
+    # Initialize the sample being parsed.
+    current = None
+
+    # Open the compressed file.
+    with gzip.GzipFile(fileobj = f_geo,
+                       mode = "rb") as f:
+
+        # For each line
+        for line in f:
+
+            # Decode it and remove the trailing newline.
+            line = line.decode("utf-8").rstrip("\n")
+
+            # If a new sample starts
+            if line.startswith("^SAMPLE"):
+
+                # If a sample was being parsed
+                if current is not None:
+
+                    # Add it to the list of samples.
+                    samples.append(current)
+
+                # Start the new sample with its GEO accession.
+                current = \
+                    {"Sample_geo_accession" : \
+                        line.split(" = ", 1)[1]}
+
+            # If the line holds one of the sample's characteristics
+            elif line.startswith("!Sample_characteristics") \
+            and current is not None:
+
+                # Get the characteristic.
+                _, rest = line[1:].split(" = ", 1)
+
+                # If the characteristic is labeled
+                if ": " in rest:
+
+                    # Split it at the last label separator, since some
+                    # labels contain it.
+                    subkey, subval = rest.rsplit(": ", 1)
+
+                    # Add the characteristic.
+                    current[subkey.strip()] = subval.strip()
+
+                # Otherwise
+                else:
+
+                    # Add it to the unlabeled characteristics.
+                    current.setdefault("characteristics",
+                                       []).append(rest.strip())
+
+            # If the line holds another field of the sample
+            elif line.startswith("!Sample_") and current is not None:
+
+                # Get the field's name and value.
+                key, val = line[1:].split(" = ", 1)
+
+                # If the field is a characteristic (handled above)
+                if key.startswith("Sample_characteristics"):
+
+                    # Go to the next line.
+                    continue
+
+                # If the field was already found
+                if key in current:
+
+                    # Append the value to the existing one.
+                    current[key] += "; " + val
+
+                # Otherwise
+                else:
+
+                    # Add the field.
+                    current[key] = val
+
+        # If a sample was being parsed
+        if current is not None:
+
+            # Add it to the list of samples.
+            samples.append(current)
+
+    # If the file was opened from the directory
+    if wd is not None:
+
+        # Close it.
+        f_geo.close()
+
+    #-----------------------------------------------------------------#
+
+    # Build the data frame, with all values as strings.
+    df_geo = _to_strings(pd.DataFrame(samples))
+
+    # Put the GEO accession first.
+    columns = \
+        ["Sample_geo_accession"] + \
+        [c for c in df_geo.columns if c != "Sample_geo_accession"]
+
+    # Return the data frame.
+    return df_geo[columns]
+
+
+def get_ena_metadata(sra_code: str,
+                     wd: Optional[str] = None) -> pd.DataFrame:
+    """Get each run's experiment, BioSample and library details for
+    an SRA study from ENA.
+
+    Parameters
+    ----------
+    sra_code : :class:`str`
+        The SRA study's code (for instance, ``"SRP030628"``).
+
+    wd : :class:`str`, optional
+        The directory where ENA's report is saved and, if already
+        there, read from. If not passed, the report is not saved.
+
+    Returns
+    -------
+    df_ena : :class:`pandas.DataFrame`
+        A data frame indexed by run accession, with the fields in
+        ``defaults.ENA_FILEREPORT_FIELDS`` as columns. It is empty if
+        ENA has nothing for the study or could not be reached.
+    """
+
+    # Get the URL of the report.
+    ena_url = \
+        defaults.ENA_FILEREPORT_URL.format(\
+            sra_code,
+            ",".join(defaults.ENA_FILEREPORT_FIELDS))
+
+    # Build the empty result.
+    df_empty = \
+        pd.DataFrame(\
+            columns = defaults.ENA_FILEREPORT_FIELDS).set_index(\
+                "run_accession",
+                drop = False)
+
+    #-----------------------------------------------------------------#
+
+    # Try to get the report.
+    try:
+
+        # If a directory was passed
+        if wd is not None:
+
+            # Create it if it does not exist.
+            os.makedirs(wd,
+                        exist_ok = True)
+
+            # Get the path to the report.
+            ena_path = \
+                os.path.join(\
+                    wd,
+                    defaults.ENA_FILEREPORT_FILE.format(sra_code))
+
+            # If the report is not there yet
+            if not os.path.exists(ena_path):
+
+                # Get the report, failing on an HTTP error.
+                response = rq.get(ena_url,
+                                  timeout = 60)
+                response.raise_for_status()
+
+                # Write the report.
+                with open(ena_path, "w") as out:
+                    out.write(response.text)
+
+                # Pause between requests to ENA.
+                time.sleep(defaults.ENA_REQUEST_PAUSE)
+
+            # Read the report.
+            with open(ena_path, "r") as f:
+                text = f.read()
+
+        # Otherwise
+        else:
+
+            # Get the report, failing on an HTTP error.
+            response = rq.get(ena_url,
+                              timeout = 60)
+            response.raise_for_status()
+
+            # Take its text.
+            text = response.text
+
+            # Pause between requests to ENA.
+            time.sleep(defaults.ENA_REQUEST_PAUSE)
+
+    # If something went wrong
+    except Exception as e:
+
+        # Warn the user.
+        warnstr = \
+            f"The ENA report for '{sra_code}' could not be " \
+            f"retrieved. Error: {e}"
+        logger.warning(warnstr)
+
+        # Return the empty result.
+        return df_empty
+
+    #-----------------------------------------------------------------#
+
+    # If the report is empty or has a header only
+    if not text.strip() or len(text.strip().splitlines()) < 2:
+
+        # Return the empty result.
+        return df_empty
+
+    #-----------------------------------------------------------------#
+
+    # Parse the report, with all values as strings.
+    df_ena = _to_strings(pd.read_csv(io.StringIO(text),
+                                     sep = "\t",
+                                     header = 0,
+                                     low_memory = False))
+
+    # Return it, indexed by run accession.
+    return df_ena.set_index("run_accession",
+                            drop = False)
+
+
+def get_run_selector(sra_code: str,
+                     wd: Optional[str] = None) -> pd.DataFrame:
+    """Get an SRA study's Run Selector table.
+
+    Parameters
+    ----------
+    sra_code : :class:`str`
+        The SRA study's code (for instance, ``"SRP030628"``).
+
+    wd : :class:`str`, optional
+        The directory where the table is saved and, if already there,
+        read from. If not passed, the table is not saved.
+
+    Returns
+    -------
+    df_runs : :class:`pandas.DataFrame`
+        The table, with one row per run and all values as strings.
+    """
+
+    # Get the URL of the table.
+    runs_url = defaults.SRA_RUN_SELECTOR_URL.format(sra_code)
+
+    #-----------------------------------------------------------------#
+
+    # If a directory was passed
+    if wd is not None:
+
+        # Create it if it does not exist.
+        os.makedirs(wd,
+                    exist_ok = True)
+
+        # Get the path to the table.
+        runs_path = \
+            os.path.join(\
+                wd,
+                defaults.SRA_RUN_SELECTOR_FILE.format(sra_code))
+
+        # If the table is not there yet
+        if not os.path.exists(runs_path):
+
+            # Get the table, failing on an HTTP error.
+            response = rq.get(runs_url)
+            response.raise_for_status()
+
+            # Write the table.
+            with open(runs_path, "w") as out:
+                out.write(response.text)
+
+        # Read the table.
+        with open(runs_path, "r") as f:
+            text = f.read()
+
+    # Otherwise
+    else:
+
+        # Get the table, failing on an HTTP error.
+        response = rq.get(runs_url)
+        response.raise_for_status()
+
+        # Take its text.
+        text = response.text
+
+    #-----------------------------------------------------------------#
+
+    # Parse the table, with all values as strings.
+    df_runs = _to_strings(pd.read_csv(io.StringIO(text),
+                                      sep = ",",
+                                      header = 0,
+                                      low_memory = False))
+
+    # Return the table.
+    return df_runs

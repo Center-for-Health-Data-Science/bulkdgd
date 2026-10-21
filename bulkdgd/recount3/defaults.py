@@ -3,8 +3,8 @@
 
 #    defaults.py
 #
-#    Default URLs/files for interacting with the Recount3 platform and
-#    downloading data from it.
+#    Default URLs/files for interacting with the Recount3 platform,
+#    downloading data from it and building datasets.
 #
 #    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
@@ -29,8 +29,8 @@
 
 # Set the module's description.
 __doc__ = \
-    "Default URLs/files for interacting with the Recount3 platform " \
-    "and downloading data from it."
+    "Default URLs/files for interacting with the Recount3 platform, " \
+    "downloading data from it and building datasets."
 
 
 #######################################################################
@@ -103,3 +103,153 @@ RECOUNT3_QC_FILE = "{:s}_{:s}_qc.gz"
 # Set the name of the output GZ file containing the samples' metadata,
 # if the user decided to save it.
 RECOUNT3_METADATA_FILE = "{:s}_{:s}_metadata.gz"
+
+
+#######################################################################
+
+
+# Set the Recount3 projects datasets can be built from.
+RECOUNT3_PROJECTS = ["GTEx", "TCGA", "SRA"]
+
+#---------------------------------------------------------------------#
+
+# Set the URL of a GEO series' SOFT file.
+GEO_SOFT_URL = \
+    "https://ftp.ncbi.nlm.nih.gov/geo/series/{:s}nnn/{:s}/" \
+    "soft/{:s}_family.soft.gz"
+
+# Set the name of a saved GEO SOFT file.
+GEO_SOFT_FILE = "{:s}_family.soft.gz"
+
+#---------------------------------------------------------------------#
+
+# Set the URL of ENA's report on an SRA study's runs.
+ENA_FILEREPORT_URL = \
+    "https://www.ebi.ac.uk/ena/portal/api/filereport" \
+    "?accession={:s}&result=read_run&fields={:s}&format=tsv"
+
+# Set the fields retrieved from ENA for each run.
+ENA_FILEREPORT_FIELDS = \
+    ["run_accession",
+     "experiment_accession",
+     "sample_accession",
+     "study_accession",
+     "library_strategy",
+     "library_selection",
+     "library_source"]
+
+# Set the name of a saved ENA report.
+ENA_FILEREPORT_FILE = "{:s}_ena_filereport.tsv"
+
+# Set the seconds to wait after each request to ENA.
+ENA_REQUEST_PAUSE = 0.34
+
+#---------------------------------------------------------------------#
+
+# Set the URL of an SRA study's Run Selector table.
+SRA_RUN_SELECTOR_URL = \
+    "https://trace.ncbi.nlm.nih.gov/Traces/sra-db-be/runinfo?acc={:s}"
+
+# Set the name of a saved Run Selector table.
+SRA_RUN_SELECTOR_FILE = "{:s}_run_selector.csv"
+
+#---------------------------------------------------------------------#
+
+# Set the SRA metadata's library columns and their new names.
+SRA_LIBRARY_COLUMNS = \
+    {"library_name" : "sample_sequencing_library_name",
+     "library_strategy" : "sample_sequencing_library_strategy",
+     "library_source" : "sample_sequencing_library_source",
+     "library_selection" : "sample_sequencing_library_selection",
+     "library_layout" : "sample_sequencing_library_layout"}
+
+# Set the ENA fields filling the SRA metadata's library columns.
+SRA_ENA_LIBRARY_COLUMNS = \
+    {"library_strategy" : "sample_sequencing_library_strategy",
+     "library_selection" : "sample_sequencing_library_selection",
+     "library_source" : "sample_sequencing_library_source"}
+
+# Set the new values of the SRA metadata's library columns.
+SRA_LIBRARY_VALUES = {
+
+    "library_selection" : \
+        {"cDNA" : "cDNA",
+         "PolyA" : "polyA",
+         "RT-PCR" : "RT-PCR",
+         "other" : "unspecified",
+         "RANDOM" : "random",
+         "Oligo-dT" : "oligo-dT",
+         "Inverse rRNA" : "inverse rRNA",
+         "Hybrid Selection" : "hybrid selection",
+         "unspecified" : "unspecified",
+         "RANDOM PCR" : "random PCR",
+         "PCR" : "PCR"},
+
+    "library_source" : \
+        {"TRANSCRIPTOMIC" : "transcriptomic"},
+
+    "library_strategy" : \
+        {"RNA-Seq" : "RNA-seq"},
+
+    }
+
+# Set the columns placed first in the SRA metadata, if present.
+SRA_FIRST_COLUMNS = \
+    ["recount3_project_name",
+     "recount3_samples_category",
+     "sample_identifier_ena_experiment",
+     "sample_identifier_ena_biosample",
+     "sample_identifier_run_numeric_id",
+     "sample_sequencing_library_strategy",
+     "sample_sequencing_library_selection",
+     "sample_sequencing_library_source"]
+
+#---------------------------------------------------------------------#
+
+# Set the text appended to the SRA studies' comments.
+SRA_COMMENT_HEAD = \
+    ' Data for the "sample_sequencing_library_name", ' \
+    '"sample_sequencing_library_strategy", ' \
+    '"sample_sequencing_library_source", ' \
+    '"sample_sequencing_library_selection", and ' \
+    '"sample_sequencing_library_layout" fields were taken ' \
+    'from the Recount3 metadata file. '
+
+# Set the text appended to the comments naming the library selection's
+# source themselves.
+SRA_COMMENT_HEAD_OWN_SELECTION = \
+    ' Data for the "sample_sequencing_library_name", ' \
+    '"sample_sequencing_library_strategy", ' \
+    '"sample_sequencing_library_source" and ' \
+    '"sample_sequencing_library_layout" fields were taken ' \
+    'from the Recount3 metadata file. '
+
+# Set the text closing the SRA studies' comments.
+SRA_COMMENT_TAIL = \
+    'The "subject_demographics_sex_or_gender" and ' \
+    '"subject_demographics_age_bin_10_years" fields were ' \
+    'automatically created. '
+
+# Set the text closing the comments of the SRA studies found in ENA.
+SRA_COMMENT_TAIL_ENA = \
+    SRA_COMMENT_TAIL + \
+    'Data for the "sample_identifier_ena_biosample", ' \
+    '"sample_identifier_ena_experiment" and ' \
+    '"sample_identifier_run_numeric_id" fields were taken from ' \
+    'ENA.'
+
+#---------------------------------------------------------------------#
+
+# Set the width of the age bins, in years.
+AGE_BIN_WIDTH = 10
+
+# Set the upper edge of the last age bin, in years.
+AGE_BIN_MAX = 120
+
+#---------------------------------------------------------------------#
+
+# Set the values taken as missing when merging or joining columns.
+MERGE_NA_VALUES = {"na", "NA", ""}
+
+# Set the default separator of joined columns.
+JOIN_SEPARATOR = "|"

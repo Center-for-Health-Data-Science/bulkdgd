@@ -23,6 +23,8 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 
 
-# Import everything from the 'defaults' and 'util' modules.
+# Import everything from the 'defaults', 'util' and 'datasets'
+# modules.
 from .defaults import *
 from .util import *
+from .datasets import *

@@ -91,6 +91,14 @@ CONFIG_DIRS = {
 
     #-----------------------------------------------------------------#
 
+    # Set the directory containing the configuration files specifying
+    # the Recount3 studies datasets are built from.
+    "recount3" : \
+        os.path.join(os.path.dirname(__file__),
+                     "configs/recount3"),
+
+    #-----------------------------------------------------------------#
+
     }
 
 
