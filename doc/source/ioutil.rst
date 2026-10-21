@@ -15,6 +15,8 @@
 
    .. autofunction:: bulkdgd.ioutil.load_config_genes
 
+   .. autofunction:: bulkdgd.ioutil.load_config_recount3
+
    .. autofunction:: bulkdgd.ioutil.load_decoder_outputs
 
    .. autofunction:: bulkdgd.ioutil.load_samples
