@@ -934,6 +934,9 @@ _TRAIN_LGMM = {
     **_override_items(
         d = _OPTIMIZER,
         paths2values = {
+            # L-BFGS needs a closure training does not pass.
+            ("optimizer_type",
+             "choices") : ["adam", "adamw"],
             ("optimizer_options",
              "switch",
              "cases",
@@ -1027,6 +1030,9 @@ _TRAIN_DECODER = {
     **_override_items(
         d = _OPTIMIZER,
         paths2values = {
+            # L-BFGS needs a closure training does not pass.
+            ("optimizer_type",
+             "choices") : ["adam", "adamw"],
             ("optimizer_options",
              "switch",
              "cases",
@@ -1411,6 +1417,9 @@ _TRAIN_REPRESENTATIONS = {
     **_override_items(
         d = _OPTIMIZER,
         paths2values = {
+            # L-BFGS needs a closure training does not pass.
+            ("optimizer_type",
+             "choices") : ["adam", "adamw"],
             ("optimizer_options",
              "switch",
              "cases",
