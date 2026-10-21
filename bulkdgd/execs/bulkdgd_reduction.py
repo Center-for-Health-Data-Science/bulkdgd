@@ -103,6 +103,10 @@ DIMREDNAME2DIMREDFUNC = {
 
     }
 
+# Set the analyses that can project new data points onto a fitted
+# model.
+FITTED_MODEL_NAMES = ["pca", "kpca", "umap"]
+
 
 #######################################################################
 
@@ -172,15 +176,18 @@ def set_parser(dim_red_name: str) -> argparse.ArgumentParser:
 
     #-----------------------------------------------------------------#
 
-    # Set a help message.
-    im_help = \
-        "The input PKL file containing the fitted model on which " \
-        "to project the new data points."
+    # If the analysis can project new data points onto a fitted model
+    if dim_red_name in FITTED_MODEL_NAMES:
 
-    # Add the argument to the group.
-    input_group.add_argument("-im", "--input-model",
-                             type = str,
-                             help = im_help)
+        # Set a help message.
+        im_help = \
+            "The input PKL file containing the fitted model on " \
+            "which to project the new data points."
+
+        # Add the argument to the group.
+        input_group.add_argument("-im", "--input-model",
+                                 type = str,
+                                 help = im_help)
 
     #-----------------------------------------------------------------#
 
@@ -391,7 +398,7 @@ def main(args: argparse.Namespace,
 
     # Get the arguments corresponding to the input files.
     input_data = args.input_data
-    input_model = args.input_model
+    input_model = getattr(args, "input_model", None)
 
     # Get the argument corresponding to the input columns.
     input_columns = args.input_columns
@@ -580,11 +587,16 @@ def main(args: argparse.Namespace,
     # Try to perform the dimensionality reduction analysis.
     try:
 
+        # Pass the fitted model only to the analyses that take one.
+        model_kwargs = \
+            {"fitted_model" : fitted_model} \
+            if dim_red_name in FITTED_MODEL_NAMES else {}
+
         df_dim_red, dim_red = \
             dim_red_func(df = df_data,
-                         fitted_model = fitted_model,
                          options = config_dim_red,
-                         input_columns = input_columns)
+                         input_columns = input_columns,
+                         **model_kwargs)
 
     # If something went wrong
     except Exception as e:

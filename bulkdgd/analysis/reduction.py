@@ -446,7 +446,6 @@ def perform_kpca(df: pd.DataFrame,
 
 
 def perform_mds(df: pd.DataFrame,
-                fitted_model: Optional[manifold.MDS] = None,
                 options: Optional[dict[str, object]] = None,
                 input_columns: Optional[str | list[str]] = None,
                 keep_unused_columns: bool = True,
@@ -466,10 +465,6 @@ def perform_mds(df: pd.DataFrame,
         The rows of the data frame should represent the different data
         points, while the columns should represent the dimensions of
         the space where the data points live.
-
-    fitted_model : :class:`sklearn.manifold.MDS`, optional
-        An already fitted model onto which the data points
-        should be projected.
 
     options : :class:`dict`, optional
         A dictionary containing the options used when performing
@@ -518,7 +513,7 @@ def perform_mds(df: pd.DataFrame,
     # Return the results of the dimensionality reduction.
     return _perform_dim_red(\
                 df = df,
-                mod_fitted = fitted_model,
+                mod_fitted = None,
                 mod_class = _modname2modclass["mds"],
                 mod_options = options,
                 input_columns = input_columns,
@@ -530,7 +525,6 @@ def perform_mds(df: pd.DataFrame,
 
 
 def perform_tsne(df: pd.DataFrame,
-                 fitted_model: Optional[manifold.TSNE] = None,
                  options: Optional[dict[str, object]] = None,
                  input_columns: Optional[str | list[str]] = None,
                  keep_unused_columns: bool = True,
@@ -550,10 +544,6 @@ def perform_tsne(df: pd.DataFrame,
         The rows of the data frame should represent the different data
         points, while the columns should represent the dimensions of
         the space where the data points live.
-
-    fitted_model : :class:`sklearn.manifold.TSNE`, optional
-        An already fitted model onto which the data points
-        should be projected.
 
     options : :class:`dict`, optional
         A dictionary containing the options used when performing
@@ -627,7 +617,7 @@ def perform_tsne(df: pd.DataFrame,
     # Return the results of the dimensionality reduction.
     return _perform_dim_red(\
                 df = df,
-                mod_fitted = fitted_model,
+                mod_fitted = None,
                 mod_class = _modname2modclass["tsne"],
                 mod_options = options,
                 input_columns = input_columns,
