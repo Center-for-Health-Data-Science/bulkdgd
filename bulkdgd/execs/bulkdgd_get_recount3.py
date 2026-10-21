@@ -3,8 +3,8 @@
 
 #    bulkdgd_get_recount3.py
 #
-#    Get RNA-seq data associated with specific human samples for
-#    projects hosted on the Recount3 platform.
+#    Build a dataset of read counts and harmonized metadata from
+#    studies hosted on the Recount3 platform.
 #
 #    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
@@ -29,8 +29,8 @@
 
 # Set the module's description.
 __doc__ = \
-    "Get RNA-seq data associated with specific human samples for " \
-    "projects hosted on the Recount3 platform."
+    "Build a dataset of read counts and harmonized metadata from " \
+    "studies hosted on the Recount3 platform."
 
 
 #######################################################################
@@ -41,13 +41,34 @@ import argparse
 import logging as log
 import os
 import sys
+import warnings
 
 # Import from third-party libraries.
-from distributed import LocalCluster, Client, as_completed
+import pandas as pd
 
 # Import from 'bulkdgd'.
-from bulkdgd import recount3
+from bulkdgd import defaults, ioutil, recount3
 from . import util
+
+
+#######################################################################
+
+
+# Ignore the warnings about fragmented data frames.
+warnings.filterwarnings("ignore",
+                        category = pd.errors.PerformanceWarning)
+
+# Ignore the warnings about pandas' future behavior.
+warnings.filterwarnings("ignore",
+                        category = FutureWarning)
+
+# If pandas warns about setting values on copies (before pandas 3)
+if hasattr(pd.errors, "SettingWithCopyWarning"):
+
+    # Ignore the warnings.
+    warnings.filterwarnings(\
+        "ignore",
+        category = pd.errors.SettingWithCopyWarning)
 
 
 #######################################################################
@@ -92,72 +113,236 @@ def set_parser() -> argparse.ArgumentParser:
 
     #-----------------------------------------------------------------#
 
+    # Set the default directory where the configuration files are
+    # located.
+    ic_dir = defaults.CONFIG_DIRS["recount3"]
+
     # Set a help message.
-    ib_help = "A CSV file used to download samples' data in bulk."
+    ic_help = \
+        "The YAML configuration file selecting the studies and " \
+        "samples the dataset is built from and harmonizing their " \
+        "metadata. If it is a name without an extension, it is " \
+        "assumed to be the name of a configuration file in " \
+        f"'{ic_dir}'."
 
     # Add the argument to the group.
-    input_group.add_argument("-ib", "--input-samples-batches",
+    input_group.add_argument("-ic", "--input-config-file",
                              type = str,
-                             default = None,
-                             help = ib_help)
+                             required = True,
+                             help = ic_help)
 
     #-----------------------------------------------------------------#
 
     # Set a help message.
-    sg_help = \
-        "Save the original GZ file with the RNA-seq data for each " \
-        "batch of samples in the working directory, as " \
-        "'{recount3_project_name}_" \
-        "{recount3_samples_category}_gene_sums.gz'."
+    is_help = \
+        "The Recount3 project the studies belong to. You can " \
+        "choose between: 'GTEx', whose studies are tissues, " \
+        "'TCGA', whose studies are cancer types, and 'SRA', whose " \
+        "studies are SRA projects."
 
     # Add the argument to the group.
-    output_group.add_argument("-sg", "--save-gene-sums",
-                              action = "store_true",
-                              help = sg_help)
-
-    #-----------------------------------------------------------------#
-
-    # Set the help message.
-    sq_help = \
-        "Save the original GZ file with the quality control metrics " \
-        "for each batch of samples in the working directory, as " \
-        "'{recount3_project_name}_" \
-        "{recount3_samples_category}_qc.gz'."
-
-    # Add the argument to the group.
-    output_group.add_argument("-sq", "--save-qc",
-                              action = "store_true",
-                              help = sq_help)
-
-    #-----------------------------------------------------------------#
-
-    # Set a help message.
-    sm_help = \
-        "Save the original GZ file with the metadata for each batch " \
-        "of samples in the working directory, as " \
-        "'{recount3_project_name}_" \
-        "{recount3_samples_category}_metadata.gz'."
-
-    # Add the argument to the group.
-    output_group.add_argument("-sm", "--save-metadata",
-                              action = "store_true",
-                              help = sm_help)
+    input_group.add_argument("-is", "--input-study-name",
+                             type = str,
+                             required = True,
+                             choices = recount3.RECOUNT3_PROJECTS,
+                             help = is_help)
 
     #-----------------------------------------------------------------#
 
     # Set the default value for the argument.
-    n_default = 1
+    ig_default = 29
 
     # Set a help message.
-    n_help = \
-        f"""The number of processes to start. The default number of
-        processes started is {n_default}."""
+    ig_help = \
+        "The GENCODE release the counts were annotated with. You " \
+        "can choose between: '26' and '29'. The default is " \
+        f"'{ig_default}'."
 
     # Add the argument to the group.
-    run_group.add_argument("-n", "--n-proc",
-                           type = int,
-                           default = n_default,
-                           help = n_help)
+    input_group.add_argument(\
+        "-ig", "--input-gencode-release",
+        type = int,
+        default = ig_default,
+        choices = sorted(recount3.RECOUNT3_GENCODE_RELEASES),
+        help = ig_help)
+
+    #-----------------------------------------------------------------#
+
+    # Set a help message.
+    ec_help = \
+        "An existing CSV file of counts to take the metadata's " \
+        "samples from, getting only the studies of the samples it " \
+        "lacks. By default, the counts of all the studies are got."
+
+    # Add the argument to the group.
+    input_group.add_argument("-ec", "--existing-counts",
+                             type = str,
+                             default = None,
+                             help = ec_help)
+
+    #-----------------------------------------------------------------#
+
+    # Set the default value for the argument.
+    oc_default = "counts.csv"
+
+    # Set a help message.
+    oc_help = \
+        "The output CSV file of the read counts, with samples as " \
+        "rows and genes as columns. The default file name is " \
+        f"'{oc_default}'."
+
+    # Add the argument to the group.
+    output_group.add_argument("-oc", "--output-counts",
+                              type = str,
+                              default = oc_default,
+                              help = oc_help)
+
+    #-----------------------------------------------------------------#
+
+    # Set the default value for the argument.
+    om_default = "metadata.csv"
+
+    # Set a help message.
+    om_help = \
+        "The output CSV file of the harmonized metadata, with " \
+        "samples as rows. The default file name is " \
+        f"'{om_default}'."
+
+    # Add the argument to the group.
+    output_group.add_argument("-om", "--output-metadata",
+                              type = str,
+                              default = om_default,
+                              help = om_help)
+
+    #-----------------------------------------------------------------#
+
+    # Set the default value for the argument.
+    occ_default = "counts_columns.txt"
+
+    # Set a help message.
+    occ_help = \
+        "The output plain text file of the counts' columns (the " \
+        "genes), one per line. The default file name is " \
+        f"'{occ_default}'."
+
+    # Add the argument to the group.
+    output_group.add_argument("-occ", "--output-counts-columns",
+                              type = str,
+                              default = occ_default,
+                              help = occ_help)
+
+    #-----------------------------------------------------------------#
+
+    # Set the default value for the argument.
+    omc_default = "metadata_columns.txt"
+
+    # Set a help message.
+    omc_help = \
+        "The output plain text file of the metadata's columns, one " \
+        f"per line. The default file name is '{omc_default}'."
+
+    # Add the argument to the group.
+    output_group.add_argument("-omc", "--output-metadata-columns",
+                              type = str,
+                              default = omc_default,
+                              help = omc_help)
+
+    #-----------------------------------------------------------------#
+
+    # Set the default value for the argument.
+    osi_default = "samples_ids.txt"
+
+    # Set a help message.
+    osi_help = \
+        "The output plain text file of the samples' IDs, one per " \
+        "line, in the counts' order. The default file name is " \
+        f"'{osi_default}'."
+
+    # Add the argument to the group.
+    output_group.add_argument("-osi", "--output-samples-ids",
+                              type = str,
+                              default = osi_default,
+                              help = osi_help)
+
+    #-----------------------------------------------------------------#
+
+    # Set a help message.
+    odc_help = \
+        "The directory of the RNA-seq data files downloaded from " \
+        "Recount3, which are not downloaded again if present. The " \
+        "default is the working directory."
+
+    # Add the argument to the group.
+    output_group.add_argument("-odc", "--output-dir-counts",
+                              type = str,
+                              default = None,
+                              help = odc_help)
+
+    #-----------------------------------------------------------------#
+
+    # Set a help message.
+    odq_help = \
+        "The directory of the QC metadata files downloaded from " \
+        "Recount3, which are not downloaded again if present. The " \
+        "default is the working directory."
+
+    # Add the argument to the group.
+    output_group.add_argument("-odq", "--output-dir-qc",
+                              type = str,
+                              default = None,
+                              help = odq_help)
+
+    #-----------------------------------------------------------------#
+
+    # Set a help message.
+    odm_help = \
+        "The directory of the metadata files downloaded from " \
+        "Recount3 (and, for SRA studies, from ENA, GEO and the SRA " \
+        "Run Selector), which are not downloaded again if present. " \
+        "The default is the working directory."
+
+    # Add the argument to the group.
+    output_group.add_argument("-odm", "--output-dir-metadata",
+                              type = str,
+                              default = None,
+                              help = odm_help)
+
+    #-----------------------------------------------------------------#
+
+    # Set a help message.
+    st_help = \
+        "The studies to take from the configuration file: tissues " \
+        "for GTEx, cancer types for TCGA, or SRA projects' codes " \
+        "for SRA. By default, all of them are taken."
+
+    # Add the argument to the group.
+    run_group.add_argument("-st", "--studies",
+                           type = str,
+                           nargs = "+",
+                           default = None,
+                           help = st_help)
+
+    #-----------------------------------------------------------------#
+
+    # Set a help message.
+    mo_help = "Write only the metadata, without getting the counts."
+
+    # Add the argument to the group.
+    run_group.add_argument("-mo", "--metadata-only",
+                           action = "store_true",
+                           help = mo_help)
+
+    #-----------------------------------------------------------------#
+
+    # Set a help message.
+    se_help = \
+        "Skip the run when every output file it writes already " \
+        "exists. By default, the output files are overwritten."
+
+    # Add the argument to the group.
+    run_group.add_argument("-se", "--skip-existing",
+                           action = "store_true",
+                           help = se_help)
 
     #-----------------------------------------------------------------#
 
@@ -177,7 +362,7 @@ def set_parser() -> argparse.ArgumentParser:
 
 # Define the 'main' function.
 def main(args: argparse.Namespace) -> None:
-    """Get the RNA-seq data for each batch of samples.
+    """Build the dataset and write it out.
 
     Parameters
     ----------
@@ -185,230 +370,252 @@ def main(args: argparse.Namespace) -> None:
         The parsed arguments.
     """
 
-    # Get the argument corresponding to the input file.
-    input_samples_batches = args.input_samples_batches
-
-    # Get the arguments corresponding to the output files.
-    save_gene_sums = args.save_gene_sums
-    save_qc = args.save_qc
-    save_metadata = args.save_metadata
-
     # Get the argument corresponding to the working directory.
     wd = args.work_dir
 
+    # Get the arguments corresponding to the input files.
+    input_config_file = args.input_config_file
+    input_study_name = args.input_study_name
+    input_gencode_release = args.input_gencode_release
+    existing_counts = args.existing_counts
+
+    # Get the arguments corresponding to the output files.
+    output_counts = os.path.join(wd, args.output_counts)
+    output_metadata = os.path.join(wd, args.output_metadata)
+    output_counts_columns = \
+        os.path.join(wd, args.output_counts_columns)
+    output_metadata_columns = \
+        os.path.join(wd, args.output_metadata_columns)
+    output_samples_ids = os.path.join(wd, args.output_samples_ids)
+
+    # Get the arguments corresponding to the download directories (the
+    # working directory if not passed).
+    output_dir_counts, output_dir_qc, output_dir_metadata = \
+        [wd if d is None else os.path.join(wd, d) \
+         for d in (args.output_dir_counts,
+                   args.output_dir_qc,
+                   args.output_dir_metadata)]
+
     # Get the arguments corresponding to the run options.
-    n_proc = args.n_proc
-
-    # Get the logging arguments to pass to each batch's run.
-    log_console = args.log_console
-    v = args.log_verbose
-    vv = args.log_debug
+    studies = args.studies
+    metadata_only = args.metadata_only
+    skip_existing = args.skip_existing
 
     #-----------------------------------------------------------------#
 
-    # Create the local cluster.
-    cluster = LocalCluster(# Set the number of workers.
-                           n_workers = n_proc,
-                           # Silence log messages below ERROR.
-                           silence_logs = "ERROR",
-                           # Use processes instead of threads.
-                           processes = True,
-                           # Use one thread per worker.
-                           threads_per_worker = 1)
+    # Get the files the run writes.
+    output_files = \
+        [output_metadata, output_metadata_columns] + \
+        ([] if metadata_only \
+         else [output_counts,
+               output_counts_columns,
+               output_samples_ids])
 
-    # Open the client from the cluster.
-    client = Client(cluster)
+    # If they all exist and are to be kept
+    if skip_existing \
+    and all(os.path.exists(f) for f in output_files):
+
+        # Inform the user that the run is skipped.
+        infostr = "All output files already exist. Skipping."
+        logger.info(infostr)
+
+        # Return.
+        return
+
+    # For each file the run writes
+    for output_file in output_files:
+
+        # Create its directory if it does not exist.
+        os.makedirs(os.path.dirname(output_file),
+                    exist_ok = True)
 
     #-----------------------------------------------------------------#
 
-    # Try to load the samples' batches.
+    # Try to load the configuration.
     try:
 
-        df = recount3.load_samples_batches(\
-            samples_file = input_samples_batches)
+        config = \
+            ioutil.load_config_recount3(\
+                config_file = input_config_file,
+                project_name = input_study_name)
 
     # If something went wrong
     except Exception as e:
 
         # Warn the user and exit.
         errstr = \
-            "It was not possible to load the samples' batches " \
-            f"from '{input_samples_batches}'. Error: {e}"
+            "It was not possible to load the configuration from " \
+            f"'{input_config_file}'. Error: {e}"
         logger.exception(errstr)
         sys.exit(errstr)
 
-    # Inform the user that the batches were successfully loaded.
+    # Inform the user that the configuration was successfully loaded.
     infostr = \
-        "The samples' batches were successfully loaded from " \
-        f"'{input_samples_batches}'."
+        "The configuration was successfully loaded from " \
+        f"'{input_config_file}'."
     logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
-    # Create a list to store the futures.
-    futures = []
+    # Try to get the metadata.
+    try:
 
-    # Create a set to store the names of the output/log files.
-    output_names = set()
+        df_metadata = \
+            recount3.get_dataset_metadata(\
+                config = config,
+                project_name = input_study_name,
+                wd_metadata = output_dir_metadata,
+                samples_categories = studies)
 
-    # For each row of the data frame containing the samples' batches
-    for num_batch, row in enumerate(df.itertuples(index = False), 1):
+    # If something went wrong
+    except Exception as e:
 
-        # Get the name of the project.
-        project_name = row.recount3_project_name
+        # Warn the user and exit.
+        errstr = \
+            "It was not possible to get the dataset's metadata. " \
+            f"Error: {e}"
+        logger.exception(errstr)
+        sys.exit(errstr)
 
-        # Get the samples' category.
-        samples_category = row.recount3_samples_category
-
-        #-------------------------------------------------------------#
-
-        # Get the overall name for the output/log files.
-        output_name = f"{project_name}_{samples_category}"
-
-        # Set a counter to make the name unique.
-        counter = 1
-
-        # While the name already exists
-        while output_name in output_names:
-
-            # Add the counter to the name.
-            output_name = \
-                f"{project_name}_{samples_category}_{counter}"
-
-            # Update the counter.
-            counter += 1
-
-        # Add the name to the set of names.
-        output_names.add(output_name)
-
-        #-------------------------------------------------------------#
-
-        # Get the name of the output file.
-        output_csv_name = f"{output_name}.csv"
-
-        # Get the path to the output file.
-        output_csv_path = os.path.join(wd, output_csv_name)
-
-        # Inform the user that the results will be written to the
-        # specified output file.
-        infostr = \
-            f"The results for batch # {num_batch} ('{project_name}' " \
-            f"project, '{samples_category}' samples) will be " \
-            f"written in '{output_csv_path}'."
-        logger.info(infostr)
-
-        #-------------------------------------------------------------#
-
-        # Get the name of the log file.
-        log_file_name = f"{output_name}.log"
-
-        # Get the path to the log file.
-        log_file_path = os.path.join(wd, log_file_name)
-
-        # Inform the user about the log file for the current batch
-        # of samples.
-        infostr = \
-            f"The log messages for batch # {num_batch} " \
-            f"('{project_name}' project, '{samples_category}' " \
-            f"samples) will be written in '{log_file_path}'."
-        logger.info(infostr)
-
-        #-------------------------------------------------------------#
-
-        # Set the arguments for the batch's run.
-        args = \
-            ["-ip", str(project_name),
-             "-is", str(samples_category),
-             "-os", output_csv_path,
-             "-d", wd,
-             "-lf", log_file_path]
-
-        # If the user wants to save the original 'gene_sums' files
-        if save_gene_sums:
-
-            # Add the option for it to the list of arguments.
-            args.append("-sg")
-
-        # If the user wants to save the original 'qc' files
-        if save_qc:
-
-            # Add the option for it to the list of arguments.
-            args.append("-sq")
-
-        # If the user wants to save the original 'metadata' files
-        if save_metadata:
-
-            # Add the option for it to the list of arguments.
-            args.append("-sm")
-
-        # If the user requested logging to the console
-        if log_console:
-
-            # Add the option for it to the list of arguments.
-            args.append("-lc")
-
-        # If the user requested verbose logging
-        if v:
-
-            # Add the option for it to the list of arguments.
-            args.append("-v")
-
-        # If the user requested debug-level logging
-        if vv:
-
-            # Add the option for it to the list of arguments.
-            args.append("-vv")
-
-        #-------------------------------------------------------------#
-
-        # Submit the calculation.
-        futures.append(\
-            client.submit(\
-                util.run_executable,
-                executable = "_bulkdgd_get_recount3_single_batch",
-                arguments = args,
-                extra_return_values = [num_batch, log_file_path]))
+    # Inform the user that the metadata were successfully generated.
+    infostr = \
+        f"The metadata of {len(df_metadata):,} samples were " \
+        "successfully generated."
+    logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
-    # Get the futures as they are completed.
-    for _, result in as_completed(futures,
-                                  with_results = True):
+    # Try to write the metadata and their columns.
+    try:
 
-        # Get the process, the batch number and the log file from the
-        # current future.
-        process, num_batch, log_file_path = result
+        # Write the metadata.
+        recount3.save_dataset_metadata(df = df_metadata,
+                                       csv_file = output_metadata)
 
-        # Check the process' return code.
+        # Write the metadata's columns.
+        with open(output_metadata_columns, "w") as out:
+            out.write("\n".join(map(str, df_metadata.columns)))
+
+    # If something went wrong
+    except Exception as e:
+
+        # Warn the user and exit.
+        errstr = \
+            "It was not possible to write the metadata in " \
+            f"'{output_metadata}' and their columns in " \
+            f"'{output_metadata_columns}'. Error: {e}"
+        logger.exception(errstr)
+        sys.exit(errstr)
+
+    # Inform the user that the metadata were successfully written.
+    infostr = \
+        "The metadata were successfully written in " \
+        f"'{output_metadata}' and their columns in " \
+        f"'{output_metadata_columns}'."
+    logger.info(infostr)
+
+    #-----------------------------------------------------------------#
+
+    # If only the metadata are written
+    if metadata_only:
+
+        # Return.
+        return
+
+    #-----------------------------------------------------------------#
+
+    # Initialize the existing counts.
+    df_counts_existing = None
+
+    # If an existing file of counts was passed
+    if existing_counts is not None:
+
+        # Try to load the existing counts.
         try:
 
-            process.check_returncode()
+            df_counts_existing = \
+                pd.read_csv(existing_counts,
+                            sep = ",",
+                            header = 0,
+                            index_col = 0,
+                            low_memory = False)
 
         # If something went wrong
         except Exception as e:
 
-            # Log the error.
+            # Warn the user and exit.
             errstr = \
-                f"The run for batch # {num_batch} failed. Please " \
-                f"check the log file '{log_file_path}' for " \
-                f"more details. Error: {e}"
-            logger.error(errstr)
+                "It was not possible to load the existing counts " \
+                f"from '{existing_counts}'. Error: {e}"
+            logger.exception(errstr)
+            sys.exit(errstr)
 
-            # Go to the next future.
-            continue
-
-        # Inform the user that the run completed successfully.
+        # Inform the user that the existing counts were loaded.
         infostr = \
-            f"The run for batch # {num_batch} completed successfully."
+            "The existing counts were successfully loaded from " \
+            f"'{existing_counts}'."
         logger.info(infostr)
 
     #-----------------------------------------------------------------#
 
-    # Close the client.
-    client.close()
+    # Try to get the counts.
+    try:
 
-    # Close the cluster.
-    cluster.close()
+        df_counts = \
+            recount3.get_dataset_counts(\
+                df_metadata = df_metadata,
+                project_name = input_study_name,
+                gencode_release = input_gencode_release,
+                wd_gene_sums = output_dir_counts,
+                wd_qc = output_dir_qc,
+                df_counts_existing = df_counts_existing)
+
+    # If something went wrong
+    except Exception as e:
+
+        # Warn the user and exit.
+        errstr = \
+            "It was not possible to get the dataset's counts. " \
+            f"Error: {e}"
+        logger.exception(errstr)
+        sys.exit(errstr)
+
+    #-----------------------------------------------------------------#
+
+    # Try to write the counts, their columns and the samples' IDs.
+    try:
+
+        # Write the counts.
+        recount3.save_dataset_counts(df = df_counts,
+                                     csv_file = output_counts)
+
+        # Write the counts' columns.
+        with open(output_counts_columns, "w") as out:
+            out.write("\n".join(map(str, df_counts.columns)))
+
+        # Write the samples' IDs, in the counts' order.
+        with open(output_samples_ids, "w") as out:
+            out.write("\n".join(df_counts.index.astype(str)))
+
+    # If something went wrong
+    except Exception as e:
+
+        # Warn the user and exit.
+        errstr = \
+            "It was not possible to write the counts in " \
+            f"'{output_counts}', their columns in " \
+            f"'{output_counts_columns}' and the samples' IDs in " \
+            f"'{output_samples_ids}'. Error: {e}"
+        logger.exception(errstr)
+        sys.exit(errstr)
+
+    # Inform the user that the counts were successfully written.
+    infostr = \
+        f"The counts of {len(df_counts):,} samples were " \
+        f"successfully written in '{output_counts}', their " \
+        f"columns in '{output_counts_columns}' and the samples' " \
+        f"IDs in '{output_samples_ids}'."
+    logger.info(infostr)
 
 
 #######################################################################

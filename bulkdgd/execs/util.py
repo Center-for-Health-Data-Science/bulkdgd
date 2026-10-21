@@ -537,12 +537,10 @@ def add_wd_and_logging_arguments(parser: argparse.ArgumentParser,
 
     #-----------------------------------------------------------------#
 
-    # If the command is not 'bulkdgd_dea', 'bulkdgd_get_recount3' or
-    # '_get_recount3_single_batch'
+    # If the command is not 'bulkdgd_dea' or 'bulkdgd_get_recount3'
     if command_name not in \
         ("bulkdgd_dea",
-         "bulkdgd_get_recount3",
-         "_get_recount3_single_batch"):
+         "bulkdgd_get_recount3"):
 
         # Add a group of arguments for the parallelization.
         parallel_group = \
@@ -626,8 +624,7 @@ def set_main_logging(args: argparse.Namespace,
     #-----------------------------------------------------------------#
 
     # If the command uses Dask for parallelization
-    if command_name in \
-        ("bulkdgd_dea", "bulkdgd_get_recount3"):
+    if command_name == "bulkdgd_dea":
 
         # Get the logging configuration for Dask.
         dask_logging_config = \

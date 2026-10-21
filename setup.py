@@ -139,7 +139,7 @@ entry_points = \
          "bulkdgd_get_genes = " \
          f"{name}.execs.bulkdgd_get_genes:entry_point",
 
-         # Get Recount3 data.
+         # Build datasets from Recount3 studies.
          "bulkdgd_get_recount3 = " \
          f"{name}.execs.bulkdgd_get_recount3:entry_point",
 
@@ -181,11 +181,7 @@ entry_points = \
 
          # Train the model.
          "bulkdgd_train = " \
-         f"{name}.execs.bulkdgd_train:entry_point",
-
-         # Private executables, not called directly by users
-         "_bulkdgd_get_recount3_single_batch = " \
-         f"{name}.execs._bulkdgd_get_recount3_single_batch:main",],
+         f"{name}.execs.bulkdgd_train:entry_point"],
     }
 
 # Set any required dependencies.
