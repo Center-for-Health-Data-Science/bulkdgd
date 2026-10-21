@@ -61,6 +61,29 @@ from . import defaults
 logger = log.getLogger(__name__)
 
 
+########################## PRIVATE FUNCTIONS ##########################
+
+
+def _to_strings(df: pd.DataFrame) -> pd.DataFrame:
+    """Convert a data frame's values to strings, with the missing
+    values as ``"nan"``.
+
+    Parameters
+    ----------
+    df : :class:`pandas.DataFrame`
+        The data frame.
+
+    Returns
+    -------
+    df : :class:`pandas.DataFrame`
+        The data frame with all values as strings.
+    """
+
+    # Return the values as strings (pandas 3 keeps missing values as
+    # missing in 'astype(str)').
+    return df.astype(object).fillna("nan").astype(str)
+
+
 ########################## PUBLIC FUNCTIONS ###########################
 
 
@@ -639,7 +662,7 @@ def get_metadata(project_name: str,
 
             # Convert all the columns to strings (missing values become
             # 'nan').
-            df_metadata = df_metadata.astype(str)
+            df_metadata = _to_strings(df_metadata)
 
     #-----------------------------------------------------------------#
 
