@@ -1,0 +1,153 @@
+# Configuration file selecting TCGA studies (cancer types) and samples
+# and harmonizing their metadata.
+
+
+#######################################################################
+
+
+# Set the cancer types to take.
+#
+# Type: list of str.
+studies:
+  - "ACC"
+  - "CHOL"
+
+
+#######################################################################
+
+
+# Set the query selecting the samples, on the columns of the Recount3
+# metadata.
+#
+# Type: str.
+query_string: "`cgc_sample_sample_type` != 'Metastatic'"
+
+
+#######################################################################
+
+
+# Set the columns split at separators into new columns, named after
+# the separators.
+#
+# Type: dict.
+metadata_to_process:
+  xml_primary_pathology_weiss_assessment_report:
+    columns:
+      ? "nuclear grade III or IV"
+      : "subject_status_weiss_nuclear_grade_III_or_IV"
+      ? "necrosis"
+      : "subject_status_weiss_necrosis"
+      ? "venous invasion"
+      : "subject_status_weiss_venous_invasion"
+    separators:
+      - "1Nuclear Grade III or IV"
+      - "2Nuclear Grade III or IV"
+      - "3Nuclear Grade III or IV"
+      - "4Nuclear Grade III or IV"
+      - "5Nuclear Grade III or IV"
+      - "6Nuclear Grade III or IV"
+      - "7Nuclear Grade III or IV"
+      - "8Nuclear Grade III or IV"
+      - "9Nuclear Grade III or IV"
+      - "Mitotic Rate > 5/50 HPF"
+      - "Atypical Mitotic Figures"
+      - "Cytoplasm presence <= 25%"
+      - "Diffuse Architecture"
+      - "Necrosis"
+      - "Venous Invasion"
+      - "Sinusoid Invasion"
+      - "Invasion of Tumor Capsule"
+
+
+#######################################################################
+
+
+# Set the new columns built from other columns.
+#
+# Type: dict.
+metadata_to_merge:
+
+  # The patients' IDs, taken from the barcodes where missing.
+  subject_identifier_TCGA_id:
+    columns_to_merge:
+      - "xml_patient_id"
+      - column: "tcga_barcode"
+        pattern: "^TCGA-[A-Z0-9]{2}-([A-Z0-9]{4})"
+
+  # The same IDs, numbered from 1.
+  subject_identifier_numeric_id:
+    columns_to_merge:
+      - "xml_patient_id"
+      - column: "tcga_barcode"
+        pattern: "^TCGA-[A-Z0-9]{2}-([A-Z0-9]{4})"
+    serial: true
+
+  # The patients' ages, from the first column having them.
+  subject_demographics_age_years:
+    columns_to_merge:
+      - "cgc_case_age_at_diagnosis"
+      - "xml_primary_pathology_age_at_initial_pathologic_diagnosis"
+
+  # The pathologic stage and the residual tumor, joined.
+  subject_status_main_condition_pathology_results:
+    columns_to_join:
+      - column: "xml_stage_event_pathologic_stage"
+        prefix: "pathologic stage"
+      - column: "xml_primary_pathology_residual_tumor"
+        mapping:
+          "R0": "no residual tumor"
+          "R1": "microscopic residual tumor"
+          "R2": "macroscopic residual tumor"
+          "RX": "residual tumor not assessed"
+    separator: "|"
+
+
+#######################################################################
+
+
+# Set the columns to keep, mapped to their new names.
+#
+# Type: dict.
+metadata_to_keep:
+  tcga_barcode: "sample_identifier_TCGA_barcode"
+  cgc_sample_sample_type: "sample_status_type"
+  cgc_case_gender: "subject_demographics_gender"
+
+
+#######################################################################
+
+
+# Set the columns whose values are lowercased.
+#
+# Type: list of str.
+mapping_to_lower:
+  - "cgc_case_gender"
+
+
+#######################################################################
+
+
+# Set the columns' old values mapped to new values.
+#
+# Type: dict.
+mapping:
+  cgc_sample_sample_type:
+    "Primary Tumor": "primary tumor"
+    "Solid Tissue Normal": "adjacent normal"
+
+
+#######################################################################
+
+
+# Set the columns to add, each mapping queries to the values of the
+# samples they match ('_all_' for all samples, '_other_' for those no
+# query matched).
+#
+# Type: dict.
+metadata_to_add:
+  sample_collection_is_adjacent_normal:
+    "`cgc_sample_sample_type` == 'Solid Tissue Normal'": "yes"
+    _other_: "no"
+  subject_status_main_condition:
+    "`study` == 'ACC'": "adrenal cancer"
+    "`study` == 'CHOL'": "bile duct cancer"

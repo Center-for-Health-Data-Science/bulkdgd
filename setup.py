@@ -115,6 +115,7 @@ package_data = \
          # Each member's configuration and training seeds
          "configs/model/*/*.yaml",
          "configs/plotting/*.yaml",
+         "configs/recount3/*.yaml",
          "configs/representations/*.yaml",
          "configs/training/*.yaml",
          # Data files

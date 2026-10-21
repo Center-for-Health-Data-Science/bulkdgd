@@ -1,0 +1,75 @@
+# Configuration file selecting GTEx studies (tissues) and samples and
+# harmonizing their metadata.
+
+
+#######################################################################
+
+
+# Set the tissues to take.
+#
+# Type: list of str.
+studies:
+  - "BLADDER"
+  - "CERVIX_UTERI"
+  - "KIDNEY"
+
+
+#######################################################################
+
+
+# Set the query selecting the samples, on the columns of the Recount3
+# metadata.
+#
+# Type: str.
+query_string: >-
+  `SMTSD` not in ['Cells - EBV-transformed lymphocytes',
+  'Cells - Cultured fibroblasts']
+
+
+#######################################################################
+
+
+# Set the columns to keep, mapped to their new names.
+#
+# Type: dict.
+metadata_to_keep:
+  run_acc: "sample_identifier_run_accession_code"
+  SAMPID: "sample_identifier_GTEx_id"
+  SUBJID: "subject_identifier_GTEx_id"
+  SEX: "subject_demographics_sex"
+  AGE: "subject_demographics_age_bin_10_years"
+  SMRIN: "sample_sequencing_RNA_integrity_number"
+
+
+#######################################################################
+
+
+# Set the columns' old values (as text) mapped to new values.
+#
+# Type: dict.
+mapping:
+  SEX:
+    "1": "male"
+    "2": "female"
+
+
+#######################################################################
+
+
+# Set the columns to add, each mapping queries to the values of the
+# samples they match ('_all_' for all samples, '_other_' for those no
+# query matched).
+#
+# Type: dict.
+metadata_to_add:
+  sample_organ_or_tissue:
+    "`SMTS` == 'Bladder'": "bladder"
+    "`SMTS` == 'Cervix Uteri'": "cervix uteri"
+    "`SMTS` == 'Kidney'": "kidney"
+  sample_organ_or_tissue_region:
+    "`SMTSD` == 'Cervix - Ectocervix'": "ectocervix"
+    "`SMTSD` == 'Cervix - Endocervix'": "endocervix"
+    "`SMTSD` == 'Kidney - Cortex'": "kidney cortex"
+    "`SMTSD` == 'Kidney - Medulla'": "kidney medulla"
+  subject_status_main_condition:
+    _all_: "healthy control"

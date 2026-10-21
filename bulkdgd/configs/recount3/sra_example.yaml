@@ -1,0 +1,139 @@
+# Configuration file selecting SRA studies and samples and harmonizing
+# their metadata. Each study's options are under its SRA code.
+
+
+#######################################################################
+
+
+# Set the options of the study SRP114904.
+SRP114904:
+
+  # Set the study-level metadata, added to all samples.
+  #
+  # Type: dict.
+  metadata_study:
+    study_bioproject_code: "PRJNA397328"
+    study_publication_doi: "10.1002/path.4980"
+
+  # Set the columns to keep, mapped to their new names.
+  #
+  # Type: dict.
+  metadata_to_keep:
+    age: "subject_demographics_age_years"
+    isolate: "subject_identifier_numeric_id"
+    sex: "subject_demographics_sex"
+    tissue: "sample_organ_or_tissue"
+
+  # Set the columns' old values mapped to new values.
+  #
+  # Type: dict.
+  mapping:
+    tissue:
+      "Normal Prostate": "prostate"
+      "Prostate Cancer": "prostate"
+
+  # Set the columns to add, each mapping queries to the values of the
+  # samples they match ('_all_' for all samples, '_other_' for those
+  # no query matched).
+  #
+  # Type: dict.
+  metadata_to_add:
+    sample_collection_is_adjacent_normal:
+      "`tissue` == 'Normal Prostate'": "yes"
+    subject_status_main_condition:
+      _all_: "prostate cancer"
+
+
+#######################################################################
+
+
+# Set the options of the study SRP151026.
+SRP151026:
+
+  # Set the study-level metadata, added to all samples.
+  #
+  # Type: dict.
+  metadata_study:
+    study_geo_code: "GSE116111"
+    study_bioproject_code: "PRJNA477296"
+    study_publication_doi: "10.1186/s12920-019-0578-4"
+
+  # Set the query selecting the samples, on the columns of the Recount3
+  # metadata.
+  #
+  # Type: str.
+  query_string: "`biomaterial_type` != 'cell line'"
+
+  # Set the columns to keep, mapped to their new names.
+  #
+  # Type: dict.
+  metadata_to_keep:
+    patient: "subject_identifier_numeric_id"
+
+  # Set the columns to add, each mapping queries to the values of the
+  # samples they match ('_all_' for all samples, '_other_' for those
+  # no query matched).
+  #
+  # Type: dict.
+  metadata_to_add:
+    sample_collection_is_adjacent_normal:
+      "`source_name` == 'Normal skin'": "yes"
+      _other_: "no"
+    sample_organ_or_tissue:
+      _all_: "skin"
+    subject_demographics_gender:
+      "`patient` == 'Patient2'": "female"
+      "`patient` == 'Patient4'": "female"
+      "`patient` == 'Patient6'": "male"
+    subject_status_main_condition:
+      _all_: "skin cancer"
+
+  # Set the columns' values numbered from 1, in the order given.
+  #
+  # Type: dict.
+  serial_mapping:
+    patient:
+      - "Patient2"
+      - "Patient4"
+      - "Patient6"
+
+
+#######################################################################
+
+
+# Set the options of the study SRP042623.
+SRP042623:
+
+  # Set the study-level metadata, added to all samples.
+  #
+  # Type: dict.
+  metadata_study:
+    study_geo_code: "GSE58150"
+    study_bioproject_code: "PRJNA251404"
+    study_publication_doi: "10.1016/j.ajhg.2014.06.003"
+
+  # Set the columns to keep, mapped to their new names.
+  #
+  # Type: dict.
+  metadata_to_keep:
+    tissue: "sample_organ_or_tissue"
+    gender: "subject_demographics_gender"
+    sample_group: "subject_status_main_condition"
+
+  # Set the columns' old values mapped to new values.
+  #
+  # Type: dict.
+  mapping:
+    tissue:
+      "peripheral blood": "blood"
+    sample_group:
+      "control": "healthy control"
+      "coronary artery calcification case": >-
+        coronary artery calcification
+
+  # Set the columns of the study's GEO series to keep, mapped to their
+  # new names (the samples are matched by title).
+  #
+  # Type: dict.
+  metadata_to_keep_geo:
+    "age (yrs)": "subject_demographics_age_years"
