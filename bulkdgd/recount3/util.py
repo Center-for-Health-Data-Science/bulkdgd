@@ -241,17 +241,8 @@ def get_gene_sums(project_name: str,
             "The RNA-seq data will be read from this file."
         logger.info(infostr)
 
-        # Read the file content into a data frame, with the samples as
-        # rows.
-        df_gene_sums = pd.read_csv(f_gene_sums_path,
-                                   sep = "\t",
-                                   skiprows = 2,
-                                   index_col = 0,
-                                   compression = "gzip",
-                                   low_memory = False).T
-
-        # Return the data frame.
-        return df_gene_sums
+        # Read the data from the file.
+        source = f_gene_sums_path
 
     #-----------------------------------------------------------------#
 
@@ -268,19 +259,15 @@ def get_gene_sums(project_name: str,
                 samples_category,
                 gencode_release)
 
-        # Read the data frame from the URL.
-        df_gene_sums = pd.read_csv(gene_sums_url,
-                                   sep = "\t",
-                                   skiprows = 2,
-                                   index_col = 0,
-                                   compression = "gzip",
-                                   low_memory = False).T
+        # Read the data from the URL.
+        source = gene_sums_url
 
         # If the user wants to save the original file
         if save_gene_sums:
 
-            # Get the response.
+            # Get the response, failing on an HTTP error.
             gene_sums = rq.get(gene_sums_url)
+            gene_sums.raise_for_status()
 
             # Open a new file.
             with open(f_gene_sums_path, "wb") as f:
@@ -294,7 +281,18 @@ def get_gene_sums(project_name: str,
                     f"in '{f_gene_sums_path}'."
                 logger.info(infostr)
 
+            # Read the data from the saved file.
+            source = f_gene_sums_path
+
     #-----------------------------------------------------------------#
+
+    # Read the data into a data frame, with the samples as rows.
+    df_gene_sums = pd.read_csv(source,
+                               sep = "\t",
+                               skiprows = 2,
+                               index_col = 0,
+                               compression = "gzip",
+                               low_memory = False).T
 
     # Rename the index.
     df_gene_sums = df_gene_sums.rename_axis("external_id")
@@ -374,15 +372,8 @@ def get_qc(project_name: str,
             "The QC metadata will be read from this file."
         logger.info(infostr)
 
-        # Read the file content into a data frame.
-        df_qc = pd.read_csv(f_qc_path,
-                            sep = "\t",
-                            compression = "gzip",
-                            low_memory = False,
-                            index_col = "external_id")
-
-        # Return the data frame.
-        return df_qc
+        # Read the data from the file.
+        source = f_qc_path
 
     #-----------------------------------------------------------------#
 
@@ -398,18 +389,15 @@ def get_qc(project_name: str,
                 project_name.lower(),
                 samples_category)
 
-        # Read the data frame from the URL.
-        df_qc = pd.read_csv(qc_url,
-                            sep = "\t",
-                            compression = "gzip",
-                            low_memory = False,
-                            index_col = "external_id")
+        # Read the data from the URL.
+        source = qc_url
 
         # If the user wants to save the original file
         if save_qc:
 
-            # Get the QC metadata.
+            # Get the QC metadata, failing on an HTTP error.
             qc = rq.get(qc_url)
+            qc.raise_for_status()
 
             # Open a new file.
             with open(f_qc_path, "wb") as f:
@@ -423,7 +411,17 @@ def get_qc(project_name: str,
                     f"in '{f_qc_path}'."
                 logger.info(infostr)
 
+            # Read the data from the saved file.
+            source = f_qc_path
+
     #-----------------------------------------------------------------#
+
+    # Read the data into a data frame.
+    df_qc = pd.read_csv(source,
+                        sep = "\t",
+                        compression = "gzip",
+                        low_memory = False,
+                        index_col = "external_id")
 
     # Return the data frame.
     return df_qc
@@ -647,15 +645,6 @@ def get_metadata(project_name: str,
 
     # If the user wants to save the metadata
     if save_metadata:
-
-        # If the file already exists in the working directory
-        if os.path.exists(f_metadata_path):
-
-            # Inform the user that the file will be overwritten.
-            infostr = \
-                f"The metadata file '{f_metadata_name}' will " \
-                f"be overwritten in '{wd}'."
-            logger.info(infostr)
 
         # Write the data frame to the output file.
         save_table(df_metadata,
