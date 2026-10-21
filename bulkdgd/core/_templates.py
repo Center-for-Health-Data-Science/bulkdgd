@@ -964,36 +964,6 @@ _TRAIN_LGMM = {
 #---------------------------------------------------------------------#
 
 
-# Set the template for the options for the per-sample training
-# diagnostics.
-_TRAIN_DIAGNOSTICS = {
-
-    # The section is optional.
-    "__optional__" : True,
-
-    # Whether to record each sample's contribution to the decoder's
-    # gradient norm, once per epoch.
-    "per_sample_grad_norm" : {
-        "type": (bool,),
-        "default": False,
-        },
-
-    # The interval (in epochs) at which to save the decoder's state
-    # (0 disables it).
-    "checkpoint_every" : {
-        "type": (int,),
-        "default": 0,
-        },
-
-    # Where the per-epoch records and the checkpoints are written,
-    # relative to the model's working directory.
-    "output_dir" : {
-        "type": (str,),
-        "default": "diagnostics",
-        },
-    }
-
-
 # Set the template for the options for fitting the Gaussian mixture
 # model that describes the latent space after training.
 _TRAIN_GMM_FINAL = {
@@ -1467,12 +1437,6 @@ _LOSS_OPTIONS = {
             "choices": \
                 ["none", "n_samples", "n_samples * latent_dim"],
             "default": "n_samples"},
-        "lambda" : {
-            "type": (float, int),
-            "condition": lambda v: v >= 0,
-            "message": "must be a non-negative number",
-            "default": 1.0,
-            },
         },
 
     # The options for the normalization of the loss for the decoder.
@@ -1690,12 +1654,6 @@ _REP_OPTIMIZATION = {
         "default": 50,
         },
 
-    # Whether to use automatic learning rate for the optimization.
-    "auto_lr" : {
-        "type": (bool,),
-        "default": False,
-        },
-
     # The type of noise to add to the representations while they are
     # being optimized.
     "noise_type" : {
@@ -1756,8 +1714,8 @@ _REP_OPTIMIZATION = {
             },
         },
 
-    # The options for the optimizer.
-    **_override_items(
+    # The options for the optimizer (no gradient clipping here).
+    **{k : v for k, v in _override_items(
         d = _OPTIMIZER,
         paths2values = \
             {("optimizer_options",
@@ -1772,7 +1730,7 @@ _REP_OPTIMIZATION = {
                 "adamw",
                 "lr",
                 "default") : 0.01,
-            }),
+            }).items() if k != "grad_clipping_max_norm"},
     }
 
 
@@ -2017,15 +1975,6 @@ CONFIG_TRAIN = {
     # The options for fitting the Gaussian mixture model to the
     # representations after training.
     "gmm_final_training_options" : _TRAIN_GMM_FINAL,
-
-    # The options for the per-sample training diagnostics.
-    "training_diagnostics" : _TRAIN_DIAGNOSTICS,
-
-    # Where to write the per-epoch learning rates, indexed by epoch.
-    "output_lr_file" : {
-        "type": (str, type(None)),
-        "default": None,
-        },
 
     # The options for the decoder in the training configuration.
     "decoder_training_options" : _TRAIN_DECODER,

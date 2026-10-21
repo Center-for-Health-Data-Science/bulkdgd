@@ -100,8 +100,6 @@ The options that can be specified are described below.
             * ``"n_samples"``, which normalizes the loss by the number of samples in the batch. This is the default value if not specified.
 
             * ``"n_samples * latent_dim"``, which normalizes the loss by the number of samples times the latent dimension.
-
-         * ``"lambda"`` is the weight to use for the latent space loss. This is a non-negative float that defaults to ``1.0``.
       
       * ``"decoder"`` is a dictionary of options for the reconstruction loss. It can contain the following options:
       
