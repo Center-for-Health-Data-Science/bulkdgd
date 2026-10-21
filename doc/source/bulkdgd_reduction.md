@@ -117,8 +117,8 @@ bulkdgd_reduction_umap [-h] -id INPUT_DATA [-im INPUT_MODEL] [-ic INPUT_COLUMNS]
 | ------------------------- | ------------------------------------------------------------ |
 | `-lf`, `--log-file`       | The name of the log file. The default file name depends on the selected executable. |
 | `-lc`, `--log-console`    | Show log messages also on the console. |
-| `-v`, `--logging-verbose` | Enable verbose logging (INFO level). |
-| `-vv`, `--logging-debug`  | Enable maximally verbose logging for debugging purposes (DEBUG level). |
+| `-v`, `--log-verbose`     | Enable verbose logging (INFO level). |
+| `-vv`, `--log-debug`      | Enable maximally verbose logging for debugging purposes (DEBUG level). |
 
 ### Parallelization options
 

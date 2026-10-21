@@ -36,27 +36,15 @@ __doc__ = \
 #######################################################################
 
 
-# A template is a dictionary mapping each option to its specification:
-#
-# - "type": the types the value can have.
-# - "required": whether the option must be present.
-# - "condition"/"message": a check on the value and its error message.
-# - "section": the template a dictionary value must follow.
-# - "keys"/"values": the types of a free dictionary's keys and the
-#   specification of its values.
-# - "items": the specification of a list's items.
-
-
-#######################################################################
-
-
 # Set the types of a value in the metadata.
 _SCALAR = (str, int, float, bool, type(None))
 
 # Set the types of a metadata value used as a key.
 _SCALAR_KEY = (str, int, float, bool)
 
+
 #---------------------------------------------------------------------#
+
 
 # Set the specification of a list of strings.
 _STRINGS = {
@@ -72,7 +60,9 @@ _VALUES_MAPPING = {
     "values" : {"type" : _SCALAR},
     }
 
+
 #---------------------------------------------------------------------#
+
 
 # Set the specification of the studies to take.
 _STUDIES = {
@@ -152,7 +142,9 @@ _PROCESS_COLUMN = {
         },
     }
 
+
 #---------------------------------------------------------------------#
+
 
 # Set the template for a column joined into a new column (TCGA).
 _JOIN_COLUMN = {
@@ -192,7 +184,7 @@ _MERGE_COLUMN = {
         "required" : True,
         },
 
-    # The pattern whose first group is taken.
+    # The regular expression whose first group is taken.
     "pattern" : {
         "type" : (str,),
         "required" : True,
@@ -228,7 +220,7 @@ _MERGED_COLUMN = {
     # The merged values mapped to new values.
     "mapping" : _VALUES_MAPPING,
 
-    # Whether to number the merged values from 1.
+    # Whether to number the merged values from 1, in sorted order.
     "serial" : {
         "type" : (bool,),
         },
@@ -253,21 +245,23 @@ _FROM_STUDY = {
             },
         },
 
-    # How the runs were matched (a note).
+    # A note on how the runs were matched.
     "matched_on" : {
         "type" : (str,),
         },
 
-    # Where the values come from (a note).
+    # A note on where the values come from.
     "source" : {
         "type" : (str,),
         },
 
-    # The columns the values are for (a note).
+    # A note on the columns the values are for.
     "fields" : _STRINGS,
     }
 
+
 #---------------------------------------------------------------------#
+
 
 # Set the template for an SRA study's options.
 CONFIG_SRA_STUDY = {
@@ -328,7 +322,7 @@ CONFIG_SRA_STUDY = {
             },
         },
 
-    # The columns whose values are numbered from 1, in order.
+    # The columns whose values are numbered from 1, in the order given.
     "serial_mapping" : {
         "type" : (dict,),
         "keys" : (str,),
@@ -372,7 +366,9 @@ CONFIG_GTEX = {
     "metadata_to_add" : _METADATA_TO_ADD,
     }
 
+
 #---------------------------------------------------------------------#
+
 
 # Set the template for a TCGA dataset's configuration.
 CONFIG_TCGA = {

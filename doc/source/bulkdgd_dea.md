@@ -108,8 +108,8 @@ samples and 14895 genes, at the default resolution:
 | ------------------------- | ------------------------------------------------------------ |
 | `-lf`, `--log-file`       | The name of the log file. The file will be written in the working directory. The default file name is `bulkdgd_dea.log`. |
 | `-lc`, `--log-console`    | Show log messages also on the console.                       |
-| `-v`, `--logging-verbose` | Enable verbose logging (INFO level).                         |
-| `-vv`, `--logging-debug`  | Enable maximally verbose logging for debugging purposes (DEBUG level). |
+| `-v`, `--log-verbose`     | Enable verbose logging (INFO level).                         |
+| `-vv`, `--log-debug`      | Enable maximally verbose logging for debugging purposes (DEBUG level). |
 
 ## Example
 

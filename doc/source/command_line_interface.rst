@@ -21,7 +21,7 @@ It also provides a command-line interface for some of the most common tasks bulk
 
 The interface consists of executables installed together with the package:
 
-* :doc:`bulkdgd_get_recount3 <bulkdgd_get_recount3>` builds a dataset of RNA-seq counts and harmonized metadata from studies hosted on the Recount3 platform.
+* :doc:`bulkdgd_get_recount3 <bulkdgd_get_recount3>` builds a dataset of RNA-seq read counts and harmonized metadata from studies hosted on the Recount3 platform.
 
 * :doc:`bulkdgd_get_genes <bulkdgd_get_genes>` creates custom lists of genes to use with the bulkdgd model.
 

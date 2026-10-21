@@ -24,7 +24,7 @@ SRP114904:
     sex: "subject_demographics_sex"
     tissue: "sample_organ_or_tissue"
 
-  # Set the columns' old values mapped to new values.
+  # Set the columns' old values (as text) mapped to new values.
   #
   # Type: dict.
   mapping:
@@ -88,7 +88,8 @@ SRP151026:
     subject_status_main_condition:
       _all_: "skin cancer"
 
-  # Set the columns' values numbered from 1, in the order given.
+  # Set the columns' values, each replaced by its position in the list,
+  # from 1.
   #
   # Type: dict.
   serial_mapping:
@@ -120,7 +121,7 @@ SRP042623:
     gender: "subject_demographics_gender"
     sample_group: "subject_status_main_condition"
 
-  # Set the columns' old values mapped to new values.
+  # Set the columns' old values (as text) mapped to new values.
   #
   # Type: dict.
   mapping:
@@ -131,8 +132,8 @@ SRP042623:
       "coronary artery calcification case": >-
         coronary artery calcification
 
-  # Set the columns of the study's GEO series to keep, mapped to their
-  # new names (the samples are matched by title).
+  # Set the columns of the study's GEO series ('study_geo_code') to
+  # keep, mapped to their new names (the samples are matched by title).
   #
   # Type: dict.
   metadata_to_keep_geo:

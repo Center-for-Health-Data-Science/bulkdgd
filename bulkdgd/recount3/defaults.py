@@ -108,7 +108,7 @@ RECOUNT3_METADATA_FILE = "{:s}_{:s}_metadata.gz"
 #######################################################################
 
 
-# Set the Recount3 projects datasets can be built from.
+# Set the supported Recount3 projects.
 RECOUNT3_PROJECTS = ["GTEx", "TCGA", "SRA"]
 
 #---------------------------------------------------------------------#
@@ -141,7 +141,7 @@ ENA_FILEREPORT_FIELDS = \
 # Set the name of a saved ENA report.
 ENA_FILEREPORT_FILE = "{:s}_ena_filereport.tsv"
 
-# Set the seconds to wait after each request to ENA.
+# Set the time to wait after each request to ENA, in seconds.
 ENA_REQUEST_PAUSE = 0.34
 
 #---------------------------------------------------------------------#
@@ -215,8 +215,8 @@ SRA_COMMENT_HEAD = \
     '"sample_sequencing_library_layout" fields were taken ' \
     'from the Recount3 metadata file. '
 
-# Set the text appended to the comments naming the library selection's
-# source themselves.
+# Set the text appended to the SRA studies' comments that already
+# give the library selection's source.
 SRA_COMMENT_HEAD_OWN_SELECTION = \
     ' Data for the "sample_sequencing_library_name", ' \
     '"sample_sequencing_library_strategy", ' \
@@ -243,7 +243,7 @@ SRA_COMMENT_TAIL_ENA = \
 # Set the width of the age bins, in years.
 AGE_BIN_WIDTH = 10
 
-# Set the upper edge of the last age bin, in years.
+# Set the limit the age bins' edges stay below, in years.
 AGE_BIN_MAX = 120
 
 #---------------------------------------------------------------------#
@@ -251,5 +251,5 @@ AGE_BIN_MAX = 120
 # Set the values taken as missing when merging or joining columns.
 MERGE_NA_VALUES = {"na", "NA", ""}
 
-# Set the default separator of joined columns.
+# Set the default separator of the joined values.
 JOIN_SEPARATOR = "|"

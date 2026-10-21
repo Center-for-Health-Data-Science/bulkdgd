@@ -26,12 +26,17 @@ query_string: "`cgc_sample_sample_type` != 'Metastatic'"
 #######################################################################
 
 
-# Set the columns split at separators into new columns, named after
-# the separators.
+# Set the columns whose values are split at separators into new
+# columns.
 #
 # Type: dict.
 metadata_to_process:
   xml_primary_pathology_weiss_assessment_report:
+
+    # Set the separators' names (without a leading digit, capitalized
+    # words lowercased) mapped to the new columns.
+    #
+    # Type: dict.
     columns:
       ? "nuclear grade III or IV"
       : "subject_status_weiss_nuclear_grade_III_or_IV"
@@ -39,6 +44,10 @@ metadata_to_process:
       : "subject_status_weiss_necrosis"
       ? "venous invasion"
       : "subject_status_weiss_venous_invasion"
+
+    # Set the texts the values are split at, in the order they appear.
+    #
+    # Type: list of str.
     separators:
       - "1Nuclear Grade III or IV"
       - "2Nuclear Grade III or IV"
@@ -62,7 +71,9 @@ metadata_to_process:
 #######################################################################
 
 
-# Set the new columns built from other columns.
+# Set the new columns built from other columns, by filling missing
+# values in order ('columns_to_merge') or by joining values
+# ('columns_to_join').
 #
 # Type: dict.
 metadata_to_merge:
@@ -127,7 +138,7 @@ mapping_to_lower:
 #######################################################################
 
 
-# Set the columns' old values mapped to new values.
+# Set the columns' old values (as text) mapped to new values.
 #
 # Type: dict.
 mapping:

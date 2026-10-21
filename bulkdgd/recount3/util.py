@@ -78,8 +78,7 @@ def _to_strings(df: pd.DataFrame) -> pd.DataFrame:
         The data frame with all values as strings.
     """
 
-    # Return the values as strings (pandas 3 keeps missing values as
-    # missing in 'astype(str)').
+    # Return the values as strings, with the missing values as 'nan'.
     return df.astype(object).fillna("nan").astype(str)
 
 
@@ -654,6 +653,7 @@ def get_read_counts(df_raw_counts: pd.DataFrame,
     # Return the read counts.
     return df_read_counts
 
+
 def get_geo_metadata(geo_code: str,
                      wd: Optional[str] = None) -> pd.DataFrame:
     """Get the samples' metadata from a GEO series' SOFT file.
@@ -703,7 +703,8 @@ def get_geo_metadata(geo_code: str,
             response.raise_for_status()
 
             # Open the output file.
-            with open(geo_path, "wb") as out:
+            with open(geo_path,
+                      "wb") as out:
 
                 # For each chunk of the file
                 for chunk in response.iter_content(\
@@ -726,7 +727,8 @@ def get_geo_metadata(geo_code: str,
             logger.info(infostr)
 
         # Open the file.
-        f_geo = open(geo_path, "rb")
+        f_geo = open(geo_path,
+                     "rb")
 
     #-----------------------------------------------------------------#
 
@@ -771,21 +773,23 @@ def get_geo_metadata(geo_code: str,
                 # Start the new sample with its GEO accession.
                 current = \
                     {"Sample_geo_accession" : \
-                        line.split(" = ", 1)[1]}
+                        line.split(" = ",
+                                   1)[1]}
 
             # If the line holds one of the sample's characteristics
             elif line.startswith("!Sample_characteristics") \
             and current is not None:
 
                 # Get the characteristic.
-                _, rest = line[1:].split(" = ", 1)
+                _, rest = line[1:].split(" = ",
+                                         1)
 
                 # If the characteristic is labeled
                 if ": " in rest:
 
-                    # Split it at the last label separator, since some
-                    # labels contain it.
-                    subkey, subval = rest.rsplit(": ", 1)
+                    # Split it into label and value at the last ': '.
+                    subkey, subval = rest.rsplit(": ",
+                                                 1)
 
                     # Add the characteristic.
                     current[subkey.strip()] = subval.strip()
@@ -801,7 +805,8 @@ def get_geo_metadata(geo_code: str,
             elif line.startswith("!Sample_") and current is not None:
 
                 # Get the field's name and value.
-                key, val = line[1:].split(" = ", 1)
+                key, val = line[1:].split(" = ",
+                                          1)
 
                 # If the field is a characteristic (handled above)
                 if key.startswith("Sample_characteristics"):
@@ -909,14 +914,16 @@ def get_ena_metadata(sra_code: str,
                 response.raise_for_status()
 
                 # Write the report.
-                with open(ena_path, "w") as out:
+                with open(ena_path,
+                          "w") as out:
                     out.write(response.text)
 
                 # Pause between requests to ENA.
                 time.sleep(defaults.ENA_REQUEST_PAUSE)
 
             # Read the report.
-            with open(ena_path, "r") as f:
+            with open(ena_path,
+                      "r") as f:
                 text = f.read()
 
         # Otherwise
@@ -938,8 +945,8 @@ def get_ena_metadata(sra_code: str,
 
         # Warn the user.
         warnstr = \
-            f"The ENA report for '{sra_code}' could not be " \
-            f"retrieved. Error: {e}"
+            "It was not possible to get the ENA report for " \
+            f"'{sra_code}'. Error: {e}"
         logger.warning(warnstr)
 
         # Return the empty result.
@@ -1011,11 +1018,13 @@ def get_run_selector(sra_code: str,
             response.raise_for_status()
 
             # Write the table.
-            with open(runs_path, "w") as out:
+            with open(runs_path,
+                      "w") as out:
                 out.write(response.text)
 
         # Read the table.
-        with open(runs_path, "r") as f:
+        with open(runs_path,
+                  "r") as f:
             text = f.read()
 
     # Otherwise

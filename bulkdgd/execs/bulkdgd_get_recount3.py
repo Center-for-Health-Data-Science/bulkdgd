@@ -62,8 +62,9 @@ warnings.filterwarnings("ignore",
 warnings.filterwarnings("ignore",
                         category = FutureWarning)
 
-# If pandas warns about setting values on copies (before pandas 3)
-if hasattr(pd.errors, "SettingWithCopyWarning"):
+# If pandas has the warning about setting values on copies
+if hasattr(pd.errors,
+           "SettingWithCopyWarning"):
 
     # Ignore the warnings.
     warnings.filterwarnings(\
@@ -134,18 +135,18 @@ def set_parser() -> argparse.ArgumentParser:
     #-----------------------------------------------------------------#
 
     # Set a help message.
-    is_help = \
+    ip_help = \
         "The Recount3 project the studies belong to. You can " \
         "choose between: 'GTEx', whose studies are tissues, " \
         "'TCGA', whose studies are cancer types, and 'SRA', whose " \
         "studies are SRA projects."
 
     # Add the argument to the group.
-    input_group.add_argument("-is", "--input-study-name",
+    input_group.add_argument("-ip", "--input-project-name",
                              type = str,
                              required = True,
                              choices = recount3.RECOUNT3_PROJECTS,
-                             help = is_help)
+                             help = ip_help)
 
     #-----------------------------------------------------------------#
 
@@ -155,8 +156,8 @@ def set_parser() -> argparse.ArgumentParser:
     # Set a help message.
     ig_help = \
         "The GENCODE release the counts were annotated with. You " \
-        "can choose between: '26' and '29'. The default is " \
-        f"'{ig_default}'."
+        "can choose between: 26 and 29. The default is " \
+        f"{ig_default}."
 
     # Add the argument to the group.
     input_group.add_argument(\
@@ -169,16 +170,17 @@ def set_parser() -> argparse.ArgumentParser:
     #-----------------------------------------------------------------#
 
     # Set a help message.
-    ec_help = \
-        "An existing CSV file of counts to take the metadata's " \
-        "samples from, getting only the studies of the samples it " \
-        "lacks. By default, the counts of all the studies are got."
+    iec_help = \
+        "An existing CSV file of read counts, with samples as " \
+        "rows, to take the metadata's samples from. Only the " \
+        "studies of the samples it lacks are retrieved. By " \
+        "default, the counts of all the studies are retrieved."
 
     # Add the argument to the group.
-    input_group.add_argument("-ec", "--existing-counts",
+    input_group.add_argument("-iec", "--input-existing-counts",
                              type = str,
                              default = None,
-                             help = ec_help)
+                             help = iec_help)
 
     #-----------------------------------------------------------------#
 
@@ -336,8 +338,8 @@ def set_parser() -> argparse.ArgumentParser:
 
     # Set a help message.
     se_help = \
-        "Skip the run when every output file it writes already " \
-        "exists. By default, the output files are overwritten."
+        "Skip the run if all its output files already exist. By " \
+        "default, the output files are overwritten."
 
     # Add the argument to the group.
     run_group.add_argument("-se", "--skip-existing",
@@ -375,23 +377,32 @@ def main(args: argparse.Namespace) -> None:
 
     # Get the arguments corresponding to the input files.
     input_config_file = args.input_config_file
-    input_study_name = args.input_study_name
+    input_project_name = args.input_project_name
     input_gencode_release = args.input_gencode_release
-    existing_counts = args.existing_counts
+    input_existing_counts = args.input_existing_counts
 
     # Get the arguments corresponding to the output files.
-    output_counts = os.path.join(wd, args.output_counts)
-    output_metadata = os.path.join(wd, args.output_metadata)
+    output_counts = \
+        os.path.join(wd,
+                     args.output_counts)
+    output_metadata = \
+        os.path.join(wd,
+                     args.output_metadata)
     output_counts_columns = \
-        os.path.join(wd, args.output_counts_columns)
+        os.path.join(wd,
+                     args.output_counts_columns)
     output_metadata_columns = \
-        os.path.join(wd, args.output_metadata_columns)
-    output_samples_ids = os.path.join(wd, args.output_samples_ids)
+        os.path.join(wd,
+                     args.output_metadata_columns)
+    output_samples_ids = \
+        os.path.join(wd,
+                     args.output_samples_ids)
 
     # Get the arguments corresponding to the download directories (the
     # working directory if not passed).
     output_dir_counts, output_dir_qc, output_dir_metadata = \
-        [wd if d is None else os.path.join(wd, d) \
+        [wd if d is None else os.path.join(wd,
+                                           d) \
          for d in (args.output_dir_counts,
                    args.output_dir_qc,
                    args.output_dir_metadata)]
@@ -437,7 +448,7 @@ def main(args: argparse.Namespace) -> None:
         config = \
             ioutil.load_config_recount3(\
                 config_file = input_config_file,
-                project_name = input_study_name)
+                project_name = input_project_name)
 
     # If something went wrong
     except Exception as e:
@@ -463,7 +474,7 @@ def main(args: argparse.Namespace) -> None:
         df_metadata = \
             recount3.get_dataset_metadata(\
                 config = config,
-                project_name = input_study_name,
+                project_name = input_project_name,
                 wd_metadata = output_dir_metadata,
                 samples_categories = studies)
 
@@ -493,8 +504,10 @@ def main(args: argparse.Namespace) -> None:
                                        csv_file = output_metadata)
 
         # Write the metadata's columns.
-        with open(output_metadata_columns, "w") as out:
-            out.write("\n".join(map(str, df_metadata.columns)))
+        with open(output_metadata_columns,
+                  "w") as out:
+            out.write("\n".join(map(str,
+                                    df_metadata.columns)))
 
     # If something went wrong
     except Exception as e:
@@ -528,13 +541,13 @@ def main(args: argparse.Namespace) -> None:
     df_counts_existing = None
 
     # If an existing file of counts was passed
-    if existing_counts is not None:
+    if input_existing_counts is not None:
 
         # Try to load the existing counts.
         try:
 
             df_counts_existing = \
-                pd.read_csv(existing_counts,
+                pd.read_csv(input_existing_counts,
                             sep = ",",
                             header = 0,
                             index_col = 0,
@@ -546,14 +559,14 @@ def main(args: argparse.Namespace) -> None:
             # Warn the user and exit.
             errstr = \
                 "It was not possible to load the existing counts " \
-                f"from '{existing_counts}'. Error: {e}"
+                f"from '{input_existing_counts}'. Error: {e}"
             logger.exception(errstr)
             sys.exit(errstr)
 
         # Inform the user that the existing counts were loaded.
         infostr = \
             "The existing counts were successfully loaded from " \
-            f"'{existing_counts}'."
+            f"'{input_existing_counts}'."
         logger.info(infostr)
 
     #-----------------------------------------------------------------#
@@ -564,7 +577,7 @@ def main(args: argparse.Namespace) -> None:
         df_counts = \
             recount3.get_dataset_counts(\
                 df_metadata = df_metadata,
-                project_name = input_study_name,
+                project_name = input_project_name,
                 gencode_release = input_gencode_release,
                 wd_gene_sums = output_dir_counts,
                 wd_qc = output_dir_qc,
@@ -590,11 +603,14 @@ def main(args: argparse.Namespace) -> None:
                                      csv_file = output_counts)
 
         # Write the counts' columns.
-        with open(output_counts_columns, "w") as out:
-            out.write("\n".join(map(str, df_counts.columns)))
+        with open(output_counts_columns,
+                  "w") as out:
+            out.write("\n".join(map(str,
+                                    df_counts.columns)))
 
         # Write the samples' IDs, in the counts' order.
-        with open(output_samples_ids, "w") as out:
+        with open(output_samples_ids,
+                  "w") as out:
             out.write("\n".join(df_counts.index.astype(str)))
 
     # If something went wrong

@@ -220,7 +220,7 @@ def _add_metadata(df: pd.DataFrame,
                 if index.empty:
 
                     # Warn the user.
-                    warnstr = f"No rows found for query: '{query}'"
+                    warnstr = f"No samples match the query '{query}'."
                     logger.warning(warnstr)
 
                 # Set the value for the samples.
@@ -386,8 +386,7 @@ def _split_by_separators(text: str,
     # For each separator found and its part's indexes
     for sep, index in zip(seps_used, indexes):
 
-        # Get the part's start and end (the end of the text if not
-        # set).
+        # Get the part's start and end (the text's end if not set).
         start, end = index if len(index) == 2 else (index[0], len(text))
 
         # Add the lowercased part under the separator's name.
@@ -605,7 +604,7 @@ def _process_columns_tcga(df: pd.DataFrame,
         # For each sample and its value
         for index, val in zip(df.index, df[col]):
 
-            # If the value is not an empty string
+            # If the value is a non-blank string
             if isinstance(val, str) and val.strip():
 
                 # For each separator found and its part of the value
@@ -690,7 +689,8 @@ def _merge_columns_tcga(df: pd.DataFrame,
                     # Map the values.
                     col_series = \
                         col_series.map(\
-                            lambda val, mapping = lower_mapping: \
+                            lambda val, \
+                                   mapping = lower_mapping: \
                                 mapping.get(str(val).lower(), val) \
                                 if pd.notna(val) else val)
 
@@ -700,7 +700,8 @@ def _merge_columns_tcga(df: pd.DataFrame,
                     # Prepend it to the values, with a colon.
                     col_series = \
                         col_series.map(\
-                            lambda val, prefix = item["prefix"]: \
+                            lambda val, \
+                                   prefix = item["prefix"]: \
                                 f"{prefix}: {val}" \
                                 if pd.notna(val) else val)
 
@@ -736,7 +737,8 @@ def _merge_columns_tcga(df: pd.DataFrame,
             # Join each sample's values (missing if there are none).
             df[new_col_name] = \
                 pd.DataFrame(translated_cols).apply(\
-                    lambda row, separator = separator: \
+                    lambda row, \
+                           separator = separator: \
                         separator.join(\
                             [str(v) for v in row if pd.notna(v)]) \
                         if [str(v) for v in row if pd.notna(v)] \
@@ -839,12 +841,16 @@ def _get_metadata_tcga(config: dict[str, object],
         The harmonized metadata.
     """
 
-    # Get the options.
+    # Get the query and the columns to split and build.
     query_string = config.get("query_string")
     metadata_to_process = config.get("metadata_to_process", {})
     metadata_to_merge = config.get("metadata_to_merge", {})
+
+    # Get the columns to keep and add.
     metadata_to_keep = config.get("metadata_to_keep", {})
     metadata_to_add = config.get("metadata_to_add", {})
+
+    # Get the columns to lowercase and the values to map.
     mapping_to_lower = config.get("mapping_to_lower", [])
     mapping = config.get("mapping", {})
 
@@ -964,7 +970,7 @@ def _get_metadata_tcga(config: dict[str, object],
                 "NA", np.nan).replace(\
                 "", np.nan).astype("Float64")
 
-    # Set the vital status column.
+    # Set the name of the vital status column.
     vital_status_col = \
         "subject_status_main_condition_clinical_progression_" \
         "vital_status"
@@ -1157,22 +1163,30 @@ def _process_metadata_sra(options: dict[str, object],
         The study's harmonized metadata.
     """
 
-    # Get the options.
+    # Get the study-level metadata and the queries.
     metadata_study = options.get("metadata_study", {})
     query_string = options.get("query_string")
     query_string_geo = options.get("query_string_geo")
+
+    # Get the columns to keep and add.
     metadata_to_keep = options.get("metadata_to_keep", {})
     metadata_to_keep_geo = options.get("metadata_to_keep_geo", {})
     metadata_to_add = options.get("metadata_to_add", {})
     metadata_to_add_geo = options.get("metadata_to_add_geo", {})
+
+    # Get the runs to drop and the values from other studies.
     samples_to_drop = options.get("samples_to_drop", [])
     metadata_from_study = options.get("metadata_from_study", {})
+
+    # Get the values to map.
     mapping = options.get("mapping", {})
     mapping_with_prefix = options.get("mapping_with_prefix", {})
     mapping_with_suffix = options.get("mapping_with_suffix", {})
     mapping_geo = options.get("mapping_geo", {})
     serial_mapping = options.get("serial_mapping", {})
     mapping_values = options.get("mapping_values", {})
+
+    # Get the column indexing the samples meanwhile, if any.
     use_as_external_id = options.get("_use_as_external_id")
 
     # Get the study's GEO code.
@@ -1224,7 +1238,7 @@ def _process_metadata_sra(options: dict[str, object],
             f"code '{sra_code}'."
         logger.warning(warnstr)
 
-        # The metadata come from the Run Selector table.
+        # Mark the metadata as coming from the Run Selector table.
         from_run_selector = True
 
         # Get the Run Selector table.
@@ -1269,8 +1283,10 @@ def _process_metadata_sra(options: dict[str, object],
         df["sample_identifier_ena_biosample"] = \
             df.index.map(df_ena["sample_accession"])
 
-        # Get each run's experiment, and the run as a column.
+        # Get each run's experiment.
         numbering = df[["sample_identifier_ena_experiment"]].copy()
+
+        # Add the runs as a column.
         numbering["_run"] = numbering.index
 
         # Sort by experiment, then by run.
@@ -1637,8 +1653,8 @@ def _get_metadata_sra(config: dict[str, object],
 
             # Warn the user.
             warnstr = \
-                f"Study '{sra_code}' produced (a) NaN-labeled " \
-                "column(s)."
+                "The metadata of the study with SRA code " \
+                f"'{sra_code}' have column(s) named NaN."
             logger.warning(warnstr)
 
         # Add the study's metadata, one study after the other.
@@ -1750,7 +1766,7 @@ def _get_metadata_sra(config: dict[str, object],
     # If there are the subjects' numbers
     if "subject_identifier_numeric_id" in df.columns:
 
-        # Make them numbers, the others missing.
+        # Make them numbers, the non-numeric ones missing.
         df["subject_identifier_numeric_id"] = \
             pd.to_numeric(df["subject_identifier_numeric_id"],
                           errors = "coerce")
@@ -1772,10 +1788,9 @@ def _get_metadata_sra(config: dict[str, object],
 
             # Warn the user.
             warnstr = \
-                "The following studies do not have a " \
-                "'subject_identifier_numeric_id' continuously " \
-                "numbered from 1 to the total number of subjects " \
-                "that study has: " \
+                "The following studies do not number their " \
+                "subjects in 'subject_identifier_numeric_id' from " \
+                "1 to the number of subjects: " \
                 f"{', '.join(repr(s) for s in not_continuous)}."
             logger.warning(warnstr)
 
@@ -1784,7 +1799,7 @@ def _get_metadata_sra(config: dict[str, object],
     # If there are the studies' comments
     if "study_comment" in df.columns:
 
-        # Get whether each study names its library selection's source.
+        # Get whether each comment names its library selection's source.
         says_its_own = \
             df["study_comment"].str.contains(\
                 '"sample_sequencing_library_selection"',
@@ -1797,7 +1812,8 @@ def _get_metadata_sra(config: dict[str, object],
                 "sample_identifier_ena_experiment"].transform(\
                     lambda s: s.notna().any()) \
             if "sample_identifier_ena_experiment" in df.columns \
-            else pd.Series(False, index = df.index)
+            else pd.Series(False,
+                           index = df.index)
 
         # Append to the comments where the library and derived fields
         # come from.
@@ -1902,9 +1918,9 @@ def _get_counts(df_metadata: pd.DataFrame,
 
             # Warn the user.
             warnstr = \
-                f"In study '{study}', there are NaN values in the " \
-                "counts data for the following samples: " \
-                f"{', '.join(map(str, nan_samples))}"
+                f"In study '{study}', the counts of the following " \
+                "samples have NaN values: " \
+                f"{', '.join(map(str, nan_samples))}."
             logger.warning(warnstr)
 
         # Get the study's QC metadata.
@@ -1949,15 +1965,15 @@ def _get_counts(df_metadata: pd.DataFrame,
 
             # Warn the user.
             warnstr = \
-                f"In study '{study}', {len(missing_ids)} metadata " \
-                "samples were not found in the counts table: " \
+                f"In study '{study}', {len(missing_ids)} sample(s) " \
+                "of the metadata are not in the counts: " \
                 f"{', '.join(missing_ids)}."
             logger.warning(warnstr)
 
         # Inform the user about the samples matched.
         infostr = \
-            f"Study '{study}': # metadata IDs = {len(metadata_ids)}, " \
-            f"# matched counts IDs = {len(df_read_counts)}."
+            f"Study '{study}': {len(metadata_ids)} sample(s) in the " \
+            f"metadata, {len(df_read_counts)} with counts."
         logger.info(infostr)
 
         # Add the study's counts.
@@ -2103,7 +2119,7 @@ def get_dataset_counts(
     project_name : :class:`str`, {``"GTEx"``, ``"TCGA"``, ``"SRA"``}
         The Recount3 project the studies belong to.
 
-    gencode_release : :class:`int`, {``29``, ``26``}
+    gencode_release : :class:`int`, {``29``, ``26``}, ``29``
         The GENCODE release the counts were annotated with.
 
     wd_gene_sums : :class:`str`, optional
@@ -2161,12 +2177,12 @@ def get_dataset_counts(
 
         # Inform the user that the studies' counts will be retrieved.
         infostr = \
-            f"Found {len(missing)} sample(s) of the metadata not in " \
-            f"the existing counts. They belong to " \
+            f"{len(missing)} sample(s) of the metadata are not in " \
+            "the existing counts. Getting the counts of their " \
             f"{len(studies_missing)} study/studies " \
-            f"({', '.join(map(str, studies_missing))}), whose " \
-            "counts are being fetched. The counts of the other " \
-            f"{len(df_counts):,} samples are taken as they are."
+            f"({', '.join(map(str, studies_missing))}). The " \
+            f"counts of the other {len(df_counts):,} samples are " \
+            "kept as they are."
         logger.info(infostr)
 
         # Get the studies' counts, with the genes in the existing
@@ -2216,7 +2232,7 @@ def get_dataset_counts(
     # Inform the user about the samples kept.
     infostr = \
         f"Kept {len(df_counts):,} samples and dropped " \
-        f"{len(dropped):,}, being not in the metadata."
+        f"{len(dropped):,} not in the metadata."
     logger.info(infostr)
 
     #-----------------------------------------------------------------#

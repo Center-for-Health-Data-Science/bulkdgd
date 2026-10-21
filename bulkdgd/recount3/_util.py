@@ -99,7 +99,7 @@ def _as_dict(value: object) -> dict:
         The value, or an empty dictionary if it is not one.
     """
 
-    # Return the value if it is a dictionary.
+    # Return the value if it is a dictionary, or an empty one.
     return value if isinstance(value, dict) else {}
 
 
@@ -117,7 +117,7 @@ def _as_list(value: object) -> list:
         The value, or an empty list if it is not one.
     """
 
-    # Return the value if it is a list.
+    # Return the value if it is a list, or an empty one.
     return value if isinstance(value, list) else []
 
 
@@ -132,7 +132,13 @@ def _check_value(value: object,
         The value.
 
     spec : :class:`dict`
-        The value's specification.
+        The value's specification: the allowed types (``"type"``)
+        and, optionally, a check and its error message
+        (``"condition"``, ``"message"``), the template of a
+        dictionary (``"section"``), the types of a free dictionary's
+        keys and the specification of its values (``"keys"``,
+        ``"values"``), and the specification of a list's items
+        (``"items"``).
 
     path : :class:`str`
         The value's path in the configuration, used in error
@@ -228,7 +234,8 @@ def _check_section(config: dict[str, object],
         The options.
 
     template : :class:`dict`
-        The template.
+        The template, mapping each option to its specification, with
+        ``"required"`` set for the options that must be present.
 
     path : :class:`str`, ``""``
         The options' path in the configuration, used in error
@@ -314,9 +321,9 @@ def _get_mapping_warnings(mapping: dict[object, object],
 
     # Return a warning for each old value that is not a string.
     return \
-        [f"{path}: the key {key!r} is a {type(key).__name__}, not a " \
-         "string, so it matches no text value (quote it to match " \
-         "text)." \
+        [f"{path}: the key {key!r} is not a string " \
+         f"({type(key).__name__}), so it matches no text value. " \
+         "Quote it to match text." \
          for key in _as_dict(mapping) if not isinstance(key, str)]
 
 
@@ -447,8 +454,8 @@ def _check_config_tcga(config: dict[str, object]) -> \
 
                 # Add the warning.
                 warnings.append(\
-                    f"metadata_to_process.{col}.columns: {name!r} " \
-                    "is the name of no separator, so its column " \
+                    f"metadata_to_process.{col}.columns: no " \
+                    f"separator is named {name!r}, so its column " \
                     "is empty. The separators' names are: " \
                     f"{', '.join(repr(n) for n in names)}.")
 
@@ -554,7 +561,7 @@ def _check_config_sra_study(config: dict[str, object],
     geo_code = \
         _as_dict(config.get("metadata_study")).get("study_geo_code")
 
-    # If the GEO code is not a string
+    # If the GEO code is given and is not a string
     if geo_code is not None and not isinstance(geo_code, str):
 
         # Add the error.
@@ -623,7 +630,8 @@ def lowercase_capitalized_words(text: str) -> str:
     """
 
     # Split the text at underscores, spaces and hyphens, keeping them.
-    parts = re.split(r"(_|\s|-)", text)
+    parts = re.split(r"(_|\s|-)",
+                     text)
 
     # Initialize the list of converted parts.
     converted = []
@@ -698,10 +706,10 @@ def parse_config_recount3(config: object,
         The checked configuration.
 
     errors : :class:`list`
-        A list of errors found in the configuration.
+        The errors found.
 
     warnings : :class:`list`
-        A list of warnings regarding the configuration.
+        The warnings.
     """
 
     # Initialize the list of errors.
@@ -732,7 +740,7 @@ def parse_config_recount3(config: object,
 
         # Add the error.
         errors.append(\
-            "The configuration must be a dictionary of options" \
+            "The configuration must be a dictionary of options." \
             if project_name in _PROJECTS_TEMPLATES else \
             "The configuration must be a dictionary mapping the " \
             "SRA studies' codes to their options.")

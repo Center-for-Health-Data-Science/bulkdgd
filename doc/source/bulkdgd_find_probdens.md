@@ -67,8 +67,8 @@ bulkdgd_find_probdens [-h] -ir INPUT_REP [-opr OUTPUT_PROB_REP] [-opc OUTPUT_PRO
 | ------------------------- | ------------------------------------------------------------ |
 | `-lf`, `--log-file`       | The name of the log file. The default file name is `bulkdgd_find_probdens.log`. |
 | `-lc`, `--log-console`    | Show log messages also on the console.                       |
-| `-v`, `--logging-verbose` | Enable verbose logging (INFO level).                         |
-| `-vv`, `--logging-debug`  | Enable maximally verbose logging for debugging purposes (DEBUG level). |
+| `-v`, `--log-verbose`     | Enable verbose logging (INFO level).                         |
+| `-vv`, `--log-debug`      | Enable maximally verbose logging for debugging purposes (DEBUG level). |
 
 ### Parallelization options
 

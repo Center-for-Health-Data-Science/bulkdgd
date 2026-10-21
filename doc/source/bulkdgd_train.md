@@ -138,8 +138,8 @@ Each of these tables is written with the same rule as `bulkdgd.ioutil.save_table
 | ------------------------- | ------------------------------------------------------------ |
 | `-lf`, `--log-file`       | The name of the log file. The default file name is `bulkdgd_train.log`. |
 | `-lc`, `--log-console`    | Show log messages also on the console.                       |
-| `-v`, `--logging-verbose` | Enable verbose logging (INFO level).                         |
-| `-vv`, `--logging-debug`  | Enable maximally verbose logging for debugging purposes (DEBUG level). |
+| `-v`, `--log-verbose`     | Enable verbose logging (INFO level).                         |
+| `-vv`, `--log-debug`      | Enable maximally verbose logging for debugging purposes (DEBUG level). |
 
 ### Parallelization options
 

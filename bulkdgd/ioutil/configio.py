@@ -356,9 +356,8 @@ def load_config_dim_red(config_file: str) -> dict[str, object]:
 
 def load_config_recount3(config_file: str,
                          project_name: str) -> dict[str, object]:
-    """Load the configuration selecting the Recount3 studies and
-    samples a dataset is built from, and harmonizing their metadata,
-    from a YAML file.
+    """Load the configuration of a dataset built from Recount3
+    studies from a YAML file.
 
     Parameters
     ----------
