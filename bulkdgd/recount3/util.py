@@ -32,6 +32,16 @@ __doc__ = \
     "Utilities to interact with the Recount3 platform and " \
     "manipulate the data retrieved from it."
 
+# Set the module's public names.
+__all__ = \
+    ["get_gene_sums",
+     "get_qc",
+     "get_metadata",
+     "get_read_counts",
+     "get_geo_metadata",
+     "get_ena_metadata",
+     "get_run_selector"]
+
 
 #######################################################################
 
@@ -82,6 +92,45 @@ def _to_strings(df: pd.DataFrame) -> pd.DataFrame:
     return df.astype(object).fillna("nan").astype(str)
 
 
+def _download_file(url: str,
+                   file_path: str) -> None:
+    """Download a file, writing it to its path only once it is
+    complete.
+
+    Parameters
+    ----------
+    url : :class:`str`
+        The file's URL.
+
+    file_path : :class:`str`
+        The path to the file.
+    """
+
+    # Set the path to the partial file.
+    part_path = f"{file_path}.part"
+
+    # Get the file, failing on an HTTP error.
+    response = rq.get(url,
+                      stream = True,
+                      timeout = defaults.REQUEST_TIMEOUT)
+    response.raise_for_status()
+
+    # Open the partial file.
+    with open(part_path,
+              "wb") as out:
+
+        # For each chunk of the file
+        for chunk in response.iter_content(\
+                chunk_size = 1024 * 1024):
+
+            # Write the chunk.
+            out.write(chunk)
+
+    # Move the complete file to its path.
+    os.replace(part_path,
+               file_path)
+
+
 ########################## PUBLIC FUNCTIONS ###########################
 
 
@@ -128,12 +177,15 @@ def get_gene_sums(project_name: str,
     # If the given Gencode release is not supported in Recount3
     if gencode_release not in defaults.RECOUNT3_GENCODE_RELEASES:
 
+        # Get the supported releases as a string.
+        releases_str = \
+            ", ".join(map(str,
+                          defaults.RECOUNT3_GENCODE_RELEASES))
+
         # Raise an error.
         errstr = \
             "The given Gencode release is not supported in " \
-            "Recount3. Supported releases are: " \
-            f"{', '.join(
-                map(str, defaults.RECOUNT3_GENCODE_RELEASES))}."
+            f"Recount3. Supported releases are: {releases_str}."
         raise ValueError(errstr)
 
     #-----------------------------------------------------------------#
@@ -199,21 +251,15 @@ def get_gene_sums(project_name: str,
         # If the user wants to save the original file
         if save_gene_sums:
 
-            # Get the response, failing on an HTTP error.
-            gene_sums = rq.get(gene_sums_url)
-            gene_sums.raise_for_status()
+            # Download the file.
+            _download_file(url = gene_sums_url,
+                           file_path = f_gene_sums_path)
 
-            # Open a new file.
-            with open(f_gene_sums_path, "wb") as f:
-
-                # Write the content to the file.
-                f.write(gene_sums.content)
-
-                # Inform the user that the data were saved.
-                infostr = \
-                    "The RNA-seq data were successfully saved " \
-                    f"in '{f_gene_sums_path}'."
-                logger.info(infostr)
+            # Inform the user that the data were saved.
+            infostr = \
+                "The RNA-seq data were successfully saved " \
+                f"in '{f_gene_sums_path}'."
+            logger.info(infostr)
 
             # Read the data from the saved file.
             source = f_gene_sums_path
@@ -329,21 +375,15 @@ def get_qc(project_name: str,
         # If the user wants to save the original file
         if save_qc:
 
-            # Get the QC metadata, failing on an HTTP error.
-            qc = rq.get(qc_url)
-            qc.raise_for_status()
+            # Download the file.
+            _download_file(url = qc_url,
+                           file_path = f_qc_path)
 
-            # Open a new file.
-            with open(f_qc_path, "wb") as f:
-
-                # Write the content to the file.
-                f.write(qc.content)
-
-                # Inform the user that the data were saved.
-                infostr = \
-                    "The QC metadata were successfully saved " \
-                    f"in '{f_qc_path}'."
-                logger.info(infostr)
+            # Inform the user that the data were saved.
+            infostr = \
+                "The QC metadata were successfully saved " \
+                f"in '{f_qc_path}'."
+            logger.info(infostr)
 
             # Read the data from the saved file.
             source = f_qc_path
@@ -465,8 +505,13 @@ def get_metadata(project_name: str,
 
         #-------------------------------------------------------------#
 
+        # Get the file, failing on an HTTP error.
+        response = rq.get(metadata_url,
+                          timeout = defaults.REQUEST_TIMEOUT)
+        response.raise_for_status()
+
         # Read the file's content into a data frame.
-        df_metadata = pd.read_csv(metadata_url,
+        df_metadata = pd.read_csv(io.BytesIO(response.content),
                                   sep = "\t",
                                   index_col = "external_id",
                                   compression = "gzip",
@@ -580,11 +625,15 @@ def get_metadata(project_name: str,
     # If the user wants to save the metadata
     if save_metadata:
 
-        # Write the data frame to the output file.
+        # Write the data frame to a partial file.
         save_table(df_metadata,
-                   f_metadata_path,
+                   f"{f_metadata_path}.part",
                    sep = "\t",
                    compression = "gzip")
+
+        # Move the complete file to its path.
+        os.replace(f"{f_metadata_path}.part",
+                   f_metadata_path)
 
         # Inform the user that the file was written.
         infostr = \
@@ -697,21 +746,9 @@ def get_geo_metadata(geo_code: str,
         # If the file is not there yet
         if not os.path.exists(geo_path):
 
-            # Get the file, failing on an HTTP error.
-            response = rq.get(geo_url,
-                              stream = True)
-            response.raise_for_status()
-
-            # Open the output file.
-            with open(geo_path,
-                      "wb") as out:
-
-                # For each chunk of the file
-                for chunk in response.iter_content(\
-                        chunk_size = 1024 * 1024):
-
-                    # Write the chunk.
-                    out.write(chunk)
+            # Download the file.
+            _download_file(url = geo_url,
+                           file_path = geo_path)
 
             # Inform the user that the file was saved.
             infostr = f"The GEO SOFT file was saved in '{geo_path}'."
@@ -737,7 +774,8 @@ def get_geo_metadata(geo_code: str,
 
         # Get the file, failing on an HTTP error.
         response = rq.get(geo_url,
-                          stream = True)
+                          stream = True,
+                          timeout = defaults.REQUEST_TIMEOUT)
         response.raise_for_status()
 
         # Read the file from the response's stream.
@@ -840,8 +878,11 @@ def get_geo_metadata(geo_code: str,
 
     #-----------------------------------------------------------------#
 
-    # Build the data frame, with all values as strings.
-    df_geo = _to_strings(pd.DataFrame(samples))
+    # Build the data frame.
+    df_geo = pd.DataFrame(samples)
+
+    # Make the values strings, leaving the missing ones missing.
+    df_geo = df_geo.astype(str).where(df_geo.notna())
 
     # Put the GEO accession first.
     columns = \
@@ -908,15 +949,9 @@ def get_ena_metadata(sra_code: str,
             # If the report is not there yet
             if not os.path.exists(ena_path):
 
-                # Get the report, failing on an HTTP error.
-                response = rq.get(ena_url,
-                                  timeout = 60)
-                response.raise_for_status()
-
-                # Write the report.
-                with open(ena_path,
-                          "w") as out:
-                    out.write(response.text)
+                # Download the report.
+                _download_file(url = ena_url,
+                               file_path = ena_path)
 
                 # Pause between requests to ENA.
                 time.sleep(defaults.ENA_REQUEST_PAUSE)
@@ -931,7 +966,7 @@ def get_ena_metadata(sra_code: str,
 
             # Get the report, failing on an HTTP error.
             response = rq.get(ena_url,
-                              timeout = 60)
+                              timeout = defaults.REQUEST_TIMEOUT)
             response.raise_for_status()
 
             # Take its text.
@@ -963,10 +998,12 @@ def get_ena_metadata(sra_code: str,
     #-----------------------------------------------------------------#
 
     # Parse the report, with all values as strings.
-    df_ena = _to_strings(pd.read_csv(io.StringIO(text),
-                                     sep = "\t",
-                                     header = 0,
-                                     low_memory = False))
+    df_ena = pd.read_csv(io.StringIO(text),
+                         sep = "\t",
+                         header = 0,
+                         low_memory = False,
+                         dtype = str,
+                         keep_default_na = False)
 
     # Return it, indexed by run accession.
     return df_ena.set_index("run_accession",
@@ -1013,14 +1050,9 @@ def get_run_selector(sra_code: str,
         # If the table is not there yet
         if not os.path.exists(runs_path):
 
-            # Get the table, failing on an HTTP error.
-            response = rq.get(runs_url)
-            response.raise_for_status()
-
-            # Write the table.
-            with open(runs_path,
-                      "w") as out:
-                out.write(response.text)
+            # Download the table.
+            _download_file(url = runs_url,
+                           file_path = runs_path)
 
         # Read the table.
         with open(runs_path,
@@ -1031,7 +1063,8 @@ def get_run_selector(sra_code: str,
     else:
 
         # Get the table, failing on an HTTP error.
-        response = rq.get(runs_url)
+        response = rq.get(runs_url,
+                          timeout = defaults.REQUEST_TIMEOUT)
         response.raise_for_status()
 
         # Take its text.
@@ -1040,10 +1073,12 @@ def get_run_selector(sra_code: str,
     #-----------------------------------------------------------------#
 
     # Parse the table, with all values as strings.
-    df_runs = _to_strings(pd.read_csv(io.StringIO(text),
-                                      sep = ",",
-                                      header = 0,
-                                      low_memory = False))
+    df_runs = pd.read_csv(io.StringIO(text),
+                          sep = ",",
+                          header = 0,
+                          low_memory = False,
+                          dtype = str,
+                          keep_default_na = False)
 
     # Return the table.
     return df_runs

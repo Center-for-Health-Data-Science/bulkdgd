@@ -32,6 +32,13 @@ __doc__ = \
     "Utilities to build datasets from studies hosted on the " \
     "Recount3 platform."
 
+# Set the module's public names.
+__all__ = \
+    ["get_dataset_metadata",
+     "get_dataset_counts",
+     "save_dataset_metadata",
+     "save_dataset_counts"]
+
 
 #######################################################################
 
@@ -339,14 +346,21 @@ def _split_by_separators(text: str,
     # For each separator
     for sep in seps:
 
-        # Find it in the text.
-        index = text.find(sep)
+        # Find it in the text, not followed by a letter or digit if
+        # it ends in one.
+        match = re.search(re.escape(sep) \
+                          + (r"(?![0-9A-Za-z])" if sep[-1:].isalnum()
+                             else ""),
+                          text)
 
         # If it is not there
-        if index == -1:
+        if match is None:
 
             # Go to the next separator.
             continue
+
+        # Get where it starts.
+        index = match.start()
 
         # If it is the first separator found
         if not seps_used:
@@ -1194,10 +1208,6 @@ def _process_metadata_sra(options: dict[str, object],
 
     #-----------------------------------------------------------------#
 
-    # Initialize the samples' IDs to set back at the end, if the
-    # samples are indexed by another column meanwhile.
-    index_for_later = None
-
     # Initialize whether the metadata come from the Run Selector table.
     from_run_selector = False
 
@@ -1219,11 +1229,11 @@ def _process_metadata_sra(options: dict[str, object],
         metadata_to_keep = \
             {**metadata_to_keep, **defaults.SRA_LIBRARY_COLUMNS}
 
+        # Keep the samples' run IDs as a column.
+        df["_run_id"] = df.index
+
         # If the samples are indexed by another column meanwhile
         if use_as_external_id is not None:
-
-            # Store their IDs.
-            index_for_later = df.index.tolist()
 
             # Index them by the column, keeping it.
             df = df.set_index(use_as_external_id,
@@ -1248,7 +1258,7 @@ def _process_metadata_sra(options: dict[str, object],
         # Add the project.
         df.insert(loc = 0,
                   column = "recount3_project_name",
-                  value = "SRA")
+                  value = "sra")
 
         # Add the study.
         df.insert(loc = 1,
@@ -1258,6 +1268,9 @@ def _process_metadata_sra(options: dict[str, object],
         # Index the samples by their runs.
         df = df.set_index("Run",
                           drop = False)
+
+        # Keep the samples' run IDs as a column.
+        df["_run_id"] = df.index
 
         # Inform the user that the table will be used.
         infostr = \
@@ -1277,36 +1290,34 @@ def _process_metadata_sra(options: dict[str, object],
 
         # Add each run's experiment.
         df["sample_identifier_ena_experiment"] = \
-            df.index.map(df_ena["experiment_accession"])
+            df["_run_id"].map(df_ena["experiment_accession"])
 
         # Add each run's BioSample.
         df["sample_identifier_ena_biosample"] = \
-            df.index.map(df_ena["sample_accession"])
+            df["_run_id"].map(df_ena["sample_accession"])
 
-        # Get each run's experiment.
-        numbering = df[["sample_identifier_ena_experiment"]].copy()
-
-        # Add the runs as a column.
-        numbering["_run"] = numbering.index
+        # Get each run's experiment, indexed by run.
+        numbering = \
+            df.set_index("_run_id")[\
+                ["sample_identifier_ena_experiment"]]
 
         # Sort by experiment, then by run.
         numbering = \
             numbering.sort_values(\
-                ["sample_identifier_ena_experiment", "_run"])
+                ["sample_identifier_ena_experiment", "_run_id"])
 
         # Number the runs within each experiment from 1.
         df["sample_identifier_run_numeric_id"] = \
-            (numbering.groupby(\
-                "sample_identifier_ena_experiment").cumcount() + \
-             1).reindex(df.index)
+            df["_run_id"].map(\
+                numbering.groupby(\
+                    "sample_identifier_ena_experiment").cumcount() + 1)
 
         # For each ENA field filling a library column
         for ena_col, target_col in \
             defaults.SRA_ENA_LIBRARY_COLUMNS.items():
 
             # Get each run's value.
-            values = pd.Series(df.index.map(df_ena[ena_col]),
-                               index = df.index)
+            values = df["_run_id"].map(df_ena[ena_col])
 
             # If the column is there
             if target_col in df.columns:
@@ -1511,6 +1522,9 @@ def _process_metadata_sra(options: dict[str, object],
 
     #-----------------------------------------------------------------#
 
+    # Index the samples by their run IDs.
+    df = df.set_index("_run_id").rename_axis("external_id")
+
     # Get the columns to keep: the first ones, if present, then the
     # study-level, kept and added ones, without repetitions.
     cols_to_keep = \
@@ -1542,12 +1556,6 @@ def _process_metadata_sra(options: dict[str, object],
 
     # Convert the columns to the best types.
     df = df.convert_dtypes()
-
-    # If the samples were indexed by another column
-    if index_for_later is not None:
-
-        # Index them by their IDs again.
-        df = df.set_index(pd.Series(index_for_later))
 
     #-----------------------------------------------------------------#
 
@@ -1735,7 +1743,7 @@ def _get_metadata_sra(config: dict[str, object],
 
         # Set the age bins' edges.
         bins = list(range(0,
-                          defaults.AGE_BIN_MAX,
+                          defaults.AGE_BIN_MAX + 1,
                           defaults.AGE_BIN_WIDTH))
 
         # Add the subjects' age bins, each closed on the left and
@@ -1831,8 +1839,8 @@ def _get_metadata_sra(config: dict[str, object],
     # For each column
     for col in df.columns:
 
-        # If it does not hold objects
-        if df[col].dtype != object:
+        # If it does not hold objects or strings
+        if not pd.api.types.is_string_dtype(df[col].dtype):
 
             # Go to the next column.
             continue
@@ -2263,8 +2271,9 @@ def save_dataset_metadata(df: pd.DataFrame,
 
     #-----------------------------------------------------------------#
 
-    # For each column holding objects
-    for col in df.columns[df.dtypes == object]:
+    # For each column holding objects or strings
+    for col in df.select_dtypes(include = ["object",
+                                           "string"]).columns:
 
         # If it is not a comment column
         if not col.endswith("_comment"):

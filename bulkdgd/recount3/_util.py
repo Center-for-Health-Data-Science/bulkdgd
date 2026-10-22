@@ -616,7 +616,8 @@ def _check_config_sra_study(config: dict[str, object],
 
 
 def lowercase_capitalized_words(text: str) -> str:
-    """Lowercase a text's capitalized words, keeping all-caps words.
+    """Lowercase a text's capitalized words, keeping all-caps and
+    mixed-case words.
 
     Parameters
     ----------
@@ -639,26 +640,19 @@ def lowercase_capitalized_words(text: str) -> str:
     # For each part
     for part in parts:
 
-        # If it is a delimiter, an all-caps word or an all-caps word
-        # ending in a lowercase letter
-        if part in ("_", " ", "-") \
-        or (part.isupper() and len(part) > 1) \
-        or (part[:-1].isupper() and part[-1:].islower()):
+        # If it is an all-caps word or has capitals after its first
+        # character
+        if (part.isupper() and len(part) > 1) \
+        or any(c.isupper() for c in part[1:]):
 
             # Keep it.
             converted.append(part)
-
-        # If it is a capitalized word
-        elif part and part[0].isupper():
-
-            # Lowercase it.
-            converted.append(part.lower())
 
         # Otherwise
         else:
 
-            # Keep it.
-            converted.append(part)
+            # Lowercase it.
+            converted.append(part.lower())
 
     # Return the converted text.
     return "".join(converted)

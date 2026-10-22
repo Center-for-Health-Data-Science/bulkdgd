@@ -173,8 +173,10 @@ def set_parser() -> argparse.ArgumentParser:
     iec_help = \
         "An existing CSV file of read counts, with samples as " \
         "rows, to take the metadata's samples from. Only the " \
-        "studies of the samples it lacks are retrieved. By " \
-        "default, the counts of all the studies are retrieved."
+        "studies of the samples it lacks are retrieved. A " \
+        "relative path is taken from the current directory, not " \
+        "from the working directory. By default, the counts of " \
+        "all the studies are retrieved."
 
     # Add the argument to the group.
     input_group.add_argument("-iec", "--input-existing-counts",

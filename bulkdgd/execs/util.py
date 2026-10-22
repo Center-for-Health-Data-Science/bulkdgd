@@ -604,6 +604,10 @@ def set_main_logging(args: argparse.Namespace,
     # Get the log file.
     log_file = os.path.join(args.work_dir, args.log_file)
 
+    # Create its directory if it does not exist.
+    os.makedirs(os.path.dirname(log_file),
+                exist_ok = True)
+
     #-----------------------------------------------------------------#
 
     # Set WARNING logging level by default.

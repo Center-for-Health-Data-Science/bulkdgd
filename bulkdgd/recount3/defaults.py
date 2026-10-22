@@ -32,6 +32,39 @@ __doc__ = \
     "Default URLs/files for interacting with the Recount3 platform, " \
     "downloading data from it and building datasets."
 
+# Set the module's public names.
+__all__ = \
+    ["RECOUNT3_GENCODE_RELEASES",
+     "RECOUNT3_METADATA_FIELDS_FILE",
+     "RECOUNT3_GENE_SUMS_URL",
+     "RECOUNT3_QC_URL",
+     "RECOUNT3_METADATA_URL",
+     "RECOUNT3_GENE_SUMS_FILE",
+     "RECOUNT3_QC_FILE",
+     "RECOUNT3_METADATA_FILE",
+     "RECOUNT3_PROJECTS",
+     "REQUEST_TIMEOUT",
+     "GEO_SOFT_URL",
+     "GEO_SOFT_FILE",
+     "ENA_FILEREPORT_URL",
+     "ENA_FILEREPORT_FIELDS",
+     "ENA_FILEREPORT_FILE",
+     "ENA_REQUEST_PAUSE",
+     "SRA_RUN_SELECTOR_URL",
+     "SRA_RUN_SELECTOR_FILE",
+     "SRA_LIBRARY_COLUMNS",
+     "SRA_ENA_LIBRARY_COLUMNS",
+     "SRA_LIBRARY_VALUES",
+     "SRA_FIRST_COLUMNS",
+     "SRA_COMMENT_HEAD",
+     "SRA_COMMENT_HEAD_OWN_SELECTION",
+     "SRA_COMMENT_TAIL",
+     "SRA_COMMENT_TAIL_ENA",
+     "AGE_BIN_WIDTH",
+     "AGE_BIN_MAX",
+     "MERGE_NA_VALUES",
+     "JOIN_SEPARATOR"]
+
 
 #######################################################################
 
@@ -110,6 +143,11 @@ RECOUNT3_METADATA_FILE = "{:s}_{:s}_metadata.gz"
 
 # Set the supported Recount3 projects.
 RECOUNT3_PROJECTS = ["GTEx", "TCGA", "SRA"]
+
+#---------------------------------------------------------------------#
+
+# Set the time to wait for a server's response, in seconds.
+REQUEST_TIMEOUT = 60
 
 #---------------------------------------------------------------------#
 
@@ -213,7 +251,10 @@ SRA_COMMENT_HEAD = \
     '"sample_sequencing_library_source", ' \
     '"sample_sequencing_library_selection", and ' \
     '"sample_sequencing_library_layout" fields were taken ' \
-    'from the Recount3 metadata file. '
+    'from the Recount3 metadata file (or, for studies without ' \
+    'one, the SRA Run Selector table), with missing strategy, ' \
+    'source and selection values taken from ENA where it has ' \
+    'them. '
 
 # Set the text appended to the SRA studies' comments that already
 # give the library selection's source.
@@ -222,7 +263,9 @@ SRA_COMMENT_HEAD_OWN_SELECTION = \
     '"sample_sequencing_library_strategy", ' \
     '"sample_sequencing_library_source" and ' \
     '"sample_sequencing_library_layout" fields were taken ' \
-    'from the Recount3 metadata file. '
+    'from the Recount3 metadata file (or, for studies without ' \
+    'one, the SRA Run Selector table), with missing strategy ' \
+    'and source values taken from ENA where it has them. '
 
 # Set the text closing the SRA studies' comments.
 SRA_COMMENT_TAIL = \
@@ -243,7 +286,7 @@ SRA_COMMENT_TAIL_ENA = \
 # Set the width of the age bins, in years.
 AGE_BIN_WIDTH = 10
 
-# Set the limit the age bins' edges stay below, in years.
+# Set the upper edge of the last age bin, in years.
 AGE_BIN_MAX = 120
 
 #---------------------------------------------------------------------#

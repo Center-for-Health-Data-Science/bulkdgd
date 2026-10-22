@@ -54,7 +54,7 @@ bulkdgd_get_recount3 [-h] -ic INPUT_CONFIG_FILE -ip {GTEx,TCGA,SRA} [-ig {26,29}
 | `-odq`, `--output-dir-qc`          | The directory of the quality control files downloaded from Recount3 (`{project}_{study}_qc.gz`). The default is the working directory. |
 | `-odm`, `--output-dir-metadata`    | The directory of the metadata files downloaded from Recount3 (`{project}_{study}_metadata.gz`) and, for SRA studies, from ENA (`{study}_ena_filereport.tsv`), GEO (`{geo_code}_family.soft.gz`) and the SRA Run Selector (`{study}_run_selector.csv`). The default is the working directory. |
 
-The output files and directories are relative to the working directory, unless their paths are absolute. In the names of the downloaded files, `{project}` is `gtex`, `tcga` or `sra`.
+The output files and directories are relative to the working directory, and the input files to the current directory, unless their paths are absolute. In the names of the downloaded files, `{project}` is `gtex`, `tcga` or `sra`.
 
 ### Run options
 
@@ -85,7 +85,7 @@ The output files and directories are relative to the working directory, unless t
 bulkdgd_get_recount3 -ic sra_example -ip SRA -d sra_dataset -odc raw/gene_sums -odq raw/qc -odm raw/metadata
 ```
 
-This builds a dataset from the SRA studies in `bulkdgd/configs/recount3/sra_example.yaml`, writing `counts.csv`, `metadata.csv`, `counts_columns.txt`, `metadata_columns.txt` and `samples_ids.txt` in the `sra_dataset` directory (which must exist), and the files downloaded from Recount3, ENA and GEO in `sra_dataset/raw/gene_sums`, `sra_dataset/raw/qc` and `sra_dataset/raw/metadata`.
+This builds a dataset from the SRA studies in `bulkdgd/configs/recount3/sra_example.yaml`, writing `counts.csv`, `metadata.csv`, `counts_columns.txt`, `metadata_columns.txt` and `samples_ids.txt` in the `sra_dataset` directory, and the files downloaded from Recount3, ENA and GEO in `sra_dataset/raw/gene_sums`, `sra_dataset/raw/qc` and `sra_dataset/raw/metadata`.
 
 ```
 bulkdgd_get_recount3 -ic gtex_example -ip GTEx -st KIDNEY -mo

@@ -89,7 +89,7 @@ The other options are:
 
 * ``"metadata_from_study"`` maps other studies' codes to values taken from them. Each study's ``"values"`` maps columns to dictionaries of values and the runs that get them. The values are set as text, a column not in the metadata is added, and every run must be in the study's metadata. ``"matched_on"``, ``"source"`` and ``"fields"`` are notes, not used to build the dataset.
 
-* ``"_use_as_external_id"`` is a column whose values index the samples, in place of their run IDs, while the options are applied. The runs' ENA details are looked up by these values. The samples get their run IDs back before ``"metadata_from_study"``. It applies only to studies with Recount3 metadata.
+* ``"_use_as_external_id"`` is a column whose values index the samples, in place of their run IDs, while the options are applied. The samples get their run IDs back before ``"metadata_from_study"``. It applies only to studies with Recount3 metadata.
 
 The GEO options read the samples of the study's GEO series, which are matched with the study's samples by their titles (``sample_title`` in the study's metadata) or, for studies without Recount3 metadata, by their SRA experiments. They are ignored if ``"metadata_study"`` has no ``"study_geo_code"``:
 
@@ -114,7 +114,7 @@ Every dataset has the columns ``study_recount3_project_name`` (``gtex``, ``tcga`
 
 * ``subject_identifier_numeric_id`` (GTEx), numbering the subjects in ``subject_identifier_GTEx_id`` from 1, in sorted order.
 
-* ``subject_demographics_age_bin_10_years`` (SRA), the ten-year bin of ``subject_demographics_age_years`` (``"0-9"``, ``"10-19"``, ...).
+* ``subject_demographics_age_bin_10_years`` (SRA), the ten-year bin of ``subject_demographics_age_years`` (``"0-9"``, ``"10-19"``, ..., ``"110-119"``).
 
 * ``subject_age_years`` (TCGA), a copy of ``subject_demographics_age_years`` as text. ``subject_demographics_age_years`` is then made a number.
 
