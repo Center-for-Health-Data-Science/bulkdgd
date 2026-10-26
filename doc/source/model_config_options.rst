@@ -66,6 +66,8 @@ Options
 
 The options that can be specified are described below.
 
+* ``"model_type"`` is the type of model, which :func:`bulkdgd.core.models.get_model` builds. It can only be ``"vanilla"`` (:class:`bulkdgd.core.models.BulkDGD`, one point per sample in latent space). If not specified, the default value is ``"vanilla"``.
+
 * ``"genes_txt_file"`` is the path to the plain text file containing the list of genes used in the model. This file should contain one gene name per line in Ensembl ID format.
 
 * ``"latent_dim"`` is the dimensionality of the latent space, a positive integer. If not specified, the default value is ``64``.

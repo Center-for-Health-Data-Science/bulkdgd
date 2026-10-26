@@ -161,6 +161,9 @@ class BulkDGDBase(nn.Module, abc.ABC):
     _DTYPES_TORCH = {"float32" : torch.float32,
                      "float64" : torch.float64}
 
+    # Set the model's type in the configuration (set by each model).
+    MODEL_TYPE = None
+
 
     ##################### INITIALIZATION METHODS ######################
 
@@ -175,7 +178,8 @@ class BulkDGDBase(nn.Module, abc.ABC):
                  scaling_factor: Optional[str] = None,
                  dtype: Optional[str] = None,
                  device: str = "cpu",
-                 seed: Optional[str] = None) -> None:
+                 seed: Optional[str] = None,
+                 model_type: Optional[str] = None) -> None:
         """Initialize an instance of the class. If no architecture is
         given, load the trained model shipped with the package.
 
@@ -218,10 +222,24 @@ class BulkDGDBase(nn.Module, abc.ABC):
         seed : :class:`str`, optional
             The seed of the shipped ensemble member to load. Only valid
             when no architecture is given.
+
+        model_type : :class:`str`, optional
+            The model's type in the configuration. If given, it must
+            be the class's.
         """
 
         # Run the superclass' initialization.
         super().__init__()
+
+        # If the configuration is for another type of model
+        if model_type is not None and model_type != self.MODEL_TYPE:
+
+            # Raise an error.
+            errstr = \
+                f"The configuration is for a '{model_type}' model, " \
+                f"not a '{self.MODEL_TYPE}' one. Build it with " \
+                "'bulkdgd.core.models.get_model'."
+            raise ValueError(errstr)
 
         #-------------------------------------------------------------#
 
@@ -7676,6 +7694,7 @@ class BulkDGDBase(nn.Module, abc.ABC):
 
         # Assemble what the model was built from.
         config = {
+            "model_type" : self.MODEL_TYPE,
             "latent_dim" : int(self.latent.dim),
             "latent_type" : self._latent_type,
             "latent_options" : \
@@ -8192,6 +8211,7 @@ class BulkDGDBase(nn.Module, abc.ABC):
 
         # Assemble the pruned model's configuration.
         config = {
+            "model_type": self.MODEL_TYPE,
             "latent_dim": int(self.latent.dim),
             "latent_type": self._latent_type,
             "latent_options": latent_options,

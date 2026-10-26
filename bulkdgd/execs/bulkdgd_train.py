@@ -746,7 +746,7 @@ def main(args: argparse.Namespace) -> None:
     # Try to set the model.
     try:
 
-        dgd_model = models.BulkDGD(**config_model)
+        dgd_model = models.get_model(config_model = config_model)
 
     # If something went wrong
     except Exception as e:

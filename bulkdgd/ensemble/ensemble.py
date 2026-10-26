@@ -56,7 +56,7 @@ import yaml
 import bulkdgd
 from bulkdgd import defaults
 from bulkdgd.analysis import dea as analysis_dea
-from bulkdgd.core.models import BulkDGD
+from bulkdgd.core import models
 from bulkdgd.ioutil import deaio
 from bulkdgd.ioutil.tableio import load_table, save_table
 from bulkdgd.reproducibility import set_seeds
@@ -224,8 +224,8 @@ class BulkDGDEnsemble:
         ----------
         config_model : :class:`dict`, optional
             The configuration of the model the ensemble is made of,
-            as a single :class:`bulkdgd.core.models.BulkDGD` takes it,
-            shared by every member.
+            as :func:`bulkdgd.core.models.get_model` takes it, shared
+            by every member.
 
             For the available options, refer to the
             :ref:`model_config_options` page.
@@ -723,7 +723,7 @@ class BulkDGDEnsemble:
     def get_model(self,
                   name: str,
                   config_ensemble: dict[str, dict[str, object]] = \
-                    None) -> BulkDGD:
+                    None) -> models.BulkDGDBase:
         """Get one member of the ensemble, with its trained parameters
         loaded.
 
@@ -738,7 +738,7 @@ class BulkDGDEnsemble:
 
         Returns
         -------
-        model : :class:`bulkdgd.core.models.BulkDGD`
+        model : :class:`bulkdgd.core.models.BulkDGDBase`
             The member.
         """
 
@@ -790,7 +790,8 @@ class BulkDGDEnsemble:
         #-------------------------------------------------------------#
 
         # Return the model.
-        return BulkDGD(device = self._device, **config_model)
+        return models.get_model(config_model = config_model,
+                                device = self._device)
 
 
     def status(self,
@@ -877,13 +878,13 @@ class BulkDGDEnsemble:
         return pd.DataFrame(rows).set_index("name")
 
 
-    def _get_model_untrained(self) -> BulkDGD:
+    def _get_model_untrained(self) -> models.BulkDGDBase:
         """Build a member of the ensemble as it is before it is
         trained.
 
         Returns
         -------
-        model : :class:`bulkdgd.core.models.BulkDGD`
+        model : :class:`bulkdgd.core.models.BulkDGDBase`
             The untrained member.
         """
 
@@ -899,7 +900,8 @@ class BulkDGDEnsemble:
         #-------------------------------------------------------------#
 
         # Return the model.
-        return BulkDGD(device = self._device, **config_model)
+        return models.get_model(config_model = config_model,
+                                device = self._device)
 
 
     def _write_seeds(self,
@@ -1139,8 +1141,8 @@ class BulkDGDEnsemble:
 
         config_train : :class:`dict`
             The configuration for the training, as a single
-            :class:`bulkdgd.core.models.BulkDGD` takes it, shared by
-            every member.
+            :class:`bulkdgd.core.models.BulkDGDBase` takes it, shared
+            by every member.
 
         config_ensemble : :class:`dict`, optional
             The configuration to be used. If not passed, the
@@ -1452,7 +1454,7 @@ class BulkDGDEnsemble:
 
         config_rep : :class:`dict`
             The configuration for the search, as a single
-            :class:`bulkdgd.core.models.BulkDGD` takes it.
+            :class:`bulkdgd.core.models.BulkDGDBase` takes it.
 
         config_ensemble : :class:`dict`, optional
             The configuration to be used. If not passed, the

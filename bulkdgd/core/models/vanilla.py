@@ -72,6 +72,13 @@ class BulkDGD(base.BulkDGDBase):
     latent space and optional noise on the points.
     """
 
+    ######################## PUBLIC ATTRIBUTES ########################
+
+
+    # Set the model's type in the configuration.
+    MODEL_TYPE = "vanilla"
+
+
     ############################# HELPERS #############################
 
 
