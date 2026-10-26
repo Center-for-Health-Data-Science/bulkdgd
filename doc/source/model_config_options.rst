@@ -256,13 +256,13 @@ The options that can be specified are described below.
 
   :meth:`bulkdgd.core.model.BulkDGD.impute` works with both scaling factors when the unmeasured counts are given as NaN. For a sample with only some genes measured, the scaling factor is estimated from the measured genes. With ``"mean"``, the unmeasured part of the sum over the genes is filled in with the model's own expectation. With ``"median"``, the median of the measured counts is multiplied by the ratio of the model's predicted median over all genes to its predicted median over the measured genes. Passing a panel of measured genes as ``genes_measured`` works only with ``"mean"``, and raises an error on a median-scaled model.
 
-* ``"dtype"`` is the precision the model's parameters are built in. This is a string that can take one of the following values:
+* ``"dtype"`` is the precision the model's parameters are built in and its computations run in. This is a string that can take one of the following values:
 
    * ``"float32"`` for single precision, which is torch's own default.
    * ``"float64"`` for double precision. This is the default.
 
   The precision cannot be changed after the model is built. A module's parameters are created in torch's default dtype at the moment the module is constructed, and :meth:`torch.nn.Module.load_state_dict` copies a checkpoint *into* the existing parameters, casting as it goes: a float64 checkpoint read into a model built in float32 gives a float32 decoder, without a warning. The Gaussian mixture behaves differently: ``tgmm`` keeps the tensors it is handed rather than copying into its own, so it stays float64 while the decoder becomes float32, and the first matrix multiplication between the two raises ``mat1 and mat2 must have the same dtype``.
 
-  Like ``"scaling_factor"``, this option belongs to the model and is read back from this file whenever the model is loaded, so a model trained in double precision is loaded in double precision without the caller setting torch's default. Torch's default dtype is restored once the model is built, since it is global.
+  Like ``"scaling_factor"``, this option belongs to the model and is read back from this file whenever the model is loaded, so a model trained in double precision is loaded in double precision without the caller setting torch's default. The model is built, trained, searched and fitted in this precision whatever torch's default dtype is, and torch's default is restored afterwards, since it is global.
 
 

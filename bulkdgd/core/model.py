@@ -39,13 +39,14 @@ __doc__ = \
 # Import from the standard library.
 import contextlib
 import copy
+import functools
 import hashlib
 import logging as log
 import math
 import os
 import re
 import time
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
 # Import from third-party libraries.
 import numpy as np
@@ -132,6 +133,54 @@ def clip_grads(optimizer: torch.optim.Optimizer,
         f"(clipped to {max_norm}).")
 
 
+def _in_model_dtype(method: Callable) -> Callable:
+    """Make a model's method run with torch's default data type set
+    to the model's precision.
+
+    Parameters
+    ----------
+    method : :class:`collections.abc.Callable`
+        The method.
+
+    Returns
+    -------
+    wrapper : :class:`collections.abc.Callable`
+        The method, run in the model's precision.
+    """
+
+    # Define the method run in the model's precision.
+    @functools.wraps(method)
+    def wrapper(self,
+                *args,
+                **kwargs):
+        """Run the method in the model's precision.
+
+        Parameters
+        ----------
+        *args : :class:`tuple`
+            The method's positional arguments.
+
+        **kwargs : :class:`dict`
+            The method's keyword arguments.
+
+        Returns
+        -------
+        result : :class:`object`
+            What the method returns.
+        """
+
+        # In the model's own precision
+        with self._default_dtype(self._dtype):
+
+            # Run the method.
+            return method(self,
+                          *args,
+                          **kwargs)
+
+    # Return the wrapped method.
+    return wrapper
+
+
 #######################################################################
 
 
@@ -206,7 +255,7 @@ class BulkDGD(nn.Module):
 
         dtype : :class:`str`, \
             {``"float32"``, ``"float64"``}, ``"float64"``
-            The precision of the model's parameters.
+            The precision of the model's parameters and computations.
 
         device : :class:`str`, ``"cpu"``
             The device where the model will be initialized.
@@ -719,8 +768,8 @@ class BulkDGD(nn.Module):
 
     @property
     def dtype(self):
-        """The precision of the model's parameters (``"float32"`` or
-        ``"float64"``).
+        """The precision of the model's parameters and computations
+        (``"float32"`` or ``"float64"``).
         """
 
         return self._dtype
@@ -7134,6 +7183,7 @@ class BulkDGD(nn.Module):
         return df_final_means
 
 
+    @_in_model_dtype
     def get_representations(self,
                             df_samples: pd.DataFrame,
                             config_rep: dict[str, object],
@@ -7331,15 +7381,12 @@ class BulkDGD(nn.Module):
 
         #-------------------------------------------------------------#
 
-        # In the model's own precision
-        with self._default_dtype(self._dtype):
-
-            # Get the representations, predicted means, r-values (if
-            # any), and time data.
-            rep, pred_means, pred_r_values, time_opt = \
-                opt_method(dataset = dataset,
-                           config = config_rep,
-                           genes_mask = genes_mask)
+        # Get the representations, predicted means, r-values (if any),
+        # and time data.
+        rep, pred_means, pred_r_values, time_opt = \
+            opt_method(dataset = dataset,
+                       config = config_rep,
+                       genes_mask = genes_mask)
 
         #-------------------------------------------------------------#
 
@@ -7418,6 +7465,7 @@ class BulkDGD(nn.Module):
         return df_rep, df_pred_means, df_pred_r_values, df_time
 
 
+    @_in_model_dtype
     def impute(self,
                df_samples: pd.DataFrame,
                config_rep: dict[str, object],
@@ -7636,6 +7684,7 @@ class BulkDGD(nn.Module):
         return df_imputed, df_lower, df_upper, df_r, df_rep
 
 
+    @_in_model_dtype
     def get_probability_density(self,
                                 df_rep: pd.DataFrame) -> \
                                     tuple[pd.DataFrame, pd.DataFrame]:
@@ -7901,6 +7950,7 @@ class BulkDGD(nn.Module):
             raise ValueError(errstr)
 
 
+    @_in_model_dtype
     def fit_gmm(self,
                 input_reps: Union[str, pd.DataFrame,
                                   list[Union[str, pd.DataFrame]]],
@@ -8072,6 +8122,7 @@ class BulkDGD(nn.Module):
         return config
 
 
+    @_in_model_dtype
     def prune(self,
               input_reps: Union[str, pd.DataFrame,
                                 list[Union[str, pd.DataFrame]]],
@@ -8153,15 +8204,12 @@ class BulkDGD(nn.Module):
             {k: v for k, v in self._decoder_initial_options.items()
              if k != "decoder_pth_file"}
 
-        # In the model's own precision
-        with self._default_dtype(self._dtype):
-
-            # Build the full decoder.
-            dec_full, _ = \
-                self._get_decoder(latent_dim = latent_dim,
-                                  genes = genes,
-                                  decoder_options = full_options,
-                                  device = device)
+        # Build the full decoder.
+        dec_full, _ = \
+            self._get_decoder(latent_dim = latent_dim,
+                              genes = genes,
+                              decoder_options = full_options,
+                              device = device)
 
         # Set the full decoder in eval mode.
         dec_full = dec_full.eval()
@@ -8343,15 +8391,12 @@ class BulkDGD(nn.Module):
             [int(len(k1)), int(len(k2))]
         pruned_options.pop("decoder_pth_file", None)
 
-        # In the model's own precision
-        with self._default_dtype(self._dtype):
-
-            # Build the pruned decoder.
-            dec_pruned, _ = \
-                self._get_decoder(latent_dim = latent_dim,
-                                  genes = genes,
-                                  decoder_options = pruned_options,
-                                  device = device)
+        # Build the pruned decoder.
+        dec_pruned, _ = \
+            self._get_decoder(latent_dim = latent_dim,
+                              genes = genes,
+                              decoder_options = pruned_options,
+                              device = device)
 
         # Set the pruned decoder in eval mode.
         dec_pruned = dec_pruned.eval()
@@ -8598,6 +8643,7 @@ class BulkDGD(nn.Module):
         return config
 
 
+    @_in_model_dtype
     def train(self,
               df_samples: pd.DataFrame,
               names_train: list,
