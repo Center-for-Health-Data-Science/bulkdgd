@@ -1406,7 +1406,7 @@ class BulkDGDEnsemble:
         if dfs_pred_r_values is not None:
 
             # If there is one data frame per split (full dispersion)
-            if isinstance(dfs_pred_r_values, tuple):
+            if len(dfs_pred_r_values) == 2:
 
                 # Write the training and the test samples' r-values.
                 write(dfs_pred_r_values[0], "pred_r_values_train.csv")
@@ -1416,7 +1416,7 @@ class BulkDGDEnsemble:
             else:
 
                 # Write the r-values.
-                write(dfs_pred_r_values, self.PRED_R_VALUES_FILE)
+                write(dfs_pred_r_values[0], self.PRED_R_VALUES_FILE)
 
         #-------------------------------------------------------------#
 
