@@ -1381,6 +1381,79 @@ class GaussianMixtureModelLegacy(nn.Module):
                         self.dim)
 
 
+    def load_state_dict(self,
+                        state_dict: dict[str, torch.Tensor],
+                        strict: bool = True,
+                        assign: bool = False):
+        """Load the mixture's parameters, taking the number of
+        components from them.
+
+        Parameters
+        ----------
+        state_dict : :class:`dict`
+            The state dictionary.
+
+        strict : :class:`bool`, ``True``
+            Whether the state's keys must match the mixture's.
+
+        assign : :class:`bool`, ``False``
+            Whether to assign the state's tensors to the parameters
+            instead of copying them.
+
+        Returns
+        -------
+        incompatible_keys : :class:`collections.namedtuple`
+            The missing and unexpected keys, as
+            :meth:`torch.nn.Module.load_state_dict` returns them.
+        """
+
+        # Get the number of components in the state.
+        n_components = int(state_dict["_means"].shape[0])
+
+        # If it differs from the mixture's
+        if n_components != self.n_components:
+
+            # Warn the user.
+            logger.warning(
+                f"The state has {n_components} component(s), the "
+                f"mixture {self.n_components}: the mixture takes the "
+                "state's.")
+
+            # Set the number of components.
+            self._n_components = n_components
+
+            # Set the prior over the weights for that number of
+            # components.
+            self._weights_prior = \
+                self._get_weights_prior(
+                    weights_prior_name = self.weights_prior["name"],
+                    weights_prior_options = \
+                        {"alpha" : \
+                            self.weights_prior["options"]["alpha"]})
+
+            # For each parameter
+            for name in ("_means", "_weights", "_log_var"):
+
+                # Get the parameter.
+                param = getattr(self, name)
+
+                # Replace it with an empty one of the state's shape.
+                setattr(self,
+                        name,
+                        nn.Parameter(
+                            torch.empty(state_dict[name].shape,
+                                        dtype = param.dtype,
+                                        device = param.device),
+                            requires_grad = param.requires_grad))
+
+        #-------------------------------------------------------------#
+
+        # Load the parameters.
+        return super().load_state_dict(state_dict,
+                                       strict = strict,
+                                       assign = assign)
+
+
     def save(self,
              file: str) -> None:
         """Save the GMM parameters to a .pth file.
