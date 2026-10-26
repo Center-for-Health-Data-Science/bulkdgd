@@ -10,14 +10,14 @@
 Seeding has to happen before the model is built
 -----------------------------------------------
 
-:func:`bulkdgd.reproducibility.set_seeds` must be called **before** :class:`bulkdgd.core.model.BulkDGD` is constructed, and not merely before it is trained.
+:func:`bulkdgd.reproducibility.set_seeds` must be called **before** :class:`bulkdgd.core.models.BulkDGD` is constructed, and not merely before it is trained.
 
 Constructing the model is already random. :class:`torch.nn.Linear` draws its weights in its own ``__init__``, through ``reset_parameters``, so by the time ``BulkDGD(...)`` returns, every weight of the decoder has already been drawn from the generator's current state. Seeding afterwards does not affect those weights: the log reports the run as seeded, but the run does not reproduce.
 
 .. code-block:: python
 
    import bulkdgd
-   from bulkdgd.core.model import BulkDGD
+   from bulkdgd.core.models import BulkDGD
 
    # Right: the decoder's weights are drawn from a seeded generator.
    bulkdgd.set_seeds(42)

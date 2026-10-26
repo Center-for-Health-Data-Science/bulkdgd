@@ -80,7 +80,7 @@ def plot_representations_time(
     ----------
     df : :class:`pandas.DataFrame`
         A data frame containing the time data, as produced by
-        :meth:`bulkdgd.core.model.BulkDGD.get_representations`.
+        :meth:`bulkdgd.core.models.BulkDGD.get_representations`.
 
     output_file : :class:`str`, optional
         The file where the plot will be saved. If not provided, the

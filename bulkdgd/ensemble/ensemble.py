@@ -56,7 +56,7 @@ import yaml
 import bulkdgd
 from bulkdgd import defaults
 from bulkdgd.analysis import dea as analysis_dea
-from bulkdgd.core.model import BulkDGD
+from bulkdgd.core.models import BulkDGD
 from bulkdgd.ioutil import deaio
 from bulkdgd.ioutil.tableio import load_table, save_table
 from bulkdgd.reproducibility import set_seeds
@@ -224,7 +224,7 @@ class BulkDGDEnsemble:
         ----------
         config_model : :class:`dict`, optional
             The configuration of the model the ensemble is made of,
-            as a single :class:`bulkdgd.core.model.BulkDGD` takes it,
+            as a single :class:`bulkdgd.core.models.BulkDGD` takes it,
             shared by every member.
 
             For the available options, refer to the
@@ -738,7 +738,7 @@ class BulkDGDEnsemble:
 
         Returns
         -------
-        model : :class:`bulkdgd.core.model.BulkDGD`
+        model : :class:`bulkdgd.core.models.BulkDGD`
             The member.
         """
 
@@ -883,7 +883,7 @@ class BulkDGDEnsemble:
 
         Returns
         -------
-        model : :class:`bulkdgd.core.model.BulkDGD`
+        model : :class:`bulkdgd.core.models.BulkDGD`
             The untrained member.
         """
 
@@ -1139,7 +1139,7 @@ class BulkDGDEnsemble:
 
         config_train : :class:`dict`
             The configuration for the training, as a single
-            :class:`bulkdgd.core.model.BulkDGD` takes it, shared by
+            :class:`bulkdgd.core.models.BulkDGD` takes it, shared by
             every member.
 
         config_ensemble : :class:`dict`, optional
@@ -1452,7 +1452,7 @@ class BulkDGDEnsemble:
 
         config_rep : :class:`dict`
             The configuration for the search, as a single
-            :class:`bulkdgd.core.model.BulkDGD` takes it.
+            :class:`bulkdgd.core.models.BulkDGD` takes it.
 
         config_ensemble : :class:`dict`, optional
             The configuration to be used. If not passed, the

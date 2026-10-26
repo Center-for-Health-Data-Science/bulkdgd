@@ -3,7 +3,7 @@
 
 #    bulkdgd_train.py
 #
-#    Train the :class:`core.model.BulkDGD`.
+#    Train the :class:`core.models.BulkDGD`.
 #
 #    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
@@ -27,7 +27,7 @@
 
 
 # Set the module's description.
-__doc__ = "Train the :class:`core.model.BulkDGD`."
+__doc__ = "Train the :class:`core.models.BulkDGD`."
 
 
 #######################################################################
@@ -49,7 +49,7 @@ from bulkdgd.ioutil.tableio import save_table
 import torch
 
 # Import from 'bulkdgd'.
-from bulkdgd.core import model
+from bulkdgd.core import models
 from bulkdgd import defaults, ioutil
 from . import util
 
@@ -746,7 +746,7 @@ def main(args: argparse.Namespace) -> None:
     # Try to set the model.
     try:
 
-        dgd_model = model.BulkDGD(**config_model)
+        dgd_model = models.BulkDGD(**config_model)
 
     # If something went wrong
     except Exception as e:

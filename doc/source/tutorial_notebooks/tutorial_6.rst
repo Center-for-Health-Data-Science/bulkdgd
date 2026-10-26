@@ -59,7 +59,7 @@ A member is built only when it is asked for, one at a time, by ``get_model``:
 .. code-block:: python
 
    # Build one member, with its trained parameters loaded. It is an
-   # ordinary 'bulkdgd.core.model.BulkDGD', and behaves exactly as the
+   # ordinary 'bulkdgd.core.models.BulkDGD', and behaves exactly as the
    # one in Tutorial 1.
    model = ensemble.get_model(name = "seed37")
 

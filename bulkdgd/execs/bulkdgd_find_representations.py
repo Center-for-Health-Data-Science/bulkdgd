@@ -4,7 +4,7 @@
 #    bulkdgd_find_representations.py
 #
 #    Find representations in the latent space defined by the
-#    :class:`core.model.BulkDGD` for a set of samples.
+#    :class:`core.models.BulkDGD` for a set of samples.
 #
 #    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
@@ -30,7 +30,7 @@
 # Set the module's description.
 __doc__ = \
     "Find representations in the latent space defined by the " \
-    ":class:`core.model.BulkDGD` for a set of samples."
+    ":class:`core.models.BulkDGD` for a set of samples."
 
 
 #######################################################################
@@ -43,7 +43,7 @@ import os
 import sys
 
 # Import from 'bulkdgd'.
-from bulkdgd.core import model
+from bulkdgd.core import models
 from bulkdgd.ioutil.tableio import save_table
 from bulkdgd import defaults, ioutil
 from . import util
@@ -336,7 +336,7 @@ def main(args: argparse.Namespace) -> None:
     # Try to set the model.
     try:
 
-        dgd_model = model.BulkDGD(**config_model)
+        dgd_model = models.BulkDGD(**config_model)
 
     # If something went wrong
     except Exception as e:

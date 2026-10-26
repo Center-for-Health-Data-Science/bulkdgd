@@ -3,7 +3,7 @@
 Configuration for training the bulkdgd model
 ============================================
 
-Training an instance of :class:`core.model.BulkDGD` requires a number of options.
+Training an instance of :class:`core.models.BulkDGD` requires a number of options.
 
 These options can be passed as a nested dictionary or specified in a YAML configuration file.
 
@@ -13,7 +13,7 @@ The options that can be specified are described below.
 
 * ``"continue_training"`` is whether the model being trained is allowed to be one that was built from trained parameters. This is a boolean and defaults to ``False``.
 
-  :meth:`bulkdgd.core.model.BulkDGD.train` **refuses** to run on a model whose decoder came from a checkpoint (as with a model configuration naming a ``"decoder_pth_file"``, or a bare ``BulkDGD()``) unless this is set to ``true`` at the **top level** of the training configuration. Such a model starts from the published optimum, and training moves it away from that optimum with no sign of it in the output: the object keeps the same name, but its results are no longer the published model's.
+  :meth:`bulkdgd.core.models.BulkDGD.train` **refuses** to run on a model whose decoder came from a checkpoint (as with a model configuration naming a ``"decoder_pth_file"``, or a bare ``BulkDGD()``) unless this is set to ``true`` at the **top level** of the training configuration. Such a model starts from the published optimum, and training moves it away from that optimum with no sign of it in the output: the object keeps the same name, but its results are no longer the published model's.
 
   Set this option to fine-tune a trained model, for instance on a new cohort. To train a new model instead, build it from an architecture that names no parameter files, such as ``bulkdgd/configs/model/model_tgmm.yaml``.
 
@@ -391,7 +391,7 @@ The options that can be specified are described below.
 
    * ``"init_rep_scale"`` is the scale by which the initial representations are multiplied when they are drawn from the default normal distribution. This is a non-negative float that defaults to ``0.0``, which starts every representation at the origin. It is ignored when ``"init_rep_dist"`` is given.
 
-   * ``"init_rep_dist"`` is the distribution the initial representations are drawn from, before any training happens. This is the name of any distribution :class:`core.latents.RepresentationLayer` supports, namely ``"normal"``, ``"uniform"``, ``"laplace"``, ``"student_t"``, ``"cauchy"``, ``"uniform_ball"`` or ``"zeros"``. If not specified, the representations are drawn from a normal distribution scaled by ``"init_rep_scale"``.
+   * ``"init_rep_dist"`` is the distribution the initial representations are drawn from, before any training happens. This is the name of any distribution :class:`core.representations.RepresentationLayer` supports, namely ``"normal"``, ``"uniform"``, ``"laplace"``, ``"student_t"``, ``"cauchy"``, ``"uniform_ball"`` or ``"zeros"``. If not specified, the representations are drawn from a normal distribution scaled by ``"init_rep_scale"``.
 
    * ``"init_rep_dist_options"`` is a dictionary of options for that distribution, and its contents depend on which one was named: ``"scale"`` for ``"normal"``, ``"uniform"``, ``"laplace"`` and ``"cauchy"``; ``"df"`` and ``"scale"`` for ``"student_t"``; ``"radius"`` for ``"uniform_ball"``; nothing for ``"zeros"``. The number of representations and their dimensionality follow from the data and the model, so ``"n_samples"`` and ``"dim"`` are set here automatically and any value given for them in the configuration is overridden.
 

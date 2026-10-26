@@ -4,7 +4,7 @@
 #    priors.py
 #
 #    This module contains the classes implementing some of the prior
-#    distributions used in the :class:`core.model.BulkDGD`.
+#    distributions used in the :class:`core.models.BulkDGD`.
 #
 #    The code was originally developed by Viktoria Schuster,
 #    Inigo Prada Luengo, and Anders Krogh.
@@ -43,7 +43,7 @@
 __doc__ = \
     "This module contains the classes implementing some of the " \
     "prior distributions used in the " \
-    ":class:`core.model.BulkDGD`."
+    ":class:`core.models.BulkDGD`."
 
 
 #######################################################################

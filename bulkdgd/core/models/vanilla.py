@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 # -*- Mode: python; tab-width: 4; indent-tabs-mode:nil; coding:utf-8 -*-
 
-#    model.py
+#    vanilla.py
 #
-#    This module contains the class implementing the full BulkDGD model
-#    (:class:`core.model.BulkDGD`).
+#    This module contains the class implementing the BulkDGD model with
+#    one point per sample in latent space
+#    (:class:`core.models.BulkDGD`).
 #
 #    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
@@ -29,8 +30,9 @@
 
 # Set the module's description.
 __doc__ = \
-    "This module contains the class implementing the full BulkDGD " \
-    "model (:class:`core.model.BulkDGD`)."
+    "This module contains the class implementing the BulkDGD model " \
+    "with one point per sample in latent space " \
+    "(:class:`core.models.BulkDGD`)."
 
 
 #######################################################################
@@ -57,14 +59,16 @@ import yaml
 
 # Import from 'bulkdgd'.
 from bulkdgd import _internals, defaults
-from . import (
+from .. import (
     dataclasses,
     decoders,
     latents,
     metrics,
     outputmodules,
+    representations,
     warmstart,
     _util)
+from .base import clip_grads
 
 
 #######################################################################
@@ -72,64 +76,6 @@ from . import (
 
 # Get the module's logger.
 logger = log.getLogger(__name__)
-
-
-#######################################################################
-
-
-def clip_grads(optimizer: torch.optim.Optimizer,
-               max_norm: Optional[Union[float, int]]) -> None:
-    """Clip an optimizer's gradients to a maximum norm.
-
-    Parameters
-    ----------
-    optimizer : :class:`torch.optim.Optimizer`
-        The optimizer whose parameters' gradients should be clipped.
-
-    max_norm : :class:`float` or :class:`int`, optional
-        The norm to clip the gradients to. If :obj:`None`, the gradients
-        are not clipped.
-    """
-
-    # If no maximum norm was set, the gradients are not clipped.
-    if max_norm is None:
-        return
-
-    # Get the parameters the optimizer steps that have a gradient.
-    params = \
-        [p for group in optimizer.param_groups \
-         for p in group["params"] if p.grad is not None]
-
-    # If there are none, there is nothing to clip.
-    if not params:
-        return
-
-    #-----------------------------------------------------------------#
-
-    # Zero out the non-finite gradients.
-    for p in params:
-
-        # If the parameter's gradient is not entirely finite
-        if not torch.isfinite(p.grad).all():
-
-            # Warn the user.
-            logger.warning(\
-                "A non-finite gradient was found and zeroed.")
-
-            # Zero the gradient.
-            p.grad = torch.zeros_like(p.grad)
-
-    #-----------------------------------------------------------------#
-
-    # Clip the gradients and get their norm before clipping.
-    total_norm = \
-        torch.nn.utils.clip_grad_norm_(parameters = params,
-                                       max_norm = max_norm)
-
-    # Log the gradient norm before clipping.
-    logger.debug(
-        f"Gradient norm before clipping: {float(total_norm):.4f} "
-        f"(clipped to {max_norm}).")
 
 
 #######################################################################
@@ -1182,7 +1128,7 @@ class BulkDGD(nn.Module):
 
     def _optimize_rep(self,
                       data_loader: torch.utils.data.DataLoader,
-                      rep_layer: latents.RepresentationLayer,
+                      rep_layer: representations.RepresentationLayer,
                       optimizer: torch.optim.Optimizer,
                       n_components: int,
                       n_rep_per_comp: int,
@@ -1205,7 +1151,8 @@ class BulkDGD(nn.Module):
         data_loader : :class:`torch.utils.data.DataLoader`
             The data loader.
 
-        rep_layer : :class:`bulkdgd.core.latents.RepresentationLayer`
+        rep_layer : \
+            :class:`bulkdgd.core.representations.RepresentationLayer`
             The representation layer containing the initial
             representations.
 
@@ -1818,7 +1765,7 @@ class BulkDGD(nn.Module):
 
     def _select_best_rep(self,
                          data_loader: torch.utils.data.DataLoader,
-                         rep_layer: latents.RepresentationLayer,
+                         rep_layer: representations.RepresentationLayer,
                          n_rep_per_comp: int,
                          loss_reduction_type: str,
                          latent_lambda: \
@@ -1837,7 +1784,8 @@ class BulkDGD(nn.Module):
         data_loader : :class:`torch.utils.data.DataLoader`
             The data loader.
 
-        rep_layer : :class:`bulkdgd.core.latents.RepresentationLayer`
+        rep_layer : \
+            :class:`bulkdgd.core.representations.RepresentationLayer`
             The representation layer containing the representations
             found for the samples.
 
@@ -2942,7 +2890,7 @@ class BulkDGD(nn.Module):
 
         # Create the representation layer.
         rep_layer_init = \
-            latents.RepresentationLayer(values = rep_init).to(\
+            representations.RepresentationLayer(values = rep_init).to(\
                 self.device)
 
         #-------------------------------------------------------------#
@@ -2996,7 +2944,7 @@ class BulkDGD(nn.Module):
 
         # Create the representation layer.
         rep_layer_1 = \
-            latents.RepresentationLayer(values = rep_1,
+            representations.RepresentationLayer(values = rep_1,
                                         device = self.device)
 
         #-------------------------------------------------------------#
@@ -3022,7 +2970,7 @@ class BulkDGD(nn.Module):
         # Create a representation layer containing the best
         # representations found (one representation per sample).
         rep_layer_best = \
-            latents.RepresentationLayer(values = rep_best,
+            representations.RepresentationLayer(values = rep_best,
                                         device = self.device)
 
         #-------------------------------------------------------------#
@@ -3150,7 +3098,7 @@ class BulkDGD(nn.Module):
             # compute its loss.
             self._select_best_rep(
                 data_loader = data_loader,
-                rep_layer = latents.RepresentationLayer(
+                rep_layer = representations.RepresentationLayer(
                     values = rep, device = self.device),
                 n_rep_per_comp = 1,
                 loss_reduction_type = loss_reduction_type,
@@ -4214,8 +4162,8 @@ class BulkDGD(nn.Module):
     def _save_optional_outputs(
             self,
             reporting_options: dict[str, object],
-            rep_layer_train: latents.RepresentationLayer,
-            rep_layer_test: latents.RepresentationLayer,
+            rep_layer_train: representations.RepresentationLayer,
+            rep_layer_test: representations.RepresentationLayer,
             samples_names_train: list[str],
             samples_names_test: list[str],
             epoch: int,
@@ -4231,11 +4179,11 @@ class BulkDGD(nn.Module):
             The configuration for reporting.
 
         rep_layer_train : \
-            :class:`bulkdgd.core.latents.RepresentationLayer`
+            :class:`bulkdgd.core.representations.RepresentationLayer`
             The representation layer for the training samples.
 
         rep_layer_test : \
-            :class:`bulkdgd.core.latents.RepresentationLayer`
+            :class:`bulkdgd.core.representations.RepresentationLayer`
             The representation layer for the test samples.
 
         samples_names_train : :class:`list` of :class:`str`
@@ -4573,7 +4521,7 @@ class BulkDGD(nn.Module):
                          noise_scale: float,
                          generator: torch.Generator,
                          optimizer: torch.optim.Optimizer,
-                         rep_layer: latents.RepresentationLayer,
+                         rep_layer: representations.RepresentationLayer,
                          samples_ixs: torch.Tensor) -> torch.Tensor:
         """Draw the noise kept in a batch's stored representations.
 
@@ -4595,7 +4543,8 @@ class BulkDGD(nn.Module):
         optimizer : :class:`torch.optim.Optimizer`
             The optimizer of the representations.
 
-        rep_layer : :class:`bulkdgd.core.latents.RepresentationLayer`
+        rep_layer : \
+            :class:`bulkdgd.core.representations.RepresentationLayer`
             The layer holding the representations.
 
         samples_ixs : :class:`torch.Tensor`
@@ -4663,8 +4612,8 @@ class BulkDGD(nn.Module):
                genes_names: list[str],
                data_loader_train: torch.utils.data.DataLoader,
                data_loader_test: torch.utils.data.DataLoader,
-               rep_layer_train: latents.RepresentationLayer,
-               rep_layer_test: latents.RepresentationLayer,
+               rep_layer_train: representations.RepresentationLayer,
+               rep_layer_test: representations.RepresentationLayer,
                pathways: Optional[dict[str, list[str]]] = None,
                labels_train: Optional[torch.Tensor] = None,
                labels_test: Optional[torch.Tensor] = None) -> \
@@ -4698,11 +4647,11 @@ class BulkDGD(nn.Module):
             The data loader for the test samples.
 
         rep_layer_train : \
-            :class:`bulkdgd.core.latents.RepresentationLayer`
+            :class:`bulkdgd.core.representations.RepresentationLayer`
             The representation layer for the training samples.
 
         rep_layer_test : \
-            :class:`bulkdgd.core.latents.RepresentationLayer`
+            :class:`bulkdgd.core.representations.RepresentationLayer`
             The representation layer for the test samples.
 
         pathways : :class:`dict` or :obj:`None`
@@ -8780,7 +8729,7 @@ class BulkDGD(nn.Module):
             Returns
             -------
             rep_layer : \
-                :class:`bulkdgd.core.latents.RepresentationLayer`
+                :class:`core.representations.RepresentationLayer`
                 The representation layer.
             """
 
@@ -8791,7 +8740,7 @@ class BulkDGD(nn.Module):
             if init_rep_dist is None:
 
                 # Return a layer of scaled standard normal draws.
-                return latents.RepresentationLayer(\
+                return representations.RepresentationLayer(\
                     values = init_rep_scale * torch.randn(\
                         size = (n_samples, self.latent.dim),
                         dtype = dtype)).to(self.device)
@@ -8803,7 +8752,7 @@ class BulkDGD(nn.Module):
             options["dim"] = self.latent.dim
 
             # Return the representation layer.
-            return latents.RepresentationLayer(\
+            return representations.RepresentationLayer(\
                 dist = init_rep_dist,
                 dist_options = options,
                 device = self.device).to(dtype = dtype)
