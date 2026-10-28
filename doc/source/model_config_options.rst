@@ -86,7 +86,7 @@ The options that can be specified are described below.
          * ``"isotropic"`` for an isotropic covariance matrix.
          * ``"diagonal"`` for a diagonal covariance matrix. This is the default.
       
-      * ``"means_prior_type"`` is the type of prior distribution used for the means of the GMM components. This is a string that can take one of the following values:
+      * ``"means_prior_name"`` is the type of prior distribution used for the means of the GMM components. This is a string that can take one of the following values:
          
          * ``"softball"`` for a softball prior. This is the default.
       
@@ -97,7 +97,7 @@ The options that can be specified are described below.
             * ``"radius"`` is the radius of the sphere on which the means are constrained to lie, a positive float.
             * ``"sharpness"`` is how sharply the means are constrained to lie on the sphere, a positive float.
       
-      * ``"weights_prior_type"`` is the type of prior distribution used for the weights of the GMM components. This is a string that can take one of the following values:
+      * ``"weights_prior_name"`` is the type of prior distribution used for the weights of the GMM components. This is a string that can take one of the following values:
          
          * ``"dirichlet"`` for a Dirichlet prior. This is the default.
       
@@ -107,7 +107,7 @@ The options that can be specified are described below.
 
             * ``"alpha"`` is the concentration parameter of the Dirichlet prior, a positive float.
       
-      * ``"log_var_prior_type"`` is the type of prior distribution used for the log-variances of the GMM components. This is a string that can take one of the following values:
+      * ``"log_var_prior_name"`` is the type of prior distribution used for the log-variances of the GMM components. This is a string that can take one of the following values:
 
          * ``"gaussian"`` for a Gaussian prior. This is the default.
       

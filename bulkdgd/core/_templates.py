@@ -111,7 +111,7 @@ _MODEL_LGMM_OPTIONS = {
 
     # The type of prior distribution to use for the means of the
     # Gaussian components in the Gaussian mixture model.
-    "means_prior_type" : {
+    "means_prior_name" : {
         "type" : (str,),
         "choices" :  ["softball"],
         "default" : "softball",
@@ -122,7 +122,7 @@ _MODEL_LGMM_OPTIONS = {
     "means_prior_options" : {
 
         "switch" : {
-            "option" : "means_prior_type",
+            "option" : "means_prior_name",
             "cases" : {
                 "softball" : {
                     "radius" : {
@@ -141,7 +141,7 @@ _MODEL_LGMM_OPTIONS = {
 
     # The type of prior distribution to use for the weights of the
     # Gaussian components in the Gaussian mixture model.
-    "weights_prior_type" : {
+    "weights_prior_name" : {
         "type" : (str,),
         "choices" : ["dirichlet"],
         "default" : "dirichlet",
@@ -152,7 +152,7 @@ _MODEL_LGMM_OPTIONS = {
     "weights_prior_options" : {
         "switch" : {
             "option" :
-                "weights_prior_type",
+                "weights_prior_name",
             "cases" : {
                 "dirichlet" : {
                     "alpha" : {
@@ -167,7 +167,7 @@ _MODEL_LGMM_OPTIONS = {
 
     # The type of prior distribution to use for the log variances of
     # the Gaussian components in the Gaussian mixture model.
-    "log_var_prior_type" : {
+    "log_var_prior_name" : {
         "type" : (str,),
         "choices" : ["gaussian"],
         "default" : "gaussian",
@@ -177,7 +177,7 @@ _MODEL_LGMM_OPTIONS = {
     # the Gaussian components in the Gaussian mixture model.
     "log_var_prior_options" : {
         "switch" : {
-            "option" : "log_var_prior_type",
+            "option" : "log_var_prior_name",
             "cases" : {
                 "gaussian" : {
                     "mean" : {
