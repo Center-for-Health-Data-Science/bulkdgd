@@ -1191,10 +1191,10 @@ class BulkDGDBase(nn.Module, abc.ABC):
         Returns
         -------
         points : :class:`torch.Tensor`
-            The points (or the posteriors' means).
+            The representations.
 
         variances : :class:`torch.Tensor` or :obj:`None`
-            The posteriors' variances, or :obj:`None` for points.
+            The representations' variances, or :obj:`None` for points.
         """
 
         # Leave it to the model.
