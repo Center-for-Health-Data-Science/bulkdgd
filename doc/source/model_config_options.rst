@@ -3,7 +3,7 @@
 Configuration for creating an instance of the BulkDGD model
 ===========================================================
 
-Creating a new instance of :class:`core.model.BulkDGD` requires a number of options.
+Creating a new instance of :class:`core.models.BulkDGD` requires a number of options.
 
 These options can be passed as a nested dictionary or specified in a YAML configuration file.
 
@@ -18,7 +18,7 @@ None of these options has to be set to obtain the published model. An architectu
 
 .. code-block:: python
 
-   from bulkdgd.core.model import BulkDGD
+   from bulkdgd.core.models import BulkDGD
 
    # The trained model, as published.
    model = BulkDGD()
@@ -26,7 +26,7 @@ None of these options has to be set to obtain the published model. An architectu
    # Another member of the ensemble it belongs to.
    model = BulkDGD(seed = "seed41")
 
-A :class:`bulkdgd.core.model.BulkDGD` built with no architecture reads the architecture, the gene list, the scaling factor and the precision from the configuration shipped for the requested member, and loads that member's fitted parameters. For every member this is 32 latent dimensions, a ``"tgmm"`` mixture of **48** components with a ``"tied_spherical"`` covariance, a ``"nb_full_dispersion"`` decoder with hidden layers of 500 and 8000 units, the curated list of **14,740** genes, the ``"median"`` scaling factor and ``"float64"``.
+A :class:`bulkdgd.core.models.BulkDGD` built with no architecture reads the architecture, the gene list, the scaling factor and the precision from the configuration shipped for the requested member, and loads that member's fitted parameters. For every member this is 32 latent dimensions, a ``"tgmm"`` mixture of **48** components with a ``"tied_spherical"`` covariance, a ``"nb_full_dispersion"`` decoder with hidden layers of 500 and 8000 units, the curated list of **14,740** genes, the ``"median"`` scaling factor and ``"float64"``.
 
 ``"seed"`` selects which member is loaded, and defaults to ``"seed37"``, the base member. It cannot be combined with ``"latent_dim"``, ``"latent_options"`` and ``"decoder_options"``, which describe an architecture to be built from scratch: giving them together with a seed raises an error. These three must be given together, or not at all.
 
@@ -65,6 +65,8 @@ Options
 -------
 
 The options that can be specified are described below.
+
+* ``"model_type"`` is the type of model, which :func:`bulkdgd.core.models.get_model` builds. It can only be ``"vanilla"`` (:class:`bulkdgd.core.models.BulkDGD`, one point per sample in latent space). If not specified, the default value is ``"vanilla"``.
 
 * ``"genes_txt_file"`` is the path to the plain text file containing the list of genes used in the model. This file should contain one gene name per line in Ensembl ID format.
 
@@ -254,7 +256,7 @@ The options that can be specified are described below.
 
   The median is only safe on a gene list filtered to the genes expressed in the samples. A median is zero as soon as half of a sample's genes are zero, and a scaling factor of zero makes every predicted mean zero and the negative binomial undefined. :class:`bulkdgd.core.dataclasses.GeneExpressionDataset` raises an error instead of accepting a zero.
 
-  :meth:`bulkdgd.core.model.BulkDGD.impute` works with both scaling factors when the unmeasured counts are given as NaN. For a sample with only some genes measured, the scaling factor is estimated from the measured genes. With ``"mean"``, the unmeasured part of the sum over the genes is filled in with the model's own expectation. With ``"median"``, the median of the measured counts is multiplied by the ratio of the model's predicted median over all genes to its predicted median over the measured genes. Passing a panel of measured genes as ``genes_measured`` works only with ``"mean"``, and raises an error on a median-scaled model.
+  :meth:`bulkdgd.core.models.BulkDGD.impute` works with both scaling factors when the unmeasured counts are given as NaN. For a sample with only some genes measured, the scaling factor is estimated from the measured genes. With ``"mean"``, the unmeasured part of the sum over the genes is filled in with the model's own expectation. With ``"median"``, the median of the measured counts is multiplied by the ratio of the model's predicted median over all genes to its predicted median over the measured genes. Passing a panel of measured genes as ``genes_measured`` works only with ``"mean"``, and raises an error on a median-scaled model.
 
 * ``"dtype"`` is the precision the model's parameters are built in and its computations run in. This is a string that can take one of the following values:
 

@@ -8,6 +8,3 @@ core.latents
 
    .. autoclass:: bulkdgd.core.latents.GaussianMixtureModelTGMM
       :members:
-
-   .. autoclass:: bulkdgd.core.latents.RepresentationLayer
-      :members:

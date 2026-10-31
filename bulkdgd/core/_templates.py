@@ -1890,6 +1890,13 @@ _REP_TWO_OPT_TGMM = {
 # Set the template for the model's configuration.
 CONFIG_MODEL = {
 
+    # The type of model.
+    "model_type" : {
+        "type" : (str,),
+        "choices" : ["vanilla"],
+        "default" : "vanilla",
+        },
+
     # The path to the file containing the genes to use for the model.
     "genes_txt_file" : {
         "type" : (str,),

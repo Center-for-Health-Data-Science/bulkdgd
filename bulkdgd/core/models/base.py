@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- Mode: python; tab-width: 4; indent-tabs-mode:nil; coding:utf-8 -*-
 
-#    model.py
+#    base.py
 #
-#    This module contains the class implementing the full BulkDGD model
-#    (:class:`core.model.BulkDGD`).
+#    This module contains the base class of the BulkDGD models
+#    (:class:`core.models.BulkDGDBase`), with what they share.
 #
 #    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
@@ -29,41 +29,43 @@
 
 # Set the module's description.
 __doc__ = \
-    "This module contains the class implementing the full BulkDGD " \
-    "model (:class:`core.model.BulkDGD`)."
+    "This module contains the base class of the BulkDGD models " \
+    "(:class:`core.models.BulkDGDBase`), with what they share."
 
 
 #######################################################################
 
 
 # Import from the standard library.
+import abc
 import contextlib
 import copy
 import functools
 import hashlib
 import logging as log
-import math
 import os
 import re
 import time
+from types import SimpleNamespace
 from typing import Callable, Optional, Union
 
 # Import from third-party libraries.
 import numpy as np
 import pandas as pd
-from scipy.stats import chi2, nbinom, poisson
+from scipy.stats import nbinom, poisson
 import torch
 from torch import nn
 import yaml
 
 # Import from 'bulkdgd'.
 from bulkdgd import _internals, defaults
-from . import (
+from .. import (
     dataclasses,
     decoders,
     latents,
     metrics,
     outputmodules,
+    representations,
     warmstart,
     _util)
 
@@ -184,10 +186,12 @@ def _in_model_dtype(method: Callable) -> Callable:
 #######################################################################
 
 
-class BulkDGD(nn.Module):
+class BulkDGDBase(nn.Module, abc.ABC):
 
     """
-    Class implementing the BulkDGD model.
+    Base class of the BulkDGD models: what they share (construction,
+    training loop, search, analyses). Each model implements the hooks
+    on how its representations are built, drawn and scored.
     """
 
     ######################## PUBLIC ATTRIBUTES ########################
@@ -206,6 +210,9 @@ class BulkDGD(nn.Module):
     _DTYPES_TORCH = {"float32" : torch.float32,
                      "float64" : torch.float64}
 
+    # Set the model's type in the configuration (set by each model).
+    MODEL_TYPE = None
+
 
     ##################### INITIALIZATION METHODS ######################
 
@@ -220,7 +227,8 @@ class BulkDGD(nn.Module):
                  scaling_factor: Optional[str] = None,
                  dtype: Optional[str] = None,
                  device: str = "cpu",
-                 seed: Optional[str] = None) -> None:
+                 seed: Optional[str] = None,
+                 model_type: Optional[str] = None) -> None:
         """Initialize an instance of the class. If no architecture is
         given, load the trained model shipped with the package.
 
@@ -263,10 +271,24 @@ class BulkDGD(nn.Module):
         seed : :class:`str`, optional
             The seed of the shipped ensemble member to load. Only valid
             when no architecture is given.
+
+        model_type : :class:`str`, optional
+            The model's type in the configuration. If given, it must
+            be the class's.
         """
 
         # Run the superclass' initialization.
-        super(BulkDGD, self).__init__()
+        super().__init__()
+
+        # If the configuration is for another type of model
+        if model_type is not None and model_type != self.MODEL_TYPE:
+
+            # Raise an error.
+            errstr = \
+                f"The configuration is for a '{model_type}' model, " \
+                f"not a '{self.MODEL_TYPE}' one. Build it with " \
+                "'bulkdgd.core.models.get_model'."
+            raise ValueError(errstr)
 
         #-------------------------------------------------------------#
 
@@ -947,6 +969,452 @@ class BulkDGD(nn.Module):
         self._device = torch.device(value)
 
 
+    ######################### TRAINING HOOKS ##########################
+
+
+    @abc.abstractmethod
+    def _validate_config_train(self,
+                               config_train: dict[str, object]) -> \
+                                    list[str]:
+        """Check the parsed training configuration against the model.
+
+        Parameters
+        ----------
+        config_train : :class:`dict`
+            The parsed training configuration.
+
+        Returns
+        -------
+        errors : :class:`list`
+            The errors found.
+        """
+
+        # Leave it to the model.
+        raise NotImplementedError
+
+
+    @abc.abstractmethod
+    def _make_rep_layer(self,
+                        n_samples: int,
+                        representations_options: dict[str, object]):
+        """Build a representation layer for ``n_samples`` samples, as
+        the training starts.
+
+        Parameters
+        ----------
+        n_samples : :class:`int`
+            The number of samples to build representations for.
+
+        representations_options : :class:`dict`
+            The training's options for the representations.
+
+        Returns
+        -------
+        rep_layer : :class:`torch.nn.Module`
+            The representation layer.
+        """
+
+        # Leave it to the model.
+        raise NotImplementedError
+
+
+    @abc.abstractmethod
+    def _setup_rep_draws(self,
+                         state: SimpleNamespace) -> None:
+        """Set up how the representations are drawn during the
+        training.
+
+        Parameters
+        ----------
+        state : :class:`types.SimpleNamespace`
+            The training's state, updated in place.
+
+        Returns
+        -------
+        None
+        """
+
+        # Leave it to the model.
+        raise NotImplementedError
+
+
+    @abc.abstractmethod
+    def _update_rep_draws(self,
+                          state: SimpleNamespace,
+                          epoch: int) -> None:
+        """Update how the representations are drawn at the start of
+        an epoch.
+
+        Parameters
+        ----------
+        state : :class:`types.SimpleNamespace`
+            The training's state, updated in place.
+
+        epoch : :class:`int`
+            The epoch.
+
+        Returns
+        -------
+        None
+        """
+
+        # Leave it to the model.
+        raise NotImplementedError
+
+
+    @abc.abstractmethod
+    def _draw_latent(self,
+                     state: SimpleNamespace,
+                     phase: SimpleNamespace,
+                     samples_ixs: torch.Tensor) -> \
+                        tuple[torch.Tensor, object]:
+        """Get a batch's representations as the decoder sees them.
+
+        Parameters
+        ----------
+        state : :class:`types.SimpleNamespace`
+            The training's state.
+
+        phase : :class:`types.SimpleNamespace`
+            The set of samples.
+
+        samples_ixs : :class:`torch.Tensor`
+            The indexes of the batch's samples.
+
+        Returns
+        -------
+        z : :class:`torch.Tensor`
+            The representations decoded.
+
+        draw : :class:`object`
+            What :meth:`_after_backward` needs of the draw.
+        """
+
+        # Leave it to the model.
+        raise NotImplementedError
+
+
+    @abc.abstractmethod
+    def _rep_loss_terms(self,
+                        state: SimpleNamespace,
+                        phase: SimpleNamespace,
+                        samples_ixs: torch.Tensor) -> \
+                            Optional[torch.Tensor]:
+        """Get the representations' own terms of a batch's loss.
+
+        Parameters
+        ----------
+        state : :class:`types.SimpleNamespace`
+            The training's state.
+
+        phase : :class:`types.SimpleNamespace`
+            The set of samples.
+
+        samples_ixs : :class:`torch.Tensor`
+            The indexes of the batch's samples.
+
+        Returns
+        -------
+        loss : :class:`torch.Tensor` or :obj:`None`
+            The terms, reduced as the loss is, or :obj:`None` if there
+            are none.
+        """
+
+        # Leave it to the model.
+        raise NotImplementedError
+
+
+    @abc.abstractmethod
+    def _after_backward(self,
+                        state: SimpleNamespace,
+                        phase: SimpleNamespace,
+                        samples_ixs: torch.Tensor,
+                        draw: object) -> None:
+        """Update a batch's stored representations after the backward
+        step, before the optimizers' steps.
+
+        Parameters
+        ----------
+        state : :class:`types.SimpleNamespace`
+            The training's state.
+
+        phase : :class:`types.SimpleNamespace`
+            The set of samples.
+
+        samples_ixs : :class:`torch.Tensor`
+            The indexes of the batch's samples.
+
+        draw : :class:`object`
+            What :meth:`_draw_latent` returned with the batch.
+
+        Returns
+        -------
+        None
+        """
+
+        # Leave it to the model.
+        raise NotImplementedError
+
+
+    @abc.abstractmethod
+    def _epoch_log_extras(self,
+                          state: SimpleNamespace) -> str:
+        """Get what the epoch's log line adds about the draws.
+
+        Parameters
+        ----------
+        state : :class:`types.SimpleNamespace`
+            The training's state.
+
+        Returns
+        -------
+        text : :class:`str`
+            The text added to the log line.
+        """
+
+        # Leave it to the model.
+        raise NotImplementedError
+
+
+    @abc.abstractmethod
+    def _latent_fit_inputs(self,
+                           rep_layer: torch.nn.Module) -> \
+                                tuple[torch.Tensor,
+                                      Optional[torch.Tensor]]:
+        """Get what the mixture is fitted to.
+
+        Parameters
+        ----------
+        rep_layer : :class:`torch.nn.Module`
+            The training samples' representations.
+
+        Returns
+        -------
+        points : :class:`torch.Tensor`
+            The points (or the posteriors' means).
+
+        variances : :class:`torch.Tensor` or :obj:`None`
+            The posteriors' variances, or :obj:`None` for points.
+        """
+
+        # Leave it to the model.
+        raise NotImplementedError
+
+
+    @abc.abstractmethod
+    def _save_rep_outputs(self,
+                          epoch: int,
+                          rep_layer_train: torch.nn.Module,
+                          rep_layer_test: torch.nn.Module,
+                          samples_names_train: list[str],
+                          samples_names_test: list[str],
+                          save_dir: Optional[str]) -> None:
+        """Save the training and test samples' representations at an
+        epoch.
+
+        Parameters
+        ----------
+        epoch : :class:`int`
+            The epoch.
+
+        rep_layer_train : :class:`torch.nn.Module`
+            The training samples' representations.
+
+        rep_layer_test : :class:`torch.nn.Module`
+            The test samples' representations.
+
+        samples_names_train : :class:`list`
+            The training samples' names.
+
+        samples_names_test : :class:`list`
+            The test samples' names.
+
+        save_dir : :class:`str` or :obj:`None`
+            The folder the files are written to.
+
+        Returns
+        -------
+        None
+        """
+
+        # Leave it to the model.
+        raise NotImplementedError
+
+
+    ########################## SEARCH HOOKS ###########################
+
+
+    @abc.abstractmethod
+    def _validate_config_rep(self,
+                             config_rep: dict[str, object]) -> \
+                                list[str]:
+        """Check the parsed search configuration against the model.
+
+        Parameters
+        ----------
+        config_rep : :class:`dict`
+            The parsed search configuration.
+
+        Returns
+        -------
+        errors : :class:`list`
+            The errors found.
+        """
+
+        # Leave it to the model.
+        raise NotImplementedError
+
+
+    @abc.abstractmethod
+    def _make_search_layer(self,
+                           values: torch.Tensor):
+        """Build a search's representation layer.
+
+        Parameters
+        ----------
+        values : :class:`torch.Tensor`
+            The representations (the locations of the candidates).
+
+        Returns
+        -------
+        rep_layer : :class:`torch.nn.Module`
+            The representation layer, on the model's device.
+        """
+
+        # Leave it to the model.
+        raise NotImplementedError
+
+
+    @abc.abstractmethod
+    def _setup_search_draws(self,
+                            noise_type: Optional[str],
+                            noise_options: Optional[dict],
+                            opt_num: int) -> SimpleNamespace:
+        """Set up how a search's representations are drawn.
+
+        Parameters
+        ----------
+        noise_type : :class:`str` or :obj:`None`
+            The optimization's type of noise.
+
+        noise_options : :class:`dict` or :obj:`None`
+            The noise's options.
+
+        opt_num : :class:`int`
+            The number of the optimization round.
+
+        Returns
+        -------
+        draws : :class:`types.SimpleNamespace`
+            The draws' settings.
+        """
+
+        # Leave it to the model.
+        raise NotImplementedError
+
+
+    @abc.abstractmethod
+    def _update_search_draws(self,
+                             draws: SimpleNamespace,
+                             epoch: int,
+                             epochs: int) -> None:
+        """Update how a search's representations are drawn at the
+        start of an epoch.
+
+        Parameters
+        ----------
+        draws : :class:`types.SimpleNamespace`
+            The draws' settings, updated in place.
+
+        epoch : :class:`int`
+            The epoch.
+
+        epochs : :class:`int`
+            The number of epochs.
+
+        Returns
+        -------
+        None
+        """
+
+        # Leave it to the model.
+        raise NotImplementedError
+
+
+    @abc.abstractmethod
+    def _search_objective(self,
+                          spec: SimpleNamespace,
+                          rep_layer: torch.nn.Module,
+                          draws: SimpleNamespace,
+                          batch: SimpleNamespace) -> torch.Tensor:
+        """Get the loss a search minimizes on a batch.
+
+        Parameters
+        ----------
+        spec : :class:`types.SimpleNamespace`
+            The search's shared settings.
+
+        rep_layer : :class:`torch.nn.Module`
+            The layer holding every sample's candidates.
+
+        draws : :class:`types.SimpleNamespace`
+            The draws' settings.
+
+        batch : :class:`types.SimpleNamespace`
+            The batch.
+
+        Returns
+        -------
+        loss : :class:`torch.Tensor`
+            The batch's total loss (a single-value tensor).
+        """
+
+        # Leave it to the model.
+        raise NotImplementedError
+
+
+    @abc.abstractmethod
+    def _selection_score(self,
+                         spec: SimpleNamespace,
+                         rep_layer: torch.nn.Module,
+                         batch: SimpleNamespace) -> \
+                            tuple[torch.Tensor, torch.Tensor,
+                                  torch.Tensor, torch.Tensor]:
+        """Score a batch's candidates for the selection (lower is
+        better).
+
+        Parameters
+        ----------
+        spec : :class:`types.SimpleNamespace`
+            The search's shared settings.
+
+        rep_layer : :class:`torch.nn.Module`
+            The layer holding every sample's candidates.
+
+        batch : :class:`types.SimpleNamespace`
+            The batch.
+
+        Returns
+        -------
+        z : :class:`torch.Tensor`
+            The candidates' locations, shaped (batch * reps *
+            components, dim).
+
+        total_loss : :class:`torch.Tensor`
+            Each candidate's score, shaped (batch * reps *
+            components,).
+
+        recon_loss : :class:`torch.Tensor`
+            The score's reconstruction part, same shape.
+
+        latent_loss : :class:`torch.Tensor`
+            The score's latent part, same shape.
+        """
+
+        # Leave it to the model.
+        raise NotImplementedError
+
+
     ######################### PRIVATE METHODS #########################
 
 
@@ -1229,9 +1697,422 @@ class BulkDGD(nn.Module):
         return obs_measured / denominator
 
 
+    def _get_search_spec(self,
+                         data_loader: torch.utils.data.DataLoader,
+                         n_components: int,
+                         n_rep_per_comp: int,
+                         loss_reduction_type: str,
+                         latent_lambda: Optional[float],
+                         genes_mask: Optional[torch.Tensor],
+                         contamination: float,
+                         contamination_r: float) -> SimpleNamespace:
+        """Gather what a search's batches share.
+
+        Parameters
+        ----------
+        data_loader : :class:`torch.utils.data.DataLoader`
+            The data loader.
+
+        n_components : :class:`int`
+            The number of components the candidates are laid out over.
+
+        n_rep_per_comp : :class:`int`
+            The number of candidates per sample per component.
+
+        loss_reduction_type : :class:`str`
+            The method to reduce the loss across the samples in the
+            batch.
+
+        latent_lambda : :class:`float` or :obj:`None`
+            The weight of the latent loss term in the total loss.
+
+        genes_mask : :class:`torch.Tensor` or :obj:`None`
+            A 2D mask of the measured genes.
+
+        contamination : :class:`float`
+            The weight of the negative binomial outlier component in
+            each gene's likelihood.
+
+        contamination_r : :class:`float`
+            The r-value of the outlier component.
+
+        Returns
+        -------
+        spec : :class:`types.SimpleNamespace`
+            The search's shared settings.
+        """
+
+        # Return the settings.
+        return SimpleNamespace(
+            n_samples = len(data_loader.dataset),
+            n_components = n_components,
+            n_rep_per_comp = n_rep_per_comp,
+            dim = self.latent.dim,
+            n_genes = self.decoder.nb.output_dim,
+            loss_reduction_type = loss_reduction_type,
+            latent_lambda = latent_lambda,
+            genes_mask = genes_mask,
+            contamination = contamination,
+            contamination_r = contamination_r)
+
+
+    def _get_search_batch(self,
+                          spec: SimpleNamespace,
+                          samples_exp: torch.Tensor,
+                          samples_mean_exp: torch.Tensor,
+                          samples_ixs: torch.Tensor) -> SimpleNamespace:
+        """Gather a search batch's data on the model's device.
+
+        Parameters
+        ----------
+        spec : :class:`types.SimpleNamespace`
+            The search's shared settings.
+
+        samples_exp : :class:`torch.Tensor`
+            The batch's gene expression.
+
+        samples_mean_exp : :class:`torch.Tensor`
+            The batch's scaling factors.
+
+        samples_ixs : :class:`torch.Tensor`
+            The batch's sample indexes.
+
+        Returns
+        -------
+        batch : :class:`types.SimpleNamespace`
+            The batch's counts, scaling factors, indexes, size and
+            mask (shaped to broadcast over the candidates).
+        """
+
+        # Return the batch, with the mask, if any, shaped to broadcast
+        # over the representations and the components.
+        return SimpleNamespace(
+            exp = samples_exp.to(self.device),
+            mean_exp = samples_mean_exp.to(self.device),
+            ixs = samples_ixs,
+            n = len(samples_ixs),
+            mask = \
+                spec.genes_mask[samples_ixs].unsqueeze(1).unsqueeze(1)
+                if spec.genes_mask is not None else None)
+
+
+    def _get_candidates(self,
+                        spec: SimpleNamespace,
+                        rep_layer: representations.RepresentationLayer,
+                        batch: SimpleNamespace) -> torch.Tensor:
+        """Get a batch's candidate representations.
+
+        Parameters
+        ----------
+        spec : :class:`types.SimpleNamespace`
+            The search's shared settings.
+
+        rep_layer : \
+            :class:`bulkdgd.core.representations.RepresentationLayer`
+            The layer holding every sample's candidates.
+
+        batch : :class:`types.SimpleNamespace`
+            The batch.
+
+        Returns
+        -------
+        z : :class:`torch.Tensor`
+            The candidates, shaped (batch * reps * components, dim).
+        """
+
+        # Get the representations from the representation layer:
+        # shape (samples * components * reps, dim).
+        z_all = rep_layer()
+
+        # Reshape to (samples, reps, components, dim) and select this
+        # batch's samples.
+        z_4d = z_all.view(spec.n_samples,
+                          spec.n_rep_per_comp,
+                          spec.n_components,
+                          spec.dim)[batch.ixs]
+
+        # Flatten back to (batch * reps * components, dim) for the
+        # decoder, and return them.
+        return z_4d.view(batch.n * \
+                            spec.n_rep_per_comp * \
+                            spec.n_components,
+                         spec.dim)
+
+
+    def _get_candidates_recon_loss(
+            self,
+            spec: SimpleNamespace,
+            batch: SimpleNamespace,
+            z: torch.Tensor) -> \
+                tuple[torch.Tensor, torch.Tensor,
+                      Optional[torch.Tensor]]:
+        """Get the reconstruction loss of a batch's candidates.
+
+        Parameters
+        ----------
+        spec : :class:`types.SimpleNamespace`
+            The search's shared settings.
+
+        batch : :class:`types.SimpleNamespace`
+            The batch.
+
+        z : :class:`torch.Tensor`
+            The candidates decoded, shaped (batch * reps * components,
+            dim).
+
+        Returns
+        -------
+        recon_loss : :class:`torch.Tensor`
+            The loss per gene, zero for unmeasured genes, shaped
+            (batch, reps, components, genes).
+
+        pred_means : :class:`torch.Tensor`
+            The predicted scaled means, same shape.
+
+        pred_log_r_values : :class:`torch.Tensor` or :obj:`None`
+            The predicted log r-values, same shape, or :obj:`None` if
+            the r-values are not predicted per sample.
+        """
+
+        # If the output module means that the r-values are not learned
+        if isinstance(\
+            self.decoder.nb,
+            (outputmodules.OutputModuleNBFeatureDispersion,
+             outputmodules.OutputModulePoisson)):
+
+            # Get the predicted scaled means: shape
+            # (batch * reps * components, genes).
+            pred_means = self.decoder(z = z)
+
+            # There are no predicted r-values.
+            pred_log_r_values = None
+
+        # If the output module means that the r-values are learned
+        elif isinstance(\
+            self.decoder.nb,
+            outputmodules.OutputModuleNBFullDispersion):
+
+            # Get the predicted scaled means and r-values, shaped
+            # (batch * reps * components, genes).
+            pred_means, pred_log_r_values = self.decoder(z = z)
+
+            # Reshape the r-values to (batch, reps, components, genes)
+            # to compute the loss.
+            pred_log_r_values = \
+                pred_log_r_values.view(batch.n,
+                                       spec.n_rep_per_comp,
+                                       spec.n_components,
+                                       spec.n_genes)
+
+        #-------------------------------------------------------------#
+
+        # Expand the observed gene expression to (batch, reps,
+        # components, genes).
+        obs_counts = \
+            batch.exp.unsqueeze(1).unsqueeze(1).expand(\
+                -1,
+                spec.n_rep_per_comp,
+                spec.n_components,
+                -1)
+
+        # Reshape the scaling factors to (batch, 1, 1, 1),
+        # broadcastable over the loss.
+        scaling_factors = \
+            decoders.reshape_scaling_factors(
+                batch.mean_exp,
+                4)
+
+        # Reshape the predicted means to (batch, reps, components,
+        # genes) to compute the loss.
+        pred_means = pred_means.view(batch.n,
+                                     spec.n_rep_per_comp,
+                                     spec.n_components,
+                                     spec.n_genes)
+
+        # If only some genes were measured
+        if batch.mask is not None:
+
+            # Re-estimate the scaling factors from the measured genes.
+            scaling_factors = \
+                self.__class__._get_masked_scaling_factors(
+                    obs_counts = obs_counts,
+                    pred_means = pred_means,
+                    mask = batch.mask,
+                    n_genes = spec.n_genes,
+                    scaling_factor = self._scaling_factor)
+
+        #-------------------------------------------------------------#
+
+        # Set the options to compute the reconstruction loss.
+        recon_loss_options = \
+            {"obs_counts" : obs_counts,
+             "pred_means" : pred_means,
+             "scaling_factors" : scaling_factors}
+
+        # If the r-values are learned
+        if pred_log_r_values is not None:
+
+            # Add them to the options.
+            recon_loss_options["pred_log_r_values"] = \
+                pred_log_r_values
+
+        # If contamination is enabled
+        if spec.contamination:
+
+            # Add the contamination options.
+            recon_loss_options["contamination"] = spec.contamination
+            recon_loss_options["contamination_r"] = \
+                spec.contamination_r
+
+        # Get the reconstruction loss: shape (batch, reps, components,
+        # genes).
+        recon_loss = self.decoder.nb.loss(**recon_loss_options)
+
+        # If only some genes were measured
+        if batch.mask is not None:
+
+            # Zero out the unmeasured genes' loss terms.
+            recon_loss = recon_loss * batch.mask
+
+        #-------------------------------------------------------------#
+
+        # Return the loss and the decoder's outputs.
+        return recon_loss, pred_means, pred_log_r_values
+
+
+    def _get_latent_loss(self,
+                         z: torch.Tensor,
+                         reduction: Optional[str],
+                         latent_lambda: Optional[float]) -> \
+                            torch.Tensor:
+        """Get the latent loss of some representations.
+
+        Parameters
+        ----------
+        z : :class:`torch.Tensor`
+            The representations.
+
+        reduction : :class:`str` or :obj:`None`
+            How the loss is reduced across the representations:
+            ``"sum"``, ``"mean"``, or :obj:`None` for one value per
+            representation.
+
+        latent_lambda : :class:`float` or :obj:`None`
+            The weight of the latent loss (the ``"tgmm"`` latent space
+            only).
+
+        Returns
+        -------
+        latent_loss : :class:`torch.Tensor`
+            The loss.
+        """
+
+        # If the latent space is the legacy Gaussian mixture model
+        if isinstance(self.latent,
+                      latents.GaussianMixtureModelLegacy):
+
+            # Get the loss (the negative log density of 'z').
+            latent_loss = self.latent(x = z)
+
+            # If the reduction method is 'sum'
+            if reduction == "sum":
+
+                # Sum the loss.
+                return latent_loss.sum()
+
+            # If the reduction method is 'mean'
+            elif reduction == "mean":
+
+                # Average the loss.
+                return latent_loss.mean()
+
+            # Return the loss per representation.
+            return latent_loss
+
+        #-------------------------------------------------------------#
+
+        # Get the log density of 'z' (the TorchGMM wrapper).
+        log_prob = self.latent.log_prob(z)
+
+        # If the reduction method is 'sum'
+        if reduction == "sum":
+
+            # Return the weighted negative sum.
+            return - latent_lambda * torch.sum(log_prob)
+
+        # If the reduction method is 'mean'
+        elif reduction == "mean":
+
+            # Return the weighted negative mean.
+            return - latent_lambda * torch.mean(log_prob)
+
+        # Return the weighted negative log density per representation.
+        return - latent_lambda * log_prob
+
+
+    def _decode(self,
+                z: torch.Tensor) -> \
+                    tuple[torch.Tensor, Optional[torch.Tensor]]:
+        """Get the decoder's predicted scaled means and r-values for
+        some representations.
+
+        Parameters
+        ----------
+        z : :class:`torch.Tensor`
+            The representations.
+
+        Returns
+        -------
+        means : :class:`torch.Tensor`
+            The predicted scaled means.
+
+        r_values : :class:`torch.Tensor` or :obj:`None`
+            The r-values (per gene, or per gene per representation),
+            or :obj:`None` for Poisson counts.
+        """
+
+        # If the genes' counts are modelled by negative binomials with
+        # per-gene r-values
+        if isinstance(self.decoder.nb,
+                      outputmodules.OutputModuleNBFeatureDispersion):
+
+            # Get the predicted scaled means.
+            means = self.decoder(z = z)
+
+            # Get the r-values.
+            r_values = \
+                torch.exp(self.decoder.nb.log_r).squeeze().detach()
+
+        # If the genes' counts are modelled by negative binomials with
+        # per-gene, per-sample r-values
+        elif isinstance(self.decoder.nb,
+                        outputmodules.OutputModuleNBFullDispersion):
+
+            # Get the predicted scaled means and log r-values.
+            means, log_r_values = self.decoder(z = z)
+
+            # Get the r-values.
+            r_values = torch.exp(log_r_values).squeeze().detach()
+
+        # If the genes' counts are modelled by Poisson distributions
+        elif isinstance(self.decoder.nb,
+                        outputmodules.OutputModulePoisson):
+
+            # Get the predicted scaled means.
+            means = self.decoder(z = z)
+
+            # There are no r-values.
+            r_values = None
+
+        #-------------------------------------------------------------#
+
+        # Return the means and the r-values.
+        return means, r_values
+
+
     def _optimize_rep(self,
                       data_loader: torch.utils.data.DataLoader,
-                      rep_layer: latents.RepresentationLayer,
+                      rep_layer: representations.RepresentationLayer,
                       optimizer: torch.optim.Optimizer,
                       n_components: int,
                       n_rep_per_comp: int,
@@ -1254,7 +2135,8 @@ class BulkDGD(nn.Module):
         data_loader : :class:`torch.utils.data.DataLoader`
             The data loader.
 
-        rep_layer : :class:`bulkdgd.core.latents.RepresentationLayer`
+        rep_layer : \
+            :class:`bulkdgd.core.representations.RepresentationLayer`
             The representation layer containing the initial
             representations.
 
@@ -1325,15 +2207,17 @@ class BulkDGD(nn.Module):
             backpropagation step.
         """
 
-        # Get the total number of samples.
-        n_samples = len(data_loader.dataset)
-
-        # Get the dimensionality of the latent space.
-        dim = self.latent.dim
-
-        # Get the number of genes (= the dimensionality of the
-        # decoder's output).
-        n_genes = self.decoder.nb.output_dim
+        # Get the search's shared settings.
+        spec = \
+            self._get_search_spec(\
+                data_loader = data_loader,
+                n_components = n_components,
+                n_rep_per_comp = n_rep_per_comp,
+                loss_reduction_type = loss_reduction_type,
+                latent_lambda = latent_lambda,
+                genes_mask = genes_mask,
+                contamination = contamination,
+                contamination_r = contamination_r)
 
         # Get the method that will be used to normalize the total loss.
         loss_norm_type = loss_reporting_options["total"]["norm_type"]
@@ -1342,39 +2226,11 @@ class BulkDGD(nn.Module):
         # epoch of the optimization.
         time_opt = []
 
-        #-------------------------------------------------------------#
-
-        # Get the noise options.
-        noise_options = noise_options or {}
-
-        # Enable the noise only if it is Gaussian.
-        noise_enabled = (noise_type == "gaussian")
-
-        # Get the base noise scale (zero disables the noise).
-        noise_scale_base = \
-            float(noise_options.get("scale", 0.0)) if noise_enabled \
-            else 0.0
-
-        # If the noise is enabled
-        if noise_scale_base > 0:
-
-            # Get the annealing schedule and the gain.
-            noise_start = float(noise_options["start"])
-            noise_end = float(noise_options["end"])
-            noise_gain = float(noise_options["gain"])
-
-            # Get the radius holding the given fraction of the mass.
-            noise_radius = \
-                float(chi2.ppf(
-                    float(noise_options["within_radius_prob"]),
-                    self.latent.dim)) ** 0.5
-
-            # Inform the user about the noise.
-            logger.info(
-                f"Optimization number {opt_num} will inject Gaussian "
-                "noise into the representations (scale "
-                f"{noise_scale_base}, annealed from {noise_start} to "
-                f"{noise_end}).")
+        # Set up how the representations are drawn.
+        draws = \
+            self._setup_search_draws(noise_type = noise_type,
+                                     noise_options = noise_options,
+                                     opt_num = opt_num)
 
         #-------------------------------------------------------------#
 
@@ -1385,26 +2241,10 @@ class BulkDGD(nn.Module):
         # For each epoch
         for epoch in range(1, epochs+1):
 
-            # If the noise is enabled
-            if noise_scale_base > 0:
-
-                # Get the fraction of the epochs elapsed.
-                progress = (epoch - 1) / max(epochs - 1, 1)
-
-                # Get the noise scale for this epoch, cosine-annealed
-                # between 'start' and 'end'.
-                noise_scale = \
-                    noise_end + (noise_start - noise_end) * 0.5 * \
-                        (1 + math.cos(math.pi * progress))
-
-                # Multiply it by the base scale.
-                noise_scale = noise_scale * noise_scale_base
-
-            # Otherwise
-            else:
-
-                # Set no noise.
-                noise_scale = 0.0
+            # Update the draws for this epoch.
+            self._update_search_draws(draws = draws,
+                                      epoch = epoch,
+                                      epochs = epochs)
 
             # Mark the CPU start time of the epoch.
             time_start_epoch_cpu = time.process_time()
@@ -1450,266 +2290,21 @@ class BulkDGD(nn.Module):
                 for samples_exp, samples_mean_exp, samples_ixs \
                     in data_loader:
 
-                    # Get the number of samples in the batch.
-                    n_samples_in_batch = len(samples_ixs)
+                    # Get the batch's data on the device.
+                    batch = \
+                        self._get_search_batch(\
+                            spec = spec,
+                            samples_exp = samples_exp,
+                            samples_mean_exp = samples_mean_exp,
+                            samples_ixs = samples_ixs)
 
-                    #-------------------------------------------------#
-
-                    # Move the gene expression of the samples to the
-                    # correct device.
-                    samples_exp = samples_exp.to(self.device)
-
-                    # Move the mean gene expression of the samples to
-                    # the correct device.
-                    samples_mean_exp = samples_mean_exp.to(self.device)
-
-                    #-------------------------------------------------#
-
-                    # Get the representations from the representation
-                    # layer: shape (samples * components * reps, dim).
-                    z_all = rep_layer()
-
-                    #-------------------------------------------------#
-
-                    # Reshape to (samples, reps, components, dim) and
-                    # select this batch's samples.
-                    z_4d = z_all.view(n_samples,
-                                      n_rep_per_comp,
-                                      n_components,
-                                      dim)[samples_ixs]
-
-                    # Flatten back to (batch * reps * components, dim)
-                    # for the decoder.
-                    z = z_4d.view(n_samples_in_batch * \
-                                    n_rep_per_comp * \
-                                    n_components,
-                                  dim)
-
-                    #-------------------------------------------------#
-
-                    # If the noise is enabled
-                    if noise_scale > 0:
-
-                        # Add it to the decoder's input (not to the
-                        # optimized representations).
-                        z = z + noise_scale * noise_gain * \
-                                torch.randn_like(z) / noise_radius
-
-                    #-------------------------------------------------#
-
-                    # If the output module means that the r-values are
-                    # not learned
-                    if isinstance(\
-                        self.decoder.nb,
-                        (outputmodules.OutputModuleNBFeatureDispersion,
-                         outputmodules.OutputModulePoisson)):
-
-                        # Get the predicted scaled means: shape
-                        # (batch * reps * components, genes).
-                        pred_means = self.decoder(z = z)
-
-                        # There are no predicted r-values.
-                        pred_log_r_values = None
-
-                    # If the output module means that the r-values are
-                    # learned
-                    elif isinstance(\
-                        self.decoder.nb,
-                        outputmodules.OutputModuleNBFullDispersion):
-
-                        # Get the predicted scaled means and r-values,
-                        # shaped (batch * reps * components, genes).
-                        pred_means, pred_log_r_values = \
-                            self.decoder(z = z)
-
-                        # Reshape the r-values to (batch, reps,
-                        # components, genes) to compute the loss.
-                        pred_log_r_values = \
-                            pred_log_r_values.view(n_samples_in_batch,
-                                                   n_rep_per_comp,
-                                                   n_components,
-                                                   n_genes)
-
-                    #-------------------------------------------------#
-
-                    # Expand the observed gene expression to (batch,
-                    # reps, components, genes).
-                    obs_counts = \
-                        samples_exp.unsqueeze(1).unsqueeze(1).expand(\
-                            -1,
-                            n_rep_per_comp,
-                            n_components,
-                            -1)
-
-                    #-------------------------------------------------#
-
-                    # Reshape the scaling factors to (batch, 1, 1, 1),
-                    # broadcastable over the loss.
-                    scaling_factors = \
-                        decoders.reshape_scaling_factors(
-                            samples_mean_exp,
-                            4)
-
-                    #-------------------------------------------------#
-
-                    # Get the batch's mask, if any, shaped to broadcast
-                    # over the representations and the components.
-                    mask_batch = \
-                        genes_mask[samples_ixs].unsqueeze(1).\
-                            unsqueeze(1) \
-                            if genes_mask is not None else None
-
-                    #-------------------------------------------------#
-
-                    # Reshape the predicted means to (batch, reps,
-                    # components, genes) to compute the loss.
-                    pred_means = pred_means.view(n_samples_in_batch,
-                                                 n_rep_per_comp,
-                                                 n_components,
-                                                 n_genes)
-
-                    #-------------------------------------------------#
-
-                    # If only some genes were measured
-                    if mask_batch is not None:
-
-                        # Re-estimate the scaling factors from the
-                        # measured genes.
-                        scaling_factors = \
-                            self.__class__._get_masked_scaling_factors(
-                                obs_counts = obs_counts,
-                                pred_means = pred_means,
-                                mask = mask_batch,
-                                n_genes = n_genes,
-                                scaling_factor = self._scaling_factor)
-
-                    #-------------------------------------------------#
-
-                    # If the output module means that the r-values are
-                    # not learned
-                    if isinstance(\
-                        self.decoder.nb,
-                        (outputmodules.OutputModuleNBFeatureDispersion,
-                         outputmodules.OutputModulePoisson)):
-
-                        # Set the options to compute the reconstruction
-                        # loss.
-                        recon_loss_options = \
-                            {"obs_counts" : obs_counts,
-                             "pred_means" : pred_means,
-                             "scaling_factors" : scaling_factors}
-
-                    # If the output module means that the r-values are
-                    # learned
-                    elif isinstance(\
-                        self.decoder.nb,
-                        outputmodules.OutputModuleNBFullDispersion):
-
-                        # Set the options to compute the reconstruction
-                        # loss.
-                        recon_loss_options = \
-                            {"obs_counts" : obs_counts,
-                             "pred_means" : pred_means,
-                             "pred_log_r_values" : pred_log_r_values,
-                             "scaling_factors" : scaling_factors}
-
-                    # If contamination is enabled
-                    if contamination:
-
-                        # Add the contamination options.
-                        recon_loss_options["contamination"] = \
-                            contamination
-                        recon_loss_options["contamination_r"] = \
-                            contamination_r
-
-                    # Get the reconstruction loss: shape (batch, reps,
-                    # components, genes).
-                    recon_loss = \
-                        self.decoder.nb.loss(**recon_loss_options)
-
-                    #-------------------------------------------------#
-
-                    # If only some genes were measured
-                    if mask_batch is not None:
-
-                        # Zero out the unmeasured genes' loss terms.
-                        recon_loss = recon_loss * mask_batch
-
-                    #-------------------------------------------------#
-
-                    # If the reduction method is 'sum'
-                    if loss_reduction_type == "sum":
-
-                        # Get the total reconstruction loss by summing
-                        # all the values (a single-value tensor).
-                        recon_loss_final = recon_loss.sum().clone()
-
-                    # If the reduction method is 'mean'
-                    elif loss_reduction_type == "mean":
-
-                        # Get the total reconstruction loss by averaging
-                        # all the values (a single-value tensor).
-                        recon_loss_final = recon_loss.mean().clone()
-
-                    #-------------------------------------------------#
-
-                    # If the latent space is the legacy Gaussian mixture
-                    # model
-                    if isinstance(self.latent,
-                                  latents.GaussianMixtureModelLegacy):
-
-                        # If the reduction method is 'sum'
-                        if loss_reduction_type == "sum":
-
-                            # Get the loss.
-                            latent_loss_final = \
-                                self.latent(x = z).sum().clone()
-
-                        # If the reduction method is 'mean'
-                        elif loss_reduction_type == "mean":
-
-                            # Get the loss.
-                            latent_loss_final = \
-                                self.latent(x = z).mean().clone()
-
-                    # If the latent space is the TorchGMM wrapper
-                    elif isinstance(self.latent,
-                                    latents.GaussianMixtureModelTGMM):
-
-                        # If the reduction method is 'sum'
-                        if loss_reduction_type == "sum":
-
-                            # Get the loss.
-                            latent_loss_final = \
-                                - latent_lambda * \
-                                    torch.sum(\
-                                        self.latent.log_prob(z))
-
-                        # If the reduction method is 'mean'
-                        elif loss_reduction_type == "mean":
-
-                            # Get the loss.
-                            latent_loss_final = \
-                                - latent_lambda * \
-                                    torch.mean(\
-                                        self.latent.log_prob(z))
-
-                    #-------------------------------------------------#
-
-                    # Get the output module's dispersion regularization
-                    # (zero unless it shrinks the dispersion).
-                    dispersion_reg = \
-                        self.decoder.nb.dispersion_regularization(
-                            pred_means = pred_means,
-                            pred_log_r_values = pred_log_r_values,
-                            reduction = loss_reduction_type)
-
-                    #-------------------------------------------------#
-
-                    # Get the total loss (a single-value tensor).
+                    # Get the batch's total loss (a single-value
+                    # tensor).
                     total_loss = \
-                        recon_loss_final + latent_loss_final + \
-                            dispersion_reg
+                        self._search_objective(spec = spec,
+                                               rep_layer = rep_layer,
+                                               draws = draws,
+                                               batch = batch)
 
                     #-------------------------------------------------#
 
@@ -1747,8 +2342,8 @@ class BulkDGD(nn.Module):
                             loss_type = "total",
                             loss_norm_type = loss_norm_type,
                             loss_norm_options = \
-                                {"n_samples" : n_samples,
-                                 "n_genes" : n_genes})
+                                {"n_samples" : spec.n_samples,
+                                 "n_genes" : spec.n_genes})
 
                 # Return the epoch's loss.
                 return rep_avg_loss_epoch
@@ -1805,69 +2400,22 @@ class BulkDGD(nn.Module):
                 f"{time_tot_bw_wall:.3f} s."
             logger.info(info_msg)
 
-            #---------------------------------------------------------#
+        #-------------------------------------------------------------#
 
-            # If it is the last epoch
-            if epoch == epochs:
+        # Get the optimized representations.
+        rep_final = rep_layer()
 
-                # Get the optimized representations.
-                rep_final = rep_layer()
+        # Get the predicted scaled means and the r-values.
+        means_final, r_values_final = self._decode(z = rep_final)
 
-                #-----------------------------------------------------#
-
-                # If the genes' counts are modelled by negative
-                # binomials with per-gene r-values
-                if isinstance(\
-                    self.decoder.nb,
-                    outputmodules.OutputModuleNBFeatureDispersion):
-
-                    # Get the predicted scaled means.
-                    means_final = self.decoder(z = rep_final)
-
-                    # Get the r-values.
-                    r_values_final = \
-                        torch.exp(\
-                            self.decoder.nb.log_r).squeeze().detach()
-
-                # If the genes' counts are modelled by negative
-                # binomials with per-gene, per-sample r-values
-                elif isinstance(\
-                    self.decoder.nb,
-                    outputmodules.OutputModuleNBFullDispersion):
-
-                    # Get the predicted scaled means.
-                    means_final, log_r_values_final = \
-                        self.decoder(z = rep_final)
-
-                    # Get the r-values.
-                    r_values_final = \
-                        torch.exp(\
-                            log_r_values_final).squeeze().detach()
-
-                # If the genes' counts are modelled by Poisson
-                # distributions
-                elif isinstance(
-                    self.decoder.nb,
-                    outputmodules.OutputModulePoisson):
-
-                    # Get the predicted scaled means.
-                    means_final = self.decoder(z = rep_final)
-
-                    # The r-values will be None.
-                    r_values_final = None
-
-                #-----------------------------------------------------#
-
-                # Return the representations, the predicted scaled
-                # means, the predicted r-values, and the time data.
-                return rep_final, \
-                       means_final, r_values_final, \
-                       time_opt
+        # Return the representations, the predicted scaled means, the
+        # predicted r-values, and the time data.
+        return rep_final, means_final, r_values_final, time_opt
 
 
     def _select_best_rep(self,
                          data_loader: torch.utils.data.DataLoader,
-                         rep_layer: latents.RepresentationLayer,
+                         rep_layer: representations.RepresentationLayer,
                          n_rep_per_comp: int,
                          loss_reduction_type: str,
                          latent_lambda: \
@@ -1886,7 +2434,8 @@ class BulkDGD(nn.Module):
         data_loader : :class:`torch.utils.data.DataLoader`
             The data loader.
 
-        rep_layer : :class:`bulkdgd.core.latents.RepresentationLayer`
+        rep_layer : \
+            :class:`bulkdgd.core.representations.RepresentationLayer`
             The representation layer containing the representations
             found for the samples.
 
@@ -1924,26 +2473,30 @@ class BulkDGD(nn.Module):
             latent dimensionality).
         """
 
-        # Get the total number of samples.
-        n_samples = len(data_loader.dataset)
+        # Get the search's shared settings (by default, laid out over
+        # the mixture's components).
+        spec = \
+            self._get_search_spec(\
+                data_loader = data_loader,
+                n_components = \
+                    self.latent.n_components if n_components is None \
+                    else int(n_components),
+                n_rep_per_comp = n_rep_per_comp,
+                loss_reduction_type = loss_reduction_type,
+                latent_lambda = latent_lambda,
+                genes_mask = genes_mask,
+                contamination = contamination,
+                contamination_r = contamination_r)
 
-        # Get the number of components (by default, the mixture's).
-        n_components = \
-            self.latent.n_components if n_components is None \
-            else int(n_components)
-
-        # Get the dimensionality of the latent space.
-        dim = self.latent.dim
-
-        # Get the number of genes (= dimensionality of the decoder's
-        # output).
-        n_genes = self.decoder.nb.output_dim
+        # Get the number of candidates per sample.
+        n_cand = spec.n_rep_per_comp * spec.n_components
 
         #-------------------------------------------------------------#
 
         # Initialize an empty tensor, shape (samples, dim), to store
         # the best representations found for all samples.
-        best_reps = torch.empty((n_samples, dim)).to(self.device)
+        best_reps = \
+            torch.empty((spec.n_samples, spec.dim)).to(self.device)
 
         #-------------------------------------------------------------#
 
@@ -1952,217 +2505,24 @@ class BulkDGD(nn.Module):
         for samples_exp, samples_mean_exp, samples_ixs \
             in data_loader:
 
-            # Get the number of samples in the batch.
-            n_samples_in_batch = len(samples_ixs)
+            # Get the batch's data on the device.
+            batch = \
+                self._get_search_batch(\
+                    spec = spec,
+                    samples_exp = samples_exp,
+                    samples_mean_exp = samples_mean_exp,
+                    samples_ixs = samples_ixs)
 
-            #---------------------------------------------------------#
-
-            # Move the gene expression of the samples to the
-            # correct device.
-            samples_exp = samples_exp.to(self.device)
-
-            # Move the mean gene expression of the samples to
-            # the correct device.
-            samples_mean_exp = samples_mean_exp.to(self.device)
-
-            #---------------------------------------------------------#
-
-            # Get the representations from the representation layer:
-            # shape (samples * components * reps, dim).
-            z_all = rep_layer()
-
-            # Reshape to (samples, reps, components, dim) and select
-            # this batch's samples.
-            z_4d = z_all.view(n_samples,
-                              n_rep_per_comp,
-                              n_components,
-                              dim)[samples_ixs]
-
-            # Flatten back to (batch * reps * components, dim) for
-            # the decoder.
-            z = z_4d.view(n_samples_in_batch * \
-                            n_rep_per_comp * \
-                            n_components,
-                          dim)
-
-            #---------------------------------------------------------#
-
-            # If the output module means that the r-values are not
-            # learned
-            if isinstance(\
-                self.decoder.nb,
-                (outputmodules.OutputModuleNBFeatureDispersion,
-                 outputmodules.OutputModulePoisson)):
-
-                # Get the predicted scaled means: shape
-                # (batch * reps * components, genes).
-                pred_means = self.decoder(z = z)
-
-            # If the output module means that the r-values are learned
-            elif isinstance(\
-                self.decoder.nb,
-                outputmodules.OutputModuleNBFullDispersion):
-
-                # Get the predicted scaled means and r-values: both
-                # shaped (batch * reps * components, genes).
-                pred_means, pred_log_r_values = self.decoder(z = z)
-
-                # Reshape the r-values to (batch, reps, components,
-                # genes) to compute the loss.
-                pred_log_r_values = \
-                    pred_log_r_values.view(n_samples_in_batch,
-                                           n_rep_per_comp,
-                                           n_components,
-                                           n_genes)
-
-            #---------------------------------------------------------#
-
-            # Expand the observed gene expression to (batch, reps,
-            # components, genes).
-            obs_counts = \
-                samples_exp.unsqueeze(1).unsqueeze(1).expand(\
-                    -1,
-                    n_rep_per_comp,
-                    n_components,
-                    -1)
-
-            #---------------------------------------------------------#
-
-            # Reshape the scaling factors to (batch, 1, 1, 1),
-            # broadcastable over the loss.
-            scaling_factors = \
-                decoders.reshape_scaling_factors(
-                    samples_mean_exp,
-                    4)
-
-            #---------------------------------------------------------#
-
-            # Get the batch's mask, if any, shaped to broadcast over the
-            # representations and the components.
-            mask_batch = \
-                genes_mask[samples_ixs].unsqueeze(1).unsqueeze(1) \
-                    if genes_mask is not None else None
-
-            #---------------------------------------------------------#
-
-            # Reshape the predicted means to (batch, reps, components,
-            # genes) to compute the loss.
-            pred_means = pred_means.view(n_samples_in_batch,
-                                         n_rep_per_comp,
-                                         n_components,
-                                         n_genes)
-
-            #---------------------------------------------------------#
-
-            # If only some genes were measured
-            if mask_batch is not None:
-
-                # Re-estimate the scaling factors from the measured
-                # genes, as in the optimization.
-                scaling_factors = \
-                    self.__class__._get_masked_scaling_factors(
-                        obs_counts = obs_counts,
-                        pred_means = pred_means,
-                        mask = mask_batch,
-                        n_genes = n_genes,
-                        scaling_factor = self._scaling_factor)
-
-            #---------------------------------------------------------#
-
-            # If the output module means that the r-values are not
-            # learned
-            if isinstance(\
-                self.decoder.nb,
-                (outputmodules.OutputModuleNBFeatureDispersion,
-                 outputmodules.OutputModulePoisson)):
-
-                # Set the options to compute the reconstruction
-                # loss.
-                recon_loss_options = \
-                    {"obs_counts" : obs_counts,
-                     "pred_means" : pred_means,
-                     "scaling_factors" : scaling_factors}
-
-            # If the output module means that the r-values are learned
-            elif isinstance(\
-                self.decoder.nb,
-                outputmodules.OutputModuleNBFullDispersion):
-
-                # Set the options to compute the reconstruction
-                # loss.
-                recon_loss_options = \
-                    {"obs_counts" : obs_counts,
-                     "pred_means" : pred_means,
-                     "pred_log_r_values" : pred_log_r_values,
-                     "scaling_factors" : scaling_factors}
-
-            # If contamination is enabled (as in the optimization)
-            if contamination:
-
-                # Add the contamination options.
-                recon_loss_options["contamination"] = contamination
-                recon_loss_options["contamination_r"] = \
-                    contamination_r
-
-            # Get the reconstruction loss: shape (batch, reps,
-            # components, genes).
-            recon_loss = self.decoder.nb.loss(**recon_loss_options)
-
-            # If only some genes were measured
-            if mask_batch is not None:
-
-                # Zero out the unmeasured genes' loss terms.
-                recon_loss = recon_loss * mask_batch
-
-            # If the reduction method is 'sum'
-            if loss_reduction_type == "sum":
-
-                # Get the reconstruction loss per representation by
-                # summing over the genes: shape (batch, reps, comps).
-                recon_loss_final = recon_loss.sum(-1).clone()
-
-            # If the reduction method is 'mean'
-            elif loss_reduction_type == "mean":
-
-                # Get the reconstruction loss per representation by
-                # averaging over the genes: shape (batch, reps, comps).
-                recon_loss_final = recon_loss.mean(-1).clone()
-
-            # Flatten it to (batch * reps * components).
-            recon_loss_final_reshaped = \
-                recon_loss_final.view(n_samples_in_batch * \
-                                      n_rep_per_comp * \
-                                      n_components)
-
-            #---------------------------------------------------------#
-
-            # If the latent space is the legacy Gaussian mixture model
-            if isinstance(self.latent,
-                          latents.GaussianMixtureModelLegacy):
-
-                # Get the loss (the negative log density of 'z').
-                latent_loss = self.latent(x = z).clone()
-
-            # If the latent space is the TorchGMM wrapper
-            elif isinstance(self.latent,
-                            latents.GaussianMixtureModelTGMM):
-
-                # Get the loss.
-                latent_loss = \
-                    - latent_lambda * self.latent.log_prob(z)
-
-            #---------------------------------------------------------#
-
-            # Get the total loss per representation: shape
-            # (batch * reps * components).
-            total_loss = recon_loss_final_reshaped + latent_loss
-
-            #---------------------------------------------------------#
+            # Score the batch's candidates: shapes (batch * reps *
+            # components, dim) and (batch * reps * components,).
+            z, total_loss, recon_loss, latent_loss = \
+                self._selection_score(spec = spec,
+                                      rep_layer = rep_layer,
+                                      batch = batch)
 
             # Reshape the total loss to (batch, reps * components).
-            total_loss_reshaped = \
-                total_loss.view(n_samples_in_batch,
-                                n_rep_per_comp * n_components)
+            total_loss_reshaped = total_loss.view(batch.n,
+                                                  n_cand)
 
             #---------------------------------------------------------#
 
@@ -2171,16 +2531,12 @@ class BulkDGD(nn.Module):
             best_rep_per_sample = torch.argmin(total_loss_reshaped,
                                                dim = 1).squeeze(-1)
 
-            #---------------------------------------------------------#
-
             # Select the winning candidate's representation for each
             # sample: shape (batch, dim).
-            rep = z.view(n_samples_in_batch,
-                         n_rep_per_comp * n_components,
-                         dim)[range(n_samples_in_batch),
-                              best_rep_per_sample]
-
-            #---------------------------------------------------------#
+            rep = z.view(batch.n,
+                         n_cand,
+                         spec.dim)[range(batch.n),
+                                   best_rep_per_sample]
 
             # Add the batch's best representations to those of all
             # samples.
@@ -2196,30 +2552,30 @@ class BulkDGD(nn.Module):
 
                     # Get the candidates: shape (batch, reps *
                     # components, dim).
-                    z_cand = z.view(n_samples_in_batch,
-                                    n_rep_per_comp * n_components,
-                                    dim)
+                    z_cand = z.view(batch.n,
+                                    n_cand,
+                                    spec.dim)
 
                     # Get the log-probability of each candidate under
                     # each component.
                     log_prob_comp = \
                         self.latent._get_log_prob_comp(
-                            z_cand.reshape(-1, dim))
+                            z_cand.reshape(-1, spec.dim))
 
                     # Get the component each candidate ended in.
                     arrived = log_prob_comp.argmax(dim = 1).view(
-                        n_samples_in_batch,
-                        n_rep_per_comp * n_components)
+                        batch.n,
+                        n_cand)
 
                     # Get the component each candidate started in
                     # (candidates are laid out as (sample, rep, comp)).
                     born = torch.arange(
-                        n_rep_per_comp * n_components,
-                        device = arrived.device) % n_components
+                        n_cand,
+                        device = arrived.device) % spec.n_components
 
                     # Repeat it for each sample in the batch.
                     born = born.unsqueeze(0).expand(
-                        n_samples_in_batch, -1)
+                        batch.n, -1)
 
                     # Save the batch's selection details.
                     self._selection_details.append(
@@ -2228,15 +2584,13 @@ class BulkDGD(nn.Module):
                          "total_loss" :
                             total_loss_reshaped.detach().cpu().clone(),
                          "recon_loss" :
-                            recon_loss_final_reshaped.detach().cpu(
-                                ).view(n_samples_in_batch,
-                                       n_rep_per_comp *
-                                       n_components).clone(),
+                            recon_loss.detach().cpu().view(
+                                batch.n,
+                                n_cand).clone(),
                          "latent_loss" :
                             latent_loss.detach().cpu().view(
-                                n_samples_in_batch,
-                                n_rep_per_comp *
-                                n_components).clone(),
+                                batch.n,
+                                n_cand).clone(),
                          "born_in" : born.detach().cpu().clone(),
                          "arrived_in" : arrived.detach().cpu().clone(),
                          "winner" :
@@ -2990,9 +3344,7 @@ class BulkDGD(nn.Module):
         #-------------------------------------------------------------#
 
         # Create the representation layer.
-        rep_layer_init = \
-            latents.RepresentationLayer(values = rep_init).to(\
-                self.device)
+        rep_layer_init = self._make_search_layer(values = rep_init)
 
         #-------------------------------------------------------------#
 
@@ -3044,9 +3396,7 @@ class BulkDGD(nn.Module):
         #-------------------------------------------------------------#
 
         # Create the representation layer.
-        rep_layer_1 = \
-            latents.RepresentationLayer(values = rep_1,
-                                        device = self.device)
+        rep_layer_1 = self._make_search_layer(values = rep_1)
 
         #-------------------------------------------------------------#
 
@@ -3070,9 +3420,7 @@ class BulkDGD(nn.Module):
 
         # Create a representation layer containing the best
         # representations found (one representation per sample).
-        rep_layer_best = \
-            latents.RepresentationLayer(values = rep_best,
-                                        device = self.device)
+        rep_layer_best = self._make_search_layer(values = rep_best)
 
         #-------------------------------------------------------------#
 
@@ -3199,8 +3547,7 @@ class BulkDGD(nn.Module):
             # compute its loss.
             self._select_best_rep(
                 data_loader = data_loader,
-                rep_layer = latents.RepresentationLayer(
-                    values = rep, device = self.device),
+                rep_layer = self._make_search_layer(values = rep),
                 n_rep_per_comp = 1,
                 loss_reduction_type = loss_reduction_type,
                 latent_lambda = latent_lambda,
@@ -4263,8 +4610,8 @@ class BulkDGD(nn.Module):
     def _save_optional_outputs(
             self,
             reporting_options: dict[str, object],
-            rep_layer_train: latents.RepresentationLayer,
-            rep_layer_test: latents.RepresentationLayer,
+            rep_layer_train: representations.RepresentationLayer,
+            rep_layer_test: representations.RepresentationLayer,
             samples_names_train: list[str],
             samples_names_test: list[str],
             epoch: int,
@@ -4280,11 +4627,11 @@ class BulkDGD(nn.Module):
             The configuration for reporting.
 
         rep_layer_train : \
-            :class:`bulkdgd.core.latents.RepresentationLayer`
+            :class:`bulkdgd.core.representations.RepresentationLayer`
             The representation layer for the training samples.
 
         rep_layer_test : \
-            :class:`bulkdgd.core.latents.RepresentationLayer`
+            :class:`bulkdgd.core.representations.RepresentationLayer`
             The representation layer for the test samples.
 
         samples_names_train : :class:`list` of :class:`str`
@@ -4460,25 +4807,15 @@ class BulkDGD(nn.Module):
         # If the user wants to save the representations
         if save_rep_epoch and (epoch % save_rep_epoch_stride == 0):
 
-            # Save the current representations for the training
-            # samples.
-            _util.save_rep_epoch(\
+            # Save the current representations of the training and
+            # test samples.
+            self._save_rep_outputs(\
                 epoch = epoch,
-                prefix = "train",
-                latent_dim = self.latent.dim,
-                save_dir = save_rep_epoch_dir,
-                rep_layer = rep_layer_train,
-                samples_names = samples_names_train)
-
-            # Save the current representations for the test
-            # samples.
-            _util.save_rep_epoch(\
-                epoch = epoch,
-                prefix = "test",
-                latent_dim = self.latent.dim,
-                save_dir = save_rep_epoch_dir,
-                rep_layer = rep_layer_test,
-                samples_names = samples_names_test)
+                rep_layer_train = rep_layer_train,
+                rep_layer_test = rep_layer_test,
+                samples_names_train = samples_names_train,
+                samples_names_test = samples_names_test,
+                save_dir = save_rep_epoch_dir)
 
         #-------------------------------------------------------------#
 
@@ -4616,93 +4953,1619 @@ class BulkDGD(nn.Module):
                         save_pathways_saliency_maps_epoch_dir)
 
 
-    def _draw_kept_noise(self,
-                         noise_type: str,
-                         noise_options: dict[str, object],
-                         noise_scale: float,
-                         generator: torch.Generator,
-                         optimizer: torch.optim.Optimizer,
-                         rep_layer: latents.RepresentationLayer,
-                         samples_ixs: torch.Tensor) -> torch.Tensor:
-        """Draw the noise kept in a batch's stored representations.
+    def _setup_training(
+            self,
+            config_train: dict[str, object],
+            samples_names_train: list[str],
+            samples_names_test: list[str],
+            genes_names: list[str],
+            data_loader_train: torch.utils.data.DataLoader,
+            data_loader_test: torch.utils.data.DataLoader,
+            rep_layer_train: representations.RepresentationLayer,
+            rep_layer_test: representations.RepresentationLayer,
+            pathways: Optional[dict[str, list[str]]] = None,
+            labels_train: Optional[torch.Tensor] = None,
+            labels_test: Optional[torch.Tensor] = None) -> \
+                SimpleNamespace:
+        """Set up the training: the optimizers, the schedulers, the
+        representations' draws, the early stopping, the mixture's
+        fitting and the reporting.
 
         Parameters
         ----------
-        noise_type : :class:`str`, {``"gaussian"``, ``"langevin"``}
-            The type of noise.
+        config_train : :class:`dict`
+            The parsed options for the training.
 
-        noise_options : :class:`dict`
-            The noise's options.
+        samples_names_train : :class:`list`
+            A list of the training samples' names.
 
-        noise_scale : :class:`float`
-            The noise's scale (Gaussian) or the temperature's
-            multiplier (Langevin) at the current epoch.
+        samples_names_test : :class:`list`
+            A list of the testing samples' names.
 
-        generator : :class:`torch.Generator`
-            The noise's own random generator.
+        genes_names : :class:`list`
+            A list of the genes' names.
 
-        optimizer : :class:`torch.optim.Optimizer`
-            The optimizer of the representations.
+        data_loader_train : :class:`torch.utils.data.DataLoader`
+            The data loader for the training samples.
 
-        rep_layer : :class:`bulkdgd.core.latents.RepresentationLayer`
-            The layer holding the representations.
+        data_loader_test : :class:`torch.utils.data.DataLoader`
+            The data loader for the test samples.
 
-        samples_ixs : :class:`torch.Tensor`
-            The indexes of the batch's samples.
+        rep_layer_train : \
+            :class:`bulkdgd.core.representations.RepresentationLayer`
+            The representation layer for the training samples.
+
+        rep_layer_test : \
+            :class:`bulkdgd.core.representations.RepresentationLayer`
+            The representation layer for the test samples.
+
+        pathways : :class:`dict` or :obj:`None`
+            A dictionary where the keys are the names of the pathways
+            and the values are lists of genes belonging to each
+            pathway.
+
+        labels_train : :class:`torch.Tensor` or :obj:`None`
+            The clusters' labels for the training samples.
+
+        labels_test : :class:`torch.Tensor` or :obj:`None`
+            The clusters' labels for the test samples.
 
         Returns
         -------
-        noise : :class:`torch.Tensor`
-            The noise, shaped as the batch's representations.
+        state : :class:`types.SimpleNamespace`
+            The training's state, with one namespace per set of
+            samples (``train``, ``test``).
         """
 
-        # Get the batch's representations.
-        z = rep_layer.z[samples_ixs]
+        # Get the options for training the latent space, the decoder
+        # and the representations, and for reporting.
+        latent_options = config_train["latent_training_options"]
+        decoder_options = config_train["decoder_training_options"]
+        representations_options = \
+            config_train["representations_training_options"]
+        reporting_options = config_train["reporting_options"]
 
-        # Draw standard normal values from the noise's generator.
-        draw = torch.randn(z.shape,
-                           generator = generator,
-                           device = z.device,
-                           dtype = z.dtype)
+        # Start the state.
+        state = \
+            SimpleNamespace(\
+                n_epochs = config_train["n_epochs"],
+                loss_reduction_type = \
+                    config_train["loss_reduction_type"],
+                latent_options = latent_options,
+                representations_options = representations_options,
+                reporting_options = reporting_options,
+                n_genes = len(genes_names),
+                genes_names = genes_names,
+                pathways = pathways,
+                pathways_names = \
+                    list(pathways.keys()) if pathways is not None \
+                    else None,
+                labels_train = labels_train,
+                labels_test = labels_test,
+                data_loader_train = data_loader_train,
+                is_legacy = \
+                    isinstance(self.latent,
+                               latents.GaussianMixtureModelLegacy),
+                is_tgmm = \
+                    isinstance(self.latent,
+                               latents.GaussianMixtureModelTGMM))
 
-        # If the noise is Gaussian
-        if noise_type == "gaussian":
+        #-------------------------------------------------------------#
 
-            # Get the radius of the hypersphere within which the
-            # specified fraction of samples lie.
-            radius = \
-                float(chi2.ppf(noise_options["within_radius_prob"],
-                               self.latent.dim)) ** 0.5
+        # Get the norms to clip the gradients to, if any.
+        state.grad_clip_decoder = \
+            decoder_options.get("grad_clipping_max_norm")
+        state.grad_clip_rep = \
+            representations_options.get("grad_clipping_max_norm")
+        state.grad_clip_latent = \
+            latent_options.get("grad_clipping_max_norm")
 
-            # Return the scaled noise.
-            return noise_scale * noise_options["gain"] * draw / radius
+        #-------------------------------------------------------------#
 
-        # Get the optimizer's state for the representations.
-        rep_state = optimizer.state.get(rep_layer.z, {})
+        # Initialize the optimizer and the learning rate scheduler for
+        # the latent space.
+        state.optimizer_latent = None
+        state.lr_scheduler_latent = None
 
-        # If the optimizer has not taken a step yet
-        if "exp_avg_sq" not in rep_state:
+        # If the latent space is the legacy Gaussian mixture model
+        if state.is_legacy:
 
-            # No noise is kept before the first step.
-            return torch.zeros_like(z)
+            # Get the type of optimizer to use for the latent space and
+            # its options.
+            state.optimizer_latent_type = \
+                latent_options["optimizer_type"]
+            state.optimizer_latent_options = \
+                latent_options["optimizer_options"]
 
-        # Get the optimizer's options.
-        rep_group = optimizer.param_groups[0]
+            # Get the optimizer for the latent space.
+            state.optimizer_latent = \
+                self._get_optimizer(\
+                    optimizer_type = state.optimizer_latent_type,
+                    optimizer_options = \
+                        state.optimizer_latent_options,
+                    optimizer_parameters = self.latent.parameters())
 
-        # Get the bias-corrected second moments of the batch's
-        # gradients.
-        v_hat = \
-            rep_state["exp_avg_sq"][samples_ixs] / \
-                (1 - rep_group["betas"][1] ** float(rep_state["step"]))
+            # Get the type of learning rate scheduler to use for the
+            # latent space and its options.
+            state.lr_scheduler_latent_type = \
+                latent_options["lr_scheduler_type"]
+            state.lr_scheduler_latent_options = \
+                latent_options.get("lr_scheduler_options")
 
-        # Get each coordinate's step size.
-        step_size = rep_group["lr"] / (v_hat.sqrt() + rep_group["eps"])
+            # Get the learning rate scheduler for the latent space.
+            state.lr_scheduler_latent = \
+                self._get_scheduler(
+                    lr_scheduler_target = "latent",
+                    lr_scheduler_type = state.lr_scheduler_latent_type,
+                    lr_scheduler_options = \
+                        state.lr_scheduler_latent_options,
+                    optimizer = state.optimizer_latent,
+                    n_epochs = state.n_epochs,
+                    data_loader_train = data_loader_train)
 
-        # Return the noise, with a variance of twice the step size
-        # times the temperature.
-        return draw * \
-            torch.sqrt(2.0 * noise_options["temperature"] * \
-                           noise_scale * step_size)
+        #-------------------------------------------------------------#
+
+        # Get the optimizer for the decoder.
+        state.optimizer_decoder = \
+            self._get_optimizer(\
+                optimizer_type = decoder_options["optimizer_type"],
+                optimizer_options = \
+                    decoder_options["optimizer_options"],
+                optimizer_parameters = self.decoder.parameters())
+
+        # Get the learning rate scheduler for the decoder.
+        state.lr_scheduler_decoder = \
+            self._get_scheduler(
+                lr_scheduler_target = "decoder",
+                lr_scheduler_type = \
+                    decoder_options["lr_scheduler_type"],
+                lr_scheduler_options = \
+                    decoder_options.get("lr_scheduler_options"),
+                optimizer = state.optimizer_decoder,
+                n_epochs = state.n_epochs,
+                data_loader_train = data_loader_train)
+
+        #-------------------------------------------------------------#
+
+        # For each set of samples: its name, data loader,
+        # representations, names, and first column in the losses
+        for name, data_loader, rep_layer, samples_names, col in \
+            (("train", data_loader_train, rep_layer_train,
+              samples_names_train, 1),
+             ("test", data_loader_test, rep_layer_test,
+              samples_names_test, 4)):
+
+            # Get the optimizer for the representations.
+            optimizer = \
+                self._get_optimizer(\
+                    optimizer_type = \
+                        representations_options["optimizer_type"],
+                    optimizer_options = \
+                        representations_options["optimizer_options"],
+                    optimizer_parameters = rep_layer.parameters())
+
+            # Get the learning rate scheduler for the representations.
+            lr_scheduler = \
+                self._get_scheduler(
+                    lr_scheduler_target = "representations",
+                    lr_scheduler_type = \
+                        representations_options["lr_scheduler_type"],
+                    lr_scheduler_options = \
+                        representations_options.get(
+                            "lr_scheduler_options"),
+                    optimizer = optimizer,
+                    n_epochs = state.n_epochs)
+
+            # Keep the set's namespace.
+            setattr(state,
+                    name,
+                    SimpleNamespace(\
+                        name = name,
+                        is_train = name == "train",
+                        data_loader = data_loader,
+                        rep_layer = rep_layer,
+                        optimizer = optimizer,
+                        lr_scheduler = lr_scheduler,
+                        samples_names = samples_names,
+                        n_samples = len(samples_names),
+                        col = col))
+
+        #-------------------------------------------------------------#
+
+        # Set up how the representations are drawn.
+        self._setup_rep_draws(state = state)
+
+        #-------------------------------------------------------------#
+
+        # Get the type of early stopping to perform.
+        state.early_stopping_type = config_train["early_stopping_type"]
+
+        # Keep early stopping inactive (until the GMM is fitted).
+        state.early_stopping_active = False
+
+        # Initialize the best model state to None.
+        state.early_stopping_best_model_state = None
+
+        # If the early stopping is based on the loss
+        if state.early_stopping_type == "loss":
+
+            # Get the patience (the number of epochs without improvement
+            # in the test loss before stopping).
+            state.early_stopping_patience = \
+                config_train["early_stopping_options"].get("patience",
+                                                           10)
+
+            # Initialize the best test loss, the best epoch, and the
+            # number of epochs without improvement.
+            state.early_stopping_best_test_loss = float("inf")
+            state.early_stopping_best_epoch = 0
+            state.early_stopping_epochs_without_improvement = 0
+
+        #-------------------------------------------------------------#
+
+        # Create an empty list to store the GMM's loss, the
+        # reconstruction loss, and the overall loss.
+        state.losses_list = []
+
+        # Create an empty list to store the training time.
+        state.time_train = []
+
+        #-------------------------------------------------------------#
+
+        # Get the type of component removal to perform.
+        state.components_removal_type = \
+            latent_options["components_removal_type"]
+
+        # If the component removal is based on a weight threshold
+        if state.components_removal_type == "weight_threshold":
+
+            # Get the weight threshold for collapsed-component removal.
+            state.component_weight_threshold = \
+                latent_options["components_removal_options"][
+                        "threshold"]
+
+            # Inform the user.
+            info_msg = \
+                "Weight-threshold collapsed-component removal is " \
+                "enabled " \
+                f"(threshold = {state.component_weight_threshold})."
+            logger.info(info_msg)
+
+        #-------------------------------------------------------------#
+
+        # Set the latent loss' weight (used with the TGMM only).
+        state.latent_lambda = None
+
+        # If the Gaussian mixture model is the TorchGMM wrapper
+        if state.is_tgmm:
+
+            # Set up the mixture's fitting.
+            self._setup_latent_fitting(state = state)
+
+        #-------------------------------------------------------------#
+
+        # Get the methods that will be used to normalize the losses.
+        state.loss_norm_types = {
+            "latent": \
+                reporting_options["loss"]["latent"]["norm_type"],
+            "decoder": \
+                reporting_options["loss"]["decoder"]["norm_type"],
+            "total": \
+                reporting_options["loss"]["total"]["norm_type"],
+        }
+
+        #-------------------------------------------------------------#
+
+        # Set up the reporting metrics.
+        self._setup_reporting_metrics(state = state)
+
+        # If the latent space is the legacy GMM and early stopping is
+        # enabled
+        if state.is_legacy and state.early_stopping_type == "loss":
+
+            # Activate it from the first epoch.
+            state.early_stopping_active = True
+
+        #-------------------------------------------------------------#
+
+        # Return the state.
+        return state
+
+
+    def _setup_latent_fitting(self,
+                              state: SimpleNamespace) -> None:
+        """Set up how the TGMM latent space is fitted during the
+        training.
+
+        Parameters
+        ----------
+        state : :class:`types.SimpleNamespace`
+            The training's state, updated in place.
+
+        Returns
+        -------
+        None
+        """
+
+        # Get the options for training the latent space.
+        latent_options = state.latent_options
+
+        # Get the type of model selection to perform for the Gaussian
+        # mixture model.
+        state.latent_model_selection_type = \
+            latent_options["model_selection_type"]
+
+        # Get the options for GMM model selection.
+        latent_model_selection_options = \
+            latent_options.get("model_selection_options")
+
+        # Set how many components either side of the current number to
+        # try (by default, one).
+        state.latent_model_selection_step = 1
+
+        # If the model selection is based on a metric
+        if state.latent_model_selection_type == "metric" and \
+            latent_model_selection_options is not None:
+
+            # If the options are not a dictionary
+            if not isinstance(latent_model_selection_options, dict):
+
+                # Raise an error.
+                errstr = \
+                    "'model_selection_options' must be a " \
+                    "mapping with a 'metric' and, optionally, " \
+                    "a 'step', not a " \
+                f"'{type(latent_model_selection_options).__name__}'."
+                raise TypeError(errstr)
+
+            # Get the metric used to select candidate models.
+            state.latent_model_selection_metric = \
+                latent_model_selection_options.get("metric", "bic")
+
+            # Get how many components either side to try.
+            state.latent_model_selection_step = \
+                int(latent_model_selection_options.get("step", 1))
+
+            # Inform the user.
+            logger.info(
+                "The number of components of the Gaussian "
+                "mixture model is selected dynamically, on the "
+                f"'{state.latent_model_selection_metric}', looking "
+                f"{state.latent_model_selection_step} component(s) "
+                "either side of the current number at every "
+                "refit.")
+
+        #-------------------------------------------------------------#
+
+        # Get the options for fitting.
+        fitting = latent_options["fitting"]
+
+        # Get the first epoch the mixture is fitted at, the refit
+        # interval, and whether to refit it at the end of training.
+        state.latent_first_epoch = fitting["first_epoch"]
+        state.latent_refit_interval = fitting["refit_interval"]
+        state.gmm_refit_final = fitting["refit_final"]
+
+        # Get the maximum number of EM iterations at the first epoch,
+        # at a full-refit epoch (a multiple of 'refit_interval'), at a
+        # "warm"-refit epoch (any other epoch), and at the final
+        # refit.
+        state.latent_max_iter_first_epoch = \
+            fitting["max_iter_first_epoch"]
+        state.latent_max_iter_full_refit = \
+            fitting["max_iter_full_refit"]
+        state.latent_max_iter_warm_refit = \
+            fitting["max_iter_warm_refit"]
+        state.latent_max_iter_final_refit = \
+            fitting["max_iter_final_refit"]
+
+        # Get the weight of the latent loss.
+        state.latent_lambda = \
+            latent_options["loss_calculation"]["lambda"]
+
+
+    def _setup_reporting_metrics(self,
+                                 state: SimpleNamespace) -> None:
+        """Set up the latent space's reporting metrics.
+
+        Parameters
+        ----------
+        state : :class:`types.SimpleNamespace`
+            The training's state, updated in place.
+
+        Returns
+        -------
+        None
+        """
+
+        # Get the latent space's reporting metrics.
+        reporting_metrics_latent = \
+            state.reporting_options["metrics"]["latent"]
+
+        # If there are reporting metrics
+        if reporting_metrics_latent:
+
+            # Initialize a list to store the metrics that will be used.
+            filtered_metrics = []
+
+            # For each of the reporting metrics
+            for m in reporting_metrics_latent:
+
+                # If the metric is supervised
+                if m in metrics.SUPERVISED_METRICS:
+
+                    # If no labels were provided for training or test
+                    if state.labels_train is None \
+                    or state.labels_test is None:
+
+                        # Log the warning.
+                        logger.warning(
+                            f"Supervised metric '{m}' requires "
+                            "ground-truth "
+                            "labels, which were not provided. This "
+                            "metric will not be used for reporting.")
+
+                        # Move to the next metric.
+                        continue
+
+                # Add the metric to the filtered list.
+                filtered_metrics.append(m)
+
+            # Replace the reporting metrics with the filtered ones.
+            reporting_metrics_latent = filtered_metrics
+
+        # If there are still reporting metrics to use
+        if reporting_metrics_latent:
+
+            # Create a string containing the metrics.
+            metrics_str = \
+                ", ".join([f"'{m}'" for m in reporting_metrics_latent])
+
+            # Inform the user about the reporting metrics.
+            logger.info(
+                "Selected reporting metrics for the latent space: " \
+                f"{metrics_str}.")
+
+        # Keep the metrics.
+        state.reporting_metrics_latent = reporting_metrics_latent
+
+        # Create lists to store per-epoch train/test metrics rows.
+        state.metrics_rows_train = []
+        state.metrics_rows_test = []
+
+        # Set a flag for when to start storing values for the latent
+        # metrics.
+        state.latent_metrics_active = False
+
+        # If the latent space is the legacy GMM and there are reporting
+        # metrics
+        if state.is_legacy and reporting_metrics_latent:
+
+            # Warn that they are not computed.
+            logger.warning(
+                "The latent metrics are only computed for the "
+                "'tgmm' latent type, so they will be NaN.")
+
+
+    def _start_epoch(self,
+                     state: SimpleNamespace,
+                     epoch: int) -> None:
+        """Start an epoch: its losses' and metrics' rows and its
+        timing.
+
+        Parameters
+        ----------
+        state : :class:`types.SimpleNamespace`
+            The training's state, updated in place.
+
+        epoch : :class:`int`
+            The epoch.
+
+        Returns
+        -------
+        None
+        """
+
+        # Initialize the losses to 0 for the current epoch.
+        state.losses_list.append([epoch, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+
+        # Initialize the epoch's metrics rows.
+        state.metrics_row_train = {"epoch": epoch}
+        state.metrics_row_test = {"epoch": epoch}
+
+        # For each metric
+        for metric_name in state.reporting_metrics_latent:
+
+            # Set the metric value to NaN for the train set.
+            state.metrics_row_train[metric_name] = np.nan
+
+            # Set the metric value to NaN for the test set.
+            state.metrics_row_test[metric_name] = np.nan
+
+        #-------------------------------------------------------------#
+
+        # Mark the CPU start time of the epoch.
+        state.time_start_epoch_cpu = time.process_time()
+
+        # Mark the wall clock start time of the epoch.
+        state.time_start_epoch_wall = time.time()
+
+
+    def _refit_latent(self,
+                      state: SimpleNamespace,
+                      epoch: int) -> None:
+        """Fit the TGMM latent space to the training representations
+        at the start of an epoch, as the fitting options say.
+
+        Parameters
+        ----------
+        state : :class:`types.SimpleNamespace`
+            The training's state, updated in place.
+
+        epoch : :class:`int`
+            The epoch.
+
+        Returns
+        -------
+        None
+        """
+
+        # Get the target (or, with dynamic selection, maximum) number
+        # of components.
+        latent_n_components_target = \
+            int(state.latent_options.get("n_components",
+                                         self.latent.n_components))
+
+        # Get what the mixture is fitted to.
+        rep_train, _ = \
+            self._latent_fit_inputs(rep_layer = state.train.rep_layer)
+
+        #-------------------------------------------------------------#
+
+        # If it is the first epoch
+        if epoch == 1:
+
+            # Disable gradient computation.
+            with torch.no_grad():
+
+                # Allocate the parameters of the Gaussian mixture
+                # model.
+                self.latent._allocate_parameters(rep_train)
+
+                # Set the 'fitted_' attribute of the Gaussian mixture
+                # model to True.
+                self.latent.fitted_ = True
+
+        #-------------------------------------------------------------#
+
+        # If the GMM should be fitted at this epoch
+        elif epoch >= state.latent_first_epoch:
+
+            # Disable gradient computation.
+            with torch.no_grad():
+
+                # Determine whether this is a full-refit epoch.
+                is_full_refit_epoch = \
+                    epoch == state.latent_first_epoch or \
+                    (state.latent_refit_interval \
+                        and epoch % state.latent_refit_interval == 0)
+
+                # If it is the first epoch where the GMM should be
+                # fitted
+                if epoch == state.latent_first_epoch:
+
+                    # Use the configured number of iterations for the
+                    # first epoch.
+                    max_iter = state.latent_max_iter_first_epoch
+
+                # If it is a full refit epoch
+                elif is_full_refit_epoch:
+
+                    # Use the configured number of iterations for a
+                    # full refit.
+                    max_iter = state.latent_max_iter_full_refit
+
+                # Otherwise
+                else:
+
+                    # Use the configured number of iterations for a
+                    # "warm" refit.
+                    max_iter = state.latent_max_iter_warm_refit
+
+                #-----------------------------------------------------#
+
+                # If the model selection is based on a metric
+                if state.latent_model_selection_type == "metric":
+
+                    # Keep the best of the models with k, k - step and
+                    # k + step components.
+                    self._get_best_latent_tgmm(
+                        rep_train = rep_train,
+                        latent_n_components_target = \
+                            latent_n_components_target,
+                        max_iter = max_iter,
+                        is_full_refit_epoch = is_full_refit_epoch,
+                        epoch = epoch,
+                        model_selection_step = \
+                            state.latent_model_selection_step,
+                        model_selection_metric = \
+                            state.latent_model_selection_metric)
+
+                # If it is a full refit epoch
+                elif is_full_refit_epoch:
+
+                    # Fit the GMM.
+                    self.latent.fit(rep_train,
+                                    max_iter = max_iter)
+
+                # Otherwise
+                else:
+
+                    # Fit the GMM starting from the previous epoch's
+                    # solution.
+                    self.latent.fit(rep_train,
+                                    max_iter = max_iter,
+                                    warm_start = True)
+
+                #-----------------------------------------------------#
+
+                # If the weight-threshold removal of collapsed
+                # components is enabled
+                if state.components_removal_type == "weight_threshold":
+
+                    # Remove collapsed components.
+                    self._remove_collapsed_latent_components(
+                        collapse_weight_threshold = \
+                            state.component_weight_threshold,
+                        epoch = epoch)
+
+            #---------------------------------------------------------#
+
+            # If early stopping is enabled and this is the first epoch
+            # after which the GMM is fitted
+            if state.early_stopping_type == "loss" \
+                and epoch == state.latent_first_epoch:
+
+                # Enable early stopping.
+                state.early_stopping_active = True
+
+                # Set the best test loss to positive infinity.
+                state.early_stopping_best_test_loss = float("inf")
+
+                # Set the number of the epochs without improvement to
+                # zero.
+                state.early_stopping_epochs_without_improvement = 0
+
+        #-------------------------------------------------------------#
+
+        # If the GMM has been fitted
+        if epoch >= state.latent_first_epoch:
+
+            # Enable the calculation of latent metrics from this epoch
+            # onward.
+            state.latent_metrics_active = True
+
+
+    def _run_batches(self,
+                     state: SimpleNamespace,
+                     phase: SimpleNamespace,
+                     epoch: int) -> None:
+        """Run one epoch over a set of samples: update their
+        representations and, for the training samples, the decoder
+        (and a legacy latent space).
+
+        Parameters
+        ----------
+        state : :class:`types.SimpleNamespace`
+            The training's state, updated in place.
+
+        phase : :class:`types.SimpleNamespace`
+            The set of samples (``state.train`` or ``state.test``).
+
+        epoch : :class:`int`
+            The epoch.
+
+        Returns
+        -------
+        None
+        """
+
+        # Get the method of loss reduction.
+        loss_reduction_type = state.loss_reduction_type
+
+        # Get whether the latent loss is computed (the legacy latent
+        # space always, the TGMM once it is fitted).
+        latent_fitted = \
+            state.is_legacy \
+            or (state.is_tgmm and epoch >= state.latent_first_epoch)
+
+        #-------------------------------------------------------------#
+
+        # Make the gradients of the representation layer zero.
+        phase.optimizer.zero_grad()
+
+        # If these are the training samples
+        if phase.is_train:
+
+            # Set the decoder in train mode.
+            self.decoder.train()
+
+        # Otherwise
+        else:
+
+            # Set the decoder in eval mode.
+            self.decoder.eval()
+
+            # Store the gradient computation status for all parameters
+            # of the decoder.
+            dec_requires_grad = \
+                [p.requires_grad for p in self.decoder.parameters()]
+
+            # For each parameter of the decoder
+            for p in self.decoder.parameters():
+
+                # Disable gradient computation.
+                p.requires_grad_(False)
+
+            # If the latent space is the legacy GMM
+            if state.is_legacy:
+
+                # Store the gradient computation status for all
+                # parameters.
+                latent_requires_grad = \
+                    [p.requires_grad for p in self.latent.parameters()]
+
+                # For each parameter
+                for p in self.latent.parameters():
+
+                    # Disable gradient computation.
+                    p.requires_grad_(False)
+
+            # If the Gaussian mixture model is the TGMM wrapper
+            else:
+
+                # Set no gradient computation status to restore.
+                latent_requires_grad = None
+
+        #-------------------------------------------------------------#
+
+        # For each batch of samples
+        for batch_data in phase.data_loader:
+
+            # Unpack the batch data (3 or 4 items, depending on
+            # whether labels are available).
+            samples_exp = batch_data[0]
+            samples_mean_exp = batch_data[1]
+            samples_ixs = batch_data[2]
+
+            # Move the gene expression of the samples to the correct
+            # device.
+            samples_exp = samples_exp.to(self.device)
+
+            # Move the mean gene expression of the samples to the
+            # correct device.
+            samples_mean_exp = samples_mean_exp.to(self.device)
+
+            # If these are the training samples
+            if phase.is_train:
+
+                # Make the gradients for the decoder zero.
+                state.optimizer_decoder.zero_grad()
+
+            #---------------------------------------------------------#
+
+            # Get the representations decoded for the current samples.
+            z, draw = self._draw_latent(state = state,
+                                        phase = phase,
+                                        samples_ixs = samples_ixs)
+
+            #---------------------------------------------------------#
+
+            # If the latent space is the legacy one and these are the
+            # training samples
+            if state.is_legacy and phase.is_train:
+
+                # Make the gradients for the Gaussian mixture model
+                # zero.
+                state.optimizer_latent.zero_grad()
+
+            # If the latent loss is computed
+            if latent_fitted:
+
+                # Get the Gaussian mixture model's loss.
+                latent_loss = \
+                    self._get_latent_loss(\
+                        z = z,
+                        reduction = loss_reduction_type,
+                        latent_lambda = state.latent_lambda)
+
+            # If the Gaussian mixture model was not fitted yet
+            else:
+
+                # Set the Gaussian mixture model's loss to zero.
+                latent_loss = torch.tensor(0.0).to(self.device)
+
+            #---------------------------------------------------------#
+
+            # If the output module means that the r-values are not
+            # learned
+            if isinstance(\
+                self.decoder.nb,
+                (outputmodules.OutputModuleNBFeatureDispersion,
+                 outputmodules.OutputModulePoisson)):
+
+                # Get the predicted means: shape (batch, genes).
+                pred_means = self.decoder(z = z)
+
+                # There are no predicted r-values.
+                pred_log_r_values = None
+
+                # Set the options to compute the reconstruction loss.
+                recon_loss_options = \
+                    {"obs_counts" : samples_exp,
+                     "pred_means" : pred_means,
+                     "scaling_factors" : samples_mean_exp}
+
+            # If the output module means that the r-values are learned
+            elif isinstance(\
+                self.decoder.nb,
+                outputmodules.OutputModuleNBFullDispersion):
+
+                # Get the predicted means and r-values, both shaped
+                # (batch, genes).
+                pred_means, pred_log_r_values = self.decoder(z = z)
+
+                # Set the options to compute the reconstruction loss.
+                recon_loss_options = \
+                    {"obs_counts" : samples_exp,
+                     "pred_means" : pred_means,
+                     "pred_log_r_values" : pred_log_r_values,
+                     "scaling_factors" : samples_mean_exp}
+
+            #---------------------------------------------------------#
+
+            # If the loss reduction type is 'sum'
+            if loss_reduction_type == "sum":
+
+                # Get the reconstruction loss.
+                recon_loss = \
+                    self.decoder.nb.loss(**recon_loss_options).sum()
+
+            # If the loss reduction type is 'mean'
+            elif loss_reduction_type == "mean":
+
+                # Get the reconstruction loss.
+                recon_loss = \
+                    self.decoder.nb.loss(**recon_loss_options).mean()
+
+            #---------------------------------------------------------#
+
+            # If the latent loss is computed
+            if latent_fitted:
+
+                # Get the overall loss (reconstruction loss plus the
+                # Gaussian mixture model's loss).
+                loss = latent_loss.clone() + recon_loss.clone()
+
+            # If the Gaussian mixture model was not fitted yet
+            else:
+
+                # Get the overall loss (the reconstruction loss only).
+                loss = recon_loss.clone()
+
+            # Add the output module's dispersion regularization (zero
+            # unless it shrinks the dispersion).
+            loss = loss + \
+                self.decoder.nb.dispersion_regularization(
+                    pred_means = pred_means,
+                    pred_log_r_values = pred_log_r_values,
+                    reduction = loss_reduction_type)
+
+            # Get the representations' own loss terms, if any.
+            rep_loss = self._rep_loss_terms(state = state,
+                                            phase = phase,
+                                            samples_ixs = samples_ixs)
+
+            # If there are any
+            if rep_loss is not None:
+
+                # Add them.
+                loss = loss + rep_loss
+
+            # Backpropagate the loss.
+            loss.backward()
+
+            # Update the stored representations after the backward
+            # step.
+            self._after_backward(state = state,
+                                 phase = phase,
+                                 samples_ixs = samples_ixs,
+                                 draw = draw)
+
+            #---------------------------------------------------------#
+
+            # If these are the training samples
+            if phase.is_train:
+
+                # Take the decoder's (and a legacy latent space's)
+                # step.
+                self._step_decoder(state = state)
+
+            #---------------------------------------------------------#
+
+            # Get the loss for the Gaussian mixture model for the
+            # current epoch.
+            latent_loss_epoch = \
+                _util.normalize_loss(\
+                    loss = latent_loss.item(),
+                    loss_type = "latent",
+                    loss_norm_type = state.loss_norm_types["latent"],
+                    loss_norm_options = \
+                        {"n_samples" : phase.n_samples,
+                         "latent_dim" : self.latent.dim})
+
+            # Get the reconstruction loss for the current epoch.
+            recon_loss_epoch = \
+                _util.normalize_loss(\
+                    loss = recon_loss.item(),
+                    loss_type = "decoder",
+                    loss_norm_type = state.loss_norm_types["decoder"],
+                    loss_norm_options = \
+                        {"n_samples" : phase.n_samples,
+                         "n_genes" : state.n_genes})
+
+            # Get the overall loss for the current epoch.
+            loss_epoch = \
+                _util.normalize_loss(\
+                    loss = loss.item(),
+                    loss_type = "total",
+                    loss_norm_type = state.loss_norm_types["total"],
+                    loss_norm_options = \
+                        {"n_samples" : phase.n_samples,
+                         "n_genes" : state.n_genes})
+
+            # If the latent loss is computed
+            if latent_fitted:
+
+                # Update the losses list.
+                state.losses_list[-1][phase.col] += latent_loss_epoch
+
+            # Update the losses list with the reconstruction loss.
+            state.losses_list[-1][phase.col + 1] += recon_loss_epoch
+
+            # Update the losses list with the overall loss.
+            state.losses_list[-1][phase.col + 2] += loss_epoch
+
+        #-------------------------------------------------------------#
+
+        # If these are the test samples
+        if not phase.is_train:
+
+            # For each parameter of the decoder
+            for p, req_grad in zip(self.decoder.parameters(),
+                                   dec_requires_grad):
+
+                # Restore the original 'requires_grad' setting.
+                p.requires_grad_(req_grad)
+
+            # If the latent space is the legacy GMM
+            if latent_requires_grad is not None:
+
+                # For each parameter of the latent space
+                for p, req_grad in zip(self.latent.parameters(),
+                                       latent_requires_grad):
+
+                    # Restore the original 'requires_grad' setting.
+                    p.requires_grad_(req_grad)
+
+        #-------------------------------------------------------------#
+
+        # Take a step with the optimizer for the representations.
+        phase.optimizer.step()
+
+        # If the learning rate scheduler for the representations is
+        # defined
+        if phase.lr_scheduler is not None:
+
+            # Take a step with the scheduler.
+            phase.lr_scheduler.step()
+
+
+    def _step_decoder(self,
+                      state: SimpleNamespace) -> None:
+        """Clip the training batch's gradients and take the decoder's
+        (and a legacy latent space's) optimizer and scheduler steps.
+
+        Parameters
+        ----------
+        state : :class:`types.SimpleNamespace`
+            The training's state.
+
+        Returns
+        -------
+        None
+        """
+
+        # Clip the gradients, if a maximum norm was set.
+        clip_grads(optimizer = state.optimizer_decoder,
+                   max_norm = state.grad_clip_decoder)
+        clip_grads(optimizer = state.train.optimizer,
+                   max_norm = state.grad_clip_rep)
+
+        # If the Gaussian mixture model is the legacy one
+        if state.is_legacy:
+
+            # Clip the Gaussian mixture model's gradients.
+            clip_grads(optimizer = state.optimizer_latent,
+                       max_norm = state.grad_clip_latent)
+
+            # Take a step with the optimizer for the Gaussian mixture
+            # model.
+            state.optimizer_latent.step()
+
+        # Take a step with the optimizer for the decoder.
+        state.optimizer_decoder.step()
+
+        #-------------------------------------------------------------#
+
+        # If the learning rate scheduler for the latent space is
+        # defined (the legacy GMM only)
+        if state.lr_scheduler_latent is not None and state.is_legacy:
+
+            # Take a step with the scheduler.
+            state.lr_scheduler_latent.step()
+
+        # If the learning rate scheduler for the decoder is defined
+        if state.lr_scheduler_decoder is not None:
+
+            # Take a step with the scheduler.
+            state.lr_scheduler_decoder.step()
+
+
+    def _remove_collapsed_legacy(self,
+                                 state: SimpleNamespace,
+                                 epoch: int) -> None:
+        """Remove a legacy latent space's collapsed components after
+        an epoch, and rebuild its optimizer and scheduler.
+
+        Parameters
+        ----------
+        state : :class:`types.SimpleNamespace`
+            The training's state, updated in place.
+
+        epoch : :class:`int`
+            The epoch.
+
+        Returns
+        -------
+        None
+        """
+
+        # Remove collapsed components, if any.
+        removed_components = \
+            self._remove_collapsed_latent_components(
+                collapse_weight_threshold = \
+                    state.component_weight_threshold,
+                epoch = epoch)
+
+        # If no components were removed
+        if not removed_components:
+
+            # Stop here.
+            return
+
+        #-------------------------------------------------------------#
+
+        # Get the old optimizer's parameter groups.
+        param_groups_old = state.optimizer_latent.param_groups
+
+        # Recreate the optimizer for the new GMM's parameters.
+        state.optimizer_latent = \
+            self._get_optimizer(
+                optimizer_type = state.optimizer_latent_type,
+                optimizer_options = state.optimizer_latent_options,
+                optimizer_parameters = self.latent.parameters())
+
+        # If there is a scheduler for the latent space
+        if state.lr_scheduler_latent is not None:
+
+            # Get the scheduler's state.
+            lr_scheduler_latent_state = \
+                state.lr_scheduler_latent.state_dict()
+
+            # Recreate the scheduler for the new optimizer.
+            state.lr_scheduler_latent = \
+                self._get_scheduler(
+                    lr_scheduler_target = "latent",
+                    lr_scheduler_type = state.lr_scheduler_latent_type,
+                    lr_scheduler_options = \
+                        state.lr_scheduler_latent_options,
+                    optimizer = state.optimizer_latent,
+                    n_epochs = state.n_epochs,
+                    data_loader_train = state.data_loader_train)
+
+            # Resume the schedule where it was.
+            state.lr_scheduler_latent.load_state_dict(
+                lr_scheduler_latent_state)
+
+            # For each new and old parameter group
+            for group, group_old in \
+                zip(state.optimizer_latent.param_groups,
+                    param_groups_old):
+
+                # Keep the old group's current settings.
+                group.update(
+                    {k : v for k, v in group_old.items()
+                     if k != "params"})
+
+
+    def _report_epoch(self,
+                      state: SimpleNamespace,
+                      epoch: int) -> None:
+        """Record an epoch's timing, and log its losses, learning
+        rates and metrics.
+
+        Parameters
+        ----------
+        state : :class:`types.SimpleNamespace`
+            The training's state, updated in place.
+
+        epoch : :class:`int`
+            The epoch.
+
+        Returns
+        -------
+        None
+        """
+
+        # Mark the CPU end time of the epoch.
+        time_end_epoch_cpu = time.process_time()
+
+        # Mark the wall clock end time of the epoch.
+        time_end_epoch_wall = time.time()
+
+        # Get the total CPU time used by the epoch.
+        time_tot_epoch_cpu = \
+            time_end_epoch_cpu - state.time_start_epoch_cpu
+
+        # Get the total wall clock time used by the epoch.
+        time_tot_epoch_wall = \
+            time_end_epoch_wall - state.time_start_epoch_wall
+
+        # Add all the total times to the list storing them for all
+        # epochs.
+        state.time_train.append(\
+            (epoch, time_tot_epoch_cpu, time_tot_epoch_wall))
+
+        # Inform the user about the loss at the current epoch and the
+        # CPU time/wall clock time elapsed.
+        info_msg = \
+            f"Epoch {epoch}: loss train " \
+            f"{state.losses_list[-1][3]:.3f}, loss test " \
+            f"{state.losses_list[-1][6]:.3f}, epoch total CPU time " \
+            f"{time_tot_epoch_cpu:.3f} s, epoch " \
+            f"total wall clock time {time_tot_epoch_wall:.3f} s"
+
+        #-------------------------------------------------------------#
+
+        # Get the output module's diagnostics.
+        diagnostics = self.decoder.nb.diagnostics()
+
+        # If there are any
+        if diagnostics:
+
+            # Inform the user about them.
+            logger.info(
+                f"Epoch {epoch} [output module]: "
+                + ", ".join(f"{k}={v:.4g}"
+                            for k, v in diagnostics.items()))
+
+        # If the learning rate scheduler for the latent space is
+        # enabled and the latent space is the legacy GMM
+        if state.lr_scheduler_latent is not None and state.is_legacy:
+
+            # Get the learning rate for the latent space.
+            lr_latent = state.optimizer_latent.param_groups[0]["lr"]
+
+            # Add it to the log string.
+            info_msg += f", LR: latent={lr_latent:.2e}"
+
+        # If the learning rate scheduler for the decoder is enabled
+        if state.lr_scheduler_decoder is not None:
+
+            # Get the learning rate for the decoder.
+            lr_decoder = state.optimizer_decoder.param_groups[0]["lr"]
+
+            # Add it to the log string.
+            info_msg += f", LR: decoder={lr_decoder:.2e}"
+
+        # If the learning rate scheduler for the representations for
+        # the training samples is enabled
+        if state.train.lr_scheduler is not None:
+
+            # Get the learning rate for the representations for the
+            # training samples.
+            lr_rep = state.train.optimizer.param_groups[0]["lr"]
+
+            # Add it to the log string.
+            info_msg += f", LR: rep_train={lr_rep:.2e}"
+
+        # Add the representations' draws to the log string, end it
+        # and inform the user.
+        info_msg += self._epoch_log_extras(state = state) + "."
+        logger.info(info_msg)
+
+        #-------------------------------------------------------------#
+
+        # If the latent metrics are active and the latent space is the
+        # TorchGMM wrapper
+        if state.latent_metrics_active and state.is_tgmm:
+
+            # Compute and log the metrics.
+            self._report_metrics(state = state,
+                                 epoch = epoch)
+
+
+    def _report_metrics(self,
+                        state: SimpleNamespace,
+                        epoch: int) -> None:
+        """Compute and log an epoch's latent metrics.
+
+        Parameters
+        ----------
+        state : :class:`types.SimpleNamespace`
+            The training's state, updated in place.
+
+        epoch : :class:`int`
+            The epoch.
+
+        Returns
+        -------
+        None
+        """
+
+        # Get the epoch's metrics rows.
+        metrics_row_train = state.metrics_row_train
+        metrics_row_test = state.metrics_row_test
+
+        # Get the samples' labels.
+        labels_train = state.labels_train
+        labels_test = state.labels_test
+
+        # Initialize the parts of the metrics' log line.
+        metrics_parts = [f"Epoch {epoch}:"]
+
+        # Disable gradient computation.
+        with torch.no_grad():
+
+            # Get the representations for the training samples.
+            rep_train = \
+                state.train.rep_layer().detach().to(self.device)
+
+            # Get the predicted labels for the training samples.
+            predicted_labels_train = \
+                self.latent.predict(
+                    rep_train).detach().cpu().numpy()
+
+            # Get the representations for the test samples.
+            rep_test = \
+                state.test.rep_layer().detach().to(self.device)
+
+            # Get the predicted labels for the test samples.
+            predicted_labels_test = \
+                self.latent.predict(
+                    rep_test).detach().cpu().numpy()
+
+            # For each reporting metric
+            for metric_name in state.reporting_metrics_latent:
+
+                # If the metric is unsupervised
+                if metric_name in metrics.UNSUPERVISED_METRICS:
+
+                    # Compute the metric for the train data.
+                    value_train = \
+                        metrics.get_metric_score(
+                            metric_name = metric_name,
+                            X = rep_train,
+                            gmm_model = self.latent,
+                            labels = predicted_labels_train)
+
+                    # Store the metric value for the train data.
+                    metrics_row_train[metric_name] = value_train
+
+                    # Compute the metric for the test data.
+                    value_test = \
+                        metrics.get_metric_score(
+                            metric_name = metric_name,
+                            X = rep_test,
+                            gmm_model = self.latent,
+                            labels = predicted_labels_test)
+
+                    # Store the metric value for the test data.
+                    metrics_row_test[metric_name] = value_test
+
+                # If the metric is supervised (it stays NaN without
+                # labels)
+                elif metric_name in metrics.SUPERVISED_METRICS:
+
+                    # If labels are available
+                    if labels_train is not None and \
+                        labels_test is not None:
+
+                        # Encode the ground-truth labels as integers.
+                        enc_true_labels_train, \
+                            enc_true_labels_test = \
+                                metrics.encode_labels(
+                                    [labels_train,
+                                     labels_test])
+
+                        # Encode the predicted labels as integers.
+                        enc_predicted_labels_train, \
+                            enc_predicted_labels_test = \
+                                metrics.encode_labels(
+                                    [predicted_labels_train,
+                                     predicted_labels_test])
+
+                        # Compute the metric for the train data.
+                        value_train = \
+                            metrics.get_metric_score(
+                                metric_name = metric_name,
+                                y_true = enc_true_labels_train,
+                                y_pred = enc_predicted_labels_train)
+
+                        # Store the metric value for the train data.
+                        metrics_row_train[metric_name] = value_train
+
+                        # Compute the metric for the test data.
+                        value_test = \
+                            metrics.get_metric_score(
+                                metric_name = metric_name,
+                                y_true = enc_true_labels_test,
+                                y_pred = enc_predicted_labels_test)
+
+                        # Store the metric value for the test data.
+                        metrics_row_test[metric_name] = value_test
+
+                # Initialize the train and test values' strings.
+                values_str = []
+
+                # For the train and test values
+                for value in (metrics_row_train[metric_name],
+                              metrics_row_test[metric_name]):
+
+                    # Try to format the value ('nan' if invalid).
+                    try:
+                        value_str = \
+                            f"{value:.4f}" \
+                            if value is not None and \
+                                np.isfinite(float(value)) \
+                            else "nan"
+
+                    # If it is not a number
+                    except (TypeError, ValueError):
+
+                        # Use 'nan'.
+                        value_str = "nan"
+
+                    # Keep it.
+                    values_str.append(value_str)
+
+                # Add the metric's summary.
+                metrics_parts.append(
+                    f"{metric_name}: train={values_str[0]}, "
+                    f"test={values_str[1]}")
+
+        #-------------------------------------------------------------#
+
+        # Inform the user about the metrics.
+        logger.info(" ".join(metrics_parts) + ".")
+
+
+    def _check_early_stopping(self,
+                              state: SimpleNamespace,
+                              epoch: int) -> bool:
+        """Keep an epoch's metrics rows and, if early stopping is
+        active, the best model so far, and get whether to stop.
+
+        Parameters
+        ----------
+        state : :class:`types.SimpleNamespace`
+            The training's state, updated in place.
+
+        epoch : :class:`int`
+            The epoch.
+
+        Returns
+        -------
+        stop : :class:`bool`
+            Whether the training stops.
+        """
+
+        # Save the epoch's metrics rows.
+        state.metrics_rows_train.append(state.metrics_row_train)
+        state.metrics_rows_test.append(state.metrics_row_test)
+
+        # If early stopping is not active
+        if not state.early_stopping_active:
+
+            # Do not stop.
+            return False
+
+        #-------------------------------------------------------------#
+
+        # Get the current test loss.
+        current_test_loss = state.losses_list[-1][6]
+
+        # If the current test loss is better than the best test loss
+        # so far
+        if current_test_loss < state.early_stopping_best_test_loss:
+
+            # Update the best test loss.
+            state.early_stopping_best_test_loss = current_test_loss
+
+            # Update the best epoch.
+            state.early_stopping_best_epoch = epoch
+
+            # Reset the counter for epochs without improvement.
+            state.early_stopping_epochs_without_improvement = 0
+
+            # Save the best model state.
+            state.early_stopping_best_model_state = {
+                "decoder": \
+                    copy.deepcopy(self.decoder.state_dict()),
+                "rep_layer_train": \
+                    copy.deepcopy(state.train.rep_layer.state_dict()),
+                "rep_layer_test": \
+                    copy.deepcopy(state.test.rep_layer.state_dict()),
+                "latent": \
+                    copy.deepcopy(self.latent.state_dict()),
+            }
+
+        # Otherwise
+        else:
+
+            # Increment the counter.
+            state.early_stopping_epochs_without_improvement += 1
+
+        #-------------------------------------------------------------#
+
+        # If the patience has not been exhausted
+        if state.early_stopping_epochs_without_improvement \
+            < state.early_stopping_patience:
+
+            # Do not stop.
+            return False
+
+        # Inform the user.
+        info_msg = \
+            "Early stopping triggered at epoch " \
+            f"{epoch}. Best test loss " \
+            f"{state.early_stopping_best_test_loss:.3f} " \
+            "was at epoch " \
+            f"{state.early_stopping_best_epoch}."
+        logger.info(info_msg)
+
+        # Stop.
+        return True
+
+
+    def _finish_training(self,
+                         state: SimpleNamespace,
+                         epoch: int) -> \
+                            tuple[tuple[torch.Tensor, torch.Tensor],
+                                  tuple[torch.Tensor, torch.Tensor],
+                                  Optional[torch.Tensor],
+                                  list[float],
+                                  tuple[list, list],
+                                  list[tuple[float, float]]]:
+        """Restore the best model if early stopping kept one, refit
+        the mixture a last time, and get the final outputs.
+
+        Parameters
+        ----------
+        state : :class:`types.SimpleNamespace`
+            The training's state.
+
+        epoch : :class:`int`
+            The last epoch run.
+
+        Returns
+        -------
+        results : :class:`tuple`
+            As :meth:`_train` returns them.
+        """
+
+        # If early stopping was used and a best model state was saved
+        if state.early_stopping_type == "loss" \
+            and state.early_stopping_best_model_state is not None:
+
+            # Get the best model state.
+            best = state.early_stopping_best_model_state
+
+            # Restore it.
+            self.decoder.load_state_dict(best["decoder"])
+            state.train.rep_layer.load_state_dict(\
+                best["rep_layer_train"])
+            state.test.rep_layer.load_state_dict(\
+                best["rep_layer_test"])
+            self.latent.load_state_dict(best["latent"])
+
+            # Inform the user.
+            info_msg = \
+                "Restored best model state from epoch " \
+                f"{state.early_stopping_best_epoch}."
+            logger.info(info_msg)
+
+        #-------------------------------------------------------------#
+
+        # If the Gaussian mixture model is the TGMM wrapper and a final
+        # refit is needed (also after early stopping)
+        if state.is_tgmm and state.gmm_refit_final:
+
+            # Disable gradient computation.
+            with torch.no_grad():
+
+                # Get what the mixture is fitted to.
+                rep_train, _ = \
+                    self._latent_fit_inputs(\
+                        rep_layer = state.train.rep_layer)
+
+                # Fit the Gaussian mixture model to the final
+                # representations of the training samples.
+                self.latent.fit(\
+                    rep_train,
+                    max_iter = state.latent_max_iter_final_refit)
+
+                # If the weight-threshold removal of collapsed
+                # components is enabled
+                if state.components_removal_type == "weight_threshold":
+
+                    # Remove the collapsed components, if any.
+                    self._remove_collapsed_latent_components(
+                        collapse_weight_threshold = \
+                            state.component_weight_threshold,
+                        epoch = epoch)
+
+        #-------------------------------------------------------------#
+
+        # Get the final representations for the training and test
+        # samples.
+        rep_train = state.train.rep_layer()
+        rep_test = state.test.rep_layer()
+
+        # Get the predicted scaled means and r-values for the training
+        # samples.
+        means_final_train, r_values_final_train = \
+            self._decode(z = rep_train)
+
+        # Get those for the test samples.
+        means_final_test, r_values_final_test = \
+            self._decode(z = rep_test)
+
+        # If the r-values are predicted per sample
+        if isinstance(self.decoder.nb,
+                      outputmodules.OutputModuleNBFullDispersion):
+
+            # Keep both sets'.
+            r_values_final = (r_values_final_train,
+                              r_values_final_test)
+
+        # Otherwise (per gene, or none for Poisson counts)
+        else:
+
+            # Keep one.
+            r_values_final = r_values_final_test
+
+        #-------------------------------------------------------------#
+
+        # Return the representations, decoder's outputs, losses,
+        # metrics and training time.
+        return ((rep_train, rep_test),
+                (means_final_train, means_final_test),
+                r_values_final,
+                state.losses_list,
+                (state.metrics_rows_train, state.metrics_rows_test),
+                state.time_train)
 
 
     def _train(self,
@@ -4712,8 +6575,8 @@ class BulkDGD(nn.Module):
                genes_names: list[str],
                data_loader_train: torch.utils.data.DataLoader,
                data_loader_test: torch.utils.data.DataLoader,
-               rep_layer_train: latents.RepresentationLayer,
-               rep_layer_test: latents.RepresentationLayer,
+               rep_layer_train: representations.RepresentationLayer,
+               rep_layer_test: representations.RepresentationLayer,
                pathways: Optional[dict[str, list[str]]] = None,
                labels_train: Optional[torch.Tensor] = None,
                labels_test: Optional[torch.Tensor] = None) -> \
@@ -4747,11 +6610,11 @@ class BulkDGD(nn.Module):
             The data loader for the test samples.
 
         rep_layer_train : \
-            :class:`bulkdgd.core.latents.RepresentationLayer`
+            :class:`bulkdgd.core.representations.RepresentationLayer`
             The representation layer for the training samples.
 
         rep_layer_test : \
-            :class:`bulkdgd.core.latents.RepresentationLayer`
+            :class:`bulkdgd.core.representations.RepresentationLayer`
             The representation layer for the test samples.
 
         pathways : :class:`dict` or :obj:`None`
@@ -4780,2302 +6643,87 @@ class BulkDGD(nn.Module):
             CPU/wall-clock timing.
         """
 
-        # Get the number of training samples.
-        n_samples_train = len(samples_names_train)
-
-        # Get the number of testing samples.
-        n_samples_test = len(samples_names_test)
-
-        # Get the number of genes.
-        n_genes = len(genes_names)
-
-        # If a dictionary of pathways is provided
-        if pathways is not None:
-
-            # Get the names of the pathways.
-            pathways_names = list(pathways.keys())
-
-        # Otherwise
-        else:
-
-            # Set the pathways names to None.
-            pathways_names = None
-
-        #-------------------------------------------------------------#
-
-        # Get the number of epochs.
-        n_epochs = config_train["n_epochs"]
-
-        # Get the method of loss reduction.
-        loss_reduction_type = config_train["loss_reduction_type"]
-
-        #-------------------------------------------------------------#
-
-        # Get the options for training the latent space.
-        latent_options = config_train["latent_training_options"]
-
-        # Get the options for training the decoder.
-        decoder_options = config_train["decoder_training_options"]
-
-        # Get the options for training the representations.
-        representations_options = \
-            config_train["representations_training_options"]
-
-        # Get the options for reporting.
-        reporting_options = config_train["reporting_options"]
-
-        #-------------------------------------------------------------#
-
-        # Get the norms to clip the gradients to, if any.
-        grad_clip_decoder = \
-            decoder_options.get("grad_clipping_max_norm")
-        grad_clip_rep = \
-            representations_options.get("grad_clipping_max_norm")
-        grad_clip_latent = \
-            latent_options.get("grad_clipping_max_norm")
-
-        #-------------------------------------------------------------#
-
-        # Initialize the learning rate scheduler for the latent space.
-        lr_scheduler_latent = None
-
-        # If the latent space is the legacy Gaussian mixture model
-        if isinstance(self.latent,
-                      latents.GaussianMixtureModelLegacy):
-
-            # Get the type of optimizer to use for the latent space.
-            optimizer_latent_type = \
-                latent_options["optimizer_type"]
-
-            # Get the options for the optimizer for the latent space.
-            optimizer_latent_options = \
-                latent_options["optimizer_options"]
-
-            # Get the optimizer for the latent space.
-            optimizer_latent = \
-                self._get_optimizer(\
-                    optimizer_type = optimizer_latent_type,
-                    optimizer_options = optimizer_latent_options,
-                    optimizer_parameters = self.latent.parameters())
-
-            # Get the type of learning rate scheduler to use for the
-            # latent space.
-            lr_scheduler_latent_type = \
-                latent_options["lr_scheduler_type"]
-
-            # Get the options for the learning rate scheduler for the
-            # latent space.
-            lr_scheduler_latent_options = \
-                latent_options.get("lr_scheduler_options")
-
-            # Get the learning rate scheduler for the latent space.
-            lr_scheduler_latent = \
-                self._get_scheduler(
-                    lr_scheduler_target = "latent",
-                    lr_scheduler_type = lr_scheduler_latent_type,
-                    lr_scheduler_options = lr_scheduler_latent_options,
-                    optimizer = optimizer_latent,
-                    n_epochs = n_epochs,
-                    data_loader_train = data_loader_train)
-
-        #-------------------------------------------------------------#
-
-        # Get the type of optimizer to use for the decoder.
-        optimizer_decoder_type = \
-            decoder_options["optimizer_type"]
-
-        # Get the options for the optimizer for the decoder.
-        optimizer_decoder_options = \
-            decoder_options["optimizer_options"]
-
-        # Get the optimizer for the decoder.
-        optimizer_decoder = \
-            self._get_optimizer(\
-                optimizer_type = optimizer_decoder_type,
-                optimizer_options = optimizer_decoder_options,
-                optimizer_parameters = self.decoder.parameters())
-
-        # Get the type of learning rate scheduler to use for the
-        # decoder.
-        lr_scheduler_decoder_type = \
-            decoder_options["lr_scheduler_type"]
-
-        # Get the options for the learning rate scheduler for the
-        # decoder.
-        lr_scheduler_decoder_options = \
-            decoder_options.get("lr_scheduler_options")
-
-        # Get the learning rate scheduler for the decoder.
-        lr_scheduler_decoder = \
-            self._get_scheduler(
-                lr_scheduler_target = "decoder",
-                lr_scheduler_type = lr_scheduler_decoder_type,
-                lr_scheduler_options = lr_scheduler_decoder_options,
-                optimizer = optimizer_decoder,
-                n_epochs = n_epochs,
-                data_loader_train = data_loader_train)
-
-        #-------------------------------------------------------------#
-
-        # Get the type of optimizer to use for the representations for
-        # the training samples.
-        optimizer_rep_type = \
-            representations_options["optimizer_type"]
-
-        # Get the options for the optimizer for the representations for
-        # the training samples.
-        optimizer_rep_options = \
-            representations_options["optimizer_options"]
-
-        # Get the type of learning rate scheduler to use for the
-        # training representations.
-        lr_scheduler_rep_type = \
-            representations_options["lr_scheduler_type"]
-
-        # Get the options for the learning rate scheduler for the
-        # training representations.
-        lr_scheduler_rep_options = \
-            representations_options.get("lr_scheduler_options")
-
-        #-------------------------------------------------------------#
-
-        # Get the optimizer for the representations for the training
-        # samples.
-        optimizer_rep_train = \
-            self._get_optimizer(\
-                optimizer_type = optimizer_rep_type,
-                optimizer_options = optimizer_rep_options,
-                optimizer_parameters = rep_layer_train.parameters())
-
-        # Get the learning rate scheduler for the training
-        # representations.
-        lr_scheduler_rep_train = \
-            self._get_scheduler(
-                lr_scheduler_target = "representations",
-                lr_scheduler_type = lr_scheduler_rep_type,
-                lr_scheduler_options = lr_scheduler_rep_options,
-                optimizer = optimizer_rep_train,
-                n_epochs = n_epochs)
-
-        #-------------------------------------------------------------#
-
-        # Get the optimizer for the representations for the testing
-        # samples.
-        optimizer_rep_test = \
-            self._get_optimizer(\
-                optimizer_type = optimizer_rep_type,
-                optimizer_options = optimizer_rep_options,
-                optimizer_parameters = rep_layer_test.parameters())
-
-        # Get the learning rate scheduler for the test representations.
-        lr_scheduler_rep_test = \
-            self._get_scheduler(
-                lr_scheduler_target = "representations",
-                lr_scheduler_type = lr_scheduler_rep_type,
-                lr_scheduler_options = lr_scheduler_rep_options,
-                optimizer = optimizer_rep_test,
-                n_epochs = n_epochs)
-
-        #-------------------------------------------------------------#
-
-        # Get the type of noise to inject in the representations for
-        # the training samples.
-        train_noise_type = \
-            representations_options["train_noise_type"]
-
-        # Get the noise options for the representations for the
-        # training samples.
-        train_noise_options = \
-            representations_options.get("train_noise_options")
-
-        # If the noise is Gaussian
-        if train_noise_type == "gaussian":
-
-            # Get the noise scale (zero disables the noise).
-            train_noise_scale_base = train_noise_options["scale"]
-
-            # Get the starting noise scale (for cosine annealing).
-            train_noise_start = train_noise_options["start"]
-
-            # Get the ending noise scale (for cosine annealing).
-            train_noise_end = train_noise_options["end"]
-
-            # Get the fraction of the mass within the radius the noise
-            # is scaled by.
-            train_noise_within_radius_prob = \
-                train_noise_options["within_radius_prob"]
-
-            # Get the gain factor.
-            train_noise_gain = train_noise_options["gain"]
-
-            # Get whether the noise stays in the stored
-            # representations.
-            train_noise_persist = train_noise_options["persist"]
-
-        # If the noise follows the optimizer's step sizes
-        elif train_noise_type == "langevin":
-
-            # Get the temperature the representations are sampled at.
-            train_noise_temperature = \
-                train_noise_options["temperature"]
-
-            # Get the temperature's multipliers at the start and end of
-            # the annealing, and the fraction of training it spans.
-            train_noise_start = train_noise_options["start"]
-            train_noise_end = train_noise_options["end"]
-            train_noise_end_fraction = \
-                train_noise_options["end_fraction"]
-
-            # The noise stays in the stored representations.
-            train_noise_persist = True
-
-        #-------------------------------------------------------------#
-
-        # Get the type of noise to inject in the representations for
-        # the test samples.
-        test_noise_type = \
-            representations_options["test_noise_type"]
-
-        # Get the noise options for the representations for the test
-        # samples.
-        test_noise_options = \
-            representations_options.get("test_noise_options")
-
-        # If the noise is Gaussian
-        if test_noise_type == "gaussian":
-
-            # Get the noise scale (zero disables the noise).
-            test_noise_scale_base = test_noise_options["scale"]
-
-            # Get the starting noise scale (for cosine annealing).
-            test_noise_start = test_noise_options["start"]
-
-            # Get the ending noise scale (for cosine annealing).
-            test_noise_end = test_noise_options["end"]
-
-            # Get the fraction of the mass within the radius the noise
-            # is scaled by.
-            test_noise_within_radius_prob = \
-                test_noise_options["within_radius_prob"]
-
-            # Get the gain factor.
-            test_noise_gain = test_noise_options["gain"]
-
-            # Get whether the noise stays in the stored
-            # representations.
-            test_noise_persist = test_noise_options["persist"]
-
-            # Get the seed of the noise's generator, by default the
-            # seed torch was given.
-            test_noise_seed = test_noise_options["seed"]
-            if test_noise_seed is None:
-                test_noise_seed = torch.initial_seed()
-
-            # Create the test noise's own generator.
-            test_noise_generator = \
-                torch.Generator(device = self.device)
-            test_noise_generator.manual_seed(int(test_noise_seed))
-
-        # If the noise follows the optimizer's step sizes
-        elif test_noise_type == "langevin":
-
-            # Get the temperature the representations are sampled at.
-            test_noise_temperature = test_noise_options["temperature"]
-
-            # Get the temperature's multipliers at the start and end of
-            # the annealing, and the fraction of training it spans.
-            test_noise_start = test_noise_options["start"]
-            test_noise_end = test_noise_options["end"]
-            test_noise_end_fraction = \
-                test_noise_options["end_fraction"]
-
-            # The noise stays in the stored representations.
-            test_noise_persist = True
-
-            # Get the seed of the noise's generator, by default the
-            # seed torch was given.
-            test_noise_seed = test_noise_options["seed"]
-            if test_noise_seed is None:
-                test_noise_seed = torch.initial_seed()
-
-            # Create the test noise's own generator.
-            test_noise_generator = \
-                torch.Generator(device = self.device)
-            test_noise_generator.manual_seed(int(test_noise_seed))
-
-        #-------------------------------------------------------------#
-
-        # Get the type of noise kept in the stored representations,
-        # apart from the noise the decoder sees.
-        kept_noise_type = \
-            representations_options.get("kept_noise_type", "none")
-
-        # Get its options.
-        kept_noise_options = \
-            representations_options.get("kept_noise_options")
-
-        # If any noise is kept
-        if kept_noise_type in ("gaussian", "langevin"):
-
-            # Get the seed of its generator, by default one past the
-            # seed torch was given.
-            kept_noise_seed = kept_noise_options["seed"]
-            if kept_noise_seed is None:
-                kept_noise_seed = torch.initial_seed() + 1
-
-            # Create the kept noise's own generator.
-            kept_noise_generator = \
-                torch.Generator(device = self.device)
-            kept_noise_generator.manual_seed(int(kept_noise_seed))
-
-        #-------------------------------------------------------------#
-
-        # Get the type of early stopping to perform from the
-        # configuration.
-        early_stopping_type = config_train["early_stopping_type"]
-
-        # Get the early stopping options from the configuration.
-        early_stopping_options = config_train["early_stopping_options"]
-
-        # Initialize the early stopping active flag to False.
-        early_stopping_active = False
-
-        # If the early stopping is based on the loss
-        if early_stopping_type == "loss":
-
-            # Get the patience (the number of epochs without improvement
-            # in the test loss before stopping).
-            early_stopping_patience = \
-                early_stopping_options.get("patience", 10)
-
-            # Initialize the best test loss to positive infinity.
-            early_stopping_best_test_loss = float("inf")
-
-            # Initialize the number of the epoch with the best test
-            # loss to zero.
-            early_stopping_best_epoch = 0
-
-            # Initialize the number of epochs without improvement in
-            # the test loss to zero.
-            early_stopping_epochs_without_improvement = 0
-
-            # Initialize the state of the best model to None.
-            early_stopping_best_model_state = None
-
-            # Keep early stopping inactive until the GMM is fitted.
-            early_stopping_active = False
-
-        #-------------------------------------------------------------#
-
-        # Create an empty list to store the GMM's loss, the
-        # reconstruction loss, and the overall loss.
-        losses_list = []
-
-        # Create an empty list to store the training time.
-        time_train = []
-
-        #-------------------------------------------------------------#
-
-        # Get the type of component removal to perform.
-        components_removal_type = \
-            latent_options["components_removal_type"]
-
-        # If the component removal is based on a weight threshold
-        if components_removal_type == "weight_threshold":
-
-            # Get the weight threshold for collapsed-component removal.
-            component_weight_threshold = \
-                latent_options["components_removal_options"][
-                        "threshold"]
-
-            # Inform the user.
-            info_msg = \
-                "Weight-threshold collapsed-component removal is " \
-                "enabled " \
-                f"(threshold = {component_weight_threshold})."
-            logger.info(info_msg)
-
-        #-------------------------------------------------------------#
-
-        # If the Gaussian mixture model is the TorchGMM wrapper
-        if isinstance(self.latent,
-                      latents.GaussianMixtureModelTGMM):
-
-            # Get the type of model selection to perform for the
-            # Gaussian mixture model.
-            latent_model_selection_type = \
-                latent_options["model_selection_type"]
-
-            # Get the options for GMM model selection.
-            latent_model_selection_options = \
-                latent_options.get("model_selection_options")
-
-            # Set how many components either side of the current number
-            # to try (by default, one).
-            latent_model_selection_step = 1
-
-            # If the model selection is based on a metric
-            if latent_model_selection_type == "metric" and \
-                latent_model_selection_options is not None:
-
-                # If the options are not a dictionary
-                if not isinstance(latent_model_selection_options, dict):
-
-                    # Raise an error.
-                    errstr = \
-                        "'model_selection_options' must be a " \
-                        "mapping with a 'metric' and, optionally, " \
-                        "a 'step', not a " \
-                f"'{type(latent_model_selection_options).__name__}'."
-                    raise TypeError(errstr)
-
-                # Get the metric used to select candidate models.
-                latent_model_selection_metric = \
-                    latent_model_selection_options.get("metric", "bic")
-
-                # Get how many components either side to try.
-                latent_model_selection_step = \
-                    int(latent_model_selection_options.get("step", 1))
-
-                # Inform the user.
-                logger.info(
-                    "The number of components of the Gaussian "
-                    "mixture model is selected dynamically, on the "
-                    f"'{latent_model_selection_metric}', looking "
-                    f"{latent_model_selection_step} component(s) "
-                    "either side of the current number at every "
-                    "refit.")
-
-            #---------------------------------------------------------#
-
-            # Get the options for fitting.
-            latent_options_fitting = latent_options["fitting"]
-
-            # Get the first epoch after which the Gaussian
-            # mixture model is fitted.
-            latent_first_epoch = latent_options_fitting["first_epoch"]
-
-            # Get the refit interval for the Gaussian mixture
-            # model.
-            latent_refit_interval = \
-                latent_options_fitting["refit_interval"]
-
-            # Get whether to refit the GMM at the end of training.
-            gmm_refit_final = \
-                latent_options_fitting["refit_final"]
-
-            # Get the number of EM iterations to perform at the
-            # 'first epoch' for the Gaussian mixture model.
-            latent_max_iter_first_epoch = \
-                latent_options_fitting["max_iter_first_epoch"]
-
-            # Get the maximum number of EM iterations at a
-            # full-refit epoch (a multiple of 'refit_interval').
-            latent_max_iter_full_refit = \
-                latent_options_fitting["max_iter_full_refit"]
-
-            # Get the maximum number of EM iterations at a
-            # "warm"-refit epoch (any other epoch).
-            latent_max_iter_warm_refit = \
-                latent_options_fitting["max_iter_warm_refit"]
-
-            # Get the maximum number of EM iterations to perform at
-            # the final refit (if 'refit_final' is True).
-            latent_max_iter_final_refit = \
-                latent_options_fitting["max_iter_final_refit"]
-
-            # Get the weight of the latent loss.
-            latent_lambda = \
-                latent_options["loss_calculation"]["lambda"]
-
-        #-------------------------------------------------------------#
-
-        # Get the methods that will be used to normalize the losses.
-        loss_norm_types = {
-            "latent": \
-                reporting_options["loss"]["latent"]["norm_type"],
-            "decoder": \
-                reporting_options["loss"]["decoder"]["norm_type"],
-            "total": \
-                reporting_options["loss"]["total"]["norm_type"],
-        }
-
-        #-------------------------------------------------------------#
-
-        # Get the latent space's reporting metrics.
-        reporting_metrics_latent = \
-            reporting_options["metrics"]["latent"]
-
-        # If there are reporting metrics
-        if reporting_metrics_latent:
-
-            # Initialize a list to store the metrics that will be used.
-            filtered_metrics = []
-
-            # For each of the reporting metrics
-            for m in reporting_metrics_latent:
-
-                # If the metric is supervised
-                if m in metrics.SUPERVISED_METRICS:
-
-                    # If no labels were provided for training or test
-                    if labels_train is None or labels_test is None:
-
-                        # Log the warning.
-                        logger.warning(
-                            f"Supervised metric '{m}' requires "
-                            "ground-truth "
-                            "labels, which were not provided. This "
-                            "metric will not be used for reporting.")
-
-                        # Move to the next metric.
-                        continue
-
-                # Add the metric to the filtered list.
-                filtered_metrics.append(m)
-
-            # Replace the reporting metrics with the filtered ones.
-            reporting_metrics_latent = filtered_metrics
-
-        # If there are still reporting metrics to use
-        if reporting_metrics_latent:
-
-            # Create a string containing the metrics.
-            metrics_str = \
-                ", ".join([f"'{m}'" for m in reporting_metrics_latent])
-
-            # Inform the user about the reporting metrics.
-            logger.info(
-                "Selected reporting metrics for the latent space: " \
-                f"{metrics_str}.")
-
-        # Create lists to store per-epoch train/test metrics rows.
-        metrics_rows_train = []
-        metrics_rows_test = []
-
-        # Set a flag for when to start storing values for the latent
-        # metrics.
-        latent_metrics_active = False
-
-        # If the latent space is the legacy GMM
-        if isinstance(self.latent,
-                      latents.GaussianMixtureModelLegacy):
-
-            # If there are reporting metrics
-            if reporting_metrics_latent:
-
-                # Warn that they are not computed.
-                logger.warning(
-                    "The latent metrics are only computed for the "
-                    "'tgmm' latent type, so they will be NaN.")
-
-            # If early stopping is enabled
-            if early_stopping_type == "loss":
-
-                # Activate it from the first epoch.
-                early_stopping_active = True
+        # Set up the training.
+        state = \
+            self._setup_training(\
+                config_train = config_train,
+                samples_names_train = samples_names_train,
+                samples_names_test = samples_names_test,
+                genes_names = genes_names,
+                data_loader_train = data_loader_train,
+                data_loader_test = data_loader_test,
+                rep_layer_train = rep_layer_train,
+                rep_layer_test = rep_layer_test,
+                pathways = pathways,
+                labels_train = labels_train,
+                labels_test = labels_test)
 
         #-------------------------------------------------------------#
 
         # For each epoch
-        for epoch in range(1, n_epochs + 1):
+        for epoch in range(1, state.n_epochs + 1):
 
-            # Initialize the losses to 0 for the current epoch.
-            losses_list.append([epoch, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-
-            # Initialize the epoch's metrics rows.
-            metrics_row_train = {"epoch": epoch}
-            metrics_row_test = {"epoch": epoch}
-
-            # For each metric
-            for metric_name in reporting_metrics_latent:
-
-                # Set the metric value to NaN for the train set.
-                metrics_row_train[metric_name] = np.nan
-
-                # Set the metric value to NaN for the test set.
-                metrics_row_test[metric_name] = np.nan
-
-            #---------------------------------------------------------#
-
-            # Mark the CPU start time of the epoch.
-            time_start_epoch_cpu = time.process_time()
-
-            # Mark the wall clock start time of the epoch.
-            time_start_epoch_wall = time.time()
-
-            #---------------------------------------------------------#
+            # Start the epoch.
+            self._start_epoch(state = state,
+                              epoch = epoch)
 
             # If the Gaussian mixture model is the TorchGMM wrapper
-            if isinstance(self.latent,
-                          latents.GaussianMixtureModelTGMM):
-
-                # Get the target (or, with dynamic selection, maximum)
-                # number of components.
-                latent_n_components_target = \
-                    int(latent_options.get("n_components",
-                                           self.latent.n_components))
-
-                #-----------------------------------------------------#
-
-                # Get the representations for the training samples.
-                rep_train = rep_layer_train().detach().to(self.device)
-
-                #-----------------------------------------------------#
-
-                # If it is the first epoch
-                if epoch == 1:
-
-                    # Disable gradient computation.
-                    with torch.no_grad():
-
-                        # Allocate the parameters of the Gaussian
-                        # mixture model.
-                        self.latent._allocate_parameters(rep_train)
-
-                        # Set the 'fitted_' attribute of the Gaussian
-                        # mixture model to True.
-                        self.latent.fitted_ = True
-
-                #-----------------------------------------------------#
-
-                # If the GMM should be fitted at this epoch
-                elif epoch >= latent_first_epoch:
-
-                    # Disable gradient computation.
-                    with torch.no_grad():
-
-                        # Determine whether this is a full-refit epoch.
-                        is_full_refit_epoch = \
-                            epoch == latent_first_epoch or \
-                            (latent_refit_interval \
-                                and epoch % latent_refit_interval == 0)
-
-                        # If it is the first epoch where the GMM should
-                        # be fitted
-                        if epoch == latent_first_epoch:
-
-                            # Use the configured number of iterations
-                            # for the first epoch.
-                            max_iter = latent_max_iter_first_epoch
-
-                        # If it is a full refit epoch
-                        elif is_full_refit_epoch:
-
-                            # Use the configured number of iterations
-                            # for a full refit.
-                            max_iter = latent_max_iter_full_refit
-
-                        # Otherwise
-                        else:
-
-                            # Use the configured number of iterations
-                            # for a "warm" refit.
-                            max_iter = latent_max_iter_warm_refit
-
-                        #---------------------------------------------#
-
-                        # If the model selection is based on a metric
-                        if latent_model_selection_type == "metric":
-
-                            # Keep the best of the models with k,
-                            # k - step and k + step components.
-                            self._get_best_latent_tgmm(
-                                rep_train = rep_train,
-                                latent_n_components_target = \
-                                    latent_n_components_target,
-                                max_iter = max_iter,
-                                is_full_refit_epoch = \
-                                    is_full_refit_epoch,
-                                epoch = epoch,
-                                model_selection_step = \
-                                    latent_model_selection_step,
-                                model_selection_metric = \
-                                    latent_model_selection_metric)
-
-                        #---------------------------------------------#
-
-                        # Otherwise
-                        else:
-
-                            # If it is a full refit epoch
-                            if is_full_refit_epoch:
-
-                                # Fit the GMM.
-                                self.latent.fit(rep_train,
-                                                max_iter = max_iter)
-
-                            # If it is not a full refit epoch
-                            else:
-
-                                # Fit the GMM starting from the previous
-                                # epoch's solution.
-                                self.latent.fit(rep_train,
-                                                max_iter = max_iter,
-                                                warm_start = True)
-
-                        #---------------------------------------------#
-
-                        # If the weight-threshold removal of collapsed
-                        # components is enabled
-                        if components_removal_type == \
-                            "weight_threshold":
-
-                            # Remove collapsed components.
-                            self._remove_collapsed_latent_components(
-                                collapse_weight_threshold = \
-                                    component_weight_threshold,
-                                epoch = epoch)
-
-                    #-------------------------------------------------#
-
-                    # If early stopping is enabled and this is the first
-                    # epoch after which the GMM is fitted
-                    if early_stopping_type == "loss" \
-                        and epoch == latent_first_epoch:
-
-                        # Enable early stopping.
-                        early_stopping_active = True
-
-                        # Set the best test loss to positive infinity.
-                        early_stopping_best_test_loss = float("inf")
-
-                        # Set the number of the epochs without
-                        # improvement to zero.
-                        early_stopping_epochs_without_improvement = 0
-
-                #-----------------------------------------------------#
-
-                # If the GMM has been fitted
-                if epoch >= latent_first_epoch:
-
-                    # Enable the calculation of latent metrics from
-                    # this epoch onward.
-                    latent_metrics_active = True
-
-            #---------------------------------------------------------#
-
-            # If the noise to inject in the training representations is
-            # Gaussian
-            if train_noise_type == "gaussian":
-
-                # If noise injection is enabled for the training
-                # representations
-                if train_noise_scale_base > 0:
-
-                    # Get the noise progress.
-                    progress = (epoch - 1) / max(n_epochs - 1, 1)
-
-                    # Compute the noise scale using cosine annealing
-                    # between the start and end values.
-                    train_noise_scale = \
-                        train_noise_end + \
-                            (train_noise_start - train_noise_end) * \
-                                0.5 * \
-                                    (1 + math.cos(math.pi * progress))
-
-                    # Set the noise scale.
-                    train_noise_scale = \
-                        train_noise_scale * train_noise_scale_base
-
-                # Otherwise
-                else:
-
-                    # No noise will be injected.
-                    train_noise_scale = 0.0
-
-            # If the noise follows the optimizer's step sizes
-            elif train_noise_type == "langevin":
-
-                # Get how far the annealing has progressed.
-                progress = \
-                    min((epoch - 1) / max(n_epochs - 1, 1) / \
-                            train_noise_end_fraction,
-                        1.0)
-
-                # Compute the temperature's multiplier using cosine
-                # annealing between the start and end values.
-                train_noise_scale = \
-                    train_noise_end + \
-                        (train_noise_start - train_noise_end) * \
-                            0.5 * (1 + math.cos(math.pi * progress))
-
-                # Inject no noise when the temperature is zero.
-                if train_noise_temperature == 0:
-                    train_noise_scale = 0.0
-
-            # Otherwise (no noise)
-            else:
-
-                # No noise will be injected.
-                train_noise_scale = 0.0
-
-            # If Gaussian noise is injected in the test representations
-            if test_noise_type == "gaussian" \
-            and test_noise_scale_base > 0:
-
-                # Compute the noise scale using cosine annealing
-                # between the start and end values.
-                test_noise_scale = \
-                    test_noise_end + \
-                        (test_noise_start - test_noise_end) * \
-                            0.5 * \
-                                (1 + math.cos(math.pi * \
-                                    (epoch - 1) / max(n_epochs - 1, 1)))
-
-                # Set the noise scale.
-                test_noise_scale = \
-                    test_noise_scale * test_noise_scale_base
-
-            # If the test noise follows the optimizer's step sizes
-            elif test_noise_type == "langevin":
-
-                # Get how far the annealing has progressed.
-                progress = \
-                    min((epoch - 1) / max(n_epochs - 1, 1) / \
-                            test_noise_end_fraction,
-                        1.0)
-
-                # Compute the temperature's multiplier using cosine
-                # annealing between the start and end values.
-                test_noise_scale = \
-                    test_noise_end + \
-                        (test_noise_start - test_noise_end) * \
-                            0.5 * (1 + math.cos(math.pi * progress))
-
-                # Inject no noise when the temperature is zero.
-                if test_noise_temperature == 0:
-                    test_noise_scale = 0.0
-
-            # Otherwise
-            else:
-
-                # No noise will be injected.
-                test_noise_scale = 0.0
-
-            # If Gaussian noise is kept in the stored representations
-            if kept_noise_type == "gaussian":
-
-                # Get the noise progress.
-                progress = (epoch - 1) / max(n_epochs - 1, 1)
-
-                # Compute the noise scale using cosine annealing
-                # between the start and end values.
-                kept_noise_scale = \
-                    (kept_noise_options["end"] + \
-                        (kept_noise_options["start"] - \
-                         kept_noise_options["end"]) * \
-                            0.5 * (1 + math.cos(math.pi * progress))) \
-                    * kept_noise_options["scale"]
-
-            # If the kept noise follows the optimizer's step sizes
-            elif kept_noise_type == "langevin":
-
-                # Get how far the annealing has progressed.
-                progress = \
-                    min((epoch - 1) / max(n_epochs - 1, 1) / \
-                            kept_noise_options["end_fraction"],
-                        1.0)
-
-                # Compute the temperature's multiplier using cosine
-                # annealing between the start and end values.
-                kept_noise_scale = \
-                    kept_noise_options["end"] + \
-                        (kept_noise_options["start"] - \
-                         kept_noise_options["end"]) * \
-                            0.5 * (1 + math.cos(math.pi * progress))
-
-                # Keep no noise when the temperature is zero.
-                if kept_noise_options["temperature"] == 0:
-                    kept_noise_scale = 0.0
-
-            # Otherwise
-            else:
-
-                # No noise will be kept.
-                kept_noise_scale = 0.0
-
-            #=========================================================#
-            #                      TRAINING PHASE                     #
-            #=========================================================#
-
-            # Make the gradients of the representation layer for the
-            # training samples zero.
-            optimizer_rep_train.zero_grad()
-
-            #---------------------------------------------------------#
-
-            # Set the decoder in train mode.
-            self.decoder.train()
-
-            #---------------------------------------------------------#
-
-            # For each batch of training samples
-            for batch_data in data_loader_train:
-
-                # Unpack the batch data (3 or 4 items, depending on
-                # whether labels are available).
-                samples_exp = batch_data[0]
-                samples_mean_exp = batch_data[1]
-                samples_ixs = batch_data[2]
-
-                # Move the gene expression of the samples to the
-                # correct device.
-                samples_exp = samples_exp.to(self.device)
-
-                # Move the mean gene expression of the samples to
-                # the correct device.
-                samples_mean_exp = samples_mean_exp.to(self.device)
-
-                #-----------------------------------------------------#
-
-                # Make the gradients for the decoder zero.
-                optimizer_decoder.zero_grad()
-
-                #-----------------------------------------------------#
-
-                # Get the representations for the current samples.
-                z = rep_layer_train(ixs = samples_ixs).to(self.device)
-
-                #-----------------------------------------------------#
-
-                # If noise injection is enabled
-                if train_noise_scale > 0:
-
-                    # If the noise is Gaussian
-                    if train_noise_type == "gaussian":
-
-                        # Get the radius of the hypersphere within
-                        # which the specified fraction of samples lie.
-                        radius = \
-                            float(
-                                chi2.ppf(train_noise_within_radius_prob,
-                                         self.latent.dim)) ** 0.5
-
-                        # Get the base noise.
-                        base_noise = torch.randn_like(z) / radius
-
-                        # Scale the base noise to get the final noise
-                        # to inject.
-                        noise = \
-                            train_noise_scale * base_noise * \
-                                train_noise_gain
-
-                    # Otherwise (the noise follows the optimizer)
-                    else:
-
-                        # Get the optimizer's state for the
-                        # representations.
-                        rep_state = \
-                            optimizer_rep_train.state.get(
-                                rep_layer_train.z, {})
-
-                        # If the optimizer has taken a step
-                        if "exp_avg_sq" in rep_state:
-
-                            # Get the optimizer's options.
-                            rep_group = \
-                                optimizer_rep_train.param_groups[0]
-
-                            # Get the bias-corrected second moments of
-                            # the batch's gradients.
-                            v_hat = \
-                                rep_state["exp_avg_sq"][samples_ixs] / \
-                                    (1 - rep_group["betas"][1] ** \
-                                         float(rep_state["step"]))
-
-                            # Get each coordinate's step size.
-                            step_size = \
-                                rep_group["lr"] / \
-                                    (v_hat.sqrt() + rep_group["eps"])
-
-                            # Draw the noise, with a variance of twice
-                            # the step size times the temperature.
-                            noise = \
-                                torch.randn_like(z) * \
-                                    torch.sqrt(\
-                                        2.0 * train_noise_temperature * \
-                                            train_noise_scale * step_size)
-
-                        # Otherwise
-                        else:
-
-                            # No noise is drawn before the first step.
-                            noise = torch.zeros_like(z)
-
-                    # Add the noise.
-                    z = z + noise
-
-                #-----------------------------------------------------#
-
-                # If the Gaussian mixture model is the legacy one
-                if isinstance(self.latent,
-                              latents.GaussianMixtureModelLegacy):
-
-                    # Make the gradients for the Gaussian mixture
-                    # model zero.
-                    optimizer_latent.zero_grad()
-
-                    # If the loss reduction type is 'sum'
-                    if loss_reduction_type == "sum":
-
-                        # Get the Gaussian mixture model's loss.
-                        latent_loss = self.latent(x = z).sum()
-
-                    # If the loss reduction type is 'mean'
-                    elif loss_reduction_type == "mean":
-
-                        # Get the Gaussian mixture model's loss.
-                        latent_loss = self.latent(x = z).mean()
-
-                # If the Gaussian mixture model is the TGMM wrapper
-                elif isinstance(self.latent,
-                                latents.GaussianMixtureModelTGMM):
-
-                    # If the Gaussian mixture model has been fitted
-                    if epoch >= latent_first_epoch:
-
-                        # If the loss reduction type is 'sum'
-                        if loss_reduction_type == "sum":
-
-                            # Get the Gaussian mixture model's loss.
-                            latent_loss = \
-                                - latent_lambda * \
-                                    torch.sum(\
-                                        self.latent.log_prob(z))
-
-                        # If the loss reduction type is 'mean'
-                        elif loss_reduction_type == "mean":
-
-                            # Get the Gaussian mixture model's loss.
-                            latent_loss = \
-                                - latent_lambda * \
-                                    torch.mean(\
-                                        self.latent.log_prob(z))
-
-                    # If the Gaussian mixture model was not fitted yet
-                    else:
-
-                        # Set the Gaussian mixture model's loss to
-                        # zero.
-                        latent_loss = \
-                            torch.tensor(0.0).to(self.device)
-
-                #-----------------------------------------------------#
-
-                # If the output module means that the r-values are not
-                # learned
-                if isinstance(\
-                    self.decoder.nb,
-                    (outputmodules.OutputModuleNBFeatureDispersion,
-                     outputmodules.OutputModulePoisson)):
-
-                    # Get the predicted means: shape (batch, genes).
-                    pred_means = self.decoder(z = z)
-
-                    # There are no predicted r-values.
-                    pred_log_r_values = None
-
-                    # Set the options to compute the reconstruction
-                    # loss.
-                    recon_loss_options = \
-                        {"obs_counts" : samples_exp,
-                         "pred_means" : pred_means,
-                         "scaling_factors" : samples_mean_exp}
-
-                # If the output module means that the r-values are
-                # learned
-                elif isinstance(\
-                    self.decoder.nb,
-                    outputmodules.OutputModuleNBFullDispersion):
-
-                    # Get the predicted means and r-values, both shaped
-                    # (batch, genes).
-                    pred_means, pred_log_r_values = self.decoder(z = z)
-
-                    # Set the options to compute the reconstruction
-                    # loss.
-                    recon_loss_options = \
-                        {"obs_counts" : samples_exp,
-                         "pred_means" : pred_means,
-                         "pred_log_r_values" : pred_log_r_values,
-                         "scaling_factors" : samples_mean_exp}
-
-                #-----------------------------------------------------#
-
-                # If the loss reduction type is 'sum'
-                if loss_reduction_type == "sum":
-
-                    # Get the reconstruction loss.
-                    recon_loss = \
-                        self.decoder.nb.loss(
-                            **recon_loss_options).sum()
-
-                # If the loss reduction type is 'mean'
-                elif loss_reduction_type == "mean":
-
-                    # Get the reconstruction loss.
-                    recon_loss = \
-                        self.decoder.nb.loss(
-                            **recon_loss_options).mean()
-
-                #-----------------------------------------------------#
-
-                # If the Gaussian mixture model is the legacy one
-                if isinstance(self.latent,
-                              latents.GaussianMixtureModelLegacy):
-
-                    # Get the overall loss.
-                    loss = latent_loss.clone() + recon_loss.clone()
-
-                # If the Gaussian mixture model is the TGMM wrapper
-                elif isinstance(self.latent,
-                                latents.GaussianMixtureModelTGMM):
-
-                    # If the Gaussian mixture model has been fitted
-                    if epoch >= latent_first_epoch:
-
-                        # Get the overall loss (reconstruction loss plus
-                        # the Gaussian mixture model's loss).
-                        loss = latent_loss.clone() + recon_loss.clone()
-
-                    # If the Gaussian mixture model was not fitted yet
-                    else:
-
-                        # Get the overall loss (the reconstruction loss
-                        # only).
-                        loss = recon_loss.clone()
-
-                #-----------------------------------------------------#
-
-                # Add the output module's dispersion regularization
-                # (zero unless it shrinks the dispersion).
-                loss = loss + \
-                    self.decoder.nb.dispersion_regularization(
-                        pred_means = pred_means,
-                        pred_log_r_values = pred_log_r_values,
-                        reduction = loss_reduction_type)
-
-                # Backpropagate the loss.
-                loss.backward()
-
-                # If the noise stays in the stored representations
-                if train_noise_scale > 0 and train_noise_persist:
-
-                    # Add it to them.
-                    with torch.no_grad():
-                        rep_layer_train.z[samples_ixs] += noise
-
-                # If a separate noise is kept in them
-                if kept_noise_scale > 0:
-
-                    # Add it to them.
-                    with torch.no_grad():
-                        rep_layer_train.z[samples_ixs] += \
-                            self._draw_kept_noise(\
-                                noise_type = kept_noise_type,
-                                noise_options = kept_noise_options,
-                                noise_scale = kept_noise_scale,
-                                generator = kept_noise_generator,
-                                optimizer = optimizer_rep_train,
-                                rep_layer = rep_layer_train,
-                                samples_ixs = samples_ixs)
-
-                #-----------------------------------------------------#
-
-                # Clip the gradients, if a maximum norm was set.
-                clip_grads(optimizer = optimizer_decoder,
-                           max_norm = grad_clip_decoder)
-                clip_grads(optimizer = optimizer_rep_train,
-                           max_norm = grad_clip_rep)
-
-                #-----------------------------------------------------#
-
-                # If the Gaussian mixture model is the legacy one
-                if isinstance(self.latent,
-                              latents.GaussianMixtureModelLegacy):
-
-                    # Clip the Gaussian mixture model's gradients.
-                    clip_grads(optimizer = optimizer_latent,
-                               max_norm = grad_clip_latent)
-
-                    # Take a step with the optimizer for the
-                    # Gaussian mixture model.
-                    optimizer_latent.step()
-
-                #-----------------------------------------------------#
-
-                # Take a step with the optimizer for the decoder.
-                optimizer_decoder.step()
-
-                #-----------------------------------------------------#
-
-                # If the learning rate scheduler for the latent space
-                # is defined and the latent space is the legacy GMM
-                if lr_scheduler_latent is not None and \
-                    isinstance(self.latent,
-                               latents.GaussianMixtureModelLegacy):
-
-                    # Take a step with the scheduler.
-                    lr_scheduler_latent.step()
-
-                # If the learning rate scheduler for the decoder is
-                # defined
-                if lr_scheduler_decoder is not None:
-
-                    # Take a step with the scheduler.
-                    lr_scheduler_decoder.step()
-
-                #-----------------------------------------------------#
-
-                # Get the loss for the Gaussian mixture model for
-                # the current epoch.
-                latent_loss_epoch = \
-                    _util.normalize_loss(\
-                        loss = latent_loss.item(),
-                        loss_type = "latent",
-                        loss_norm_type = \
-                            loss_norm_types["latent"],
-                        loss_norm_options = \
-                            {"n_samples" : n_samples_train,
-                             "latent_dim" : self.latent.dim})
-
-                # Get the reconstruction loss for the current
-                # epoch.
-                recon_loss_epoch = \
-                    _util.normalize_loss(\
-                        loss = recon_loss.item(),
-                        loss_type = "decoder",
-                        loss_norm_type = \
-                            loss_norm_types["decoder"],
-                        loss_norm_options = \
-                            {"n_samples" : n_samples_train,
-                             "n_genes" : n_genes})
-
-                # Get the overall loss for the current epoch.
-                loss_epoch = \
-                    _util.normalize_loss(\
-                        loss = loss.item(),
-                        loss_type = "total",
-                        loss_norm_type = \
-                            loss_norm_types["total"],
-                        loss_norm_options = \
-                            {"n_samples" : n_samples_train,
-                             "n_genes" : n_genes})
-
-                #-----------------------------------------------------#
-
-                # If the Gaussian mixture model is the legacy one
-                if isinstance(self.latent,
-                              latents.GaussianMixtureModelLegacy):
-
-                    # Update the losses list.
-                    losses_list[-1][1] += latent_loss_epoch
-
-                # If the Gaussian mixture model is the TGMM wrapper
-                elif isinstance(self.latent,
-                                latents.GaussianMixtureModelTGMM):
-
-                    # If the Gaussian mixture model has been fitted
-                    if epoch >= latent_first_epoch:
-
-                        # Update the losses list.
-                        losses_list[-1][1] += latent_loss_epoch
-
-                # Update the losses list with the reconstruction loss.
-                losses_list[-1][2] += recon_loss_epoch
-
-                # Update the losses list with the overall loss.
-                losses_list[-1][3] += loss_epoch
-
-            #---------------------------------------------------------#
-
-            # Take a step with the optimizer for the
-            # representations.
-            optimizer_rep_train.step()
-
-            #---------------------------------------------------------#
-
-            # If the learning rate scheduler for the representations is
-            # defined
-            if lr_scheduler_rep_train is not None:
-
-                # Take a step with the scheduler.
-                lr_scheduler_rep_train.step()
-
-            #=========================================================#
-            #                      TESTING PHASE                      #
-            #=========================================================#
-
-            # Make the gradients of the representation layer for the
-            # testing samples zero.
-            optimizer_rep_test.zero_grad()
-
-            #---------------------------------------------------------#
-
-            # Set the decoder in eval mode.
-            self.decoder.eval()
-
-            # Store the gradient computation status for all parameters
-            # of the decoder.
-            dec_requires_grad = \
-                [p.requires_grad for p in self.decoder.parameters()]
-
-            # For each parameter of the decoder
-            for p in self.decoder.parameters():
-
-                # Disable gradient computation.
-                p.requires_grad_(False)
-
-            #---------------------------------------------------------#
-
-            # If the latent space is the legacy GMM
-            if isinstance(self.latent,
-                          latents.GaussianMixtureModelLegacy):
-
-                # Store the gradient computation status for all
-                # parameters.
-                latent_requires_grad = \
-                    [p.requires_grad for p in self.latent.parameters()]
-
-                # For each parameter
-                for p in self.latent.parameters():
-
-                    # Disable gradient computation.
-                    p.requires_grad_(False)
-
-            # If the Gaussian mixture model is the TGMM wrapper
-            else:
-
-                # Set no gradient computation status to restore.
-                latent_requires_grad = None
-
-            #---------------------------------------------------------#
-
-            # For each batch of testing samples
-            for batch_data in data_loader_test:
-
-                # Unpack the batch data (3 or 4 items, depending on
-                # whether labels are available).
-                samples_exp = batch_data[0]
-                samples_mean_exp = batch_data[1]
-                samples_ixs = batch_data[2]
-
-                # Move the gene expression of the samples to the
-                # correct device.
-                samples_exp = samples_exp.to(self.device)
-
-                # Move the mean gene expression of the samples to
-                # the correct device.
-                samples_mean_exp = samples_mean_exp.to(self.device)
-
-                #-----------------------------------------------------#
-
-                # Get the representations for the current samples.
-                z = rep_layer_test(ixs = samples_ixs).to(self.device)
-
-                # If noise injection is enabled
-                if test_noise_scale > 0:
-
-                    # If the noise is Gaussian
-                    if test_noise_type == "gaussian":
-
-                        # Get the radius of the hypersphere within
-                        # which the specified fraction of samples lie.
-                        radius = \
-                            float(
-                                chi2.ppf(test_noise_within_radius_prob,
-                                         self.latent.dim)) ** 0.5
-
-                        # Get the noise from its own generator.
-                        test_noise = \
-                            test_noise_scale * test_noise_gain * \
-                                torch.randn(z.shape,
-                                            generator = \
-                                                test_noise_generator,
-                                            device = z.device,
-                                            dtype = z.dtype) / radius
-
-                    # Otherwise (the noise follows the optimizer)
-                    else:
-
-                        # Get the optimizer's state for the
-                        # representations.
-                        rep_state = \
-                            optimizer_rep_test.state.get(
-                                rep_layer_test.z, {})
-
-                        # If the optimizer has taken a step
-                        if "exp_avg_sq" in rep_state:
-
-                            # Get the optimizer's options.
-                            rep_group = \
-                                optimizer_rep_test.param_groups[0]
-
-                            # Get the bias-corrected second moments of
-                            # the batch's gradients.
-                            v_hat = \
-                                rep_state["exp_avg_sq"][samples_ixs] / \
-                                    (1 - rep_group["betas"][1] ** \
-                                         float(rep_state["step"]))
-
-                            # Get each coordinate's step size.
-                            step_size = \
-                                rep_group["lr"] / \
-                                    (v_hat.sqrt() + rep_group["eps"])
-
-                            # Draw the noise, with a variance of twice
-                            # the step size times the temperature.
-                            test_noise = \
-                                torch.randn(z.shape,
-                                            generator = \
-                                                test_noise_generator,
-                                            device = z.device,
-                                            dtype = z.dtype) * \
-                                    torch.sqrt(\
-                                        2.0 * test_noise_temperature * \
-                                            test_noise_scale * step_size)
-
-                        # Otherwise
-                        else:
-
-                            # No noise is drawn before the first step.
-                            test_noise = torch.zeros_like(z)
-
-                    # Add the noise.
-                    z = z + test_noise
-
-                #-----------------------------------------------------#
-
-                # If the Gaussian mixture model is the legacy one
-                if isinstance(self.latent,
-                              latents.GaussianMixtureModelLegacy):
-
-                    # If the loss reduction type is 'sum'
-                    if loss_reduction_type == "sum":
-
-                        # Get the Gaussian mixture model's loss.
-                        latent_loss = self.latent(x = z).sum()
-
-                    # If the loss reduction type is 'mean'
-                    elif loss_reduction_type == "mean":
-
-                        # Get the Gaussian mixture model's loss.
-                        latent_loss = self.latent(x = z).mean()
-
-                # If the Gaussian mixture model is the TGMM wrapper
-                elif isinstance(self.latent,
-                                latents.GaussianMixtureModelTGMM):
-
-                    # If the Gaussian mixture model has been fitted
-                    if epoch >= latent_first_epoch:
-
-                        # If the loss reduction type is 'sum'
-                        if loss_reduction_type == "sum":
-
-                            # Get the Gaussian mixture model's loss.
-                            latent_loss = \
-                                - latent_lambda * \
-                                    torch.sum(\
-                                        self.latent.log_prob(z))
-
-                        # If the loss reduction type is 'mean'
-                        elif loss_reduction_type == "mean":
-
-                            # Get the Gaussian mixture model's loss.
-                            latent_loss = \
-                                - latent_lambda * \
-                                    torch.mean(\
-                                        self.latent.log_prob(z))
-
-                    # If the Gaussian mixture model was not fitted yet
-                    else:
-
-                        # Set the Gaussian mixture model's loss to
-                        # zero.
-                        latent_loss = \
-                            torch.tensor(0.0).to(self.device)
-
-                #-----------------------------------------------------#
-
-                # If the output module means that the r-values are not
-                # learned
-                if isinstance(\
-                    self.decoder.nb,
-                    (outputmodules.OutputModuleNBFeatureDispersion,
-                     outputmodules.OutputModulePoisson)):
-
-                    # Get the predicted means: shape (batch, genes).
-                    pred_means = self.decoder(z = z)
-
-                    # There are no predicted r-values.
-                    pred_log_r_values = None
-
-                    # Set the options to compute the reconstruction
-                    # loss.
-                    recon_loss_options = \
-                        {"obs_counts" : samples_exp,
-                         "pred_means" : pred_means,
-                         "scaling_factors" : samples_mean_exp}
-
-                # If the output module means that the r-values are
-                # learned
-                elif isinstance(\
-                    self.decoder.nb,
-                    outputmodules.OutputModuleNBFullDispersion):
-
-                    # Get the predicted means and r-values, both shaped
-                    # (batch, genes).
-                    pred_means, pred_log_r_values = self.decoder(z = z)
-
-                    # Set the options to compute the reconstruction
-                    # loss.
-                    recon_loss_options = \
-                        {"obs_counts" : samples_exp,
-                         "pred_means" : pred_means,
-                         "pred_log_r_values" : pred_log_r_values,
-                         "scaling_factors" : samples_mean_exp}
-
-                #-----------------------------------------------------#
-
-                # If the loss reduction type is 'sum'
-                if loss_reduction_type == "sum":
-
-                    # Get the reconstruction loss.
-                    recon_loss = \
-                        self.decoder.nb.loss(
-                            **recon_loss_options).sum()
-
-                # If the loss reduction type is 'mean'
-                elif loss_reduction_type == "mean":
-
-                    # Get the reconstruction loss.
-                    recon_loss = \
-                        self.decoder.nb.loss(
-                            **recon_loss_options).mean()
-
-                #-----------------------------------------------------#
-
-                # If the Gaussian mixture model is the legacy one
-                if isinstance(self.latent,
-                              latents.GaussianMixtureModelLegacy):
-
-                    # Get the overall loss.
-                    loss = latent_loss.clone() + recon_loss.clone()
-
-                # If the Gaussian mixture model is the TGMM wrapper
-                elif isinstance(self.latent,
-                                latents.GaussianMixtureModelTGMM):
-
-                    # If the Gaussian mixture model has been fitted
-                    if epoch >= latent_first_epoch:
-
-                        # Get the overall loss (reconstruction loss plus
-                        # the Gaussian mixture model's loss).
-                        loss = latent_loss.clone() + recon_loss.clone()
-
-                    # If the Gaussian mixture model was not fitted yet
-                    else:
-
-                        # Get the overall loss (the reconstruction loss
-                        # only).
-                        loss = recon_loss.clone()
-
-                #-----------------------------------------------------#
-
-                # Add the output module's dispersion regularization
-                # (with the decoder frozen).
-                loss = loss + \
-                    self.decoder.nb.dispersion_regularization(
-                        pred_means = pred_means,
-                        pred_log_r_values = pred_log_r_values,
-                        reduction = loss_reduction_type)
-
-                # Backpropagate the loss.
-                loss.backward()
-
-                # If the noise stays in the stored representations
-                if test_noise_scale > 0 and test_noise_persist:
-
-                    # Add it to them.
-                    with torch.no_grad():
-                        rep_layer_test.z[samples_ixs] += test_noise
-
-                # If a separate noise is kept in them
-                if kept_noise_scale > 0:
-
-                    # Add it to them.
-                    with torch.no_grad():
-                        rep_layer_test.z[samples_ixs] += \
-                            self._draw_kept_noise(\
-                                noise_type = kept_noise_type,
-                                noise_options = kept_noise_options,
-                                noise_scale = kept_noise_scale,
-                                generator = kept_noise_generator,
-                                optimizer = optimizer_rep_test,
-                                rep_layer = rep_layer_test,
-                                samples_ixs = samples_ixs)
-
-                #-----------------------------------------------------#
-
-                # Get the loss for the Gaussian mixture model for
-                # the current epoch.
-                latent_loss_epoch = \
-                    _util.normalize_loss(\
-                        loss = latent_loss.item(),
-                        loss_type = "latent",
-                        loss_norm_type = \
-                            loss_norm_types["latent"],
-                        loss_norm_options = \
-                            {"n_samples" : n_samples_test,
-                             "latent_dim" : self.latent.dim})
-
-                # Get the reconstruction loss for the current
-                # epoch.
-                recon_loss_epoch = \
-                    _util.normalize_loss(\
-                        loss = recon_loss.item(),
-                        loss_type = "decoder",
-                        loss_norm_type = \
-                            loss_norm_types["decoder"],
-                        loss_norm_options = \
-                            {"n_samples" : n_samples_test,
-                             "n_genes" : n_genes})
-
-                # Get the overall loss for the current epoch.
-                loss_epoch = \
-                    _util.normalize_loss(\
-                        loss = loss.item(),
-                        loss_type = "total",
-                        loss_norm_type = \
-                            loss_norm_types["total"],
-                        loss_norm_options = \
-                            {"n_samples" : n_samples_test,
-                             "n_genes" : n_genes})
-
-                #-----------------------------------------------------#
-
-                # If the Gaussian mixture model is the legacy one
-                if isinstance(self.latent,
-                              latents.GaussianMixtureModelLegacy):
-
-                    # Update the losses list.
-                    losses_list[-1][4] += latent_loss_epoch
-
-                # If the Gaussian mixture model is the TGMM wrapper
-                elif isinstance(self.latent,
-                                latents.GaussianMixtureModelTGMM):
-
-                    # If the Gaussian mixture model has been fitted
-                    if epoch >= latent_first_epoch:
-
-                        # Update the losses list.
-                        losses_list[-1][4] += latent_loss_epoch
-
-                # Update the losses list with the reconstruction loss.
-                losses_list[-1][5] += recon_loss_epoch
-
-                # Update the losses list with the overall loss.
-                losses_list[-1][6] += loss_epoch
-
-            #---------------------------------------------------------#
-
-            # For each parameter of the decoder
-            for p, req_grad in zip(self.decoder.parameters(),
-                                   dec_requires_grad):
-
-                # Restore the original 'requires_grad' setting.
-                p.requires_grad_(req_grad)
-
-            # If the latent space is the legacy GMM
-            if latent_requires_grad is not None:
-
-                # For each parameter of the latent space
-                for p, req_grad in zip(self.latent.parameters(),
-                                       latent_requires_grad):
-
-                    # Restore the original 'requires_grad' setting.
-                    p.requires_grad_(req_grad)
-
-            #---------------------------------------------------------#
-
-            # Take a step with the optimizer for the test
-            # representations.
-            optimizer_rep_test.step()
-
-            #---------------------------------------------------------#
-
-            # If the learning rate scheduler for the test
-            # representations is defined
-            if lr_scheduler_rep_test is not None:
-
-                # Take a step with the scheduler.
-                lr_scheduler_rep_test.step()
-
-            #---------------------------------------------------------#
+            if state.is_tgmm:
+
+                # Fit it, if it is due.
+                self._refit_latent(state = state,
+                                   epoch = epoch)
+
+            # Update the representations' draws for the epoch.
+            self._update_rep_draws(state = state,
+                                   epoch = epoch)
+
+            # Train on the training samples, then on the test samples.
+            self._run_batches(state = state,
+                              phase = state.train,
+                              epoch = epoch)
+            self._run_batches(state = state,
+                              phase = state.test,
+                              epoch = epoch)
 
             # If the current GMM is the legacy one and
             # collapsed-component weight-threshold removal is enabled
-            if isinstance(self.latent,
-                          latents.GaussianMixtureModelLegacy) and \
-                components_removal_type == "weight_threshold":
-
-                # Remove collapsed components, if any.
-                removed_components = \
-                    self._remove_collapsed_latent_components(
-                        collapse_weight_threshold = \
-                            component_weight_threshold,
-                        epoch = epoch)
-
-                # If some components were removed
-                if removed_components:
-
-                    # Get the old optimizer's parameter groups.
-                    param_groups_old = optimizer_latent.param_groups
-
-                    # Recreate the optimizer for the new GMM's
-                    # parameters.
-                    optimizer_latent = \
-                        self._get_optimizer(
-                            optimizer_type = optimizer_latent_type,
-                            optimizer_options = \
-                                optimizer_latent_options,
-                            optimizer_parameters = \
-                                self.latent.parameters())
-
-                    # If there is a scheduler for the latent space
-                    if lr_scheduler_latent is not None:
-
-                        # Get the scheduler's state.
-                        lr_scheduler_latent_state = \
-                            lr_scheduler_latent.state_dict()
-
-                        # Recreate the scheduler for the new optimizer.
-                        lr_scheduler_latent = \
-                            self._get_scheduler(
-                                lr_scheduler_target = "latent",
-                                lr_scheduler_type = \
-                                    lr_scheduler_latent_type,
-                                lr_scheduler_options = \
-                                    lr_scheduler_latent_options,
-                                optimizer = optimizer_latent,
-                                n_epochs = n_epochs,
-                                data_loader_train = data_loader_train)
-
-                        # Resume the schedule where it was.
-                        lr_scheduler_latent.load_state_dict(
-                            lr_scheduler_latent_state)
-
-                        # For each new and old parameter group
-                        for group, group_old in \
-                            zip(optimizer_latent.param_groups,
-                                param_groups_old):
-
-                            # Keep the old group's current settings.
-                            group.update(
-                                {k : v for k, v in group_old.items()
-                                 if k != "params"})
-
-            #=========================================================#
-            #                      LOGGING PHASE                      #
-            #=========================================================#
-
-            # Mark the CPU end time of the epoch.
-            time_end_epoch_cpu = time.process_time()
-
-            # Mark the wall clock end time of the epoch.
-            time_end_epoch_wall = time.time()
-
-            # Get the total CPU time used by the epoch.
-            time_tot_epoch_cpu = \
-                time_end_epoch_cpu - time_start_epoch_cpu
-
-            # Get the total wall clock time used by the epoch.
-            time_tot_epoch_wall = \
-                time_end_epoch_wall - time_start_epoch_wall
-
-            # Add all the total times to the list storing them for
-            # all epochs.
-            time_train.append(\
-                (epoch, time_tot_epoch_cpu, time_tot_epoch_wall))
-
-            # Inform the user about the loss at the current epoch
-            # and the CPU time/wall clock time elapsed.
-            info_msg = \
-                f"Epoch {epoch}: loss train " \
-                f"{losses_list[-1][3]:.3f}, loss test " \
-                f"{losses_list[-1][6]:.3f}, epoch total CPU time " \
-                f"{time_tot_epoch_cpu:.3f} s, epoch " \
-                f"total wall clock time {time_tot_epoch_wall:.3f} s"
-
-            #---------------------------------------------------------#
-
-            # Get the output module's diagnostics.
-            diagnostics = self.decoder.nb.diagnostics()
-
-            # If there are any
-            if diagnostics:
-
-                # Inform the user about them.
-                logger.info(
-                    f"Epoch {epoch} [output module]: "
-                    + ", ".join(f"{k}={v:.4g}"
-                                for k, v in diagnostics.items()))
-
-            # If the learning rate scheduler for the latent space is
-            # enabled and the latent space is the legacy GMM
-            if lr_scheduler_latent is not None and \
-                isinstance(self.latent,
-                           latents.GaussianMixtureModelLegacy):
-
-                # Get the learning rate for the latent space.
-                lr_latent = optimizer_latent.param_groups[0]["lr"]
-
-                # Add it to the log string.
-                info_msg += f", LR: latent={lr_latent:.2e}"
-
-            # If the learning rate scheduler for the decoder is
-            # enabled
-            if lr_scheduler_decoder is not None:
-
-                # Get the learning rate for the decoder.
-                lr_decoder = optimizer_decoder.param_groups[0]["lr"]
-
-                # Add it to the log string.
-                info_msg += f", LR: decoder={lr_decoder:.2e}"
-
-            # If the learning rate scheduler for the representations
-            # for the training samples is enabled
-            if lr_scheduler_rep_train is not None:
-
-                # Get the learning rate for the representations for the
-                # training samples.
-                lr_rep = optimizer_rep_train.param_groups[0]["lr"]
-
-                # Add it to the log string.
-                info_msg += f", LR: rep_train={lr_rep:.2e}"
-
-            # If the noise is Gaussian
-            if train_noise_type == "gaussian":
-
-                # If noise injection is enabled
-                if train_noise_scale_base > 0:
-
-                    # Add the noise scale to the log string.
-                    info_msg += \
-                        f", noise scale {train_noise_scale:.6f}"
-
-            # If the noise follows the optimizer's step sizes
-            elif train_noise_type == "langevin":
-
-                # Add the temperature to the log string.
-                info_msg += \
-                    ", noise temperature " \
-                    f"{train_noise_temperature * train_noise_scale:.6f}"
-
-            # End the log string and inform the user.
-            info_msg += "."
-            logger.info(info_msg)
-
-            #---------------------------------------------------------#
-
-            # If the latent metrics are active and the latent space is
-            # the TorchGMM wrapper
-            if latent_metrics_active \
-                and isinstance(self.latent,
-                               latents.GaussianMixtureModelTGMM):
-
-                # Initialize the parts of the metrics' log line.
-                metrics_parts = [f"Epoch {epoch}:"]
-
-                # Disable gradient computation.
-                with torch.no_grad():
-
-                    # Get the representations for the training
-                    # samples.
-                    rep_train = \
-                        rep_layer_train().detach().to(self.device)
-
-                    # Get the predicted labels for the training
-                    # samples.
-                    predicted_labels_train = \
-                        self.latent.predict(
-                            rep_train).detach().cpu().numpy()
-
-                    # Get the representations for the test
-                    # samples.
-                    rep_test = \
-                        rep_layer_test().detach().to(self.device)
-
-                    # Get the predicted labels for the test
-                    # samples.
-                    predicted_labels_test = \
-                        self.latent.predict(
-                            rep_test).detach().cpu().numpy()
-
-                    # For each reporting metric
-                    for metric_name in reporting_metrics_latent:
-
-                        # If the metric is unsupervised
-                        if metric_name in \
-                            metrics.UNSUPERVISED_METRICS:
-
-                            # Compute the metric for the train data.
-                            value_train = \
-                                metrics.get_metric_score(
-                                    metric_name = metric_name,
-                                    X = rep_train,
-                                    gmm_model = self.latent,
-                                    labels = \
-                                        predicted_labels_train)
-
-                            # Store the metric value for the train
-                            # data.
-                            metrics_row_train[metric_name] = \
-                                value_train
-
-                            # Compute the metric for the test data.
-                            value_test = \
-                                metrics.get_metric_score(
-                                    metric_name = metric_name,
-                                    X = rep_test,
-                                    gmm_model = self.latent,
-                                    labels = \
-                                        predicted_labels_test)
-
-                            # Store the metric value for the test
-                            # data.
-                            metrics_row_test[metric_name] = \
-                                value_test
-
-                        # If the metric is supervised (it stays NaN
-                        # without labels)
-                        elif metric_name in \
-                            metrics.SUPERVISED_METRICS:
-
-                            # If labels are available
-                            if labels_train is not None and \
-                                labels_test is not None:
-
-                                # Encode the ground-truth labels as
-                                # integers.
-                                enc_true_labels_train, \
-                                    enc_true_labels_test = \
-                                        metrics.encode_labels(
-                                            [labels_train,
-                                             labels_test])
-
-                                # Encode the predicted labels as
-                                # integers.
-                                enc_predicted_labels_train, \
-                                    enc_predicted_labels_test = \
-                                        metrics.encode_labels(
-                                            [predicted_labels_train,
-                                             predicted_labels_test])
-
-                                # Compute the metric for the train
-                                # data.
-                                value_train = \
-                                    metrics.get_metric_score(
-                                        metric_name = metric_name,
-                                        y_true = \
-                                            enc_true_labels_train,
-                                        y_pred = \
-                                            enc_predicted_labels_train)
-
-                                # Store the metric value for the train
-                                # data.
-                                metrics_row_train[metric_name] = \
-                                    value_train
-
-                                # Compute the metric for the test
-                                # data.
-                                value_test = \
-                                    metrics.get_metric_score(
-                                        metric_name = metric_name,
-                                        y_true = \
-                                            enc_true_labels_test,
-                                        y_pred = \
-                                            enc_predicted_labels_test)
-
-                                # Store the metric value for the test
-                                # data.
-                                metrics_row_test[metric_name] = \
-                                    value_test
-
-                        # Get the train value.
-                        train_value = metrics_row_train[metric_name]
-
-                        # Try to format it ('nan' if invalid).
-                        try:
-                            train_str = \
-                                f"{train_value:.4f}" \
-                                if train_value is not None and \
-                                    np.isfinite(float(train_value)) \
-                                else "nan"
-
-                        # If it is not a number
-                        except (TypeError, ValueError):
-
-                            # Use 'nan'.
-                            train_str = "nan"
-
-                        # Get the test value.
-                        test_value = metrics_row_test[metric_name]
-
-                        # Try to format it ('nan' if invalid).
-                        try:
-                            test_str = \
-                                f"{test_value:.4f}" \
-                                if test_value is not None \
-                                    and np.isfinite(float(test_value)) \
-                                else "nan"
-
-                        # If it is not a number
-                        except (TypeError, ValueError):
-
-                            # Use 'nan'.
-                            test_str = "nan"
-
-                        # Add the metric's summary.
-                        metrics_parts.append(
-                            f"{metric_name}: train={train_str}, "
-                            f"test={test_str}")
-
-                #-----------------------------------------------------#
-
-                # Inform the user about the metrics.
-                logger.info(" ".join(metrics_parts) + ".")
-
-            #=========================================================#
-            #                      SAVING PHASE                       #
-            #=========================================================#
+            if state.is_legacy and \
+                state.components_removal_type == "weight_threshold":
+
+                # Remove the collapsed components, if any.
+                self._remove_collapsed_legacy(state = state,
+                                              epoch = epoch)
+
+            # Report the epoch.
+            self._report_epoch(state = state,
+                               epoch = epoch)
 
             # Save the optional outputs.
             self._save_optional_outputs(
                 reporting_options = \
-                    reporting_options["optional_outputs"],
-                rep_layer_train = rep_layer_train,
-                rep_layer_test = rep_layer_test,
-                samples_names_train = samples_names_train,
-                samples_names_test = samples_names_test,
+                    state.reporting_options["optional_outputs"],
+                rep_layer_train = state.train.rep_layer,
+                rep_layer_test = state.test.rep_layer,
+                samples_names_train = state.train.samples_names,
+                samples_names_test = state.test.samples_names,
                 epoch = epoch,
-                genes_names = genes_names,
-                pathways = pathways,
-                pathways_names = pathways_names)
+                genes_names = state.genes_names,
+                pathways = state.pathways,
+                pathways_names = state.pathways_names)
 
-            #=========================================================#
-            #                 EARLY STOPPING PHASE                    #
-            #=========================================================#
+            # If the training stops early
+            if self._check_early_stopping(state = state,
+                                          epoch = epoch):
 
-            # Save the epoch's metrics rows.
-            metrics_rows_train.append(metrics_row_train)
-            metrics_rows_test.append(metrics_row_test)
-
-            # If early stopping is active
-            if early_stopping_active:
-
-                # Get the current test loss.
-                current_test_loss = losses_list[-1][6]
-
-                # If the current test loss is better than the best
-                # test loss so far
-                if current_test_loss < early_stopping_best_test_loss:
-
-                    # Update the best test loss.
-                    early_stopping_best_test_loss = current_test_loss
-
-                    # Update the best epoch.
-                    early_stopping_best_epoch = epoch
-
-                    # Reset the counter for epochs without
-                    # improvement.
-                    early_stopping_epochs_without_improvement = 0
-
-                    # Save the best model state.
-                    early_stopping_best_model_state = {
-                        "decoder": \
-                            copy.deepcopy(\
-                                self.decoder.state_dict()),
-                        "rep_layer_train": \
-                            copy.deepcopy(\
-                                rep_layer_train.state_dict()),
-                        "rep_layer_test": \
-                            copy.deepcopy(\
-                                rep_layer_test.state_dict()),
-                        "latent": \
-                            copy.deepcopy(\
-                                self.latent.state_dict()),
-                    }
-
-                # Otherwise
-                else:
-
-                    # Increment the counter.
-                    early_stopping_epochs_without_improvement += 1
-
-                # If the patience has been exhausted
-                if early_stopping_epochs_without_improvement \
-                    >= early_stopping_patience:
-
-                    # Inform the user.
-                    info_msg = \
-                        "Early stopping triggered at epoch " \
-                        f"{epoch}. Best test loss " \
-                        f"{early_stopping_best_test_loss:.3f} " \
-                        "was at epoch " \
-                        f"{early_stopping_best_epoch}."
-                    logger.info(info_msg)
-
-                    # Stop training.
-                    break
+                # Stop.
+                break
 
         #-------------------------------------------------------------#
 
-        # If early stopping was used and a best model state was saved
-        if early_stopping_type == "loss" \
-            and early_stopping_best_model_state is not None:
-
-            # Restore the best model state.
-            self.decoder.load_state_dict(\
-                early_stopping_best_model_state["decoder"])
-            rep_layer_train.load_state_dict(\
-                early_stopping_best_model_state["rep_layer_train"])
-            rep_layer_test.load_state_dict(\
-                early_stopping_best_model_state["rep_layer_test"])
-            self.latent.load_state_dict(\
-                early_stopping_best_model_state["latent"])
-
-            # Inform the user.
-            info_msg = \
-                "Restored best model state from epoch " \
-                f"{early_stopping_best_epoch}."
-            logger.info(info_msg)
-
-        #=============================================================#
-        #                        RETURN PHASE                         #
-        #=============================================================#
-
-        # If the Gaussian mixture model is the TGMM wrapper and a final
-        # refit is needed (also after early stopping)
-        if isinstance(self.latent,
-                      latents.GaussianMixtureModelTGMM) \
-            and gmm_refit_final:
-
-            # Disable gradient computation.
-            with torch.no_grad():
-
-                # Get the representations for all the training samples.
-                rep_train = rep_layer_train().detach().to(self.device)
-
-                # Fit the Gaussian mixture model to the final
-                # representations of the training samples.
-                self.latent.fit(rep_train,
-                                max_iter = latent_max_iter_final_refit)
-
-                # If the weight-threshold removal of collapsed
-                # components is enabled
-                if components_removal_type == "weight_threshold":
-
-                    # Remove the collapsed components, if any.
-                    self._remove_collapsed_latent_components(
-                        collapse_weight_threshold = \
-                            component_weight_threshold,
-                        epoch = epoch)
-
-        #-------------------------------------------------------------#
-
-        # Get the final representations for the training samples.
-        rep_train = rep_layer_train()
-
-        # Get the final representations for the test samples.
-        rep_test = rep_layer_test()
-
-        #-------------------------------------------------------------#
-
-        # If the genes' counts are modelled by negative binomials
-        # with per-gene r-values
-        if isinstance(self.decoder.nb,
-                      outputmodules.OutputModuleNBFeatureDispersion):
-
-            # Get the predicted scaled means for the training samples.
-            means_final_train = self.decoder(z = rep_train)
-
-            # Get the predicted scaled means for the test samples.
-            means_final_test = self.decoder(z = rep_test)
-
-            # Get the r-values.
-            r_values_final = \
-                torch.exp(self.decoder.nb.log_r).squeeze().detach()
-
-            # Return the representations, decoder's outputs, losses,
-            # metrics and training time.
-            return ((rep_train, rep_test),
-                    (means_final_train, means_final_test),
-                    r_values_final,
-                    losses_list,
-                    (metrics_rows_train, metrics_rows_test),
-                    time_train)
-
-        #-------------------------------------------------------------#
-
-        # If the genes' counts are modelled by negative binomial
-        # distributions whose r-values are learned per gene per sample
-        elif isinstance(self.decoder.nb,
-                        outputmodules.OutputModuleNBFullDispersion):
-
-            # Get the predicted scaled means and log r-values for the
-            # training samples.
-            means_final_train, log_r_values_final_train = \
-                self.decoder(z = rep_train)
-
-            # Get the r-values for the training samples.
-            r_values_final_train = \
-                torch.exp(\
-                    log_r_values_final_train).squeeze().detach()
-
-            # Get the predicted scaled means and log r-values for the
-            # test samples.
-            means_final_test, log_r_values_final_test = \
-                self.decoder(z = rep_test)
-
-            # Get the r-values for the test samples.
-            r_values_final_test = \
-                torch.exp(\
-                    log_r_values_final_test).squeeze().detach()
-
-            # Return the representations, decoder's outputs, losses,
-            # metrics and training time.
-            return ((rep_train, rep_test),
-                    (means_final_train, means_final_test),
-                    (r_values_final_train, r_values_final_test),
-                    losses_list,
-                    (metrics_rows_train, metrics_rows_test),
-                    time_train)
-
-        #-------------------------------------------------------------#
-
-        # If the genes' counts are modelled by Poisson distributions
-        elif isinstance(self.decoder.nb,
-                        outputmodules.OutputModulePoisson):
-
-            # Get the predicted scaled means for the training samples.
-            means_final_train = self.decoder(z = rep_train)
-
-            # Get the predicted scaled means for the test samples.
-            means_final_test = self.decoder(z = rep_test)
-
-            # The r-values will be None.
-            r_values_final = None
-
-            # Return the representations, decoder's outputs, losses,
-            # metrics and training time.
-            return ((rep_train, rep_test),
-                    (means_final_train, means_final_test),
-                    r_values_final,
-                    losses_list,
-                    (metrics_rows_train, metrics_rows_test),
-                    time_train)
+        # Finish the training and return its results.
+        return self._finish_training(state = state,
+                                     epoch = epoch)
 
 
     ######################### PUBLIC METHODS ##########################
@@ -7340,6 +6988,10 @@ class BulkDGD(nn.Module):
         # Check the configuration for finding representations.
         config_rep, errors, warnings = \
             _util.parse_config_rep(config = config_rep)
+
+        # If it parsed, check it against the model.
+        if not errors:
+            errors = self._validate_config_rep(config_rep = config_rep)
 
         # If there were errors while checking the configuration
         if errors:
@@ -7954,7 +7606,7 @@ class BulkDGD(nn.Module):
     def fit_gmm(self,
                 input_reps: Union[str, pd.DataFrame,
                                   list[Union[str, pd.DataFrame]]],
-                config_fit: dict[str, object]) -> "BulkDGD":
+                config_fit: dict[str, object]) -> "BulkDGDBase":
         """Fit a new Gaussian mixture to a trained model's training
         representations, and return a new model using it.
 
@@ -7982,9 +7634,9 @@ class BulkDGD(nn.Module):
 
         Returns
         -------
-        model : :class:`BulkDGD`
-            A new model with the fitted mixture and the trained
-            decoder, built from the files written.
+        model : :class:`BulkDGDBase`
+            A new model of the same class with the fitted mixture and
+            the trained decoder, built from the files written.
         """
 
         # Get the required paths from the configuration.
@@ -8092,6 +7744,7 @@ class BulkDGD(nn.Module):
 
         # Assemble what the model was built from.
         config = {
+            "model_type" : self.MODEL_TYPE,
             "latent_dim" : int(self.latent.dim),
             "latent_type" : self._latent_type,
             "latent_options" : \
@@ -8126,7 +7779,7 @@ class BulkDGD(nn.Module):
     def prune(self,
               input_reps: Union[str, pd.DataFrame,
                                 list[Union[str, pd.DataFrame]]],
-              config_prune: dict[str, object]) -> "BulkDGD":
+              config_prune: dict[str, object]) -> "BulkDGDBase":
         """Prune a trained decoder to the hidden units it uses, without
         retraining, and return a new, smaller model computing the same
         function (with the same latent space).
@@ -8156,9 +7809,9 @@ class BulkDGD(nn.Module):
 
         Returns
         -------
-        pruned_model : :class:`BulkDGD`
-            A new model with the pruned decoder, built from the files
-            written.
+        pruned_model : :class:`BulkDGDBase`
+            A new model of the same class with the pruned decoder,
+            built from the files written.
         """
 
         # If a hidden layer is not a ReLU
@@ -8603,6 +8256,7 @@ class BulkDGD(nn.Module):
 
         # Assemble the pruned model's configuration.
         config = {
+            "model_type": self.MODEL_TYPE,
             "latent_dim": int(self.latent.dim),
             "latent_type": self._latent_type,
             "latent_options": latent_options,
@@ -8794,65 +8448,22 @@ class BulkDGD(nn.Module):
                 "|".join(warnings)
             logger.warning(warning_msg)
 
-        #-------------------------------------------------------------#
+        # Check the configuration against the model.
+        errors = \
+            self._validate_config_train(config_train = config_train)
 
-        # Get the scale factor for the initialization of the
-        # representations from the configuration.
-        init_rep_scale = \
-            config_train["representations_training_options"].get(
-                "init_rep_scale", 0.0)
+        # If it does not fit the model
+        if errors:
 
-        # Get the distribution the initial representations are drawn
-        # from (by default, a scaled normal).
-        init_rep_dist = \
-            config_train["representations_training_options"].get(
-                "init_rep_dist", None)
+            # Raise an exception.
+            err_msg = \
+                "The configuration is not valid for the model. " \
+                "Errors: " + " ".join(errors)
+            raise ValueError(err_msg)
 
-        # Get the options for the distribution.
-        init_rep_dist_options = \
-            dict(config_train["representations_training_options"].get(
-                "init_rep_dist_options", {}))
-
-        #-------------------------------------------------------------#
-
-        def _make_rep_layer(n_samples):
-            """Build a representation layer for ``n_samples`` samples.
-
-            Parameters
-            ----------
-            n_samples : :class:`int`
-                The number of samples to build representations for.
-
-            Returns
-            -------
-            rep_layer : \
-                :class:`bulkdgd.core.latents.RepresentationLayer`
-                The representation layer.
-            """
-
-            # Get the model's precision.
-            dtype = self._DTYPES_TORCH[self._dtype]
-
-            # If no distribution was given
-            if init_rep_dist is None:
-
-                # Return a layer of scaled standard normal draws.
-                return latents.RepresentationLayer(\
-                    values = init_rep_scale * torch.randn(\
-                        size = (n_samples, self.latent.dim),
-                        dtype = dtype)).to(self.device)
-
-            # Copy the distribution's options, setting the shape from
-            # the data and the model.
-            options = dict(init_rep_dist_options)
-            options["n_samples"] = n_samples
-            options["dim"] = self.latent.dim
-
-            # Return the representation layer.
-            return latents.RepresentationLayer(\
-                dist = init_rep_dist,
-                dist_options = options,
-                device = self.device).to(dtype = dtype)
+        # Get the options for training the representations.
+        representations_options = \
+            config_train["representations_training_options"]
 
         #-------------------------------------------------------------#
 
@@ -8928,7 +8539,10 @@ class BulkDGD(nn.Module):
                 config = config_train["data_loader_options"]["train"])
 
         # Create the representation layer for the training samples.
-        rep_layer_train = _make_rep_layer(n_samples_train)
+        rep_layer_train = \
+            self._make_rep_layer(\
+                n_samples = n_samples_train,
+                representations_options = representations_options)
 
         #-------------------------------------------------------------#
 
@@ -8960,7 +8574,10 @@ class BulkDGD(nn.Module):
                 config = config_train["data_loader_options"]["test"])
 
         # Create the representation layer for the testing samples.
-        rep_layer_test = _make_rep_layer(n_samples_test)
+        rep_layer_test = \
+            self._make_rep_layer(\
+                n_samples = n_samples_test,
+                representations_options = representations_options)
 
         #-------------------------------------------------------------#
 

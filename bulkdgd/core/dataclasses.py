@@ -5,7 +5,7 @@
 #
 #    This module contains the classes defining the structure of the
 #    datasets to be used with the
-#    :class:`core.model.BulkDGD`.
+#    :class:`core.models.BulkDGD`.
 #
 #    The code was originally developed by Viktoria Schuster,
 #    Inigo Prada Luengo, and Anders Krogh.
@@ -44,7 +44,7 @@
 __doc__ = \
     "This module contains the classes defining the structure of " \
     "the datasets to be used with the " \
-    ":class:`core.model.BulkDGD`."
+    ":class:`core.models.BulkDGD`."
 
 
 #######################################################################

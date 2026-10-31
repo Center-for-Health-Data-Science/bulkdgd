@@ -41,7 +41,7 @@ from torch.utils.data import DataLoader
 
 # Import from 'bulkdgd'.
 from bulkdgd import _internals, defaults
-from . import _templates, dataclasses, latents
+from . import _templates, dataclasses, latents, representations
 
 
 ########################## PRIVATE FUNCTIONS ##########################
@@ -1774,7 +1774,7 @@ def _save_epoch_df(df,
 def save_rep_epoch(epoch: int,
                    prefix: str,
                    latent_dim: int,
-                   rep_layer: latents.RepresentationLayer,
+                   rep_layer: representations.RepresentationLayer,
                    samples_names: list[str],
                    save_dir: Optional[str] = None) -> None:
     """Save the representations of the samples at the end of a given
@@ -1791,7 +1791,7 @@ def save_rep_epoch(epoch: int,
     latent_dim : :class:`int`
         The dimensionality of the latent space.
 
-    rep_layer : :class:`core.latents.RepresentationLayer`
+    rep_layer : :class:`core.representations.RepresentationLayer`
         The layer containing the representations.
 
     samples_names : :class:`list`

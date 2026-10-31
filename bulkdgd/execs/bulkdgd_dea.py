@@ -5,7 +5,7 @@
 #
 #    Perform a differential expression analysis comparing experimental
 #    samples to their "closest normal" sample found in latent space
-#    by the :class:`core.model.BulkDGD`.
+#    by the :class:`core.models.BulkDGD`.
 #
 #    Copyright (C) 2026 Valentina Sora
 #                       <sora.valentina1@gmail.com>
@@ -32,7 +32,7 @@
 __doc__ = \
     "Perform a differential expression analysis comparing " \
     "experimental samples to their 'closest normal' samples " \
-    "found in latent space by the :class:`core.model.BulkDGD`."
+    "found in latent space by the :class:`core.models.BulkDGD`."
 
 
 #######################################################################

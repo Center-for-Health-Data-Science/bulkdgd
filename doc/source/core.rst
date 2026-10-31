@@ -10,4 +10,5 @@
    core/core.metrics
    core/core.outputmodules
    core/core.priors
-   core/core.model
+   core/core.representations
+   core/core.models

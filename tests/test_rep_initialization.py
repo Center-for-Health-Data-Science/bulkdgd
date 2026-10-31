@@ -7,7 +7,7 @@ import torch
 import yaml
 
 from bulkdgd.core import _util
-from bulkdgd.core.model import BulkDGD
+from bulkdgd.core.models import BulkDGD
 
 
 class _LatentFixture:

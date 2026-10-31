@@ -4,7 +4,7 @@
 #    bulkdgd_get_genes.py
 #
 #    Create a customized list of genes that can be used to build a
-#    new :class:`core.model.BulkDGD`.
+#    new :class:`core.models.BulkDGD`.
 #
 #    The code was originally developed by Nafisa Barmakhshad, and
 #    adapted and converted into an executable for this package by
@@ -36,7 +36,7 @@
 # Set the module's description.
 __doc__ = \
     "Get a customized list of genes that can be used to build a " \
-    "new :class:`core.model.BulkDGD`."
+    "new :class:`core.models.BulkDGD`."
 
 
 #######################################################################

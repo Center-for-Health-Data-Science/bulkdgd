@@ -28,6 +28,7 @@ from .dataclasses import *
 from .decoders import *
 from .latents import *
 from .metrics import *
-from .model import *
+from .models import *
 from .outputmodules import *
 from .priors import *
+from .representations import *
