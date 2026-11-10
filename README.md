@@ -23,6 +23,16 @@ pip install bulkdgd
 
 The trained decoder's parameters (``dec.pth``, too large to distribute on PyPI) are downloaded automatically the first time you use the pre-trained model. See the [installation instructions](https://bulkdgd.readthedocs.io/en/latest/installation.html) for details, including how to download them manually on offline machines.
 
+## Version 2.3.0
+
+* A trained ensemble of models ships with the package and is loaded by default; models are built from a registry keyed by the configuration's ``model_type``.
+* The negative binomial log-probability is exact, and each model runs in the precision set in its own configuration (``dtype``).
+* Hidden layers can use leaky ReLU or softplus activations, and training can add noise to the decoder's input.
+* Representations: candidates are drawn per sample (``sample_keyed``), searches can start from several seeds or from a warm start, and outputs are written as Parquet.
+* DEA: two-sided equal-tail p-values, a choice of p-value methods, GPU computation, and predicted means scaled as in training.
+* ``bulkdgd_get_recount3`` builds datasets from Recount3 study configurations.
+* ``bulkdgd`` requires ``tgmm`` 0.4.1 or later.
+
 ## Version 2.0.1
 
 * The default pre-trained model (both the Gaussian mixture and the decoder's parameters) has been updated, fixing a mismatch between the packaged model configuration and the previously shipped decoder.

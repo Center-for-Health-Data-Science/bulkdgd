@@ -129,8 +129,8 @@ The options that can be specified are described below.
 
       * ``"legacy_positional"`` consumes one stream in input order, so
         the candidate assigned to a sample depends on its position and on
-        the size of the input chunk. Configurations that reproduce
-        published results must request this mode explicitly.
+        the size of the input chunk. Reproducing representations found
+        before ``"sample_keyed"`` was the default requires this mode.
 
       * ``"legacy_indexed"`` reconstructs the candidates
         ``"legacy_positional"`` assigned, while allowing the counts table
