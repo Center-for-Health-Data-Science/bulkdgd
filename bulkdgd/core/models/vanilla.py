@@ -321,9 +321,8 @@ class BulkDGD(base.BulkDGDBase):
             # If the noise is Gaussian
             if noise_type == "gaussian":
 
-                # Get the noise scale (zero disables the noise), the
-                # starting and ending multipliers (for cosine
-                # annealing), and the gain factor.
+                # Get the noise scale, its starting and ending
+                # multipliers and the gain factor.
                 phase.noise_scale_base = noise_options["scale"]
                 phase.noise_start = noise_options["start"]
                 phase.noise_end = noise_options["end"]
@@ -342,9 +341,8 @@ class BulkDGD(base.BulkDGDBase):
             # If the noise follows the optimizer's step sizes
             elif noise_type == "langevin":
 
-                # Get the temperature the representations are sampled
-                # at, its multipliers at the start and end of the
-                # annealing, and the fraction of training it spans.
+                # Get the temperature, its start and end multipliers and
+                # the fraction of training the annealing spans.
                 phase.noise_temperature = noise_options["temperature"]
                 phase.noise_start = noise_options["start"]
                 phase.noise_end = noise_options["end"]

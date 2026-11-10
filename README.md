@@ -23,6 +23,16 @@ pip install bulkdgd
 
 The trained decoder's parameters (``dec.pth``, too large to distribute on PyPI) are downloaded automatically the first time you use the pre-trained model. See the [installation instructions](https://bulkdgd.readthedocs.io/en/latest/installation.html) for details, including how to download them manually on offline machines.
 
+## Version 2.3.0
+
+* A trained ensemble of models ships with the package and is loaded by default; models are built from a registry keyed by the configuration's ``model_type``.
+* The negative binomial log-probability is exact, and each model runs in the precision set in its own configuration (``dtype``).
+* Hidden layers can use leaky ReLU or softplus activations, and training can add noise to the decoder's input.
+* Representations: candidates are drawn per sample (``sample_keyed``), searches can start from several seeds or from a warm start, and outputs are written as Parquet.
+* DEA: two-sided equal-tail p-values, a choice of p-value methods, GPU computation, and predicted means scaled as in training.
+* ``bulkdgd_get_recount3`` builds datasets from Recount3 study configurations.
+* ``bulkdgd`` requires ``tgmm`` 0.4.1 or later.
+
 ## Version 2.0.1
 
 * The default pre-trained model (both the Gaussian mixture and the decoder's parameters) has been updated, fixing a mismatch between the packaged model configuration and the previously shipped decoder.
@@ -30,13 +40,13 @@ The trained decoder's parameters (``dec.pth``, too large to distribute on PyPI) 
 
 ## Version 2.0.0 - major release
 
-This **major release** supersedes all previous versions of the package (previously named ``bulkDGD``). Existing users should switch to it. The main changes from the previous version are:
+This **major release** supersedes all previous versions of the package (previously named ``bulkDGD``). The main changes are:
 
 * The package has been renamed from ``bulkDGD`` to ``bulkdgd`` (the import name and CLI commands, already lowercase, are unchanged).
 * The default pre-trained model has been retrained on GTEx data with a new Gaussian mixture model implementation (``tgmm``) and a smaller, curated gene list.
-* A bug left over from an earlier refactor, which made several CLI commands (`bulkdgd_train`, `bulkdgd_find_probdens`, `bulkdgd_find_representations`) fail immediately on invocation, has been fixed.
+* Several CLI commands (`bulkdgd_train`, `bulkdgd_find_probdens`, `bulkdgd_find_representations`) no longer fail on invocation.
 * All tutorials have been converted from standalone Python scripts into executed Jupyter notebooks, and a new tutorial covers downloading and preparing samples from [Recount3](https://rna.recount.bio/).
-* The documentation has been revised: broken API cross-references, outdated installation instructions and missing CLI usage examples have been fixed, and the documentation builds without warnings.
+* The documentation has been revised.
 
 * **Documentation**: ``bulkdgd``'s documentation can be found [here](https://bulkdgd.readthedocs.io/en/latest/).
 

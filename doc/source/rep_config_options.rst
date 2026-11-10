@@ -11,22 +11,20 @@ Two optimization schemes to find the representations are implemented:
 
 .. _rep_multiseed:
 
-Why a multi-seed scheme
------------------------
+The multi-seed scheme
+---------------------
 
-The seed decides **where the search starts, and nothing else**. It places the candidate representations drawn from the components of the Gaussian mixture model; the two rounds of descent and the selection between them are deterministic once those candidates are fixed. Two seeds can therefore arrive at different local optima, and the genes called from them differ.
+The seed decides **where the search starts, and nothing else**: it places the candidate representations drawn from the components of the Gaussian mixture model. Two seeds can arrive at different local optima, and the genes called from them differ.
 
-Neither run says which optimum is right, but on TCGA the calls the seeds **agree** on overlap a cancer-matched driver catalogue more often than the calls only one of them makes. This scheme produces that agreement in one run, instead of reconstructing it from separate runs.
-
-**Each seed is run in sequence, at the tensor shape a standalone run uses**, so each seed's result is bitwise identical to a standalone run with that seed. Sharing one optimization between the seeds would be *mathematically* identical, since the loss is summed over candidates, there is no gradient clipping in this code path, and AdamW is elementwise. It would not be *bitwise* identical: the decoder's forward pass is a batched matrix multiply, and changing how many rows pass through it can make the linear algebra library select a different kernel, which moves the last bits and, over hundreds of epochs, can flip a near-tie between two candidates.
+Each seed is run in sequence, at the tensor shape a standalone run uses, so each seed's result is bitwise identical to a standalone run with that seed.
 
 .. note::
 
-   ``two_opt_multiseed`` requires ``latent_type: tgmm``. The legacy Gaussian mixture model places its candidates by a deterministic rule that takes no seed, so every seed would return the same representation.
+   ``two_opt_multiseed`` requires ``latent_type: tgmm``, since the legacy Gaussian mixture model places its candidates without a seed.
 
-   It also requires ``loss_reduction_type: sum``. Under ``mean``, every gradient is divided by the number of candidates, and a seed's run here would no longer correspond to the same seed run on its own.
+   It also requires ``loss_reduction_type: sum``.
 
-   The seeds must be **distinct**. Two runs from one seed give the same representation, so the scheme raises an error on repeated seeds.
+   The seeds must be **distinct**. Repeated seeds raise an error.
 
 Outputs
 -------
@@ -41,17 +39,13 @@ After the run, these are available on the model as ``multiseed_results``, a dict
    GTEX-1117F-0226-SM-5GZZ7.1          100322.87         97806.77         105977.95         100584.39
    GTEX-1117F-1326-SM-5EGHH.1           97275.88         92556.16          91213.52          90363.78
 
-``loss_opt1_seed<N>`` is the total loss of the candidate that won seed *N*'s selection, as of the last epoch of the first optimization. ``loss_opt2_seed<N>`` is the same representation's loss after the second optimization, and is therefore always the smaller of the two.
+``loss_opt1_seed<N>`` is the total loss of the candidate that won seed *N*'s selection, as of the last epoch of the first optimization. ``loss_opt2_seed<N>`` is the same representation's loss after the second optimization.
 
-The method returns the **first** seed's representations, predicted means and r-values, so downstream code expecting the output of a scheme works unchanged.
+The method returns the **first** seed's representations, predicted means and r-values.
 
 .. note::
 
    These results are kept in memory, in ``multiseed_results``. The package does not write them to disk.
-
-.. note::
-
-   A ``one_opt`` scheme (a single round of optimization over the candidates, with no selection step and no second descent) is **not supported**. Configuration files setting ``scheme_type: one_opt`` are not valid.
 
 The options to customize these schemes can be passed as a nested dictionary or specified in a YAML configuration file.
 
@@ -129,17 +123,14 @@ The options that can be specified are described below.
      ``"mode"``:
 
       * ``"sample_keyed"`` is the default. BulkDGD derives
-        an independent deterministic stream from the configured seed and
-        the exact sample ID. The same sample therefore receives
-        bit-for-bit identical initial candidates, representations,
-        decoder outputs and DEA results when it is reordered, subsetted,
-        placed beside different samples, or processed in a different
-        chunk.
+        an independent stream from the seed and the sample ID, so a
+        sample gets the same candidates whatever its position, the
+        samples beside it, or its chunk.
 
       * ``"legacy_positional"`` consumes one stream in input order, so
         the candidate assigned to a sample depends on its position and on
-        the size of the input chunk. Configurations that reproduce
-        published results must request this mode explicitly.
+        the size of the input chunk. Reproducing representations found
+        before ``"sample_keyed"`` was the default requires this mode.
 
       * ``"legacy_indexed"`` reconstructs the candidates
         ``"legacy_positional"`` assigned, while allowing the counts table
@@ -154,8 +145,7 @@ The options that can be specified are described below.
           SRR8261574,1
 
         ``"chunk_size"`` is the size of the original outer input chunk,
-        not ``data_loader_options.batch_size``. The total sample count is
-        needed because the last chunk can be shorter. Sample IDs and
+        not ``data_loader_options.batch_size``. Sample IDs and
         positions must both be unique.
 
    * For the ``two_opt`` scheme with the legacy GMM (``"lgmm"``):
@@ -174,7 +164,7 @@ The options that can be specified are described below.
 
          * ``"pth_file"`` is the path to a fitted ridge predictor, written by :func:`bulkdgd.core.warmstart.fit_from_model_dir`. The prediction **replaces** one of each sample's candidates (``"n_rep_per_comp"`` times the number of components) rather than being added to them, so the number of candidates is unchanged. It is absent by default, in which case every candidate comes from the mixture.
 
-           The predictor maps a sample's counts to its representation and is fitted on the model's own training representations, which it recovers with an :math:`R^2` of about 0.84. It is not an encoder: it enters neither the generative model nor the objective, and only chooses where the search starts. On its own it reaches a worse optimum than the competition between candidates, so it takes one slot rather than all of them.
+           The predictor maps a sample's counts to its representation and is fitted on the model's own training representations. It only chooses where the search starts.
 
       * ``"optimization_1"`` is a dictionary of options for the first optimization round. It can contain the following options:
 
@@ -226,11 +216,11 @@ The options that can be specified are described below.
 
             * ``"start"`` and ``"end"`` are the multipliers the scale is cosine-annealed between, from this round's first epoch to its last. These are non-negative floats defaulting to ``1.0`` and ``0.01``.
 
-            * ``"within_radius_prob"`` is the probability defining the hypersphere the noise is normalized against, so that a scale means the same thing whatever the dimensionality of the latent space. This is a float in [0, 1] that defaults to ``0.95``.
+            * ``"within_radius_prob"`` is the probability defining the hypersphere the noise is normalized against. This is a float in [0, 1] that defaults to ``0.95``.
 
             * ``"gain"`` is a final multiplier on the noise. This is a non-negative float that defaults to ``1.0``.
 
-            Each round is annealed over its own epochs and is configured separately, so the first round, which explores from many candidates, and the second, which refines the one that won, can use different amounts of noise.
+            Each round is annealed over its own epochs and is configured separately.
 
       * ``"optimization_2"`` is a dictionary of options for the second optimization round. It has the same structure as ``"optimization_1"`` but with ``"epochs"`` defaulting to ``50``.
 
@@ -254,7 +244,7 @@ The options that can be specified are described below.
 
          * ``"pth_file"`` is the path to a fitted ridge predictor, written by :func:`bulkdgd.core.warmstart.fit_from_model_dir`. The prediction **replaces** one of each sample's candidates (``"n_rep_per_comp"`` times the number of components) rather than being added to them, so the number of candidates is unchanged. It is absent by default, in which case every candidate comes from the mixture.
 
-           The predictor maps a sample's counts to its representation and is fitted on the model's own training representations, which it recovers with an :math:`R^2` of about 0.84. It is not an encoder: it enters neither the generative model nor the objective, and only chooses where the search starts. On its own it reaches a worse optimum than the competition between candidates, so it takes one slot rather than all of them.
+           The predictor maps a sample's counts to its representation and is fitted on the model's own training representations. It only chooses where the search starts.
 
       * ``"optimization_1"`` is a dictionary of options for the first optimization round. It can contain the following options:
 
@@ -306,11 +296,11 @@ The options that can be specified are described below.
 
             * ``"start"`` and ``"end"`` are the multipliers the scale is cosine-annealed between, from this round's first epoch to its last. These are non-negative floats defaulting to ``1.0`` and ``0.01``.
 
-            * ``"within_radius_prob"`` is the probability defining the hypersphere the noise is normalized against, so that a scale means the same thing whatever the dimensionality of the latent space. This is a float in [0, 1] that defaults to ``0.95``.
+            * ``"within_radius_prob"`` is the probability defining the hypersphere the noise is normalized against. This is a float in [0, 1] that defaults to ``0.95``.
 
             * ``"gain"`` is a final multiplier on the noise. This is a non-negative float that defaults to ``1.0``.
 
-            Each round is annealed over its own epochs and is configured separately, so the first round, which explores from many candidates, and the second, which refines the one that won, can use different amounts of noise.
+            Each round is annealed over its own epochs and is configured separately.
 
       * ``"optimization_2"`` is a dictionary of options for the second
         optimization round. It has the same structure as

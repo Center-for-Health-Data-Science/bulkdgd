@@ -38,8 +38,8 @@
 How a table is written
 ----------------------
 
-Every table the package writes follows the same rule as :func:`bulkdgd.ioutil.save_table`: the format follows the **suffix of the path it is given**: ``.parquet`` (or ``.pq``) is written as Parquet, and anything else as delimited text. The format is never changed from the one the path asks for.
+Every table the package writes follows the same rule as :func:`bulkdgd.ioutil.save_table`: the format follows the **suffix of the path it is given**: ``.parquet`` (or ``.pq``) is written as Parquet, and anything else as delimited text.
 
-Use Parquet when the numbers will be compared between runs. These tables carry ``float64`` activations, predicted means and r-values, and a ``float64`` written as text is rounded to its decimal form: a round trip moves the value by up to about 1e-12.
+Use Parquet when the numbers will be compared between runs, since text rounds a ``float64`` to its decimal form.
 
 Most command-line tools use ``.csv`` in their default output names, so they write text unless given an output name ending in ``.parquet``. The exceptions are the ``bulkdgd_reduction_*`` tools, whose default ``-oa`` name ends in ``.parquet``, and ``bulkdgd_dea``, which always writes its results as ``.parquet`` files.

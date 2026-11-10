@@ -13,7 +13,7 @@ The options that can be specified are described below.
 
 * ``"continue_training"`` is whether the model being trained is allowed to be one that was built from trained parameters. This is a boolean and defaults to ``False``.
 
-  :meth:`bulkdgd.core.models.BulkDGD.train` **refuses** to run on a model whose decoder came from a checkpoint (as with a model configuration naming a ``"decoder_pth_file"``, or a bare ``BulkDGD()``) unless this is set to ``true`` at the **top level** of the training configuration. Such a model starts from the published optimum, and training moves it away from that optimum with no sign of it in the output: the object keeps the same name, but its results are no longer the published model's.
+  :meth:`bulkdgd.core.models.BulkDGD.train` **refuses** to run on a model whose decoder came from a checkpoint (as with a model configuration naming a ``"decoder_pth_file"``, or a bare ``BulkDGD()``) unless this is set to ``true`` at the **top level** of the training configuration.
 
   Set this option to fine-tune a trained model, for instance on a new cohort. To train a new model instead, build it from an architecture that names no parameter files, such as ``bulkdgd/configs/model/model_tgmm.yaml``.
 
@@ -97,7 +97,7 @@ The options that can be specified are described below.
    
    * ``"optional_outputs"`` is a dictionary of options to specify which optional outputs to save during training. It can contain the following options:
 
-      * ``"model_epoch"`` is a dictionary of options to specify how to save the model (the decoder's weights and the latent space's parameters) at the end of each epoch. Without it, training writes the model only at the end, so a run that is killed or runs out of time leaves nothing behind. Enabling it saves the model during the run, so the run can be resumed and the model's state inspected epoch by epoch. The decoder is written as ``dec_<epoch>.pth`` and the latent space as ``gmm_<epoch>.pth``. It can contain the following options:
+      * ``"model_epoch"`` is a dictionary of options to specify how to save the model (the decoder's weights and the latent space's parameters) at the end of each epoch. The decoder is written as ``dec_<epoch>.pth`` and the latent space as ``gmm_<epoch>.pth``. It can contain the following options:
 
          * ``"enabled"`` is a boolean that specifies whether to save the model at the end of each epoch. This defaults to ``False``.
 
@@ -273,11 +273,11 @@ The options that can be specified are described below.
 
    * ``"fit"`` is what the fit is allowed to move. This is a string that can take one of the following values:
 
-      * ``"covariance_only"`` freezes the means and the weights where training left them and refits only the covariance, in one closed-form M-step against the trained model's own responsibilities. Nothing iterates, so no component can drift onto a different part of the latent space, and every mapping from a component to a label (a tissue, a cancer type) established on the trained mixture stays valid. This is the default.
+      * ``"covariance_only"`` freezes the means and the weights where training left them and refits only the covariance, in one closed-form M-step against the trained model's own responsibilities. Labels assigned to the trained mixture's components stay valid. This is the default.
 
-      * ``"full_em"`` re-estimates the means and the weights as well. It fits the representations better, but gives a different set of components: labels assigned to the old components do not carry over, and a warning says so.
+      * ``"full_em"`` re-estimates the means and the weights as well, giving a different set of components: labels assigned to the old components do not carry over.
 
-   * ``"max_iter"`` is the maximum number of iterations. It is used only by ``"full_em"``, since ``"covariance_only"`` does not iterate. If not specified, the default value is 1000.
+   * ``"max_iter"`` is the maximum number of iterations. It is used only by ``"full_em"``. If not specified, the default value is 1000.
 
 * ``"decoder_training_options"`` is a dictionary of options to train the decoder. It can contain the following options:
 
@@ -393,7 +393,7 @@ The options that can be specified are described below.
 
    * ``"init_rep_dist"`` is the distribution the initial representations are drawn from, before any training happens. This is the name of any distribution :class:`core.representations.RepresentationLayer` supports, namely ``"normal"``, ``"uniform"``, ``"laplace"``, ``"student_t"``, ``"cauchy"``, ``"uniform_ball"`` or ``"zeros"``. If not specified, the representations are drawn from a normal distribution scaled by ``"init_rep_scale"``.
 
-   * ``"init_rep_dist_options"`` is a dictionary of options for that distribution, and its contents depend on which one was named: ``"scale"`` for ``"normal"``, ``"uniform"``, ``"laplace"`` and ``"cauchy"``; ``"df"`` and ``"scale"`` for ``"student_t"``; ``"radius"`` for ``"uniform_ball"``; nothing for ``"zeros"``. The number of representations and their dimensionality follow from the data and the model, so ``"n_samples"`` and ``"dim"`` are set here automatically and any value given for them in the configuration is overridden.
+   * ``"init_rep_dist_options"`` is a dictionary of options for that distribution, and its contents depend on which one was named: ``"scale"`` for ``"normal"``, ``"uniform"``, ``"laplace"`` and ``"cauchy"``; ``"df"`` and ``"scale"`` for ``"student_t"``; ``"radius"`` for ``"uniform_ball"``; nothing for ``"zeros"``. ``"n_samples"`` and ``"dim"`` are set from the data and the model, overriding any value given for them.
 
    * ``"optimizer_type"`` is the type of optimizer to use for training the representations. This can be:
 

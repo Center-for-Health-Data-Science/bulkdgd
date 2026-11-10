@@ -44,9 +44,6 @@ class RidgeWarmStart:
 
     """Class implementing a ridge predictor of a sample's
     representation from its counts.
-
-    It is fitted on a model's training representations and applies to
-    counts on the same genes.
     """
 
     def __init__(self,

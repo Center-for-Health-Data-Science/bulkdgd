@@ -3339,7 +3339,7 @@ class BulkDGDBase(nn.Module, abc.ABC):
                 "The ridge warm start from "
                 f"'{warm_start_cfg['pth_file']}' replaced one of the "
                 f"{n_cand} candidates of each sample. The other "
-                f"{n_cand - 1} are drawn from the mixture as usual.")
+                f"{n_cand - 1} are drawn from the mixture.")
 
         #-------------------------------------------------------------#
 
@@ -3832,8 +3832,7 @@ class BulkDGDBase(nn.Module, abc.ABC):
             the component at start, at selection, and (winner only)
             after the second optimization; ``recon_loss``,
             ``latent_loss``, ``total_loss`` in nats; ``is_winner``;
-            ``margin`` (loss above the winner's); ``softmax``
-            (unreliable at this loss scale).
+            ``margin`` (loss above the winner's); ``softmax``.
         """
 
         # If there is nothing recorded
@@ -5347,9 +5346,7 @@ class BulkDGDBase(nn.Module, abc.ABC):
         state.gmm_refit_final = fitting["refit_final"]
 
         # Get the maximum number of EM iterations at the first epoch,
-        # at a full-refit epoch (a multiple of 'refit_interval'), at a
-        # "warm"-refit epoch (any other epoch), and at the final
-        # refit.
+        # at a full refit, at a warm refit and at the final refit.
         state.latent_max_iter_first_epoch = \
             fitting["max_iter_first_epoch"]
         state.latent_max_iter_full_refit = \

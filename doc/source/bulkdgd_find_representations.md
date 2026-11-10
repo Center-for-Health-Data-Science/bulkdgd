@@ -121,4 +121,4 @@ decoder_options:
   decoder_pth_file: "default"
 ```
 
-`two_opt` is passed as a bare name because it ships in `bulkdgd/configs/representations`, and a name **without an extension** is looked up there. Anything else, including the same name written as `two_opt.yaml`, is taken as a path relative to the working directory. The per-member model configurations are in a sub-directory of `bulkdgd/configs/model`, which that lookup does not reach, so the model's configuration file is always passed as a path.
+A name **without an extension**, such as `two_opt`, is looked up in `bulkdgd/configs/representations`. Anything else, including `two_opt.yaml`, is taken as a path relative to the working directory. The per-member model configurations are in sub-directories of `bulkdgd/configs/model`, which that lookup does not reach, so the model's configuration file is passed as a path.
