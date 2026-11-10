@@ -1620,6 +1620,77 @@ class GaussianMixtureModelTGMM(tgmm.GaussianMixture):
     ######################## PUBLIC METHODS ###########################
 
 
+    def fit(self,
+            X: torch.Tensor,
+            *args,
+            **kwargs) -> "GaussianMixtureModelTGMM":
+        """Fit the Gaussian mixture model, leaving the global random
+        state untouched when the model is seeded.
+
+        Parameters
+        ----------
+        X : :class:`torch.Tensor`
+            The data points. This is a 2D tensor where:
+
+            * The first dimension has a length equal to the number
+              of data points.
+
+            * The second dimension has a length equal to the
+              dimensionality of the data points.
+
+        *args
+            Further positional arguments of
+            :meth:`tgmm.GaussianMixture.fit`.
+
+        **kwargs
+            Further keyword arguments of
+            :meth:`tgmm.GaussianMixture.fit`.
+
+        Returns
+        -------
+        self : :class:`GaussianMixtureModelTGMM`
+            The fitted model.
+        """
+
+        # Get the fit's seed, if any.
+        seed = kwargs.get("random_state")
+        seed = self.random_state if seed is None else seed
+
+        # Get whether the fit starts from the current solution.
+        warm = kwargs.get("warm_start")
+        warm = self.warm_start if warm is None else warm
+
+        # Keep the number of initializations.
+        n_init = self.n_init
+
+        # Use one initialization to refit a fitted model.
+        if warm and self.fitted_:
+            self.n_init = 1
+
+        # Fit the model, then restore the number of initializations.
+        try:
+
+            # Without a seed, fit as tgmm does.
+            if seed is None:
+                return super().fit(X,
+                                   *args,
+                                   **kwargs)
+
+            # Get the devices whose random state tgmm reseeds.
+            devices = list(range(torch.cuda.device_count())) \
+                if torch.cuda.is_available() else []
+
+            # Fit on a copy of the random state, restored on exit.
+            with torch.random.fork_rng(devices = devices):
+                return super().fit(X,
+                                   *args,
+                                   **kwargs)
+
+        # Restore the number of initializations.
+        finally:
+            self.n_init = n_init
+
+
     def get_mixture_probs(self) -> torch.Tensor:
         """Get the mixture probabilities.
 
