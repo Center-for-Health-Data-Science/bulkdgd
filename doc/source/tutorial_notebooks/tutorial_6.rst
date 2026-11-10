@@ -392,7 +392,7 @@ When to use the ensemble, and when one model is enough
 
 The ensemble costs fifteen times a single run. Use it for:
 
-* **A per-gene claim about a cohort that will be followed up**, such as a driver list, a signature, or a set of genes for experimental validation. One model's list is one draw from a distribution over training seeds, and a tier is how many independent draws agree. For the seed the *representation search* starts from, the calls several seeds agree on overlap a cancer-matched driver catalogue more often than the calls only one of them makes (see :ref:`rep_multiseed`).
+* **A per-gene claim about a cohort that will be followed up**, such as a driver list, a signature, or a set of genes for experimental validation. One model's list is one draw from a distribution over training seeds, and a tier is how many independent draws agree.
 
 * **Results to be published**, for the same reason: a result from one seed may not reproduce with another.
 

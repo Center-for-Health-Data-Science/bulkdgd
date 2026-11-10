@@ -44,7 +44,7 @@ ioutil <- import("bulkdgd.ioutil")
 bulkdgd_bin_dir <- dirname(py_config()$python)
 ```
 
-The script also defines a `run_bulkdgd_cli()` helper that runs one of these tools via `system2()` and stops with its full output if it fails (see the script for its definition). It prints that output with `cat()` rather than including it in the `stop()` message, because R truncates error messages at about 1000 characters by default (`options("warning.length")`), which can hide the line that explains the failure.
+The script also defines a `run_bulkdgd_cli()` helper that runs one of these tools via `system2()` and stops with its full output if it fails (see the script for its definition).
 
 ## Prepare your samples
 
