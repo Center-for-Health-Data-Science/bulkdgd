@@ -162,15 +162,13 @@ The options that can be specified are described below.
    
       * ``"random_state"`` is the random seed used for initialization, an integer. If not specified, the default value is None, and the seed is determined by PyTorch's internal seed.
 
-        This affects more than the GMM. When it is set, ``tgmm`` calls :func:`torch.manual_seed` with it as it places the mixture's components, which reseeds PyTorch's global generator for everything drawn afterwards: the representations' initialization, the order of the batches, and the noise added during training. Leaving it unset and calling :func:`bulkdgd.reproducibility.set_seeds` once, before the model is built, makes the placement reproducible along with everything else, without this side effect. See :doc:`reproducibility <reproducibility>`.
+        When it is set, it also reseeds PyTorch's global generator for everything drawn afterwards. See :doc:`reproducibility <reproducibility>`.
 
       * ``"cem"`` is a boolean that specifies whether to use the classification expectation-maximization (CEM) algorithm for fitting the GMM. If not specified, the default value is False, and the standard expectation-maximization (EM) algorithm is used.
 
 * ``"gmm_final"`` is an optional dictionary containing the options for a second Gaussian mixture model, fitted to the representations *after* training and saved to its own file, ``gmm_final.pth``.
 
-  This is not the prior. The prior is the mixture in ``"latent_options"``: training uses it, ``gmm.pth`` holds it, and finding a representation for a new sample uses it. It is not replaced, and ``gmm_final.pth`` is never used in the search for a representation.
-
-  The final mixture is for questions about the *density* of the latent space: a sample's probability density, which component it belongs to, how atypical it is, and which directions a sampler should draw in. During training the mixture's covariance has little effect on the representations, so the prior can use the cheapest covariance that works. For questions about density, the covariance is what matters.
+  It is not the prior, which stays the mixture in ``"latent_options"``, and it is never used in the search for a representation. It is for questions about the density of the latent space: a sample's probability density, which component it belongs to, and how atypical it is.
 
   A model without this section writes no such file.
 
@@ -178,7 +176,7 @@ The options that can be specified are described below.
 
    * ``"shrinkage"`` is how far each component's own covariance is pulled back towards the one shared by all of them, between 0.0 and 1.0. If not specified, the default value is 0.0.
 
-     It has no effect on the tied covariance types, which are already the shared covariance, and it is **required** for ``"full"``: a per-component full covariance in 32 dimensions has 528 parameters per component, fitted only from that component's samples, and an unshrunk fit returns negative variances.
+     It has no effect on the tied covariance types, and it must be non-zero for ``"full"``.
 
    * ``"reg_covar"`` is the value added to the diagonal of the covariance. If not specified, the trained mixture's own value is used.
 
@@ -192,7 +190,7 @@ The options that can be specified are described below.
          
       * ``"relu"`` for ReLU activation.
       * ``"elu"`` for ELU activation.
-      * ``"gelu"`` for GELU activation (smooth everywhere, so the decoder map has no activation boundaries).
+      * ``"gelu"`` for GELU activation.
       * ``"leaky_relu"`` for leaky ReLU activation, with the slope ``"leaky_relu_negative_slope"`` for negative inputs.
       * ``"softplus"`` for softplus activation, with the sharpness ``"softplus_beta"``.
       
@@ -208,11 +206,7 @@ The options that can be specified are described below.
       * ``"nb_feature_dispersion"`` for the negative binomial output module with r-values learned per gene.
       * ``"nb_full_dispersion"`` for the negative binomial output module with r-values learned per gene and sample.
 
-  No other names are accepted: a name not in this list raises an error when the configuration is loaded.
-
-  .. note::
-
-     ``"nb_full_dispersion_shrunk"`` and ``"nb_full_dispersion_shrunk_tied"``, and their ``"shrinkage_lambda"`` option, are **not supported**. A configuration that names either of them is rejected when it is loaded.
+  A name not in this list raises an error when the configuration is loaded.
 
    * ``"output_module_options"`` is a dictionary containing the options for the output module. The options that can be specified in this dictionary depend on the type of output module used.
 
@@ -250,21 +244,17 @@ The options that can be specified are described below.
    * ``"mean"`` for the mean count over all of the sample's genes. This is the default.
    * ``"median"`` for the median count over all of the sample's genes.
 
-  The mean is sensitive to the few genes that take a large and variable share of a library, such as the mitochondrial genes, whose share reflects how the sample was handled rather than the tissue it came from. The median is much less affected by them.
+  The scaling factor belongs to the model, and :func:`bulkdgd.ioutil.load_config_model` reads it back from this file whenever the model is loaded. A model used with a scaling factor other than the one it was trained with gives wrong predicted means, without any error.
 
-  The scaling factor belongs to the model rather than to a run of it, so it is set here and not in the training configuration. The decoder is fitted against the scaling factor, and the median of a sample's counts is about a third of its mean, so a model trained with one and used with the other has every predicted mean off by about a factor of three, without any error. :func:`bulkdgd.ioutil.load_config_model` reads the value back from this file whenever the model is loaded, so finding representations uses the same scaling factor as training.
+  The median is zero when half of a sample's genes are zero, so use it only on a gene list filtered to the genes expressed in the samples. :class:`bulkdgd.core.dataclasses.GeneExpressionDataset` raises an error on a zero scaling factor.
 
-  The median is only safe on a gene list filtered to the genes expressed in the samples. A median is zero as soon as half of a sample's genes are zero, and a scaling factor of zero makes every predicted mean zero and the negative binomial undefined. :class:`bulkdgd.core.dataclasses.GeneExpressionDataset` raises an error instead of accepting a zero.
-
-  :meth:`bulkdgd.core.models.BulkDGD.impute` works with both scaling factors when the unmeasured counts are given as NaN. For a sample with only some genes measured, the scaling factor is estimated from the measured genes. With ``"mean"``, the unmeasured part of the sum over the genes is filled in with the model's own expectation. With ``"median"``, the median of the measured counts is multiplied by the ratio of the model's predicted median over all genes to its predicted median over the measured genes. Passing a panel of measured genes as ``genes_measured`` works only with ``"mean"``, and raises an error on a median-scaled model.
+  :meth:`bulkdgd.core.models.BulkDGD.impute` works with both scaling factors when the unmeasured counts are given as NaN, estimating the scaling factor from the measured genes. Passing a panel of measured genes as ``genes_measured`` works only with ``"mean"``.
 
 * ``"dtype"`` is the precision the model's parameters are built in and its computations run in. This is a string that can take one of the following values:
 
    * ``"float32"`` for single precision, which is torch's own default.
    * ``"float64"`` for double precision. This is the default.
 
-  The precision cannot be changed after the model is built. A module's parameters are created in torch's default dtype at the moment the module is constructed, and :meth:`torch.nn.Module.load_state_dict` copies a checkpoint *into* the existing parameters, casting as it goes: a float64 checkpoint read into a model built in float32 gives a float32 decoder, without a warning. The Gaussian mixture behaves differently: ``tgmm`` keeps the tensors it is handed rather than copying into its own, so it stays float64 while the decoder becomes float32, and the first matrix multiplication between the two raises ``mat1 and mat2 must have the same dtype``.
-
-  Like ``"scaling_factor"``, this option belongs to the model and is read back from this file whenever the model is loaded, so a model trained in double precision is loaded in double precision without the caller setting torch's default. The model is built, trained, searched and fitted in this precision whatever torch's default dtype is, and torch's default is restored afterwards, since it is global.
+  The precision cannot be changed after the model is built. Like ``"scaling_factor"``, it is read back from this file whenever the model is loaded. The model is built, trained, searched and fitted in this precision whatever torch's default dtype is, and torch's default is restored afterwards.
 
 

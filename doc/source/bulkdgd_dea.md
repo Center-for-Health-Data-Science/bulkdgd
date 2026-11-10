@@ -61,40 +61,21 @@ bulkdgd_dea [-h] -is INPUT_SAMPLES -im INPUT_MEANS [-iv INPUT_RVALUES] [-odp OUT
 
 ### Calculating the p-values
 
-The p-value of a gene depends only on the distribution modelling that
-gene's counts, so the genes are independent of each other, and the
-calculation parallelizes exactly. There are two ways of exploiting this,
-and they **give the same p-values**.
+`batched` and `per-gene` **give the same p-values**.
 
-`batched` calculates the p-values for all the genes at once. This is
-what allows them to be calculated on a GPU. On a CPU, `torch` spreads
-the calculation over the cores by itself, so `batched` should be used
-with a single process (`-n 1`), which already uses the whole machine.
+`batched` calculates the p-values for all the genes at once, on a GPU
+or on a CPU. On a CPU, use it with a single process (`-n 1`), since
+`torch` already uses every core.
 
 `per-gene` calculates the p-values one gene at a time, and is
-parallelized over the samples with the `-n`, `--n-proc` option. This is
-how to use a machine with many cores when no GPU is available. It can
+parallelized over the samples with the `-n`, `--n-proc` option. It can
 use no more processes than there are samples.
 
-The two kinds of parallelism **do not compose**. Several processes, each
-running a `batched` calculation, would each try to use every core on the
-machine and compete for them, which is slower than either kind of
-parallelism on its own. `bulkdgd_dea` warns if it is asked to do this.
+Running `batched` over several processes is slower than either method
+on its own, and `bulkdgd_dea` warns about it.
 
 `auto`, the default, uses `batched` on a GPU and on a CPU with a single
 process, and `per-gene` on a CPU with more than one process.
-
-As a rough guide, on one 56-core node with an AMD MI250X GPU, for 16
-samples and 14895 genes, at the default resolution:
-
-| Method | Processes | Device | Time |
-| ------ | --------- | ------ | ---- |
-| `per-gene` | `-n 1` | CPU | 112.1 s |
-| `per-gene` | `-n 7` | CPU | 43.8 s |
-| `per-gene` | `-n 28` | CPU | 30.0 s |
-| `batched` | `-n 1` | CPU | 25.7 s |
-| `batched` | `-n 7` | CPU | 72.4 s (the combination to avoid) |
-| `batched` | `-n 1` | GPU | 17.5 s |
 
 ### Working directory options
 

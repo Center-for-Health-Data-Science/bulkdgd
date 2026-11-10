@@ -33,7 +33,7 @@ bulkdgd consists of several packages:
 
 * :doc:`recount3 <recount3>`, containing utilities to interact with the Recount3 platform and build datasets from its studies.
 
-* :doc:`reproducibility <reproducibility>`, containing :func:`bulkdgd.reproducibility.set_seeds`, which seeds the generators a run draws from. It must be called before the model is built, because building the model draws the decoder's weights.
+* :doc:`reproducibility <reproducibility>`, containing :func:`bulkdgd.reproducibility.set_seeds`, which seeds the generators a run draws from. It must be called before the model is built.
 
 Some functions and methods take dictionary-based configurations, for instance to set up the bulkdgd model, find the best representations for a new set of samples and train the bulkdgd model. These configurations are described in:
 

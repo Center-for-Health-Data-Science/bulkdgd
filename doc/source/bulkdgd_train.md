@@ -20,9 +20,7 @@ The samples should be preprocessed with [`bulkdgd_preprocess_samples`](bulkdgd_p
 
 ## Training a model that is already trained
 
-A model built from fitted parameters (from a configuration file naming a `latent_pth_file` and a `decoder_pth_file`, or from `BulkDGD()` in Python) starts from the published optimum, and training moves it away from that optimum silently: the object keeps the same name, and nothing in the output says that its results are no longer the published model's.
-
-Training therefore **refuses** to run on such a model unless the training configuration explicitly allows it by setting
+Training **refuses** to run on a model built from fitted parameters (from a configuration file naming a `latent_pth_file` and a `decoder_pth_file`, or from `BulkDGD()` in Python) unless the training configuration sets
 
 ```yaml
 continue_training: true
