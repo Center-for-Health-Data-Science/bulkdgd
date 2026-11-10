@@ -1795,8 +1795,7 @@ def perform_dea(obs_counts: pd.DataFrame,
         consider a gene as significant.
 
     genes_sets : :class:`dict`, optional
-        Named sets of genes of interest, as gene-set name -> list of
-        gene names.
+        Named sets of genes of interest, as lists of gene names.
 
     pseudocount : :class:`int`, ``1``
         Pseudocount added to the observed counts and the predicted

@@ -1174,9 +1174,8 @@ def run_with_parallelization(executable: str,
             # Log the error.
             errstr = \
                 f"The run in the '{work_dir}' " \
-                "directory failed. Please check " \
-                "the log file in the directory " \
-                "for more information."
+                "directory failed. Check the log " \
+                "file in the directory."
             logger.error(errstr)
 
             # Go to the next future.
